@@ -1,0 +1,9 @@
+{
+  "name": "yunningtang OS",
+  "short_name": "ytOS",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8f9fb",
+  "theme_color": "#18a8a2",
+  "icons": [{ "src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
