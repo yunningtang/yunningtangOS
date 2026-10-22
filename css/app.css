@@ -275,11 +275,11 @@ body.resizing .w-rz{opacity:1}
 .mini-tl{position:relative;margin-left:44px}
 .mt-h{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
 .mt-h span{position:absolute;left:-44px;top:-7px;font-size:.66rem;color:var(--text-4)}
-.mt-b{position:absolute;left:6px;right:0;border-radius:9px;padding:4px 10px;font-size:.74rem;line-height:1.3;background:color-mix(in srgb,var(--bc) 13%,var(--paper));border-left:3px solid var(--bc);overflow:hidden;cursor:pointer;box-sizing:border-box;transition:box-shadow .15s}
+.mt-b{position:absolute;left:6px;right:0;border-radius:9px;padding:4px 10px;font-size:.74rem;line-height:1.3;background:color-mix(in srgb,var(--bc) 16%,var(--paper));overflow:hidden;cursor:pointer;box-sizing:border-box;transition:box-shadow .15s}
 .mt-b:hover{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--bc) 55%,transparent);z-index:2}
 .mt-b b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mt-b small{color:var(--text-3);font-size:.66rem;font-variant-numeric:tabular-nums;white-space:nowrap}
 .mt-b.one{display:flex;align-items:center;gap:8px;padding-top:0;padding-bottom:0}.mt-b.one b{flex:1;min-width:0}.mt-b.one small{flex:none}
-.mt-b.past{opacity:.55}.mt-b.cur{box-shadow:0 0 0 1.5px var(--bc)}
+.mt-b.past{opacity:.55}.mt-b.cur{box-shadow:0 0 0 1px color-mix(in srgb,var(--bc) 60%,transparent)}
 .mt-now{position:absolute;left:0;right:0;height:1.5px;background:var(--blue)}
 .mt-now::before{content:"";position:absolute;left:-5px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--blue)}
 .tlist{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
@@ -380,7 +380,7 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .wday li:hover{background:var(--hover)}
 .wday li .dot{width:6px;height:6px;border-radius:50%;background:var(--pc,var(--blue));flex-shrink:0;margin-top:6px}
 .wday li.done{color:var(--text-4);text-decoration:line-through}.wday li.done .dot{opacity:.35}
-.wday li.todo-ref{border-left:2px solid var(--pc,var(--blue));padding-left:6px}.wday li.todo-ref .dot{display:none}
+.wday li.todo-ref{padding-left:8px}.wday li.todo-ref .dot{display:none}
 .wday .add{margin-top:6px}
 .wday .add input{padding:4px 6px;font-size:.74rem;background:transparent;border-color:transparent}
 .wday .add input:hover,.wday .add input:focus{border-color:var(--line-2);background:var(--input)}
@@ -390,7 +390,7 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .tl{position:relative;padding-left:48px;--h:48px}
 .tl .hour{position:relative;height:var(--h);border-top:1px solid var(--line)}
 .tl .hour span{position:absolute;left:-48px;top:-8px;font-size:.68rem;color:var(--text-4);width:38px;text-align:right;font-variant-numeric:tabular-nums}
-.tl .blk{position:absolute;left:54px;right:4px;border-radius:var(--r2);padding:4px 8px;font-size:.76rem;overflow:hidden;background:color-mix(in srgb,var(--bc) 14%,var(--paper));border-left:3px solid var(--bc);color:var(--text);cursor:pointer;min-height:22px}
+.tl .blk{position:absolute;left:54px;right:4px;border-radius:var(--r2);padding:4px 8px;font-size:.76rem;overflow:hidden;background:color-mix(in srgb,var(--bc) 17%,var(--paper));color:var(--text);cursor:pointer;min-height:22px}
 .tl .blk:hover{filter:brightness(.97);z-index:2}
 .tl .blk b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl .blk small{color:var(--text-3);font-size:.66rem}
