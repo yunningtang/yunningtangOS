@@ -92,6 +92,7 @@ export function QuickAdd({ defaults = {}, placeholder = '添加待办… 例如�
 export default function Todos() {
   const s = useStore();
   const [view, setView] = useState('open');
+  const [layout, setLayout] = useState('list');
   const [tagF, setTagF] = useState('');
   const [editing, setEditing] = useState(null);
   const [modal, setModal] = useState(false);
@@ -134,13 +135,19 @@ export default function Todos() {
       <div><div class="kicker">To-do</div><h1>待办</h1><div class="desc">${openCount} 项未完成 · 今天完成 ${doneToday} 项</div></div>
       <div class="acts">
         <${Seg} options=${[{ v: 'open', label: '未完成' }, { v: 'all', label: '全部' }, { v: 'done', label: '已完成' }]} value=${view} onChange=${setView} />
+        <${Seg} options=${[{ v: 'list', label: '列表' }, { v: 'board', label: '看板' }]} value=${layout} onChange=${setLayout} />
         <${Btn} kind="primary" icon="plus" onClick=${() => { setEditing(null); setModal(true); }}>新建<//>
       </div>
     </div>
     <${Card}>
       <${QuickAdd} />
       ${allTags.length > 0 && html`<div class="filters">${allTags.map(([x, n]) => html`<${Tag} class=${'click ' + (tagF === x ? 'on' : '')} color=${tagF === x ? 'var(--teal)' : undefined} onClick=${() => setTagF(tagF === x ? '' : x)}>${x} <span class="muted">${n}</span><//>`)}</div>`}
-      ${groups.length === 0 ? html`<${Empty} icon="checksq" text=${view === 'done' ? '还没有完成的事。' : '清清爽爽，没有待办。'} />` : groups.map(([name, list]) => html`
+      ${layout === 'board' ? html`<div class="board-cols">${PRIORITY.map((p) => { const list = sortBy(todos.filter((t) => t.priority === p.v), 'done', 'due', 'time'); return html`<div class="card bcol" key=${p.v} style=${`--pc:${p.color}`}>
+        <div class="bh"><i></i>${p.label} · ${p.name}<span>${list.length}</span></div>
+        ${list.map((t) => html`<div class=${'bcard ' + (t.done ? 'done' : '')} key=${t.id} onClick=${() => { setEditing(t); setModal(true); }}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div>${t.title}</div><span class="meta">${t.due ? relDay(t.due) : ''}${t.time ? ' ' + t.time : ''}${t.area ? ' · ' + t.area : ''}${t.tags.map((x) => ' #' + x).join('')}</span></div></div>`)}
+        <button class="pt-row flat new" style="min-height:26px;font-size:.76rem" onClick=${() => { setEditing(null); setModal(true); }}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">添加</span></button>
+      </div>`; })}</div>`
+      : groups.length === 0 ? html`<${Empty} icon="checksq" text=${view === 'done' ? '还没有完成的事。' : '清清爽爽，没有待办。'} />` : groups.map(([name, list]) => html`
         <div class="group-h">${name}<i></i><span>${list.length}</span></div>
         ${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} onEdit=${(x) => { setEditing(x); setModal(true); }} />`)}`)}
       ${view === 'done' && todos.length > 0 && html`<div class="row" style="justify-content:flex-end;margin-top:10px"><${Btn} kind="ghost" small icon="archive" onClick=${() => { if (confirmDel('清空所有已完成的待办？')) update((d) => { d.todos = d.todos.filter((t) => !t.done); }); }}>清空已完成<//></div>`}

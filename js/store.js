@@ -32,6 +32,7 @@ function migrate(s) {
   out.settings = { ...b.settings, ...(s.settings || {}) };
   out.settings.sync = { ...b.settings.sync, ...((s.settings || {}).sync || {}) };
   out.profile = { ...b.profile, ...(s.profile || {}) };
+  out.notes = (out.notes || []).map((n, i) => ({ parent: null, order: i, icon: '', pinned: false, tags: [], ...n }));
   return out;
 }
 

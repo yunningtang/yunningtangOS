@@ -13,6 +13,7 @@ import Vision from './views/vision.js';
 import Explore from './views/explore.js';
 import Settings from './views/settings.js';
 import { SearchPalette } from './search.js';
+import { PageTree, useTreeState, newNote, ancestors, noteTitle } from './views/notes.js';
 import { go, toast } from './nav.js';
 export { go, toast };
 
@@ -59,6 +60,10 @@ function App() {
   const route = useRoute();
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
+  const tree = useTreeState();
+  const [navOpen, setNavOpen] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.nav') || '{"notes":true}'); } catch { return { notes: true }; } });
+  const toggleNav = (k) => setNavOpen((o) => { const n = { ...o, [k]: !o[k] }; try { localStorage.setItem('ytos.nav', JSON.stringify(n)); } catch {} return n; });
+  const curNote = route.path === 'notes' ? s.notes.find((n) => n.id === route.sub) : null;
   const active = ROUTES.find((r) => r.path === route.path) || ROUTES[0];
   const View = active.view;
 
@@ -100,14 +105,15 @@ function App() {
       <nav class="nav">
         ${ROUTES.map((r) => r.sep !== undefined
           ? html`<div class="sep">${r.sep}</div>`
-          : html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''}><${Icon} name=${r.icon} size=${16} />${r.name}${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}</a>`)}
+          : html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''}><${Icon} name=${r.icon} size=${16} />${r.name}${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title="展开页面" onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
+            ${r.path === 'notes' && navOpen.notes && html`<div class="nav-tree"><${PageTree} notes=${s.notes} activeId=${route.sub} open=${tree.open} toggle=${tree.toggle} onCreate=${(parent) => { const n = newNote({ parent }); if (parent) tree.openPath([parent]); go('notes/' + n.id); }} max=${12} /><button class="pt-row flat new" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><span class="pt-ic"><${Icon} name="plus" size=${12} /></span><span class="pt-t">新页面</span></button></div>`}`)}
       </nav>
       <div class="side-foot"><b>${s.profile.motto}</b><br/>${s.settings.lastSync ? '上次同步 ' + new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false }) : '本地存储 · 可在设置中同步到 GitHub'}</div>
     </aside>
     <div class="main">
       <header class="topbar">
         <${IconBtn} class="ibtn hamb" icon="menu" title="菜单" onClick=${() => setMenu(true)} />
-        <div class="ttl"><b>${active.name}</b></div>
+        <div class="ttl crumb-top">${curNote ? html`<a href="#/notes">笔记</a>${ancestors(s.notes, curNote).map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${noteTitle(curNote)}</b>` : route.path === 'plan' ? html`<a href="#/plan">计划</a><span>/</span><b>${{ week: '周计划', day: '每日时间线', month: '月度目标' }[route.sub] || '周计划'}</b>` : html`<b>${active.name}</b>`}</div>
         <div class="sp"></div>
         <div class="searchbox" onClick=${() => setSearch(true)}><${Icon} name="search" size=${14} /><span>搜索待办、笔记、书、链接…</span><kbd>⌘K</kbd></div>
         <button class="theme-glass" onClick=${toggleTheme} title="切换主题"><${Icon} name="moon" class="im" size=${15} /><${Icon} name="sun" class="is" size=${15} /></button>
