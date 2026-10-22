@@ -64,8 +64,10 @@ function App() {
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
   const tree = useTreeState();
-  const [navOpen, setNavOpen] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.nav') || '{"notes":true}'); } catch { return { notes: true }; } });
-  const toggleNav = (k) => setNavOpen((o) => { const n = { ...o, [k]: !o[k] }; try { localStorage.setItem('ytos.nav', JSON.stringify(n)); } catch {} return n; });
+  const [navOpen, setNavOpen] = useState(() => { try { return { notes: true, ...JSON.parse(localStorage.getItem('ytos.nav') || '{}') }; } catch { return { notes: true }; } });
+  const [mini, setMini] = useState(() => { try { return localStorage.getItem('ytos.side') === 'mini'; } catch { return false; } });
+  const toggleMini = () => setMini((m) => { try { localStorage.setItem('ytos.side', m ? 'full' : 'mini'); } catch {} return !m; });
+  const toggleNav = (k) => setNavOpen((o) => { const n = { ...o, [k]: o[k] === false }; try { localStorage.setItem('ytos.nav', JSON.stringify(n)); } catch {} return n; });
   const curNote = route.path === 'notes' ? s.notes.find((n) => n.id === route.sub) : null;
   const active = ROUTES.find((r) => r.path === route.path) || ROUTES[0];
   const View = active.view;
@@ -101,17 +103,25 @@ function App() {
     update((d) => { d.settings.theme = next; });
   };
 
-  return html`<div class="shell">
+  return html`<div class=${'shell ' + (mini ? 'shell-mini' : '')}>
     ${menu && html`<div class="side-bg" onClick=${() => setMenu(false)}></div>`}
-    <aside class=${'side ' + (menu ? 'open' : '')}>
-      <a class="brand" href="#/home"><span class="logo"><${Icon} name="compass" size=${15} /></span><span><b>yunningtang OS</b><small>${weekKey(todayStr())}</small></span></a>
+    <aside class=${'side ' + (menu ? 'open ' : '') + (mini ? 'mini' : '')}>
+      <div class="side-top">
+        <a class="brand" href="#/home" title="总览"><span class="logo"><${Icon} name="compass" size=${15} /></span></a>
+        <button class="ibtn side-tg" title=${mini ? '展开侧栏' : '收起侧栏'} onClick=${toggleMini}><${Icon} name=${mini ? 'right' : 'left'} size=${14} /></button>
+      </div>
       <nav class="nav" data-liquid=".nav > a, .pt-row"><span class="liq"></span>
-        ${ROUTES.map((r) => r.sep !== undefined
-          ? html`<div class="sep">${r.sep}</div>`
-          : html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''}><${Icon} name=${r.icon} size=${16} />${r.name}${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title="展开页面" onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
-            ${r.path === 'notes' && navOpen.notes && html`<div class="nav-tree"><${PageTree} notes=${s.notes} activeId=${route.sub} open=${tree.open} toggle=${tree.toggle} onCreate=${(parent) => { const n = newNote({ parent }); if (parent) tree.openPath([parent]); go('notes/' + n.id); }} max=${12} /><button class="pt-row flat new" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><span class="pt-ic"><${Icon} name="plus" size=${12} /></span><span class="pt-t">新页面</span></button></div>`}`)}
+        ${(() => { let section = ''; return ROUTES.map((r) => {
+          if (r.sep !== undefined) { section = r.sep; return r.sep ? html`<button class=${'sep ' + (navOpen['s:' + r.sep] === false ? 'closed' : '')} onClick=${() => toggleNav('s:' + r.sep)}><span>${r.sep}</span><${Icon} name="down" size=${11} /></button>` : html`<div class="sep"></div>`; }
+          if (section && navOpen['s:' + section] === false && !mini) return null;
+          return html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''} data-tip=${r.name}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
+            ${r.path === 'notes' && navOpen.notes && !mini && html`<div class="nav-tree">
+              <${PageTree} notes=${s.notes} activeId=${route.sub} open=${tree.open} toggle=${tree.toggle} onCreate=${(parent) => { const n = newNote({ parent }); if (parent) tree.openPath([parent]); go('notes/' + n.id); }} max=${200} />
+              <div class="tree-acts"><button class="pt-row flat new" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><span class="pt-ic"><${Icon} name="plus" size=${12} /></span><span class="pt-t">新页面</span></button><button class="tree-mini" title="全部展开" onClick=${() => tree.openPath(s.notes.map((n) => n.id))}>展开</button><button class="tree-mini" title="全部收起" onClick=${() => tree.closeAll()}>收起</button></div>
+            </div>`}`;
+        }); })()}
       </nav>
-      <a class="side-user" href="#/settings"><span class="side-avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</span><span class="flex1"><b>${s.profile.name}</b><small>${s.settings.lastSync ? '已同步 ' + new Date(s.settings.lastSync).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '本地存储'}</small></span></a>
+      <a class="side-user" href="#/settings" data-tip=${s.profile.name}><span class="side-avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</span><span class="flex1 nl"><b>${s.profile.name}</b><small>${s.settings.lastSync ? '已同步 ' + new Date(s.settings.lastSync).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '本地存储'}</small></span></a>
     </aside>
     <div class="main">
       <header class="topbar">

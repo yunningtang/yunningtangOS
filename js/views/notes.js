@@ -40,6 +40,7 @@ export function newNote(patch = {}) {
   upsert('notes', n);
   return n;
 }
+export function isBlank(n) { return !n.title.trim() && !(n.body || '').trim() && !n.cover; }
 export function findByTitle(notes, title) { return notes.find((x) => x.title.trim().toLowerCase() === title.trim().toLowerCase()); }
 
 
@@ -65,7 +66,8 @@ export function useTreeState() {
   const [open, setOpen] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.tree') || '{}'); } catch { return {}; } });
   const toggle = (id) => setOpen((o) => { const n = { ...o, [id]: !o[id] }; try { localStorage.setItem('ytos.tree', JSON.stringify(n)); } catch {} return n; });
   const openPath = (ids) => setOpen((o) => { const n = { ...o }; ids.forEach((i) => { n[i] = true; }); try { localStorage.setItem('ytos.tree', JSON.stringify(n)); } catch {} return n; });
-  return { open, toggle, openPath };
+  const closeAll = () => setOpen(() => { try { localStorage.setItem('ytos.tree', '{}'); } catch {} return {}; });
+  return { open, toggle, openPath, closeAll };
 }
 
 /* ---------- main view ---------- */
@@ -103,6 +105,7 @@ export default function Notes({ route }) {
       <div class="ns-top">
         <div class="searchin"><${Icon} name="search" size=${13} /><input type="search" value=${q} placeholder="搜索页面…" onInput=${(e) => setQ(e.target.value)} /></div>
         <${IconBtn} icon="plus" title="新页面" onClick=${() => create(null)} />
+        ${s.notes.some(isBlank) && html`<${IconBtn} icon="trash" title="清理空白页" onClick=${() => { const n = s.notes.filter(isBlank).length; if (confirmDel(`删除 ${n} 个没有标题也没有内容的空白页？`)) update((d) => { const ids = new Set(d.notes.filter(isBlank).map((x) => x.id)); d.notes = d.notes.filter((x) => !ids.has(x.id)); }); }} />`}
       </div>
       <div class="ns-tabs"><${Seg} options=${[{ v: 'pages', label: '页面' }, { v: 'tags', label: '标签' }, { v: 'graph', label: '图谱' }]} value=${tab} onChange=${(v) => { setTab(v); if (v === 'graph') go('notes/graph'); }} /></div>
       <div class="ns-body" data-liquid=".pt-row, summary"><span class="liq"></span>
