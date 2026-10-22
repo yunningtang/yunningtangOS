@@ -476,7 +476,7 @@ input.page-title::placeholder{color:var(--text-4);opacity:.6}
 .vision-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;align-items:start}
 .aff{list-style:none;display:flex;flex-direction:column;gap:4px}
 .aff li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:var(--r2);font-family:var(--serif);font-size:1.02rem;line-height:1.7;background:transparent;border-bottom:1px solid var(--line)}
-.aff li .aff-dash{color:var(--amber);flex-shrink:0}.aff li span{flex:1}
+.aff li .aff-dash{color:var(--amber);flex:0 0 auto}.aff li span:not(.aff-dash){flex:1}
 .aff li .acts{opacity:0;display:flex}.aff li:hover .acts{opacity:1}
 .board{columns:3;column-gap:8px}
 .board .bi{break-inside:avoid;margin-bottom:8px;border-radius:var(--r2);overflow:hidden;position:relative;background:var(--side)}
