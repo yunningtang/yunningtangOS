@@ -34,6 +34,10 @@
 
 ### 方式一：Vercel（有登录同步）
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyunningtang%2FyunningtangOS&env=GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,SESSION_SECRET,DATA_REPO,DATA_BRANCH,ALLOWED_USER&envDescription=GitHub%20OAuth%20App%20%2B%20%E6%95%B0%E6%8D%AE%E4%BB%93%E5%BA%93%E9%85%8D%E7%BD%AE%EF%BC%8C%E8%A7%81%20README&project-name=yunningtang-os)
+
+点上面的按钮会直接在 Vercel 里导入仓库并弹出环境变量填写框。
+
 1. 在 GitHub 新建一个 OAuth App：Settings → Developer settings → OAuth Apps → New。
    Homepage 填你的站点地址，Authorization callback URL 填 `https://<你的域名>/api/auth/callback`。
 2. Vercel 导入这个仓库（框架选 Other，无需构建命令），在 Environment Variables 里填：
