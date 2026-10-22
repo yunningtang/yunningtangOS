@@ -170,6 +170,7 @@ export default function Notes({ route }) {
   const s = useStore();
   const id = route.sub;
   const [q, setQ] = useState('');
+  useEffect(() => { const t = route.query && route.query.tag; if (t) { setQ('#' + t); setNbSel('all'); } }, [route.query && route.query.tag]);
   const [sort, setSort] = useState(() => { try { return localStorage.getItem('ytos.nsort') || 'updated'; } catch { return 'updated'; } });
   const [nbSel, setNbSel] = useState(() => { try { return localStorage.getItem('ytos.nb') || 'all'; } catch { return 'all'; } });
   const [panes, setPanes] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.panes') || '{"nb":true,"list":true}'); } catch { return { nb: true, list: true }; } });
@@ -199,7 +200,7 @@ export default function Notes({ route }) {
   const visible = useMemo(() => {
     let l = inTrash ? [...(s.trash || [])] : s.notes.filter(inNb);
     if (inTrash) { if (q.trim()) { const k = q.toLowerCase(); l = l.filter((n) => (n.title + ' ' + n.body).toLowerCase().includes(k)); } return sortBy(l, '-deletedAt'); }
-    if (q.trim()) { const k = q.toLowerCase(); l = l.filter((n) => (n.title + ' ' + n.body + ' ' + n.tags.join(' ')).toLowerCase().includes(k)); }
+    if (q.trim()) { const k = q.trim().toLowerCase(); l = k.startsWith('#') ? l.filter((n) => n.tags.some((t) => t.toLowerCase() === k.slice(1))) : l.filter((n) => (n.title + ' ' + n.body + ' ' + n.tags.join(' ')).toLowerCase().includes(k)); }
     return sort === 'manual' ? sortBy(l, '-pinned', 'order') : sortBy(l, '-pinned', sort === 'title' ? 'title' : sort === 'created' ? '-created' : '-updated');
   }, [s.notes, s.trash, nbSel, q, sort]);
   const create = (parent = null) => { const n = newNote({ parent, nb: nbSel === 'all' || nbSel === 'fav' ? 'nb-inbox' : nbSel }); if (parent) tree.openPath([parent]); go('notes/' + n.id); };
@@ -277,11 +278,29 @@ class Still extends Component {
   render(p) { return p.children; }
 }
 
+// One quiet line under the title: notebook (click to move), tags (click + to add), date and length.
+function MetaLine({ note, notes, notebooks, words, onMove }) {
+  const [adding, setAdding] = useState(false);
+  const [txt, setTxt] = useState('');
+  const nb = notebooks.find((x) => x.id === note.nb);
+  const addTag = () => { const t = txt.trim().replace(/^#/, ''); if (t && !note.tags.includes(t)) upsert('notes', { id: note.id, tags: [...note.tags, t] }); setTxt(''); };
+  const moveTo = (b) => { const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b.id; if (x.id === note.id) x.parent = null; }); }); };
+  const nbMenu = (e) => ctxMenu(e, [...notebooks.map((b) => ({ label: b.name, icon: b.id === note.nb ? 'check' : 'book', onClick: () => moveTo(b) })), 'sep', { label: '移动到页面下…', icon: 'layers', onClick: onMove }], '放入本子');
+  const upd = new Date(note.updated);
+  const tip = `更新 ${upd.toLocaleString('zh-CN', { hour12: false })}\n创建 ${note.created}`;
+  return html`<div class="meta-line">
+    <button class="mchip" onClick=${nbMenu} title="放入其他本子"><i class="nb-dot" style=${`background:${nb ? nb.color : '#999'}`}></i>${nb ? nb.name : '收件箱'}<${Icon} name="down" size=${10} /></button>
+    ${note.tags.map((t) => html`<span class="mtag" key=${t}><a href=${'#/notes?tag=' + encodeURIComponent(t)}>${t}</a><button title="移除标签" onClick=${() => upsert('notes', { id: note.id, tags: note.tags.filter((x) => x !== t) })}>×</button></span>`)}
+    ${adding ? html`<input class="mtag-in" ref=${(el) => el && !el.dataset.f && (el.dataset.f = 1, setTimeout(() => el.focus(), 0))} value=${txt} placeholder="标签" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } if (e.key === 'Escape') { setTxt(''); setAdding(false); } }} onBlur=${() => { addTag(); setAdding(false); }} />`
+      : html`<button class="mchip ghost" onClick=${() => setAdding(true)} title="添加标签"><${Icon} name="plus" size=${11} />${note.tags.length ? '' : ' 标签'}</button>`}
+    <span class="mdate" title=${tip}>${upd.getMonth() + 1}月${upd.getDate()}日 · ${words} 字</span>
+    ${note.ref && html`<a class="mchip src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}
+  </div>`;
+}
+
 function Page({ note, notes, notebooks = [], onCreateChild }) {
   const [moveOpen, setMoveOpen] = useState(false);
   const [focus, setFocus] = useState(() => document.body.classList.contains('focus-mode'));
-  const [propsOpen, setPropsOpen] = useState(() => { try { return localStorage.getItem('ytos.props') === '1'; } catch { return false; } });
-  const toggleProps = () => setPropsOpen((v) => { try { localStorage.setItem('ytos.props', v ? '0' : '1'); } catch {} return !v; });
   useEffect(() => { document.body.classList.toggle('focus-mode', focus); const k = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-bg, .popmenu, .ctx')) setFocus(false); }; window.addEventListener('keydown', k); return () => { window.removeEventListener('keydown', k); document.body.classList.remove('focus-mode'); }; }, [focus]);
   const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: new Date().toISOString() }), 250), []);
   const onBlocks = useMemo(() => (blocks) => upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() }), [note.id]);
@@ -322,19 +341,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
       <input class="page-title" type="text" value=${note.title} placeholder="无标题" onInput=${(e) => save({ id: note.id, title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); const el = document.querySelector('.beditor .b-text'); if (el) el.focus(); } }} />
-      <div class=${'props ' + (propsOpen ? '' : 'collapsed')}>
-        <button class="props-line" onClick=${toggleProps} title=${propsOpen ? '收起属性' : '展开属性'}>
-          <${Icon} name=${propsOpen ? 'down' : 'right'} size=${12} />
-          ${(() => { const b = notebooks.find((x) => x.id === note.nb); return b ? html`<span class="pl-i"><i class="nb-dot" style=${`background:${b.color}`}></i>${b.name}</span>` : ''; })()}
-          ${note.tags.length ? note.tags.map((t) => html`<${Tag}>${t}<//>`) : html`<span class="pl-i muted">无标签</span>`}
-          <span class="pl-i muted">${new Date(note.updated).toLocaleDateString('zh-CN')} · ${words} 字</span>
-          ${note.ref && html`<a class="pl-i src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]} onClick=${(e) => e.stopPropagation()}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}
-        </button>
-        <div class="prop"><span class="pk"><${Icon} name="tag" size=${12} /> 标签</span><span class="pv"><${TagInput} value=${note.tags} onChange=${(v) => upsert('notes', { id: note.id, tags: v })} placeholder="空" /></span></div>
-        <div class="prop"><span class="pk"><${Icon} name="book" size=${12} /> 本子</span><span class="pv"><select class="pv-sel" value=${note.nb || 'nb-inbox'} onChange=${(e) => { const b = e.target.value; const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b; if (x.id === note.id) x.parent = null; }); }); }}>${notebooks.map((b) => html`<option value=${b.id}>${b.name}</option>`)}</select></span></div>
-        <div class="prop"><span class="pk"><${Icon} name="layers" size=${12} /> 位置</span><span class="pv click" onClick=${() => setMoveOpen(true)}>${crumbs.length ? crumbs.map(noteTitle).join(' / ') : '顶层'}</span></div>
-        <div class="prop"><span class="pk"><${Icon} name="clock" size=${12} /> 更新</span><span class="pv muted">${new Date(note.updated).toLocaleString('zh-CN', { hour12: false })} · 创建 ${note.created} · ${words} 字</span></div>
-      </div>
+      <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} />
       <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} /><//>
       ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
       <div class="links-sec">

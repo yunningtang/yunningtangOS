@@ -557,19 +557,17 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 input.page-title{display:block;width:100%;font-size:var(--fs-3xl);font-weight:700;border:0;background:transparent;padding:4px 0 10px;box-shadow:none;line-height:1.25}
 input.page-title:focus{box-shadow:none;border:0;background:transparent}
 input.page-title::placeholder{color:var(--text-4);opacity:.6}
-.props{display:flex;flex-direction:column;gap:0;margin:2px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
-.props-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;text-align:left;padding:4px 6px;border-radius:var(--r2);font-size:.78rem;color:var(--text-3);min-height:30px}
-.props-line:hover{background:var(--hover)}
-.props-line .ic{color:var(--text-4);flex-shrink:0}
-.props-line .pl-i{display:inline-flex;align-items:center;gap:5px}
-.props.collapsed .prop{display:none}
-.props:not(.collapsed) .props-line{margin-bottom:2px}
-.prop{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:center;min-height:32px;font-size:.84rem}
-.prop .pk{display:flex;align-items:center;gap:6px;color:var(--text-4);padding:4px 6px;border-radius:var(--r3);letter-spacing:.06em}
-.prop .pv{color:var(--text);min-width:0}
-.prop .pv.click{cursor:pointer;padding:4px 8px;border-radius:var(--r3);display:inline-block}.prop .pv.click:hover{background:var(--hover)}
-.prop .taginput{border-color:transparent;background:transparent;min-height:30px;padding:2px 6px}
-.prop .taginput:hover,.prop .taginput:focus-within{background:var(--hover)}
+.meta-line{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:2px 0 18px;font-size:.78rem;color:var(--text-3);min-height:28px}
+.mchip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 8px;border-radius:8px;color:var(--text-2);font-size:.78rem;transition:background .12s}
+.mchip:hover{background:var(--hover)}.mchip .ic{color:var(--text-4)}
+.mchip.ghost{color:var(--text-4);padding:0 7px}.mchip.ghost:hover{color:var(--text-2)}
+.mchip.src{color:var(--blue);text-decoration:none}.mchip.src:hover{background:rgba(var(--ac),.08)}
+.mtag{display:inline-flex;align-items:center;height:24px;padding:0 4px 0 9px;border-radius:7px;background:var(--tag-bg);color:var(--text-2);font-size:.74rem;gap:2px}
+.mtag a{color:inherit;text-decoration:none}.mtag button{width:16px;height:16px;border-radius:5px;color:var(--text-4);opacity:0;font-size:.8rem;line-height:1;display:grid;place-items:center}
+.mtag:hover button{opacity:1}.mtag button:hover{background:rgba(0,0,0,.08);color:var(--text)}
+.mtag-in{height:26px;width:96px;padding:0 8px;border-radius:8px;border:1px solid rgba(var(--ac),.5);background:var(--bg);font-size:.78rem;box-shadow:none}
+.mtag-in:focus{outline:none;box-shadow:none;border-color:rgba(var(--ac),.6)}
+.mdate{color:var(--text-4);margin-left:4px;cursor:default;font-variant-numeric:tabular-nums}
 .subpages{margin-top:24px}
 .sub-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r2);text-decoration:none;font-size:.875rem;color:var(--text)}
 .sub-row:hover{background:var(--hover)}
@@ -777,7 +775,6 @@ html[data-theme="dark"] .b-text mark,html[data-theme="dark"] .md mark{background
 .b-text a.ref::before,.md a.ref::before{font-size:.68em;color:var(--text-4);letter-spacing:.04em}
 a.ref[data-kind="todo"]::before{content:"待办"}a.ref[data-kind="book"]::before{content:"书"}a.ref[data-kind="trip"]::before{content:"足迹"}a.ref[data-kind="goal"]::before{content:"目标"}a.ref[data-kind="link"]::before{content:"收藏"}
 a.ref:hover{border-color:var(--blue)}
-.props-line .src{color:var(--blue);text-decoration:none;padding:1px 6px;border-radius:6px;background:rgba(var(--ac),.08)}
 .mt-now span{position:absolute;left:-46px;top:-8px;z-index:3;font-size:.62rem;font-weight:600;color:#fff;background:var(--blue);padding:1px 5px;border-radius:5px;font-variant-numeric:tabular-nums}
 
 /* ===== Focus / pomodoro ===== */
