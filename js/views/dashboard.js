@@ -1,96 +1,141 @@
 import { html, useState, useMemo } from '../../vendor/preact.js';
-import { useStore } from '../store.js';
+import { useStore, toggleTodo } from '../store.js';
 import { Icon, Card, Btn, Tag, Empty, Progress, useClock } from '../ui.js';
-import { todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, fmtShort, PRIORITY } from '../util.js';
-import { TodoItem, TodoModal, QuickAdd } from './todos.js';
+import { todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS } from '../util.js';
+import { TodoModal, QuickAdd } from './todos.js';
 import { goalPct } from './planner.js';
+import { ancestors, noteTitle } from './notes.js';
+import { go } from '../nav.js';
+
+const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
+const GOAL_MIN = 4 * 60;
+
+function MonthCal({ s, today }) {
+  const [ym, setYm] = useState(today.slice(0, 7));
+  const [y, m] = ym.split('-').map(Number);
+  const first = new Date(y, m - 1, 1);
+  const startDay = first.getDay(); // Sunday first like the reference
+  const days = new Date(y, m, 0).getDate();
+  const prevDays = new Date(y, m - 1, 0).getDate();
+  const cells = [];
+  for (let i = startDay - 1; i >= 0; i--) cells.push({ d: prevDays - i, out: true, key: `p${i}` });
+  for (let d = 1; d <= days; d++) cells.push({ d, key: `${ym}-${pad(d)}`, date: `${ym}-${pad(d)}` });
+  while (cells.length % 7) cells.push({ d: cells.length - days - startDay + 1, out: true, key: `n${cells.length}` });
+  const busy = useMemo(() => { const set = new Set(); s.todos.forEach((t) => t.due && !t.done && set.add(t.due)); s.blocks.forEach((b) => set.add(b.date)); return set; }, [s.todos, s.blocks]);
+  const shift = (n) => { const d = new Date(y, m - 1 + n, 1); setYm(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`); };
+  return html`<${Card} class="mcal">
+    <div class="card-h"><h3>${y} 年 ${m} 月</h3><div class="card-act"><button class="ibtn" onClick=${() => shift(-1)}><${Icon} name="left" size=${14} /></button><button class="ibtn" onClick=${() => shift(1)}><${Icon} name="right" size=${14} /></button></div></div>
+    <div class="mc-grid">${['日', '一', '二', '三', '四', '五', '六'].map((w) => html`<span class="mc-w">${w}</span>`)}
+      ${cells.map((c) => html`<button class=${'mc-d ' + (c.out ? 'out' : '') + (c.date === today ? ' today' : '') + (c.date && busy.has(c.date) ? ' busy' : '')} key=${c.key} onClick=${() => c.date && go('plan/day?d=' + c.date)}>${c.d}</button>`)}
+    </div>
+  <//>`;
+}
+
+function Ring({ value, label, sub }) {
+  const r = 34, c = 2 * Math.PI * r, v = Math.max(0, Math.min(1, value));
+  return html`<div class="ring"><svg viewBox="0 0 84 84"><circle cx="42" cy="42" r=${r} class="ring-bg" /><circle cx="42" cy="42" r=${r} class="ring-fg" stroke-dasharray=${c} stroke-dashoffset=${c * (1 - v)} /></svg><div class="ring-t"><b>${Math.round(v * 100)}%</b></div></div>`;
+}
+
+function Spark({ points, color = 'var(--blue)' }) {
+  const w = 120, h = 36, max = Math.max(1, ...points), n = points.length;
+  const pts = points.map((p, i) => [i * (w / (n - 1)), h - 4 - (p / max) * (h - 8)]);
+  const d = pts.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' ');
+  const area = d + ` L${w} ${h} L0 ${h} Z`;
+  return html`<svg class="spark" viewBox=${`0 0 ${w} ${h}`} preserveAspectRatio="none"><path d=${area} fill=${color} opacity=".12" /><path d=${d} fill="none" stroke=${color} stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" /></svg>`;
+}
 
 export default function Dashboard() {
   const s = useStore();
   const now = useClock();
   const today = todayStr();
   const [editing, setEditing] = useState(null);
-  const pad = (n) => String(n).padStart(2, '0');
-
-  const todos = useMemo(() => sortBy(s.todos.filter((t) => !t.done && (t.due === today || (t.due && t.due < today))), 'due', 'priority', 'time'), [s.todos]);
-  const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today), 'start'), [s.blocks]);
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const current = blocks.find((b) => timeToMin(b.start) <= nowMin && timeToMin(b.end) > nowMin);
-  const next = blocks.find((b) => timeToMin(b.start) > nowMin);
+
+  const todos = useMemo(() => sortBy(s.todos.filter((t) => t.due === today || (!t.done && t.due && t.due < today)), 'done', 'priority', 'time').slice(0, 8), [s.todos]);
+  const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today), 'start'), [s.blocks]);
   const goals = s.goals[monthKey()] || [];
-  const reading = s.books.filter((b) => b.status === 'reading');
   const wk = s.weeks[weekKey()];
   const week = weekDays(weekStart());
-  const statements = s.vision.statements;
-  const quote = statements.length ? statements[now.getDate() % statements.length] : null;
-  const recentNotes = sortBy(s.notes, '-updated').slice(0, 4);
-  const recentLinks = s.links.slice(0, 4);
-  const doneToday = s.todos.filter((t) => t.done && t.completedAt === today).length;
+  const recentNotes = sortBy(s.notes, '-updated').slice(0, 5);
+  const recentLinks = s.links.slice(0, 3);
+  const quote = s.vision.statements.length ? s.vision.statements[now.getDate() % s.vision.statements.length] : null;
 
-  const stats = [
-    { to: '#/todos', icon: 'checksq', n: s.todos.filter((t) => !t.done).length, l: '未完成待办', c: 'var(--teal)' },
-    { to: '#/plan/month', icon: 'target', n: goals.length ? Math.round(goals.reduce((a, g) => a + goalPct(g), 0) / goals.length) + '%' : '—', l: '本月目标进度', c: 'var(--violet)' },
-    { to: '#/reading', icon: 'book', n: reading.length, l: '在读', c: 'var(--amber)' },
-    { to: '#/notes', icon: 'note', n: s.notes.length, l: '笔记', c: 'var(--blue)' },
-  ];
+  const focusToday = blocks.filter((b) => FOCUS_KINDS.includes(b.kind)).reduce((n, b) => n + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0);
+  const focusByDay = week.map((d) => s.blocks.filter((b) => b.date === d && FOCUS_KINDS.includes(b.kind)).reduce((n, b) => n + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0));
+  const last7 = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6));
+  const doneSeries = last7.map((d) => s.todos.filter((t) => t.done && t.completedAt === d).length);
+  const focusSeries = last7.map((d) => s.blocks.filter((b) => b.date === d && FOCUS_KINDS.includes(b.kind)).reduce((n, b) => n + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0) / 60);
+  const noteSeries = last7.map((d) => s.notes.filter((n) => (n.updated || '').slice(0, 10) === d).length);
+  const doneWeek = s.todos.filter((t) => t.done && t.completedAt && week.includes(t.completedAt)).length;
+  const fmtH = (min) => `${Math.floor(min / 60)}h ${pad(min % 60)}m`;
 
-  return html`<div>
-    <div class="hero">
-      <${Card} class="greet">
-        <div class="kicker">${WEEKDAY_SUN[now.getDay()]} · ${weekKey()}</div>
-        <h1>${greeting(now)}，${s.profile.name}</h1>
-        <p>${s.profile.motto}</p>
-        <div class="today">
-          ${current ? html`<${Tag} color=${kindColor(current.kind)}><${Icon} name="play" size=${10} /> 正在：${current.title} · 至 ${current.end}<//>` : next ? html`<${Tag}><${Icon} name="clock" size=${10} /> 下一项 ${next.start} ${next.title}<//>` : html`<${Tag}><${Icon} name="clock" size=${10} /> 今天还没有时间块<//>`}
-          ${doneToday > 0 && html`<${Tag} plain>今天已完成 ${doneToday} 项<//>`}
+  // compact timeline geometry
+  const from = 7, to = 23, hourH = 30;
+  const y = (min) => ((min - from * 60) / 60) * hourH;
+
+  return html`<div class="dash2">
+    <div class="d-main">
+      <${Card} class="profile">
+        <div class="avatar big">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</div>
+        <div class="flex1"><div class="p-name">${greeting(now)}，${s.profile.name}</div><div class="p-sub">${s.profile.motto} · ${now.getMonth() + 1}月${now.getDate()}日 ${WEEKDAY_SUN[now.getDay()]} · ${weekKey()}</div></div>
+        <a class="ibtn" href="#/settings" title="设置"><${Icon} name="settings" size=${16} /></a>
+      <//>
+      <div class="d-row">
+        <${Card} class="tl-card">
+          <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
+          <div class="mini-tl" style=${`height:${(to - from) * hourH}px`}>
+            ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}><span>${pad(from + i)}:00</span></div>`)}
+            ${blocks.map((b) => { const a = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60); if (e <= a) return null; const cur = a <= nowMin && e > nowMin; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (e <= nowMin ? ' past' : '')} style=${`top:${y(a)}px;height:${Math.max(y(e) - y(a) - 2, 18)}px;--bc:${kindColor(b.kind)}`} onClick=${() => go('plan/day')}><b>${b.title}</b><small>${b.start} – ${b.end}</small></div>`; })}
+            ${nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="mt-now" style=${`top:${y(nowMin)}px`}></div>`}
+          </div>
+        <//>
+        <${Card} class="todo-card">
+          <div class="card-h"><h3>待办</h3><div class="card-act"><button class="ibtn" onClick=${() => { setEditing({ id: null }); }} title="新建"><${Icon} name="plus" size=${15} /></button></div></div>
+          ${todos.length === 0 ? html`<${Empty} icon="checksq" text="今天没有待办。" />` : html`<div class="tlist">${todos.map((t) => html`<label class=${'tl-i ' + (t.done ? 'done' : '')} key=${t.id}><input type="checkbox" checked=${t.done} onChange=${() => toggleTodo(t.id)} /><span class="flex1" onClick=${(e) => { e.preventDefault(); setEditing(t); }}>${t.title}</span>${t.time && html`<small>${t.time}</small>`}</label>`)}</div>`}
+          <${QuickAdd} defaults=${{ due: today }} placeholder="添加待办…" />
+        <//>
+      </div>
+      <${Card}>
+        <div class="card-h"><h3>最近页面</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
+        <div class="thumbs">
+          ${recentNotes.map((n) => html`<a class="thumb" href=${'#/notes/' + n.id} key=${n.id}><div class="th-prev" style=${n.cover ? (/^https?:/.test(n.cover) ? `background-image:url(${n.cover})` : `background:${n.cover}`) : ''}>${!n.cover && html`<div class="th-lines"><i></i><i></i><i></i><i></i></div>`}</div><b>${noteTitle(n)}</b><small>${ancestors(s.notes, n).map(noteTitle).join(' / ') || n.updated.slice(0, 10)}</small></a>`)}
+          <button class="thumb new" onClick=${() => go('notes/t:' + encodeURIComponent('新页面 ' + today))}><div class="th-prev"><${Icon} name="plus" size=${18} /></div><b>新建</b></button>
         </div>
       <//>
-      <${Card} class="clock">
-        <span class="k">现在是</span>
-        <div class="t">${pad(now.getHours())}:${pad(now.getMinutes())}<span class="muted" style="font-size:.5em">:${pad(now.getSeconds())}</span></div>
-        <div class="d">${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${WEEKDAY_SUN[now.getDay()]}</div>
+      <${Card}>
+        <div class="card-h"><h3>本月目标</h3><div class="card-act"><a class="ibtn" href="#/plan/month" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
+        ${goals.length === 0 ? html`<${Empty} icon="target" text="这个月还没定目标。" />` : html`<div class="glist">${goals.map((g) => { const p = goalPct(g); return html`<a class="g-row" href="#/plan/month" key=${g.id}><${Icon} name="target" size=${14} class="muted" /><span class="g-t">${g.title}</span><span class="g-bar"><${Progress} value=${p} /></span><span class="g-p">${p}%</span><${Tag} color=${p >= 100 ? 'var(--green)' : p >= 50 ? 'var(--blue)' : 'var(--amber)'}>${p >= 100 ? '完成' : p >= 50 ? '进行中' : '刚开始'}<//></a>`; })}</div>`}
+      <//>
+      <${Card}>
+        <div class="card-h"><h3>本周焦点</h3><div class="card-act"><a class="ibtn" href="#/plan/week" title="周计划"><${Icon} name="right" size=${15} /></a></div></div>
+        ${wk && wk.focus ? html`<pre class="focus-pre">${wk.focus}</pre>` : html`<p class="small muted">还没写本周焦点。去周计划里写下这周最重要的三件事。</p>`}
+        ${quote && html`<div class="quote-line"><${Icon} name="sparkle" size=${13} /> ${quote.text}</div>`}
       <//>
     </div>
-
-    <div class="stats">${stats.map((x) => html`<a class="card stat" href=${x.to} style=${`--sc:${x.c}`}><span class="si"><${Icon} name=${x.icon} size=${16} /></span><span><b>${x.n}</b><small>${x.l}</small></span></a>`)}</div>
-
-    <div class="dash">
-      <div class="col">
-        <${Card} title="今天" sub=${todos.length ? `${todos.length} 项待办` : '今天没有排期的待办'} action=${html`<a class="btn ghost sm" href="#/todos">全部 →</a>`}>
-          <${QuickAdd} defaults=${{ due: today }} placeholder="今天要做什么？ 例如：跑步 18:00 !2" />
-          ${todos.length === 0 ? html`<${Empty} icon="sparkle" text="空白的一天是礼物。去计划里安排一下，或者就这样放松。" />` : todos.map((t) => html`<${TodoItem} key=${t.id} t=${t} onEdit=${setEditing} />`)}
-        <//>
-        <${Card} title="今日时间线" sub=${blocks.length ? `${blocks.length} 个时间块` : ''} action=${html`<a class="btn ghost sm" href="#/plan/day">编辑 →</a>`}>
-          ${blocks.length === 0 ? html`<${Empty} icon="clock" text="还没有给今天画时间线。" />` : html`<div class="day-sum">${blocks.map((b) => {
-            const past = timeToMin(b.end) <= nowMin, cur = current && current.id === b.id;
-            return html`<div class="r" style=${past ? 'opacity:.45' : cur ? 'font-weight:600' : ''}><i style=${`background:${kindColor(b.kind)}`}></i><span class="mono muted" style="width:92px">${b.start}–${b.end}</span><span class="flex1">${b.title}</span>${cur && html`<${Tag} color=${kindColor(b.kind)}>进行中<//>`}</div>`;
-          })}</div>`}
-        <//>
-        <${Card} title="本周" sub=${wk && wk.focus ? '本周焦点' : '还没写本周焦点'} action=${html`<a class="btn ghost sm" href="#/plan/week">周计划 →</a>`}>
-          ${wk && wk.focus && html`<pre class="serif" style="white-space:pre-wrap;font-size:.95rem;line-height:1.7;margin-bottom:12px">${wk.focus}</pre>`}
-          <div class="row" style="gap:6px">${week.map((d, i) => {
-            const items = (wk?.items?.[d] || []), tds = s.todos.filter((t) => t.due === d);
-            const n = items.length + tds.length, done = items.filter((x) => x.done).length + tds.filter((t) => t.done).length;
-            return html`<a href="#/plan/week" style="flex:1;text-decoration:none" class=${'small ' + (d === today ? '' : 'muted')}><div style=${`text-align:center;padding:8px 0;border-radius:10px;${d === today ? 'background:rgba(var(--ac),.1)' : ''}`}><b style="display:block">${['一', '二', '三', '四', '五', '六', '日'][i]}</b><span class="mono">${n ? `${done}/${n}` : '·'}</span></div></a>`;
-          })}</div>
-        <//>
-      </div>
-      <div class="col">
-        ${quote && html`<${Card}><div class="quote"><${Icon} name="quote" size=${16} /><div>${quote.text}</div></div><a class="small muted" href="#/vision" style="display:block;margin-top:10px;text-decoration:none">愿景 →</a><//>`}
-        <${Card} title="本月目标" sub=${monthKey()} action=${html`<a class="btn ghost sm" href="#/plan/month">全部 →</a>`}>
-          ${goals.length === 0 ? html`<${Empty} icon="target" text="这个月还没定目标。" /> ` : html`<div class="stack gap8">${goals.slice(0, 5).map((g) => html`<div><div class="row" style="justify-content:space-between;font-size:.8rem;margin-bottom:4px"><span>${g.title}</span><span class="mono muted">${goalPct(g)}%</span></div><${Progress} value=${goalPct(g)} /></div>`)}</div>`}
-        <//>
-        <${Card} title="在读" action=${html`<a class="btn ghost sm" href="#/reading">书架 →</a>`}>
-          ${reading.length === 0 ? html`<${Empty} icon="book" text="没有在读的书。" />` : html`<div class="stack gap8">${reading.slice(0, 3).map((b) => html`<div class="row"><div class="bk" style="padding:0;cursor:default"><div class="cv" style=${`--cc:${b.color || 'var(--teal)'};width:38px;height:54px;font-size:.5rem`}>${b.cover ? html`<img src=${b.cover} alt="" />` : b.title.slice(0, 6)}</div></div><div class="flex1"><div style="font-size:.82rem;font-weight:500">${b.title}</div><div class="small muted">${b.author}</div><div class="row" style="margin-top:4px;gap:6px"><div class="flex1"><${Progress} value=${b.total ? (b.progress / b.total) * 100 : b.progress} /></div><span class="small mono muted">${b.total ? `${b.progress}/${b.total}` : b.progress + '%'}</span></div></div></div>`)}</div>`}
-        <//>
-        <${Card} title="最近笔记" action=${html`<a class="btn ghost sm" href="#/notes">全部 →</a>`}>
-          ${recentNotes.length === 0 ? html`<${Empty} icon="note" text="知识库还是空的。" />` : html`<div class="stack gap8">${recentNotes.map((n) => html`<a class="note-item" href=${'#/notes/' + n.id} style="padding:6px 8px"><b>${n.title || '无标题'}</b><p>${(n.body || '').replace(/[#*>\-\[\]`]/g, '').slice(0, 60)}</p></a>`)}</div>`}
-        <//>
-        <${Card} title="最近收藏" action=${html`<a class="btn ghost sm" href="#/links">全部 →</a>`}>
-          ${recentLinks.length === 0 ? html`<${Empty} icon="link" text="还没有收藏链接。" />` : html`<div class="links">${recentLinks.map((l) => html`<a class="lk" href=${l.url} target="_blank" rel="noopener" style="padding:6px 8px"><div class="li"><b>${l.title || l.url}</b><span class="host">${l.host || ''}</span></div></a>`)}</div>`}
-        <//>
-      </div>
+    <div class="d-side">
+      <${MonthCal} s=${s} today=${today} />
+      <${Card}>
+        <div class="card-h"><h3>专注</h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="时间线"><${Icon} name="plus" size=${15} /></a></div></div>
+        <div class="focus-row"><div><div class="small muted">今日目标</div><div class="focus-big">${fmtH(focusToday)} <span class="muted">/ ${GOAL_MIN / 60}h</span></div></div><${Ring} value=${focusToday / GOAL_MIN} /></div>
+        <div class="bars">${focusByDay.map((m, i) => html`<div class="bar" key=${i}><i style=${`height:${Math.max(4, Math.min(100, (m / GOAL_MIN) * 100))}%`} class=${week[i] === today ? 'on' : ''}></i><span>${['一', '二', '三', '四', '五', '六', '日'][i]}</span></div>`)}</div>
+      <//>
+      <${Card}>
+        <div class="card-h"><h3>笔记</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
+        <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${['var(--violet)', 'var(--amber)', 'var(--blue)', 'var(--green)'][n.id.charCodeAt(0) % 4]}`}></i><div><b>${noteTitle(n)}</b><small>${n.updated.slice(5, 16).replace('T', ' · ')}</small></div></a>`)}</div>
+        <a class="small link" href="#/notes">查看全部</a>
+      <//>
+      <${Card}>
+        <div class="card-h"><h3>收藏</h3><div class="card-act"><a class="ibtn" href="#/links" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
+        <div class="dot-list">${recentLinks.map((l) => html`<a class="dl-i" href=${l.url} target="_blank" rel="noopener" key=${l.id}><span class="fav"><img src=${`https://www.google.com/s2/favicons?domain=${l.host}&sz=32`} alt="" /></span><div><b>${l.title}</b><small>${l.host}</small></div></a>`)}</div>
+        <a class="small link" href="#/links">查看全部</a>
+      <//>
+      <${Card}>
+        <div class="card-h"><h3>本周</h3></div>
+        <div class="stat-row"><div><small>完成待办</small><b>${doneWeek}</b></div><${Spark} points=${doneSeries} /></div>
+        <div class="stat-row"><div><small>专注时间</small><b>${fmtH(focusByDay.reduce((a, b) => a + b, 0))}</b></div><${Spark} points=${focusSeries} color="var(--violet)" /></div>
+        <div class="stat-row"><div><small>更新页面</small><b>${s.notes.filter((n) => week.includes((n.updated || '').slice(0, 10))).length}</b></div><${Spark} points=${noteSeries} color="var(--teal)" /></div>
+      <//>
     </div>
-    <${TodoModal} open=${!!editing} todo=${editing} onClose=${() => setEditing(null)} />
+    <${TodoModal} open=${!!editing} todo=${editing && editing.id ? editing : null} defaults=${{ due: today }} onClose=${() => setEditing(null)} />
   </div>`;
 }

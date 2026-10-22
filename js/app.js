@@ -104,14 +104,13 @@ function App() {
   return html`<div class="shell">
     ${menu && html`<div class="side-bg" onClick=${() => setMenu(false)}></div>`}
     <aside class=${'side ' + (menu ? 'open' : '')}>
-      <a class="brand" href="#/home"><span class="logo"><${Icon} name="compass" size=${16} /></span><span><b>yunningtang OS</b><small>${weekKey(todayStr())}</small></span></a>
-      <nav class="nav" data-liquid=".nav > a, .pt-row"><span class="liq"></span>
+      <a class="brand" href="#/home" title="yunningtang OS"><span class="logo"><${Icon} name="compass" size=${16} /></span></a>
+      <nav class="nav" data-liquid=".nav > a"><span class="liq"></span>
         ${ROUTES.map((r) => r.sep !== undefined
-          ? html`<div class="sep">${r.sep}</div>`
-          : html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''}><${Icon} name=${r.icon} size=${16} />${r.name}${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title="展开页面" onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
-            ${r.path === 'notes' && navOpen.notes && html`<div class="nav-tree"><${PageTree} notes=${s.notes} activeId=${route.sub} open=${tree.open} toggle=${tree.toggle} onCreate=${(parent) => { const n = newNote({ parent }); if (parent) tree.openPath([parent]); go('notes/' + n.id); }} max=${12} /><button class="pt-row flat new" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><span class="pt-ic"><${Icon} name="plus" size=${12} /></span><span class="pt-t">新页面</span></button></div>`}`)}
+          ? (r.sep ? html`<div class="sep"></div>` : html`<div class="sep grow"></div>`)
+          : html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''} data-tip=${r.name} aria-label=${r.name}><${Icon} name=${r.icon} size=${18} />${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}</a>`)}
       </nav>
-      <div class="side-foot"><b>${s.profile.motto}</b><br/>${s.settings.lastSync ? '上次同步 ' + new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false }) : '本地存储 · 可在设置中同步到 GitHub'}</div>
+      <a class="side-avatar" href="#/settings" title=${s.profile.name}>${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</a>
     </aside>
     <div class="main">
       <header class="topbar">

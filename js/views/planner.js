@@ -105,9 +105,9 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 6, to = 24, ho
   </div>`;
 }
 
-function DayView() {
+function DayView({ initial }) {
   const s = useStore();
-  const [date, setDate] = useState(todayStr());
+  const [date, setDate] = useState(initial || todayStr());
   const [editing, setEditing] = useState(null);
   const [modal, setModal] = useState(false);
   const [start, setStart] = useState('09:00');
@@ -237,7 +237,7 @@ export default function Planner({ route }) {
     <div class="page-h"><div><div class="kicker">Planner</div><h1>计划</h1><div class="desc">月定方向，周定节奏，日定时间。</div></div></div>
     <nav class="subnav" data-liquid="a"><span class="liq"></span>${tabs.map(([k, n]) => html`<a href=${'#/plan/' + k} class=${sub === k ? 'active' : ''}>${n}</a>`)}</nav>
     ${sub === 'week' && html`<${WeekBoard} />`}
-    ${sub === 'day' && html`<${DayView} />`}
+    ${sub === 'day' && html`<${DayView} initial=${route.query && route.query.d} />`}
     ${sub === 'month' && html`<${MonthGoals} />`}
   </div>`;
 }
