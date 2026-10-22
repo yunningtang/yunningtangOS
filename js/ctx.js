@@ -1,6 +1,6 @@
 // Global context menu. Call ctxMenu(event, items) from any onContextMenu handler.
 // items: [{ label, icon?, danger?, onClick }, 'sep', { label: '...', sub: [...] }]
-import { html, render, useEffect, useState } from '../vendor/preact.js';
+import { html, render, useEffect, useState, useRef, useLayoutEffect } from '../vendor/preact.js';
 import { Icon } from './ui.js';
 
 let host, current = null, setCurrent = null;
@@ -16,12 +16,19 @@ function Menu() {
     document.addEventListener('mousedown', down); window.addEventListener('keydown', key, true); window.addEventListener('scroll', close, true); window.addEventListener('resize', close);
     return () => { document.removeEventListener('mousedown', down); window.removeEventListener('keydown', key, true); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
   }, [m]);
+  const ref = useRef();
+  // Position after render so the real height (not an estimate) keeps the menu inside the viewport.
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el || !m) return;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const left = Math.max(8, Math.min(m.x, innerWidth - w - 8));
+    const top = m.y + h + 8 > innerHeight ? Math.max(8, m.y - h) : m.y;
+    el.style.left = left + 'px'; el.style.top = top + 'px'; el.style.visibility = 'visible';
+  }, [m]);
   if (!m) return null;
-  const w = 200, h = 12 + m.items.length * 32;
-  const left = Math.min(m.x, innerWidth - w - 8), top = Math.min(m.y, innerHeight - h - 8);
-  return html`<div class="ctx popmenu" style=${`left:${left}px;top:${top}px`} onContextMenu=${(e) => e.preventDefault()}>
+  return html`<div class="ctx popmenu" ref=${ref} style=${`left:${m.x}px;top:${m.y}px;visibility:hidden`} onContextMenu=${(e) => e.preventDefault()}>
     ${m.title && html`<div class="pm-sec">${m.title}</div>`}
-    ${m.items.map((it, i) => it === 'sep' ? html`<div class="ctx-sep" key=${i}></div>` : html`<div key=${i} class=${'pm ' + (it.danger ? 'danger' : '') + (it.disabled ? ' disabled' : '')} onClick=${() => { if (it.disabled) return; set(null); it.onClick && it.onClick(); }}>${it.icon && html`<${Icon} name=${it.icon} size=${13} />`}<b>${it.label}</b>${it.hint && html`<small>${it.hint}</small>`}</div>`)}
+    ${m.items.map((it, i) => it === 'sep' ? html`<div class="ctx-sep" key=${i}></div>` : html`<div key=${i} class=${'pm ' + (it.danger ? 'danger' : '') + (it.disabled ? ' disabled' : '')} onClick=${() => { if (it.disabled) return; set(null); it.onClick && it.onClick(); }}>${it.icon ? html`<${Icon} name=${it.icon} size=${14} />` : html`<span class="ic"></span>`}<b>${it.label}</b>${it.hint ? html`<small>${it.hint}</small>` : html`<span></span>`}</div>`)}
   </div>`;
 }
 
