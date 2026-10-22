@@ -5,6 +5,7 @@ import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kind
 import { TodoModal, QuickAdd, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
+import { Splitter } from '../resize.js';
 import { upsert, remove } from '../store.js';
 import { goalPct } from './planner.js';
 import { ancestors, noteTitle, isBlank, newNote } from './notes.js';
@@ -192,6 +193,7 @@ export default function Dashboard() {
       <button class="btn primary sm" onClick=${() => setCustom(false)}>完成</button>
     </div>`}
     <div class="d-main" onDragOver=${(e) => drag && e.preventDefault()} onDrop=${(e) => { if (e.target.closest('.widget')) return; onDrop(e, null, 'main'); }}>${layout.main.map((id) => Widget(id, 'main'))}</div>
+    <${Splitter} varName="dside" min=${240} max=${460} dir=${-1} class="sp-dash" />
     <div class="d-side" onDragOver=${(e) => drag && e.preventDefault()} onDrop=${(e) => { if (e.target.closest('.widget')) return; onDrop(e, null, 'side'); }}>${layout.side.map((id) => Widget(id, 'side'))}</div>
     <${TodoModal} open=${!!editing} todo=${editing && editing.id ? editing : null} defaults=${{ due: today }} onClose=${() => setEditing(null)} />
   </div>`;

@@ -6,6 +6,7 @@ import { uid, todayStr, sortBy, debounce, escapeHtml } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
+import { Splitter } from '../resize.js';
 import { mountGraph } from '../graph.js';
 import { BlockEditor } from '../editor.js';
 import { blocksToMd, mdToBlocks } from '../blocks.js';
@@ -186,8 +187,9 @@ export default function Notes({ route }) {
         </div>`)}
         <button class="nb-i new" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }}><${Icon} name="plus" size=${13} /><span>新本子</span></button>
       </div>
-      <div class="nb-foot"><a class=${'nb-i ' + (id === 'graph' ? 'active' : '')} href="#/notes/graph"><${Icon} name="compass" size=${14} /><span>图谱</span></a><a class=${'nb-i ' + (id === 'tags' ? 'active' : '')} href="#/notes/tags"><${Icon} name="tag" size=${14} /><span>标签</span></a></div>
+      <div class="nb-foot" style="position:relative"><a class=${'nb-i ' + (id === 'graph' ? 'active' : '')} href="#/notes/graph"><${Icon} name="compass" size=${14} /><span>图谱</span></a><a class=${'nb-i ' + (id === 'tags' ? 'active' : '')} href="#/notes/tags"><${Icon} name="tag" size=${14} /><span>标签</span></a></div>
     </aside>`}
+    ${panes.nb && html`<${Splitter} varName="nbw" min=${150} max=${360} />`}
     ${panes.list && html`<section class="card list-col">
       <div class="lc-h">
         ${!panes.nb && html`<${IconBtn} icon="right" title="显示本子" onClick=${() => setPane('nb', true)} />`}
@@ -205,6 +207,7 @@ export default function Notes({ route }) {
         </a>`; })}
       </div>
     </section>`}
+    ${panes.list && html`<${Splitter} varName="lcw" min=${200} max=${480} />`}
     <section class="card notes-main">
       ${!panes.list && html`<button class="pane-show" title="显示列表" onClick=${() => setPane('list', true)}><${Icon} name="right" size=${14} /></button>`}
       ${id === 'graph' ? html`<${GraphView} notes=${s.notes} />`
@@ -232,6 +235,8 @@ class Still extends Component {
 function Page({ note, notes, notebooks = [], onCreateChild }) {
   const [moveOpen, setMoveOpen] = useState(false);
   const [focus, setFocus] = useState(() => document.body.classList.contains('focus-mode'));
+  const [propsOpen, setPropsOpen] = useState(() => { try { return localStorage.getItem('ytos.props') === '1'; } catch { return false; } });
+  const toggleProps = () => setPropsOpen((v) => { try { localStorage.setItem('ytos.props', v ? '0' : '1'); } catch {} return !v; });
   useEffect(() => { document.body.classList.toggle('focus-mode', focus); const k = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-bg, .popmenu, .ctx')) setFocus(false); }; window.addEventListener('keydown', k); return () => { window.removeEventListener('keydown', k); document.body.classList.remove('focus-mode'); }; }, [focus]);
   const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: new Date().toISOString() }), 250), []);
   const onBlocks = useMemo(() => (blocks) => upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() }), [note.id]);
@@ -272,7 +277,13 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
       <input class="page-title" type="text" value=${note.title} placeholder="无标题" onInput=${(e) => save({ id: note.id, title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); const el = document.querySelector('.beditor .b-text'); if (el) el.focus(); } }} />
-      <div class="props">
+      <div class=${'props ' + (propsOpen ? '' : 'collapsed')}>
+        <button class="props-line" onClick=${toggleProps} title=${propsOpen ? '收起属性' : '展开属性'}>
+          <${Icon} name=${propsOpen ? 'down' : 'right'} size=${12} />
+          ${(() => { const b = notebooks.find((x) => x.id === note.nb); return b ? html`<span class="pl-i"><i class="nb-dot" style=${`background:${b.color}`}></i>${b.name}</span>` : ''; })()}
+          ${note.tags.length ? note.tags.map((t) => html`<${Tag}>${t}<//>`) : html`<span class="pl-i muted">无标签</span>`}
+          <span class="pl-i muted">${new Date(note.updated).toLocaleDateString('zh-CN')} · ${words} 字</span>
+        </button>
         <div class="prop"><span class="pk"><${Icon} name="tag" size=${12} /> 标签</span><span class="pv"><${TagInput} value=${note.tags} onChange=${(v) => upsert('notes', { id: note.id, tags: v })} placeholder="空" /></span></div>
         <div class="prop"><span class="pk"><${Icon} name="book" size=${12} /> 本子</span><span class="pv"><select class="pv-sel" value=${note.nb || 'nb-inbox'} onChange=${(e) => { const b = e.target.value; const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b; if (x.id === note.id) x.parent = null; }); }); }}>${notebooks.map((b) => html`<option value=${b.id}>${b.name}</option>`)}</select></span></div>
         <div class="prop"><span class="pk"><${Icon} name="layers" size=${12} /> 位置</span><span class="pv click" onClick=${() => setMoveOpen(true)}>${crumbs.length ? crumbs.map(noteTitle).join(' / ') : '顶层'}</span></div>

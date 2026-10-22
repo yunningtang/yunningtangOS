@@ -18,6 +18,7 @@ import { dragProps, dropProps } from './dnd.js';
 import { go, toast } from './nav.js';
 import { initLiquid } from './liquid.js';
 import { ctxMenu } from './ctx.js';
+import { Splitter, applySizes } from './resize.js';
 import { detectLogin, autoSync } from './sync.js';
 import { subscribe } from './store.js';
 export { go, toast };
@@ -132,6 +133,7 @@ function App() {
       </nav>
       <a class="side-user" href="#/settings" data-tip=${s.profile.name}><span class="side-avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</span><span class="flex1 nl"><b>${s.profile.name}</b><small>${s.settings.lastSync ? '已同步 ' + new Date(s.settings.lastSync).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '本地存储'}</small></span></a>
     </aside>
+    ${!mini && html`<${Splitter} varName="sidebar" min=${180} max=${420} class="sp-side" />`}
     <div class="main">
       <header class="topbar">
         <${IconBtn} class="ibtn hamb" icon="menu" title="菜单" onClick=${() => setMenu(true)} />
@@ -147,6 +149,7 @@ function App() {
 }
 
 seedIfEmpty();
+applySizes();
 initLiquid();
 detectLogin().then(() => autoSync(subscribe));
 render(html`<${App} />`, document.getElementById('app'));
