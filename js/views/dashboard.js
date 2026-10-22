@@ -80,8 +80,8 @@ export default function Dashboard() {
   const from = 7, to = 23, hourH = 30;
   const y = (min) => ((min - from * 60) / 60) * hourH;
 
-  const DEFAULT = { main: ['profile', 'timeline', 'todos', 'pages', 'goals', 'focusweek'], side: ['calendar', 'focus', 'notes', 'links', 'week'], hidden: [] };
-  const layout = useMemo(() => { const l = s.settings.dash || DEFAULT; const known = new Set([...DEFAULT.main, ...DEFAULT.side]); const used = new Set([...l.main, ...l.side, ...(l.hidden || [])]); const extra = [...known].filter((id) => !used.has(id)); return { main: l.main.filter((id) => known.has(id)).concat(extra.filter((id) => DEFAULT.main.includes(id))), side: l.side.filter((id) => known.has(id)).concat(extra.filter((id) => DEFAULT.side.includes(id))), hidden: (l.hidden || []).filter((id) => known.has(id)) }; }, [s.settings.dash]);
+  const DEFAULT = { main: ['profile', 'timeline', 'todos', 'pages', 'goals', 'focusweek'], side: ['calendar', 'focus', 'notes', 'links', 'week'], hidden: [], sizes: {} };
+  const layout = useMemo(() => { const l = s.settings.dash || DEFAULT; const known = new Set([...DEFAULT.main, ...DEFAULT.side]); const used = new Set([...l.main, ...l.side, ...(l.hidden || [])]); const extra = [...known].filter((id) => !used.has(id)); return { main: l.main.filter((id) => known.has(id)).concat(extra.filter((id) => DEFAULT.main.includes(id))), side: l.side.filter((id) => known.has(id)).concat(extra.filter((id) => DEFAULT.side.includes(id))), hidden: (l.hidden || []).filter((id) => known.has(id)), sizes: l.sizes || {} }; }, [s.settings.dash]);
   const setLayout = (next) => update((d) => { d.settings.dash = next; });
   const [drag, setDrag] = useState(null); // { id }
   const [over, setOver] = useState(null); // { id, after } | { col }
@@ -89,11 +89,29 @@ export default function Dashboard() {
   const [wmenu, setWmenu] = useState(null);
   const colOf = (id) => (layout.main.includes(id) ? 'main' : 'side');
   const moveTo = (id, col, index) => {
-    const next = { main: layout.main.filter((x) => x !== id), side: layout.side.filter((x) => x !== id), hidden: layout.hidden.filter((x) => x !== id) };
+    const next = { ...layout, main: layout.main.filter((x) => x !== id), side: layout.side.filter((x) => x !== id), hidden: layout.hidden.filter((x) => x !== id) };
     const list = next[col]; const at = index == null ? list.length : Math.max(0, Math.min(list.length, index));
     list.splice(at, 0, id); setLayout(next);
   };
-  const hide = (id) => setLayout({ main: layout.main.filter((x) => x !== id), side: layout.side.filter((x) => x !== id), hidden: [...layout.hidden, id] });
+  const hide = (id) => setLayout({ ...layout, main: layout.main.filter((x) => x !== id), side: layout.side.filter((x) => x !== id), hidden: [...layout.hidden, id] });
+  const setSize = (id, patch) => setLayout({ ...layout, sizes: { ...layout.sizes, [id]: { ...(layout.sizes[id] || {}), ...patch } } });
+  const sizeOf = (id) => layout.sizes[id] || {};
+  // Pointer-driven resize: right edge toggles span (main column), bottom edge sets min height.
+  const startResize = (e, id, mode, col) => {
+    if (e.button !== 0) return; e.preventDefault(); e.stopPropagation();
+    const el = e.currentTarget.closest('.widget'); const r = el.getBoundingClientRect(); const x0 = e.clientX, y0 = e.clientY, h0 = r.height;
+    document.body.classList.add('resizing');
+    const move = (ev) => {
+      if (mode === 'h') { el.style.setProperty('--wh', Math.max(120, h0 + ev.clientY - y0) + 'px'); }
+      else if (col === 'main') { const want = r.width + (ev.clientX - x0) > (el.parentElement.getBoundingClientRect().width * 0.72) ? 2 : 1; el.dataset.spanPreview = want; }
+    };
+    const up = (ev) => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); document.body.classList.remove('resizing');
+      if (mode === 'h') { const h = parseFloat(el.style.getPropertyValue('--wh')); el.style.removeProperty('--wh'); if (Math.abs(ev.clientY - y0) > 4) setSize(id, { h: Math.round(h) }); }
+      else if (col === 'main') { const want = el.dataset.spanPreview; delete el.dataset.spanPreview; if (want) setSize(id, { span: +want }); }
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  };
   const shift = (id, dir) => { const col = colOf(id); const list = layout[col]; const i = list.indexOf(id); const j = i + dir; if (j < 0 || j >= list.length) return; const n = [...list]; n.splice(i, 1); n.splice(j, 0, id); setLayout({ ...layout, [col]: n }); };
   const onDrop = (e, targetId, col) => {
     e.preventDefault(); if (!drag) return;
@@ -167,17 +185,22 @@ export default function Dashboard() {
   const Widget = (id, col) => {
     const w = W[id]; if (!w) return null;
     const ov = over && over.id === id;
-    return html`<div class=${'widget span-' + w.span + (drag && drag.id === id ? ' dragging' : '') + (ov ? (over.after ? ' drop-after' : ' drop-before') : '') + (custom ? ' custom' : '')} key=${id} data-id=${id}
+    const sz = sizeOf(id); const span = col === 'main' ? (sz.span || w.span) : 1;
+    return html`<div class=${'widget span-' + span + (drag && drag.id === id ? ' dragging' : '') + (ov ? (over.after ? ' drop-after' : ' drop-before') : '') + (custom ? ' custom' : '')} key=${id} data-id=${id} style=${sz.h ? `--wh:${sz.h}px` : ''}
       draggable=${custom} onDragStart=${(e) => { setDrag({ id }); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd=${() => { setDrag(null); setOver(null); }}
       onDragOver=${(e) => { if (!drag) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setOver({ id, after: e.clientY > r.top + r.height / 2 }); }}
       onDrop=${(e) => onDrop(e, id, col)}
-      onContextMenu=${(e) => { if (e.target.closest('.tl-i, .mt-b, .dl-i, .thumb, .g-row, input, textarea, [contenteditable]')) return; ctxMenu(e, [{ label: custom ? '完成自定义' : '自定义主页', icon: 'grid', onClick: () => setCustom(!custom) }, 'sep', { label: '上移', icon: 'up', onClick: () => shift(id, -1) }, { label: '下移', icon: 'down', onClick: () => shift(id, 1) }, { label: col === 'main' ? '移到右栏' : '移到左栏', icon: 'right', onClick: () => moveTo(id, col === 'main' ? 'side' : 'main', null) }, 'sep', { label: '隐藏此卡片', icon: 'eye', danger: true, onClick: () => hide(id) }], w.title); }}>
+      onContextMenu=${(e) => { if (e.target.closest('.tl-i, .mt-b, .dl-i, .thumb, .g-row, input, textarea, [contenteditable]')) return; ctxMenu(e, [{ label: custom ? '完成自定义' : '自定义主页', icon: 'grid', onClick: () => setCustom(!custom) }, 'sep', { label: '上移', icon: 'up', onClick: () => shift(id, -1) }, { label: '下移', icon: 'down', onClick: () => shift(id, 1) }, { label: col === 'main' ? '移到右栏' : '移到左栏', icon: 'right', onClick: () => moveTo(id, col === 'main' ? 'side' : 'main', null) }, col === 'main' && { label: span === 2 ? '改为半行' : '占满整行', icon: 'grid', onClick: () => setSize(id, { span: span === 2 ? 1 : 2 }) }, 'sep', { label: '隐藏此卡片', icon: 'eye', danger: true, onClick: () => hide(id) }], w.title); }}>
       ${w.el}
+      <span class="w-rz w-rz-b" title="拖动调整高度" onPointerDown=${(e) => startResize(e, id, 'h', col)}></span>
+      ${col === 'main' && html`<span class="w-rz w-rz-r" title="拖动切换半行 / 整行" onPointerDown=${(e) => startResize(e, id, 'w', col)}></span>`}
       ${custom && html`<div class="w-tools"><span class="w-grip" title="拖动排序"><${Icon} name="dots" size=${14} /></span><button class="w-dots" onClick=${() => setWmenu(wmenu === id ? null : id)}><${Icon} name="down" size=${13} /></button>
         ${wmenu === id && html`<div class="popmenu w-menu">
           <div class="pm" onClick=${() => { shift(id, -1); setWmenu(null); }}><b>上移</b></div>
           <div class="pm" onClick=${() => { shift(id, 1); setWmenu(null); }}><b>下移</b></div>
           <div class="pm" onClick=${() => { moveTo(id, col === 'main' ? 'side' : 'main', null); setWmenu(null); }}><b>${col === 'main' ? '移到右栏' : '移到左栏'}</b></div>
+          ${col === 'main' && html`<div class="pm" onClick=${() => { setSize(id, { span: span === 2 ? 1 : 2 }); setWmenu(null); }}><b>${span === 2 ? '改为半行' : '占满整行'}</b></div>`}
+          ${sz.h && html`<div class="pm" onClick=${() => { setSize(id, { h: null }); setWmenu(null); }}><b>恢复高度</b></div>`}
           <div class="pm danger" onClick=${() => { hide(id); setWmenu(null); }}><b>隐藏</b></div>
         </div>`}
       </div>`}

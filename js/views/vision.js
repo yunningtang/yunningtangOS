@@ -3,6 +3,7 @@ import { useStore, update } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, confirmDel, AutoTextarea } from '../ui.js';
 import { uid, todayStr, AREAS } from '../util.js';
 import { ctxMenu } from '../ctx.js';
+import { Splitter } from '../resize.js';
 import { askPrompt } from '../confirm.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { toast } from '../nav.js';
@@ -76,6 +77,7 @@ export default function Vision() {
           </div>`)}</div>`}
         <//>
       </div>
+      <${Splitter} varName="visside" min=${280} max=${640} dir=${-1} class="sp-col" />
       <div class="stack">
         <${Card} title="生命之轮" sub=${`此刻的平衡 · 平均 ${avg}/10`} action=${html`<${Btn} small kind="ghost" onClick=${async () => { const name = await askPrompt('领域名称', '', { title: '新领域', placeholder: '比如：创造力' }); if (name && name.trim()) update((d) => { d.vision.areas.push({ id: uid(), name: name.trim(), score: 5 }); }); }}>+ 领域<//>`}>
           <${LifeWheel} areas=${areas} onChange=${(i, score) => update((d) => { if (!d.vision.areas.length) d.vision.areas = areas; d.vision.areas[i].score = score; })} />

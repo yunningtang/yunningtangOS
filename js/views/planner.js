@@ -5,6 +5,7 @@ import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { toast } from '../nav.js';
+import { Splitter } from '../resize.js';
 import { dragProps, dropProps } from '../dnd.js';
 
 /* ---------- Weekly plan ---------- */
@@ -178,6 +179,7 @@ function DayView({ initial }) {
       <${Card} title="时间线" sub="点击空白处在该小时新建">
         <${Timeline} date=${date} blocks=${blocks} onEdit=${(b) => { setEditing(b); setModal(true); }} onCreate=${(t) => { setEditing(null); setStart(t); setModal(true); }} />
       <//>
+      <${Splitter} varName="dayside" min=${240} max=${520} dir=${-1} class="sp-col" />
       <div class="stack">
         <${Card} title="当天待办" sub=${`${todos.filter((t) => t.done).length}/${todos.length}`}>
           ${todos.length === 0 ? html`<${Empty} icon="checksq" text="这天没有安排待办。" />` : todos.map((t) => html`<${TodoItem} t=${t} compact onEdit=${(x) => setTEdit(x)} />`)}

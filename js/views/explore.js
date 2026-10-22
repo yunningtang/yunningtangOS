@@ -4,6 +4,7 @@ import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Stars, TagInput, co
 import { uid, todayStr, sortBy, fmtDate } from '../util.js';
 import { mountGlobe } from '../globe.js';
 import { ctxMenu } from '../ctx.js';
+import { Splitter } from '../resize.js';
 import { dragProps, dropProps } from '../dnd.js';
 
 export function TripModal({ open, trip, onClose }) {
@@ -85,6 +86,7 @@ export default function Explore() {
           ${selTrip.photos.length > 0 && html`<div class="trip-photos">${selTrip.photos.map((p) => html`<a href=${p} target="_blank" rel="noopener"><img src=${p} alt="" loading="lazy" /></a>`)}</div>`}
         <//>`}
       </div>
+      <${Splitter} varName="expside" min=${260} max=${560} dir=${-1} class="sp-col" />
       <div class="stack">
         <${Card} title="地点列表" sub="按时间倒序" action=${html`<div class="seg" data-liquid="button"><span class="liq"></span>${[['all', '全部'], ['trip', '旅行'], ['live', '居住'], ['wish', '想去']].map(([v, n]) => html`<button type="button" class=${kind === v ? 'on' : ''} onClick=${() => setKind(v)} ...${v === 'all' ? {} : dropProps('trip', (d) => upsert('trips', { id: d.id, kind: v }))}>${n}</button>`)}</div>`}>
           ${trips.length === 0 ? html`<${Empty} icon="pin" text="还没有足迹。从出生的城市开始吧。" />` : html`<div class="trip-list">${trips.map((t) => html`<div class=${'trip ' + (sel === t.id ? 'on' : '')} key=${t.id} ...${dragProps('trip', { id: t.id })} onClick=${() => setSel(t.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: '在星球上查看', icon: 'globe', onClick: () => setSel(t.id) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(t); setModal(true); } }, 'sep', ...[['trip', '旅行'], ['live', '居住过'], ['wish', '想去']].map(([v, n]) => ({ label: n, icon: (t.kind || 'trip') === v ? 'check' : 'pin', onClick: () => upsert('trips', { id: t.id, kind: v }) })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('trips', t.id, t.title || t.place || t.url) }], t.place)}>
