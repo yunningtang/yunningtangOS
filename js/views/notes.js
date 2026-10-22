@@ -9,8 +9,8 @@ import { askConfirm, askPrompt } from '../confirm.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
 import { mountGraph } from '../graph.js';
-import { BlockEditor } from '../editor.js';
-import { blocksToMd, mdToBlocks } from '../blocks.js';
+import { BlockEditor, focusEditor } from '../editor.js';
+import { blocksToMd, mdToBlocks, textOf } from '../blocks.js';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -111,6 +111,21 @@ export function linkedPage(ref, { title, nb, color, tags = [], body = '' }) {
   return newNote({ title, nb: b.id, tags, body, ref, blocks: mdToBlocks(body) });
 }
 export function refLabel(ref) { const [k] = (ref || '').split(':'); return { book: '书', trip: '足迹', todo: '待办', goal: '目标' }[k] || k; }
+// Turn plain mentions of a title into [[links]] in both the block html and the markdown mirror.
+export function linkifyMentions(n, title) {
+  const t = title.trim(); if (!t) return;
+  const esc = escapeHtml(t); const anchor = `<a class="wiki" data-title="${esc}" contenteditable="false">${esc}</a>`;
+  const blocks = (n.blocks || mdToBlocks(n.body)).map((b) => {
+    if (!['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout'].includes(b.type) || !b.html.includes(esc)) return b;
+    // replace only in text outside tags
+    const html = b.html.split(/(<[^>]+>)/).map((part, i) => (i % 2 ? part : part.split(esc).join(anchor))).join('');
+    return { ...b, html };
+  });
+  upsert('notes', { id: n.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() });
+}
+export function allTags(notes) { const m = new Map(); notes.forEach((n) => (n.tags || []).forEach((t) => m.set(t, (m.get(t) || 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); }
+export function renameTag(from, to) { const t = (to || '').trim().replace(/^#/, ''); if (!t || t === from) return; update((d) => { d.notes.forEach((n) => { if (n.tags.includes(from)) n.tags = [...new Set(n.tags.map((x) => (x === from ? t : x)))]; }); }); }
+export function deleteTag(tag) { update((d) => { d.notes.forEach((n) => { if (n.tags.includes(tag)) n.tags = n.tags.filter((x) => x !== tag); }); }); }
 export function isBlank(n) { return !n.title.trim() && !(n.body || '').trim() && !n.cover; }
 let _curNb = null;
 export function currentNb() { return _curNb; }
@@ -129,7 +144,7 @@ export function pageMenu(n, notes, extra = {}) {
     'sep',
     { label: '新建子页面', icon: 'plus', onClick: () => { const c = newNote({ parent: n.id }); extra.openPath && extra.openPath([n.id]); go('notes/' + c.id); } },
     { label: n.pinned ? '取消收藏' : '收藏', icon: 'pin', onClick: () => upsert('notes', { id: n.id, pinned: !n.pinned }) },
-    { label: '复制一份', icon: 'layers', onClick: () => { const c = newNote({ ...n, id: undefined, title: n.title + ' 副本', pinned: false, blocks: (n.blocks || []).map((b) => ({ ...b, id: uid() })) }); go('notes/' + c.id); } },
+    { label: '复制一份', icon: 'layers', onClick: () => { const c = newNote({ ...n, id: undefined, ref: undefined, title: n.title + ' 副本', pinned: false, created: todayStr(), updated: new Date().toISOString(), blocks: (n.blocks || []).map((b) => ({ ...b, id: uid() })) }); go('notes/' + c.id); } },
     { label: '复制链接', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(location.origin + location.pathname + '#/notes/' + n.id); toast('已复制链接'); } },
     extra.move && { label: '移动到…', icon: 'layers', onClick: extra.move },
     ...(extra.notebooks ? ['sep', ...extra.notebooks.map((b) => ({ label: `放入「${b.name}」`, icon: b.id === n.nb ? 'check' : 'book', onClick: () => { const ids = new Set([n.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b.id; if (x.id === n.id) x.parent = null; }); }); } }))] : []),
@@ -191,7 +206,8 @@ export default function Notes({ route }) {
     }
   }, [id]);
   const note = s.notes.find((n) => n.id === id);
-  useEffect(() => { if (note) { tree.openPath(ancestors(s.notes, note).map((a) => a.id)); if (note.nb && nbSel !== 'all' && nbSel !== 'fav' && nbSel !== note.nb) pick(note.nb); } }, [id]);
+  // keep the list on the notebook of the open page (also when the page is moved to another notebook)
+  useEffect(() => { if (note) { tree.openPath(ancestors(s.notes, note).map((a) => a.id)); if (note.nb && nbSel !== 'all' && nbSel !== 'fav' && nbSel !== note.nb) pick(note.nb); } }, [id, note && note.nb]);
   useEffect(() => { if (nbSel === 'trash' && !(s.trash || []).length && !trashed) pick('all'); }, [s.trash]);
 
   const nbs = sortBy(s.notebooks, 'order');
@@ -265,9 +281,22 @@ export default function Notes({ route }) {
 }
 
 function TagsView({ notes }) {
-  const tags = useMemo(() => { const m = new Map(); notes.forEach((n) => n.tags.forEach((t) => m.set(t, (m.get(t) || 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1]); }, [notes]);
-  return html`<div class="page"><div class="crumbs"><a href="#/notes">笔记</a><span>/</span><b>标签</b></div><div class="page-body">
-    ${tags.length === 0 ? html`<${Empty} icon="tag" text="还没有标签。在页面属性里给页面加标签。" />` : tags.map(([t, c]) => html`<div class="tag-group" key=${t}><div class="sec-h"><${Tag}>${t}<//> <span class="muted">${c}</span></div>${notes.filter((n) => n.tags.includes(t)).map((n) => html`<a class="sub-row" href=${'#/notes/' + n.id}><${Icon} name="note" size=${14} class="muted" />${noteTitle(n)}</a>`)}</div>`)}
+  const tags = useMemo(() => allTags(notes), [notes]);
+  const [sel, setSel] = useState(null);
+  const menu = (e, t) => ctxMenu(e, [
+    { label: '查看这些页面', icon: 'search', onClick: () => go('notes?tag=' + encodeURIComponent(t)) },
+    { label: '重命名标签', icon: 'edit', onClick: async () => { const v = await askPrompt('新的标签名', t, { title: '重命名标签' }); if (v != null) renameTag(t, v); } },
+    'sep',
+    { label: '从所有页面移除', icon: 'trash', danger: true, onClick: () => { const n = notes.filter((x) => x.tags.includes(t)).length; const backup = notes.filter((x) => x.tags.includes(t)).map((x) => ({ id: x.id, tags: x.tags })); deleteTag(t); toast(`已从 ${n} 页移除「${t}」`, { label: '撤销', onClick: () => update((d) => { backup.forEach((b) => { const x = d.notes.find((y) => y.id === b.id); if (x) x.tags = b.tags; }); }) }); } },
+  ], '#' + t);
+  const cur = sel && tags.some(([t]) => t === sel) ? sel : (tags[0] ? tags[0][0] : null);
+  const pages = cur ? sortBy(notes.filter((n) => n.tags.includes(cur)), '-updated') : [];
+  return html`<div class="page"><div class="crumbs"><a href="#/notes">笔记</a><span>/</span><b>标签</b><span class="flex1"></span><span class="small muted">${tags.length} 个标签 · 右键可重命名或移除</span></div><div class="page-body">
+    ${tags.length === 0 ? html`<${Empty} icon="tag" text="还没有标签。在页面标题下面点「+ 标签」给页面加标签。" />` : html`
+      <div class="tag-cloud">${tags.map(([t, c]) => html`<button key=${t} class=${'tag-chip ' + (t === cur ? 'on' : '')} onClick=${() => setSel(t)} onContextMenu=${(e) => menu(e, t)}><span>${t}</span><small>${c}</small></button>`)}</div>
+      ${cur && html`<div class="tag-group"><div class="sec-h"><span>#${cur}</span><span class="muted">${pages.length} 页</span><span class="flex1"></span><button class="btn ghost sm" onClick=${() => go('notes?tag=' + encodeURIComponent(cur))}>在列表里筛选</button></div>
+        ${pages.map((n) => html`<a class="sub-row" key=${n.id} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, notes), noteTitle(n))}><${Icon} name="note" size=${14} class="muted" /><span class="flex1">${noteTitle(n)}</span><span class="muted small">${n.tags.filter((x) => x !== cur).map((x) => '#' + x).join(' ')}</span><span class="muted small" style="margin-left:12px">${n.updated.slice(5, 10).replace('-', '/')}</span></a>`)}
+      </div>`}`}
   </div></div>`;
 }
 
@@ -282,16 +311,20 @@ class Still extends Component {
 function MetaLine({ note, notes, notebooks, words, onMove }) {
   const [adding, setAdding] = useState(false);
   const [txt, setTxt] = useState('');
+  const [sugIdx, setSugIdx] = useState(0);
   const nb = notebooks.find((x) => x.id === note.nb);
-  const addTag = () => { const t = txt.trim().replace(/^#/, ''); if (t && !note.tags.includes(t)) upsert('notes', { id: note.id, tags: [...note.tags, t] }); setTxt(''); };
-  const moveTo = (b) => { const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b.id; if (x.id === note.id) x.parent = null; }); }); };
+  // suggestions: existing tags matching what was typed; the typed text itself comes first as "创建" when it is new
+  const sugs = useMemo(() => { if (!adding) return []; const typed = txt.trim().replace(/^#/, ''); const k = typed.toLowerCase(); const ex = allTags(notes).map(([t]) => t).filter((t) => !note.tags.includes(t) && (!k || t.toLowerCase().includes(k))).slice(0, 8); return typed && !ex.some((t) => t.toLowerCase() === k) && !note.tags.includes(typed) ? [{ t: typed, create: true }, ...ex.map((t) => ({ t }))] : ex.map((t) => ({ t })); }, [adding, txt, notes, note.tags]);
+  const addTag = (v) => { const t = (v != null ? v : txt).trim().replace(/^#/, ''); if (t && !note.tags.includes(t)) upsert('notes', { id: note.id, tags: [...note.tags, t] }); setTxt(''); setSugIdx(0); };
+  const moveTo = (b) => { if (b.id === note.nb) return; const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b.id; if (x.id === note.id) x.parent = null; }); }); };
   const nbMenu = (e) => ctxMenu(e, [...notebooks.map((b) => ({ label: b.name, icon: b.id === note.nb ? 'check' : 'book', onClick: () => moveTo(b) })), 'sep', { label: '移动到页面下…', icon: 'layers', onClick: onMove }], '放入本子');
   const upd = new Date(note.updated);
   const tip = `更新 ${upd.toLocaleString('zh-CN', { hour12: false })}\n创建 ${note.created}`;
   return html`<div class="meta-line">
     <button class="mchip" onClick=${nbMenu} title="放入其他本子"><i class="nb-dot" style=${`background:${nb ? nb.color : '#999'}`}></i>${nb ? nb.name : '收件箱'}<${Icon} name="down" size=${10} /></button>
     ${note.tags.map((t) => html`<span class="mtag" key=${t}><a href=${'#/notes?tag=' + encodeURIComponent(t)}>${t}</a><button title="移除标签" onClick=${() => upsert('notes', { id: note.id, tags: note.tags.filter((x) => x !== t) })}>×</button></span>`)}
-    ${adding ? html`<input class="mtag-in" ref=${(el) => el && !el.dataset.f && (el.dataset.f = 1, setTimeout(() => el.focus(), 0))} value=${txt} placeholder="标签" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } if (e.key === 'Escape') { setTxt(''); setAdding(false); } }} onBlur=${() => { addTag(); setAdding(false); }} />`
+    ${adding ? html`<span class="mtag-wrap"><input class="mtag-in" ref=${(el) => el && !el.dataset.f && (el.dataset.f = 1, setTimeout(() => el.focus(), 0))} value=${txt} placeholder="标签" onInput=${(e) => { setTxt(e.target.value); setSugIdx(0); }} onKeyDown=${(e) => { if (e.isComposing) return; if (e.key === 'ArrowDown') { e.preventDefault(); setSugIdx((i) => Math.min(sugs.length - 1, i + 1)); } else if (e.key === 'ArrowUp') { e.preventDefault(); setSugIdx((i) => Math.max(0, i - 1)); } else if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') { e.preventDefault(); const pick = sugs[sugIdx]; addTag(pick ? pick.t : txt.trim()); } else if (e.key === 'Escape') { setTxt(''); setAdding(false); } else if (e.key === 'Backspace' && !txt && note.tags.length) { upsert('notes', { id: note.id, tags: note.tags.slice(0, -1) }); } }} onBlur=${() => { setTimeout(() => { addTag(); setAdding(false); }, 120); }} />
+      ${sugs.length > 0 && html`<div class="popmenu tag-sug">${sugs.map((x, i) => html`<div class=${'pm ' + (i === sugIdx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); addTag(x.t); }}><b>${x.create ? `创建「${x.t}」` : x.t}</b></div>`)}</div>`}</span>`
       : html`<button class="mchip ghost" onClick=${() => setAdding(true)} title="添加标签"><${Icon} name="plus" size=${11} />${note.tags.length ? '' : ' 标签'}</button>`}
     <span class="mdate" title=${tip}>${upd.getMonth() + 1}月${upd.getDate()}日 · ${words} 字</span>
     ${note.ref && html`<a class="mchip src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}
@@ -303,13 +336,18 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   const [focus, setFocus] = useState(() => document.body.classList.contains('focus-mode'));
   useEffect(() => { document.body.classList.toggle('focus-mode', focus); const k = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-bg, .popmenu, .ctx')) setFocus(false); }; window.addEventListener('keydown', k); return () => { window.removeEventListener('keydown', k); document.body.classList.remove('focus-mode'); }; }, [focus]);
   const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: new Date().toISOString() }), 250), []);
+  const [titleTxt, setTitleTxt] = useState(note.title);
+  const titleRef = useRef();
+  useEffect(() => { if (document.activeElement !== titleRef.current) setTitleTxt(note.title); }, [note.title]);
+  useEffect(() => { if (isBlank(note) && titleRef.current && !document.querySelector('.modal-bg')) titleRef.current.focus(); }, [note.id]);
+  const intoEditor = () => { const root = document.querySelector('.beditor'); if (!focusEditor(root, 'start')) root && root.focus(); };
+  const backToTitle = useMemo(() => () => { const t = titleRef.current; if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, []);
   const onBlocks = useMemo(() => (blocks) => upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() }), [note.id]);
   const blocks = useMemo(() => (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), [note.id]);
   const notesRef = useRef(notes); notesRef.current = notes;
   const openLink = useMemo(() => (t) => go('notes/t:' + encodeURIComponent(t)), []);
   const createRef = useRef(); createRef.current = (title) => { if (!findByTitle(get().notes, title)) newNote({ title, parent: note.id }); };
   const createLinkedStable = useMemo(() => (t) => createRef.current(t), []);
-  const createLinked = (title) => { if (!findByTitle(get().notes, title)) newNote({ title, parent: note.id }); };
   const crumbs = ancestors(notes, note);
   const kids = childrenOf(notes, note.id);
   const title = noteTitle(note);
@@ -340,15 +378,15 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     </div>
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
-      <input class="page-title" type="text" value=${note.title} placeholder="无标题" onInput=${(e) => save({ id: note.id, title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); const el = document.querySelector('.beditor .b-text'); if (el) el.focus(); } }} />
+      <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
       <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} />
-      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} /><//>
+      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} /><//>
       ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
       <div class="links-sec">
         ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? '' : '＋ '}${t}</a>`)}</div>`}
         <div class="sec-h" style="margin-top:14px">反向链接 <span class="muted">${backlinks.length}</span></div>
         ${backlinks.length === 0 ? html`<p class="small muted">还没有其他页面链接到这里。在别的页面里写 <code>[[${title}]]</code> 就会出现在这。</p>` : backlinks.map((n) => html`<a class="bl" href=${'#/notes/' + n.id}><b>${noteTitle(n)}</b><p dangerouslySetInnerHTML=${{ __html: escapeHtml(snippet(n, '[[' + note.title)).replace(escapeHtml('[[' + note.title + ']]'), `<mark>${escapeHtml(note.title)}</mark>`) }}></p></a>`)}
-        ${mentions.length > 0 && html`<div class="sec-h" style="margin-top:14px">未链接的提及 <span class="muted">${mentions.length}</span></div>${mentions.map((n) => html`<div class="bl"><a href=${'#/notes/' + n.id}><b>${noteTitle(n)}</b></a><p>${snippet(n, note.title)}</p><button class="btn ghost sm" onClick=${() => upsert('notes', { id: n.id, body: n.body.split(note.title.trim()).join(`[[${note.title.trim()}]]`), updated: new Date().toISOString() })}>转为链接</button></div>`)}`}
+        ${mentions.length > 0 && html`<div class="sec-h" style="margin-top:14px">未链接的提及 <span class="muted">${mentions.length}</span></div>${mentions.map((n) => html`<div class="bl"><a href=${'#/notes/' + n.id}><b>${noteTitle(n)}</b></a><p>${snippet(n, note.title)}</p><button class="btn ghost sm" onClick=${() => linkifyMentions(n, note.title)}>转为链接</button></div>`)}`}
       </div>
     </div>
     <${MoveModal} open=${moveOpen} note=${note} notes=${notes} onClose=${() => setMoveOpen(false)} />

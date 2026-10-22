@@ -471,7 +471,7 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .nb-rename{flex:1;min-width:0;width:0;padding:2px 6px;font-size:.84rem;border-radius:6px;background:var(--bg)}
 .nb-foot{display:flex;gap:2px;padding-top:8px;border-top:1px solid var(--line);margin-top:6px}
 .nb-i.trash-i{margin-top:auto;color:var(--text-4)}
-.li-i{padding-right:60px}
+.li-i{padding-right:40px}
 .li-i .li-acts{position:absolute;right:6px;top:6px;display:flex;gap:0;opacity:0;transition:opacity .15s}
 .li-i:hover .li-acts,.li-i.active .li-acts{opacity:1}
 .li-i .li-acts .ibtn{width:26px;height:26px;color:var(--text-4)}.li-i .li-acts .ibtn:hover{background:var(--hover-2);color:var(--text)}
@@ -500,7 +500,13 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .pv-sel{width:auto;padding:3px 24px 3px 8px;font-size:.82rem;border-color:transparent;background-color:transparent}.pv-sel:hover{background-color:var(--hover)}
 .nb-row{padding-left:4px}.nb-row .pt-link{font-weight:500;color:var(--text-2)}
 .nb-pages{padding-left:14px}
-.tag-group{margin-bottom:18px}
+.tag-group{margin-bottom:18px}.tag-group .sec-h{display:flex;align-items:center;gap:8px}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 22px}
+.tag-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 12px;border-radius:9px;background:var(--tag-bg);color:var(--text-2);font-size:.82rem;transition:background .12s,color .12s}
+.tag-chip small{font-size:.68rem;color:var(--text-4);background:var(--paper);border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
+.tag-chip:hover{background:var(--hover-2)}.tag-chip.on{background:var(--ink);color:var(--bg)}.tag-chip.on small{background:rgba(255,255,255,.18);color:inherit}
+.mtag-wrap{position:relative;display:inline-flex}
+.tag-sug{position:absolute;left:0;top:30px;width:180px;max-height:240px;z-index:45}
 
 /* ===== Notes: pages ===== */
 .notes-layout{display:grid;grid-template-columns:250px 1fr;gap:12px;align-items:start}

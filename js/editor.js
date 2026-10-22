@@ -144,16 +144,28 @@ function toggleCode() {
   try { r.surroundContents(code); } catch { code.appendChild(r.extractContents()); r.insertNode(code); }
 }
 
+// Put the caret at the start (or end) of the first (or last) text block of an editor root.
+export function focusEditor(root, where = 'start') {
+  if (!root) return false;
+  const texts = root.querySelectorAll('.b-row .b-text'); const el = where === 'end' ? texts[texts.length - 1] : texts[0];
+  if (!el) return false;
+  setCaret(el, where); return true;
+}
+
 /* ---------- editor ---------- */
-export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont }) {
+export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop }) {
   const allNotes = () => (notesRef ? notesRef.current : notes);
   const [bs, setBs] = useState(() => (initial && initial.length ? initial.map((b) => ({ ...b, v: 0 })) : [block('p', '', { v: 0 })]));
   const [focusReq, setFocusReq] = useState(null);
   const [menu, setMenu] = useState(null);
   const menuRef = useRef(null); menuRef.current = menu;
   const [hmenu, setHmenu] = useState(null);
-  const [dragId, setDragId] = useState(null);
-  const [dropAt, setDropAt] = useState(null);
+  const [dragId, setDragIdState] = useState(null);
+  const dragRef = useRef(null);
+  const setDragId = (v) => { dragRef.current = v; setDragIdState(v); };
+  const [dropAt, setDropAtState] = useState(null);
+  const dropRef = useRef(null);
+  const setDropAt = (v) => { dropRef.current = v; setDropAtState(v); };
   const [mdEdit, setMdEdit] = useState(null);
   const [tb, setTb] = useState(null); // selection toolbar { x, y }
   const [lp, setLp] = useState(null); // link popover: { x, y, href, el }
@@ -179,7 +191,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     cleanCache.current = fresh;
     onChange(out);
   }, [onChange]);
-  const syncFromDom = (list = bsRef.current) => list.map((b) => { const el = refs.current.get(b.id); return el && el.isConnected && TEXT_TYPES.includes(b.type) && el.innerHTML !== b.html ? { ...b, html: el.innerHTML } : b; });
+  const syncFromDom = (list = bsRef.current) => list.map((b) => { const el = refs.current.get(b.id); return el && el.isConnected && b.type !== 'divider' && el.innerHTML !== b.html ? { ...b, html: el.innerHTML } : b; });
   const bump = (b, patch) => ({ ...b, ...patch, v: (b.v || 0) + 1 });
   const scheduleEmit = () => { clearTimeout(emitTimer.current); emitTimer.current = setTimeout(() => emit(syncFromDom(bsRef.current)), 500); };
   useEffect(() => () => clearTimeout(emitTimer.current), []);
@@ -309,7 +321,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       return;
     }
     if (e.key === 'Enter') {
-      if (e.shiftKey) { e.preventDefault(); exec('insertHTML', '<br>'); return; }
+      if (e.shiftKey) { e.preventDefault(); exec('insertLineBreak'); scheduleEmit(); return; }
       e.preventDefault(); splitBlock(b, el); return;
     }
     if (e.key === 'Backspace') {
@@ -319,7 +331,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       if (b.type !== 'p') { update(b.id, { type: 'p' }, 'start'); return; }
       if (b.indent > 0) { update(b.id, { indent: b.indent - 1 }, 'start'); return; }
       const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id);
-      if (i === 0) return;
+      if (i === 0) { if (!el.textContent && onExitTop) onExitTop(); return; }
       const prev = list[i - 1];
       if (!TEXT_TYPES.includes(prev.type)) { if (!el.textContent) { list.splice(i, 1); emit(list); setFocusReq({ id: prev.id, pos: 'end' }); } else setFocusReq({ id: prev.id, pos: 'end' }); return; }
       const pos = textOf(prev.html).length;
@@ -334,7 +346,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       const pos = el.textContent.length;
       list[i] = bump(list[i], { html: el.innerHTML + next.html }); list.splice(i + 1, 1); emit(list); setFocusReq({ id: b.id, pos }); return;
     }
-    if (e.key === 'ArrowUp' && !e.shiftKey && onEdgeLine(el, 'up')) { const n = neighbor(b.id, -1); if (n) { e.preventDefault(); setFocusReq({ id: n.id, pos: 'end' }); } return; }
+    if (e.key === 'ArrowUp' && !e.shiftKey && onEdgeLine(el, 'up')) { const n = neighbor(b.id, -1); if (n) { e.preventDefault(); setFocusReq({ id: n.id, pos: 'end' }); } else if (onExitTop) { e.preventDefault(); onExitTop(); } return; }
     if (e.key === 'ArrowDown' && !e.shiftKey && onEdgeLine(el, 'down')) { const n = neighbor(b.id, 1); if (n) { e.preventDefault(); setFocusReq({ id: n.id, pos: 'start' }); } return; }
     if (e.key === 'Tab') { e.preventDefault(); const pos = caretOffset(el); update(b.id, { indent: Math.max(0, Math.min(3, (b.indent || 0) + (e.shiftKey ? -1 : 1))) }, pos); return; }
   };
@@ -362,9 +374,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
         const u = before.match(/(?:^|\s)(https?:\/\/[^\s<>"']{4,})\s$/); const s0 = sel(); const inA = s0 && s0.anchorNode && (s0.anchorNode.nodeType === 1 ? s0.anchorNode : s0.anchorNode.parentElement).closest('a');
         if (u && !inA) { const r = deleteBeforeCaret(el, u[1].length + 1); const a = document.createElement('a'); a.href = u[1]; a.target = '_blank'; a.rel = 'noopener'; a.textContent = u[1]; insertNodeAt(r, a); scheduleEmit(); return; }
         // list auto-format at the start of a paragraph, the way a document editor does it
-        if (b.type === 'p') {
+        if (['p', 'bullet', 'number', 'todo'].includes(b.type)) {
           const sc = [[/^[-*]\s$/, 'bullet'], [/^1[.)]\s$/, 'number'], [/^\[\]\s$/, 'todo'], [/^\[ \]\s$/, 'todo']];
-          for (const [re, type] of sc) if (re.test(before)) { deleteBeforeCaret(el, before.length); update(b.id, { type, html: el.innerHTML, checked: false }, 'start'); return; }
+          for (const [re, type] of sc) if (re.test(before) && type !== b.type) { deleteBeforeCaret(el, before.length); update(b.id, { type, html: el.innerHTML, checked: false }, 'start'); return; }
         }
       }
       if (d === '[' && /\[\[$/.test(before)) { setMenu({ kind: 'link', id: b.id, q: '', idx: 0 }); scheduleEmit(); return; }
@@ -502,9 +514,10 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   /* --- block drag & drop (gutter handle) --- */
   const onDropRow = (e, targetId) => {
     e.preventDefault();
+    const dragId = dragRef.current;
     if (!dragId || dragId === targetId) { setDragId(null); setDropAt(null); return; }
     const list = syncFromDom(bsRef.current); const from = list.findIndex((x) => x.id === dragId); const [mv] = list.splice(from, 1);
-    let to = list.findIndex((x) => x.id === targetId); if (dropAt && dropAt.after) to++;
+    let to = list.findIndex((x) => x.id === targetId); if (dropRef.current && dropRef.current.after) to++;
     list.splice(to, 0, mv); emit(list); setDragId(null); setDropAt(null);
   };
   const addBelow = (id) => insertAfter(id, block('p'));
@@ -516,7 +529,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (lk) { e.preventDefault(); if (e.metaKey || e.ctrlKey) { window.open(lk.getAttribute('href'), '_blank', 'noopener'); return; } const r = lk.getBoundingClientRect(), rr = root.current.getBoundingClientRect(); setLp({ x: r.left - rr.left, y: r.bottom - rr.top + 6, href: lk.getAttribute('href'), el: lk }); return; }
     // click on the empty space below the last block: a drag that ends in another block also "clicks" the root, so require press and release there
     const blank = (t) => t === root.current || t.classList.contains('b-tail');
-    if (blank(e.target) && downAt.current && blank(downAt.current) && sel().isCollapsed) { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); }
+    if (blank(e.target) && downAt.current && blank(downAt.current)) { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); }
   };
   const onCtx = (e) => {
     const rows = rowsInSelection(root.current);
@@ -530,9 +543,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     ], `${rows.length} 个块`);
   };
   // native text drag/drop between rows: the browser moves the text, then we read the rows back
-  const onDrop = () => { if (dragId) return; setTimeout(() => emit(syncFromDom(bsRef.current)), 0); };
+  const onDrop = () => { if (dragRef.current) return; setTimeout(() => emit(syncFromDom(bsRef.current)), 0); };
 
-  Object.assign(api.current, { refs, update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert });
+  Object.assign(api.current, { refs, dragRef, update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert });
   const items = menuItems();
   const tbBtn = (title, fn, child, cls = '') => html`<button title=${title} class=${cls} onMouseDown=${(e) => e.preventDefault()} onClick=${() => { fn(); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); }}>${child}</button>`;
 
@@ -605,8 +618,8 @@ class Row extends Component {
       ], '块');
     };
     return html`<div class=${'b-row' + dropCls + (drag ? ' dragging' : '')} style=${`--ind:${b.indent || 0}`} data-type=${b.type} data-id=${b.id} onContextMenu=${menu}
-      onDragOver=${(e) => { if (!dragging) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setDropAt({ id: b.id, after: e.clientY > r.top + r.height / 2 }); }}
-      onDrop=${(e) => { if (dragging) onDropRow(e, b.id); }}>
+      onDragOver=${(e) => { if (!api.dragRef.current) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setDropAt({ id: b.id, after: e.clientY > r.top + r.height / 2 }); }}
+      onDrop=${(e) => { if (api.dragRef.current) onDropRow(e, b.id); }}>
       <div class="b-gutter" contenteditable="false">
         <button class="b-plus" title="在下方添加块" onMouseDown=${(e) => e.preventDefault()} onClick=${() => addBelow(b.id)}><${Icon} name="plus" size=${14} /></button>
         <button class="b-handle" title="拖动 · 点击打开菜单" draggable="true" onDragStart=${(e) => { setDragId(b.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.id); }} onDragEnd=${() => { setDragId(null); setDropAt(null); }} onMouseDown=${(e) => e.preventDefault()} onClick=${() => setHmenu(hm ? null : b.id)}>⋮⋮</button>
