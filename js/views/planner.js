@@ -1,9 +1,10 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
-import { useStore, update, upsert, remove, get } from '../store.js';
+import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput } from '../ui.js';
 import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
+import { toast } from '../nav.js';
 import { dragProps, dropProps } from '../dnd.js';
 
 /* ---------- Weekly plan ---------- */
@@ -73,7 +74,7 @@ export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
     onClose();
   };
   return html`<${Modal} open=${open} onClose=${onClose} title=${block ? '编辑时间块' : '新建时间块'} foot=${html`
-    ${block && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { remove('blocks', block.id); onClose(); }}>删除<//>`}
+    ${block && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { removeUndo('blocks', block.id, block.title); onClose(); }}>删除<//>`}
     <span class="flex1"></span><${Btn} kind="ghost" onClick=${onClose}>取消<//><${Btn} kind="primary" icon="check" onClick=${save}>保存<//>`}>
     <div class="form">
       <${Field} label="做什么"><input type="text" autofocus value=${f.title} onInput=${(e) => set('title', e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && save()} /><//>
@@ -133,7 +134,7 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 6, to = 24, ho
         'sep',
         ...BLOCK_KINDS.map((k) => ({ label: k.name, icon: k.v === b.kind ? 'check' : 'tag', onClick: () => upsert('blocks', { id: b.id, kind: k.v }) })),
         'sep',
-        { label: '删除', icon: 'trash', danger: true, onClick: () => remove('blocks', b.id) },
+        { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) },
       ], b.title)}><b>${b.title}</b><small>${b.start}–${b.end}</small><span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
     })}
     ${isToday && nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="now" style=${`top:${y(nowMin)}px`}></div>`}
@@ -206,7 +207,7 @@ function GoalModal({ open, goal, onClose, month }) {
     onClose();
   };
   return html`<${Modal} open=${open} onClose=${onClose} title=${goal ? '编辑目标' : '本月新目标'} foot=${html`
-    ${goal && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { if (confirmDel()) { update((d) => { d.goals[month] = (d.goals[month] || []).filter((g) => g.id !== goal.id); }); onClose(); } }}>删除<//>`}
+    ${goal && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { const snap = goal; update((d) => { d.goals[month] = (d.goals[month] || []).filter((g) => g.id !== goal.id); }); onClose(); toast(`已删除「${goal.title}」`, { label: '撤销', onClick: () => update((d) => { d.goals[month] = [...(d.goals[month] || []), snap]; }) }); }}>删除<//>`}
     <span class="flex1"></span><${Btn} kind="ghost" onClick=${onClose}>取消<//><${Btn} kind="primary" icon="check" onClick=${save}>保存<//>`}>
     <div class="form">
       <${Field} label="目标"><input type="text" autofocus value=${f.title} placeholder="这个月想达成…" onInput=${(e) => set('title', e.target.value)} /><//>
@@ -254,7 +255,7 @@ function MonthGoals() {
     </div>
     ${goals.length === 0 ? html`<${Card}><${Empty} icon="target" text="这个月还没有目标。定三个就好，少即是多。" /><//>` : html`<div class="goals">${goals.map((g) => {
       const pct = goalPct(g);
-      return html`<${Card} class=${'goal ' + (pct >= 100 ? 'done-all' : '')} key=${g.id} ...${dragProps('goal', { id: g.id })} ...${dropProps('goal', (d, { after }) => { if (d.id === g.id) return; update((dd) => { const list = dd.goals[month]; const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === g.id); if (after) to++; list.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => { setEditing(g); setModal(true); } }, { label: '复制到下个月', icon: 'calendar', onClick: () => update((d) => { const nm = shiftMonth(month, 1); d.goals[nm] = d.goals[nm] || []; d.goals[nm].push({ ...g, id: uid(), progress: 0, krs: g.krs.map((k) => ({ ...k, id: uid(), done: false })) }); }) }, { label: '全部关键结果标为完成', icon: 'check', disabled: !g.krs.length, onClick: () => update((d) => { d.goals[month].find((x) => x.id === g.id).krs.forEach((k) => { k.done = true; }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => confirmDel() && update((d) => { d.goals[month] = d.goals[month].filter((x) => x.id !== g.id); }) }], g.title)}>
+      return html`<${Card} class=${'goal ' + (pct >= 100 ? 'done-all' : '')} key=${g.id} ...${dragProps('goal', { id: g.id })} ...${dropProps('goal', (d, { after }) => { if (d.id === g.id) return; update((dd) => { const list = dd.goals[month]; const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === g.id); if (after) to++; list.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => { setEditing(g); setModal(true); } }, { label: '复制到下个月', icon: 'calendar', onClick: () => update((d) => { const nm = shiftMonth(month, 1); d.goals[nm] = d.goals[nm] || []; d.goals[nm].push({ ...g, id: uid(), progress: 0, krs: g.krs.map((k) => ({ ...k, id: uid(), done: false })) }); }) }, { label: '全部关键结果标为完成', icon: 'check', disabled: !g.krs.length, onClick: () => update((d) => { d.goals[month].find((x) => x.id === g.id).krs.forEach((k) => { k.done = true; }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => { update((d) => { d.goals[month] = d.goals[month].filter((x) => x.id !== g.id); }); toast(`已删除「${g.title}」`, { label: '撤销', onClick: () => update((d) => { d.goals[month] = [...(d.goals[month] || []), g]; }) }); } }], g.title)}>
         <div class="gh"><div class="flex1"><h4>${g.title}</h4>${g.area && html`<${Tag}>${g.area}<//>`}</div><span class="pct">${pct}%</span><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => { setEditing(g); setModal(true); }} /></div>
         <div style="margin-top:10px"><${Progress} value=${pct} /></div>
         ${g.why && html`<p class="small muted" style="margin-top:8px">${g.why}</p>`}

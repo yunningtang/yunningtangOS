@@ -1,8 +1,9 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
-import { useStore, update, upsert, remove, toggleTodo } from '../store.js';
+import { useStore, update, upsert, remove, toggleTodo, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort } from '../util.js';
 import { ctxMenu } from '../ctx.js';
+import { askConfirm } from '../confirm.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { toast } from '../nav.js';
 
@@ -38,7 +39,7 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
     onClose();
   };
   return html`<${Modal} open=${open} onClose=${onClose} title=${todo ? '编辑待办' : '新建待办'} foot=${html`
-    ${todo && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { if (confirmDel()) { remove('todos', todo.id); onClose(); } }}>删除<//>`}
+    ${todo && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { removeUndo('todos', todo.id, todo.title || todo.place || todo.url); onClose(); }}>删除<//>`}
     <span class="flex1"></span>
     <${Btn} kind="ghost" onClick=${onClose}>取消<//>
     <${Btn} kind="primary" icon="check" onClick=${save}>保存<//>`}>
@@ -71,7 +72,7 @@ export function todoMenu(t, onEdit) {
     'sep',
     { label: '复制一份', icon: 'layers', onClick: () => upsert('todos', { ...t, id: uid(), done: false, completedAt: null, created: today }) },
     { label: '复制标题', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(t.title); toast('已复制'); } },
-    { label: '删除', icon: 'trash', danger: true, onClick: () => remove('todos', t.id) },
+    { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('todos', t.id, t.title || t.place || t.url) },
   ];
 }
 
@@ -172,7 +173,7 @@ export default function Todos() {
         <div class="todo-group" ...${dropProps('todo', (d) => { const map = { 逾期: addDays(today, -1), 今天: today, 明天: addDays(today, 1), 本周: addDays(today, 2), 之后: addDays(today, 8), 未排期: '', 已完成: null }; const due = map[name]; if (due === null) { const t = s.todos.find((x) => x.id === d.id); if (t && !t.done) toggleTodo(d.id); } else upsert('todos', { id: d.id, due, ...(due === '' ? { time: '' } : {}) }); })}>
         <div class="group-h">${name}<i></i><span>${list.length}</span></div>
         ${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} onEdit=${(x) => { setEditing(x); setModal(true); }} />`)}</div>`)}
-      ${view === 'done' && todos.length > 0 && html`<div class="row" style="justify-content:flex-end;margin-top:10px"><${Btn} kind="ghost" small icon="archive" onClick=${() => { if (confirmDel('清空所有已完成的待办？')) update((d) => { d.todos = d.todos.filter((t) => !t.done); }); }}>清空已完成<//></div>`}
+      ${view === 'done' && todos.length > 0 && html`<div class="row" style="justify-content:flex-end;margin-top:10px"><${Btn} kind="ghost" small icon="archive" onClick=${async () => { if (await askConfirm(`将移除 ${todos.length} 项已完成的待办。`, { title: '清空已完成？', ok: '清空' })) update((d) => { d.todos = d.todos.filter((t) => !t.done); }); }}>清空已完成<//></div>`}
     <//>
     <${TodoModal} open=${modal} todo=${editing} onClose=${() => setModal(false)} />
   </div>`;

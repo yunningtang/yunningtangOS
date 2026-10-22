@@ -1,5 +1,5 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
-import { useStore, upsert, remove } from '../store.js';
+import { useStore, upsert, remove, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Stars, TagInput, confirmDel, DateInput } from '../ui.js';
 import { uid, todayStr, sortBy, fmtDate } from '../util.js';
 import { mountGlobe } from '../globe.js';
@@ -19,7 +19,7 @@ export function TripModal({ open, trip, onClose }) {
     onClose();
   };
   return html`<${Modal} open=${open} onClose=${onClose} title=${trip ? '编辑足迹' : '记录一个地方'} foot=${html`
-    ${trip && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { if (confirmDel()) { remove('trips', trip.id); onClose(); } }}>删除<//>`}
+    ${trip && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { removeUndo('trips', trip.id, trip.title || trip.place || trip.url); onClose(); }}>删除<//>`}
     <span class="flex1"></span><${Btn} kind="ghost" onClick=${onClose}>取消<//><${Btn} kind="primary" icon="check" onClick=${save}>保存<//>`}>
     <div class="form">
       <div class="grid3">
@@ -87,7 +87,7 @@ export default function Explore() {
       </div>
       <div class="stack">
         <${Card} title="地点列表" sub="按时间倒序" action=${html`<div class="seg" data-liquid="button"><span class="liq"></span>${[['all', '全部'], ['trip', '旅行'], ['live', '居住'], ['wish', '想去']].map(([v, n]) => html`<button type="button" class=${kind === v ? 'on' : ''} onClick=${() => setKind(v)} ...${v === 'all' ? {} : dropProps('trip', (d) => upsert('trips', { id: d.id, kind: v }))}>${n}</button>`)}</div>`}>
-          ${trips.length === 0 ? html`<${Empty} icon="pin" text="还没有足迹。从出生的城市开始吧。" />` : html`<div class="trip-list">${trips.map((t) => html`<div class=${'trip ' + (sel === t.id ? 'on' : '')} key=${t.id} ...${dragProps('trip', { id: t.id })} onClick=${() => setSel(t.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: '在星球上查看', icon: 'globe', onClick: () => setSel(t.id) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(t); setModal(true); } }, 'sep', ...[['trip', '旅行'], ['live', '居住过'], ['wish', '想去']].map(([v, n]) => ({ label: n, icon: (t.kind || 'trip') === v ? 'check' : 'pin', onClick: () => upsert('trips', { id: t.id, kind: v }) })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => confirmDel() && remove('trips', t.id) }], t.place)}>
+          ${trips.length === 0 ? html`<${Empty} icon="pin" text="还没有足迹。从出生的城市开始吧。" />` : html`<div class="trip-list">${trips.map((t) => html`<div class=${'trip ' + (sel === t.id ? 'on' : '')} key=${t.id} ...${dragProps('trip', { id: t.id })} onClick=${() => setSel(t.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: '在星球上查看', icon: 'globe', onClick: () => setSel(t.id) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(t); setModal(true); } }, 'sep', ...[['trip', '旅行'], ['live', '居住过'], ['wish', '想去']].map(([v, n]) => ({ label: n, icon: (t.kind || 'trip') === v ? 'check' : 'pin', onClick: () => upsert('trips', { id: t.id, kind: v }) })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('trips', t.id, t.title || t.place || t.url) }], t.place)}>
             <div class="pinic" data-kind=${t.kind || 'trip'}><${Icon} name=${t.kind === 'wish' ? 'star' : t.kind === 'live' ? 'home' : 'pin'} size=${14} /></div>
             <div class="ti"><b>${t.place}</b><small>${t.region ? t.region + ' · ' : ''}${t.country} · ${t.date}</small>${t.note && html`<p>${t.note}</p>`}</div>
           </div>`)}</div>`}

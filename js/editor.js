@@ -3,6 +3,7 @@ import { html, useState, useRef, useEffect, useLayoutEffect, useMemo, useCallbac
 import { marked } from '../vendor/marked.js';
 import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
+import { askPrompt } from './confirm.js';
 import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks } from './blocks.js';
 import { todayStr, escapeHtml } from './util.js';
 
@@ -133,7 +134,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (mod && !e.shiftKey && e.key.toLowerCase() === 'u') { e.preventDefault(); exec('underline'); return; }
     if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); toggleCode(); return; }
     if (mod && e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); exec('strikeThrough'); return; }
-    if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); const url = prompt('链接地址'); if (url) exec('createLink', /^https?:/.test(url) ? url : 'https://' + url); return; }
+    if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); const sel0 = window.getSelection(); const range = sel0.rangeCount ? sel0.getRangeAt(0).cloneRange() : null; askPrompt('链接地址', '', { title: '插入链接', placeholder: 'https://' }).then((url) => { if (!url) return; el.focus(); if (range) { const s2 = window.getSelection(); s2.removeAllRanges(); s2.addRange(range); } exec('createLink', /^https?:/.test(url) ? url : 'https://' + url); }); return; }
     if (b.type === 'code' || b.type === 'md') {
       if (e.key === 'Escape') { el.blur(); setMdEdit(null); }
       if (e.key === 'Tab') { e.preventDefault(); exec('insertText', '  '); }
@@ -228,9 +229,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     setMenu(null);
     if (it.k === 'date') { exec('insertText', todayStr() + ' '); b.html = el.innerHTML; emit(syncFromDom(bsRef.current)); return; }
     if (it.k === 'link') { exec('insertText', '[['); setMenu({ kind: 'link', id: b.id, q: '', idx: 0 }); return; }
-    if (it.k === 'sub') { const title = prompt('子页面标题', '新页面'); if (!title) return; if (onCreatePage) onCreatePage(title); exec('insertHTML', `<a class="wiki" data-title="${escapeHtml(title)}" contenteditable="false">${escapeHtml(title)}</a>&nbsp;`); b.html = el.innerHTML; emit(syncFromDom(bsRef.current)); return; }
+    if (it.k === 'sub') { askPrompt('子页面标题', '', { title: '新建子页面', placeholder: '标题' }).then((title) => { if (!title) return; if (onCreatePage) onCreatePage(title); el.focus(); exec('insertHTML', `<a class="wiki" data-title="${escapeHtml(title)}" contenteditable="false">${escapeHtml(title)}</a>&nbsp;`); b.html = el.innerHTML; emit(syncFromDom(bsRef.current)); }); return; }
     const type = it.type;
-    if (type === 'image') { const url = prompt('图片链接'); if (!url) return; if (!el.textContent.trim()) update(b.id, { type: 'image', url, html: '' }); else insertAfter(b.id, block('image', '', { url })); return; }
+    if (type === 'image') { askPrompt('图片链接', '', { title: '插入图片', placeholder: 'https://…' }).then((url) => { if (!url) return; if (!el.textContent.trim()) update(b.id, { type: 'image', url, html: '' }); else insertAfter(b.id, block('image', '', { url })); }); return; }
     if (type === 'divider') { if (!el.textContent.trim()) { const list = syncFromDom(bsRef.current).map((x) => (x.id === b.id ? bump(x, { type: 'divider', html: '' }) : x)); const i = list.findIndex((x) => x.id === b.id); const nb = { ...block('p'), v: 0 }; list.splice(i + 1, 0, nb); emit(list); setFocusReq({ id: nb.id, pos: 'start' }); } else insertAfter(b.id, block('divider'), null); return; }
     if (type === 'code' || type === 'md') { update(b.id, { type, html: escapeHtml(el.textContent) }, 'end'); if (type === 'md') setMdEdit(b.id); return; }
     update(b.id, { type, html: el.innerHTML, checked: false }, 'end');

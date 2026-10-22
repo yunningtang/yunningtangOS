@@ -5,6 +5,7 @@ import { download, readFile, todayStr } from '../util.js';
 import { push, pull, smartSync, loginState, detectLogin, status as syncStatus } from '../sync.js';
 import { seed } from '../seed.js';
 import { toast } from '../nav.js';
+import { askConfirm } from '../confirm.js';
 
 export default function Settings() {
   const s = useStore();
@@ -53,7 +54,7 @@ export default function Settings() {
             <div class="row wrap">
               <${Btn} kind="primary" disabled=${busy} onClick=${() => run(smartSync)}>立即同步<//>
               <${Btn} disabled=${busy} onClick=${() => run(push, '已推送')}>推送（本地覆盖远端）<//>
-              <${Btn} disabled=${busy} onClick=${() => { if (confirmDel('用远端数据覆盖本地？')) run(pull, '已拉取'); }}>拉取（远端覆盖本地）<//>
+              <${Btn} disabled=${busy} onClick=${async () => { if (await askConfirm('本地未同步的改动会丢失。', { title: '用远端数据覆盖本地？', ok: '拉取' })) run(pull, '已拉取'); }}>拉取（远端覆盖本地）<//>
             </div>
             <p class="small muted">打开页面时会自动拉取较新的一方；编辑后几秒自动推送；切换标签页或关闭前也会推送。</p>`
           : login && login.configured ? html`
@@ -75,7 +76,7 @@ export default function Settings() {
             <div class="row wrap">
               <${Btn} kind="primary" disabled=${busy} onClick=${() => run(smartSync)}>智能同步<//>
               <${Btn} disabled=${busy} onClick=${() => run(push, '已推送')}>推送（本地覆盖远端）<//>
-              <${Btn} disabled=${busy} onClick=${() => { if (confirmDel('用远端数据覆盖本地？')) run(pull, '已拉取'); }}>拉取（远端覆盖本地）<//>
+              <${Btn} disabled=${busy} onClick=${async () => { if (await askConfirm('本地未同步的改动会丢失。', { title: '用远端数据覆盖本地？', ok: '拉取' })) run(pull, '已拉取'); }}>拉取（远端覆盖本地）<//>
             </div>`}
           <div class="sync-status"><span class=${'dot ' + (err ? 'err' : s.settings.lastSync ? 'ok' : '')}></span>${err || (s.settings.lastSync ? `上次同步 ${new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false })}` : '尚未同步')}</div>
           <p class="small muted">如果仓库是公开的，数据文件也会是公开的。私人内容请用私有仓库。</p>
@@ -86,7 +87,7 @@ export default function Settings() {
           <${Btn} icon="download" onClick=${() => download(`ytos-${todayStr()}.json`, exportJSON())}>导出 JSON<//>
           <label class="btn"><${Icon} name="upload" size=${15} /> 导入 JSON<input type="file" accept="application/json" style="display:none" onChange=${importFile} /></label>
           ${!s.settings.seeded && html`<${Btn} kind="ghost" icon="sparkle" onClick=${() => { seed(); toast('已载入示例数据'); }}>载入示例数据<//>`}
-          <${Btn} kind="ghost danger" icon="trash" onClick=${() => { if (confirmDel('清空所有数据？建议先导出。')) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空全部<//>
+          <${Btn} kind="ghost danger" icon="trash" onClick=${async () => { if (await askConfirm('所有待办、笔记、书、收藏、足迹都会被清除。建议先导出 JSON。', { title: '清空全部数据？', ok: '清空' })) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空全部<//>
         </div>
       <//>
       <${Card} title="快捷键">

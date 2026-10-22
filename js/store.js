@@ -143,6 +143,15 @@ export function remove(name, id) {
   commit({ ...state, [name]: state[name].filter((x) => x.id !== id) });
 }
 
+// Remove and offer undo via toast; restores at the original index.
+export function removeUndo(name, id, label) {
+  const i = state[name].findIndex((x) => x.id === id);
+  if (i < 0) return;
+  const item = state[name][i];
+  remove(name, id);
+  import('./nav.js').then(({ toast }) => toast(`已删除${label ? '「' + String(label).slice(0, 24) + '」' : ''}`, { label: '撤销', onClick: () => commit({ ...state, [name]: [...state[name].slice(0, i), item, ...state[name].slice(i)] }) }));
+}
+
 export function toggleTodo(id) {
   const t = state.todos.find((x) => x.id === id);
   if (!t) return;

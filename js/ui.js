@@ -162,9 +162,7 @@ export function AutoTextarea({ value, onInput, ...rest }) {
   return html`<textarea ref=${ref} value=${value} onInput=${onInput} ...${rest}></textarea>`;
 }
 
-export function confirmDel(msg = '确定删除？此操作不可撤销。') {
-  return window.confirm(msg);
-}
+export function confirmDel() { return true; } // deletions are undoable now; irreversible ones use askConfirm
 
 /* ---------- Date & time pickers (styled like the app, no native controls) ---------- */
 

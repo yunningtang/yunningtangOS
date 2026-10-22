@@ -5,6 +5,7 @@ import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal,
 import { uid, todayStr, sortBy, debounce, escapeHtml } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
+import { askConfirm, askPrompt } from '../confirm.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
 import { mountGraph } from '../graph.js';
@@ -52,7 +53,7 @@ export function notebookMenu(nb, s, onRename) {
     { label: '重命名', icon: 'edit', onClick: onRename },
     { label: '换颜色', icon: 'tag', onClick: () => update((d) => { const b = d.notebooks.find((x) => x.id === nb.id); b.color = NB_COLORS[(NB_COLORS.indexOf(b.color) + 1) % NB_COLORS.length]; }) },
     'sep',
-    { label: '删除本子', icon: 'trash', danger: true, hint: count ? `${count} 页进最近删除` : '', disabled: nb.id === 'nb-inbox', onClick: () => { if (count && !confirmDel(`删除本子「${nb.name}」？里面的 ${count} 页会进入「最近删除」，30 天内可恢复。`)) return; const ids = s.notes.filter((n) => n.nb === nb.id).map((n) => n.id); update((d) => { d.notebooks = d.notebooks.filter((x) => x.id !== nb.id); }); if (ids.length) trashPages(ids, nb.name); } },
+    { label: '删除本子', icon: 'trash', danger: true, hint: count ? `${count} 页进最近删除` : '', disabled: nb.id === 'nb-inbox', onClick: async () => { if (count && !(await askConfirm(`里面的 ${count} 页会进入「最近删除」，30 天内可恢复。`, { title: `删除本子「${nb.name}」？`, ok: '删除本子' }))) return; const ids = s.notes.filter((n) => n.nb === nb.id).map((n) => n.id); update((d) => { d.notebooks = d.notebooks.filter((x) => x.id !== nb.id); }); if (ids.length) trashPages(ids, nb.name); } },
   ];
 }
 export function trashPages(ids, label) {
@@ -224,14 +225,14 @@ export default function Notes({ route }) {
         ${!panes.nb && html`<${IconBtn} icon="right" title="显示本子" onClick=${() => setPane('nb', true)} />`}
         <h3 class="flex1">${listTitle} <span class="muted small">${visible.length}</span></h3>
         <select class="lc-sort" value=${sort} onChange=${(e) => { setSort(e.target.value); try { localStorage.setItem('ytos.nsort', e.target.value); } catch {} }}><option value="updated">最近更新</option><option value="created">创建时间</option><option value="title">标题</option><option value="manual">自定义顺序</option></select>
-        ${inTrash ? html`<button class="btn ghost sm danger" disabled=${!(s.trash || []).length} onClick=${() => { if (confirmDel(`彻底删除最近删除中的 ${(s.trash || []).length} 页？此操作不可撤销。`)) purgePages((s.trash || []).map((n) => n.id)); }}>清空</button>` : html`<${IconBtn} icon="plus" title="新页面" onClick=${() => create(null)} />`}
+        ${inTrash ? html`<button class="btn ghost sm danger" disabled=${!(s.trash || []).length} onClick=${async () => { if (await askConfirm(`将彻底删除 ${(s.trash || []).length} 页，无法恢复。`, { title: '清空最近删除？', ok: '清空' })) purgePages((s.trash || []).map((n) => n.id)); }}>清空</button>` : html`<${IconBtn} icon="plus" title="新页面" onClick=${() => create(null)} />`}
         <${IconBtn} icon="left" title="收起列表" onClick=${() => setPane('list', false)} />
       </div>
       <div class="searchin"><${Icon} name="search" size=${13} /><input type="search" value=${q} placeholder="搜索…" onInput=${(e) => setQ(e.target.value)} /></div>
       <div class="lc-list" data-liquid=".li-i"><span class="liq"></span>
-        ${visible.length === 0 ? html`<${Empty} icon=${inTrash ? 'trash' : 'note'} text=${q ? '没有匹配的页面。' : inTrash ? '最近删除是空的。删除的页面会在这里保留 30 天。' : '这个本子还是空的。'}>${!inTrash && html`<${Btn} small onClick=${() => create(null)}>新页面<//>`}<//>` : inTrash ? visible.map((n) => html`<a key=${n.id} class=${'li-i trash ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, [{ label: '恢复', icon: 'refresh', onClick: () => restorePages([n.id]) }, { label: '彻底删除', icon: 'trash', danger: true, onClick: () => confirmDel('彻底删除这一页？不可撤销。') && purgePages([n.id]) }], noteTitle(n))}>
+        ${visible.length === 0 ? html`<${Empty} icon=${inTrash ? 'trash' : 'note'} text=${q ? '没有匹配的页面。' : inTrash ? '最近删除是空的。删除的页面会在这里保留 30 天。' : '这个本子还是空的。'}>${!inTrash && html`<${Btn} small onClick=${() => create(null)}>新页面<//>`}<//>` : inTrash ? visible.map((n) => html`<a key=${n.id} class=${'li-i trash ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, [{ label: '恢复', icon: 'refresh', onClick: () => restorePages([n.id]) }, { label: '彻底删除', icon: 'trash', danger: true, onClick: async () => (await askConfirm('这一页将无法恢复。', { title: '彻底删除？' })) && purgePages([n.id]) }], noteTitle(n))}>
           <b>${noteTitle(n)}</b><p>${snippet(n) || '空白页'}</p><small>${daysLeft(n)} 天后自动删除</small>
-          <span class="li-acts"><button class="ibtn" title="恢复" onClick=${(e) => { e.preventDefault(); restorePages([n.id]); }}><${Icon} name="refresh" size=${13} /></button><button class="ibtn danger" title="彻底删除" onClick=${(e) => { e.preventDefault(); if (confirmDel('彻底删除这一页？不可撤销。')) purgePages([n.id]); }}><${Icon} name="trash" size=${13} /></button></span>
+          <span class="li-acts"><button class="ibtn" title="恢复" onClick=${(e) => { e.preventDefault(); restorePages([n.id]); }}><${Icon} name="refresh" size=${13} /></button><button class="ibtn danger" title="彻底删除" onClick=${async (e) => { e.preventDefault(); if (await askConfirm('这一页将无法恢复。', { title: '彻底删除？' })) purgePages([n.id]); }}><${Icon} name="trash" size=${13} /></button></span>
         </a>`) : visible.map((n) => { const nb = nbOf(s, n.nb); const par = n.parent ? s.notes.find((x) => x.id === n.parent) : null; return html`<a key=${n.id} class=${'li-i ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes, { notebooks: nbs, openPath: tree.openPath }), noteTitle(n))} ...${dragProps('page', { id: n.id })} ...${dropProps('page', (d, { after }) => { if (d.id === n.id) return; movePage(d.id, { parent: n.parent || null, nb: n.nb, [after ? 'after' : 'before']: n.id }); if (sort !== 'manual') { setSort('manual'); try { localStorage.setItem('ytos.nsort', 'manual'); } catch {} } }, { position: true })}>
           <b>${n.pinned && html`<${Icon} name="pin" size=${11} class="li-pin" />`}${par ? html`<span class="li-par">${noteTitle(par)} / </span>` : ''}${noteTitle(n)}</b>
           <p>${snippet(n) || '空白页'}</p>
@@ -245,7 +246,7 @@ export default function Notes({ route }) {
       ${!panes.list && html`<button class="pane-show" title="显示列表" onClick=${() => setPane('list', true)}><${Icon} name="right" size=${14} /></button>`}
       ${id === 'graph' ? html`<${GraphView} notes=${s.notes} />`
       : id === 'tags' ? html`<${TagsView} notes=${s.notes} />`
-      : trashed ? html`<div class="page"><div class="trash-bar"><${Icon} name="trash" size=${14} /><span class="flex1">这一页在「最近删除」里，${daysLeft(trashed)} 天后会自动删除。</span><${Btn} small kind="primary" icon="refresh" onClick=${() => { restorePages([trashed.id]); }}>恢复<//><${Btn} small kind="ghost danger" onClick=${() => { if (confirmDel('彻底删除这一页？不可撤销。')) { purgePages([trashed.id]); go('notes'); } }}>彻底删除<//></div><div class="page-body"><h1 class="trash-title">${noteTitle(trashed)}</h1><div class="md" dangerouslySetInnerHTML=${{ __html: renderMd(trashed.body) }}></div></div></div>`
+      : trashed ? html`<div class="page"><div class="trash-bar"><${Icon} name="trash" size=${14} /><span class="flex1">这一页在「最近删除」里，${daysLeft(trashed)} 天后会自动删除。</span><${Btn} small kind="primary" icon="refresh" onClick=${() => { restorePages([trashed.id]); }}>恢复<//><${Btn} small kind="ghost danger" onClick=${async () => { if (await askConfirm('这一页将无法恢复。', { title: '彻底删除？' })) { purgePages([trashed.id]); go('notes'); } }}>彻底删除<//></div><div class="page-body"><h1 class="trash-title">${noteTitle(trashed)}</h1><div class="md" dangerouslySetInnerHTML=${{ __html: renderMd(trashed.body) }}></div></div></div>`
       : !note ? html`<div class="notes-empty"><${Empty} icon="note" text=${cur ? `「${cur.name}」· 选一页，或新建一页。` : '选一页，或新建一页。'}><div class="row" style="gap:8px"><${Btn} small kind="primary" onClick=${() => create(null)}>新页面<//></div><//></div>`
       : html`<${Page} key=${note.id} note=${note} notes=${s.notes} notebooks=${nbs} onCreateChild=${() => create(note.id)} />`}
     </section>
