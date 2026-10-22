@@ -18,6 +18,7 @@ export function blank() {
     books: [],
     links: [],
     notes: [],
+    notebooks: [],
     vision: { statements: [], board: [], areas: [], longterm: [] },
     trips: [],
     settings: { theme: 'auto', sync: { repo: '', branch: 'main', path: 'data/os.json', token: '' }, lastSync: null, seeded: false },
@@ -33,7 +34,26 @@ function migrate(s) {
   out.settings = { ...b.settings, ...(s.settings || {}) };
   out.settings.sync = { ...b.settings.sync, ...((s.settings || {}).sync || {}) };
   out.profile = { ...b.profile, ...(s.profile || {}) };
-  out.notes = (out.notes || []).map((n, i) => { const x = { parent: null, order: i, icon: '', pinned: false, tags: [], cover: '', font: 'default', wide: false, ...n }; if (!x.blocks || !x.blocks.length) x.blocks = mdToBlocks(x.body || ''); return x; });
+  out.notes = (out.notes || []).map((n, i) => { const x = { parent: null, order: i, icon: '', pinned: false, tags: [], cover: '', font: 'default', wide: false, nb: null, ...n }; if (!x.blocks || !x.blocks.length) x.blocks = mdToBlocks(x.body || ''); return x; });
+  out.notebooks = out.notebooks || [];
+  // Migration to notebooks: top-level pages that have children become notebooks; loose pages go to 收件箱.
+  if (!out.notebooks.length && out.notes.length) {
+    const byId = new Map(out.notes.map((n) => [n.id, n]));
+    const hasKids = new Set(out.notes.filter((n) => n.parent).map((n) => n.parent));
+    const rootOf = (n) => { let c = n, guard = 0; while (c.parent && byId.has(c.parent) && guard++ < 50) c = byId.get(c.parent); return c; };
+    const colors = ['#4f7cf5', '#7461c9', '#2d8f88', '#c9588a', '#c7873a', '#4a9a6a'];
+    const inbox = { id: 'nb-inbox', name: '收件箱', color: '#8a8f98', order: 0 };
+    out.notebooks.push(inbox);
+    let ci = 0;
+    out.notes.filter((n) => !n.parent && hasKids.has(n.id)).forEach((root) => {
+      const nb = { id: 'nb-' + root.id, name: root.title || '未命名本子', color: colors[ci++ % colors.length], order: out.notebooks.length };
+      out.notebooks.push(nb);
+      root.nb = nb.id; root.isCover = true;
+    });
+    out.notes.forEach((n) => { const r = rootOf(n); n.nb = r.nb || inbox.id; if (r.isCover && n.id !== r.id && n.parent === r.id) n.parent = null; });
+    out.notes.forEach((n) => { if (n.isCover) { if (!(n.body || '').trim()) n._drop = true; else n.title = n.title || '概览'; delete n.isCover; } });
+    out.notes = out.notes.filter((n) => !n._drop);
+  }
   return out;
 }
 
