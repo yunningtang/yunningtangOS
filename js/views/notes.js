@@ -3,7 +3,8 @@ import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field } from '../ui.js';
 import { uid, todayStr, sortBy, debounce, escapeHtml } from '../util.js';
-import { go } from '../nav.js';
+import { go, toast } from '../nav.js';
+import { ctxMenu } from '../ctx.js';
 import { mountGraph } from '../graph.js';
 import { BlockEditor } from '../editor.js';
 import { blocksToMd, mdToBlocks } from '../blocks.js';
@@ -45,19 +46,35 @@ export function findByTitle(notes, title) { return notes.find((x) => x.title.tri
 
 
 /* ---------- page tree (sidebar) ---------- */
-export function PageTree({ notes, parent = null, depth = 0, activeId, open, toggle, onCreate, max = 60 }) {
+export function pageMenu(n, notes, extra = {}) {
+  const kids = notes.filter((x) => x.parent === n.id).length;
+  return [
+    { label: '打开', icon: 'note', onClick: () => go('notes/' + n.id) },
+    { label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/notes/' + n.id, '_blank') },
+    'sep',
+    { label: '新建子页面', icon: 'plus', onClick: () => { const c = newNote({ parent: n.id }); extra.openPath && extra.openPath([n.id]); go('notes/' + c.id); } },
+    { label: n.pinned ? '取消收藏' : '收藏', icon: 'pin', onClick: () => upsert('notes', { id: n.id, pinned: !n.pinned }) },
+    { label: '复制一份', icon: 'layers', onClick: () => { const c = newNote({ ...n, id: undefined, title: n.title + ' 副本', pinned: false, blocks: (n.blocks || []).map((b) => ({ ...b, id: uid() })) }); go('notes/' + c.id); } },
+    { label: '复制链接', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(location.origin + location.pathname + '#/notes/' + n.id); toast('已复制链接'); } },
+    extra.move && { label: '移动到…', icon: 'layers', onClick: extra.move },
+    'sep',
+    { label: '删除', icon: 'trash', danger: true, hint: kids ? `含 ${kids} 子页` : '', onClick: () => { if (!confirmDel(kids ? `删除「${noteTitle(n)}」及其 ${kids} 个子页面？` : undefined)) return; const ids = new Set([n.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes = d.notes.filter((x) => !ids.has(x.id)); }); if (ids.has(location.hash.split('/')[2])) go('notes'); } },
+  ];
+}
+
+export function PageTree({ notes, parent = null, depth = 0, activeId, open, toggle, onCreate, max = 60, openPath }) {
   const kids = childrenOf(notes, parent).slice(0, max);
   if (!kids.length) return null;
   return html`<ul class=${'ptree ' + (depth === 0 ? 'root' : '')}>${kids.map((n) => {
     const has = notes.some((x) => x.parent === n.id);
     const isOpen = !!open[n.id];
     return html`<li key=${n.id}>
-      <div class=${'pt-row ' + (n.id === activeId ? 'active' : '')} style=${`padding-left:${8 + depth * 14}px`}>
+      <div class=${'pt-row ' + (n.id === activeId ? 'active' : '')} style=${`padding-left:${8 + depth * 14}px`} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, notes, { openPath }), noteTitle(n))}>
         <button class=${'pt-tg ' + (has ? '' : 'none')} onClick=${() => toggle(n.id)} aria-label="展开"><${Icon} name=${isOpen ? 'down' : 'right'} size=${11} /></button>
         <a href=${'#/notes/' + n.id} class="pt-link"><${Icon} name="note" size=${14} class="pt-ic" /><span class="pt-t">${noteTitle(n)}</span></a>
         <button class="pt-add" title="新建子页面" onClick=${() => onCreate(n.id)}><${Icon} name="plus" size=${11} /></button>
       </div>
-      ${isOpen && has && html`<${PageTree} notes=${notes} parent=${n.id} depth=${depth + 1} activeId=${activeId} open=${open} toggle=${toggle} onCreate=${onCreate} />`}
+      ${isOpen && has && html`<${PageTree} notes=${notes} parent=${n.id} depth=${depth + 1} activeId=${activeId} open=${open} toggle=${toggle} onCreate=${onCreate} openPath=${openPath} />`}
     </li>`;
   })}</ul>`;
 }
@@ -109,15 +126,15 @@ export default function Notes({ route }) {
       </div>
       <div class="ns-tabs"><${Seg} options=${[{ v: 'pages', label: '页面' }, { v: 'tags', label: '标签' }, { v: 'graph', label: '图谱' }]} value=${tab} onChange=${(v) => { setTab(v); if (v === 'graph') go('notes/graph'); }} /></div>
       <div class="ns-body" data-liquid=".pt-row, summary"><span class="liq"></span>
-        ${results ? html`<div class="ns-sec">搜索结果 · ${results.length}</div>${results.length === 0 ? html`<div class="small muted" style="padding:6px 10px">没有匹配的页面。</div>` : results.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-t">${noteTitle(n)}</span><span class="pt-sub">${ancestors(s.notes, n).map(noteTitle).join(' / ')}</span></a>`)}`
+        ${results ? html`<div class="ns-sec">搜索结果 · ${results.length}</div>${results.length === 0 ? html`<div class="small muted" style="padding:6px 10px">没有匹配的页面。</div>` : results.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes), noteTitle(n))}><span class="pt-t">${noteTitle(n)}</span><span class="pt-sub">${ancestors(s.notes, n).map(noteTitle).join(' / ')}</span></a>`)}`
         : tab === 'tags' ? html`${tags.length === 0 ? html`<div class="small muted" style="padding:6px 10px">还没有标签。</div>` : tags.map(([t, c]) => html`<details class="ns-tag" key=${t}><summary><span class="pt-t">${t}</span><span class="pt-cnt">${c}</span></summary>${s.notes.filter((n) => n.tags.includes(t)).map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} style="padding-left:26px" href=${'#/notes/' + n.id}><span class="pt-t">${noteTitle(n)}</span></a>`)}</details>`)}`
         : html`
-          ${pinned.length > 0 && html`<div class="ns-sec">收藏</div>${pinned.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-t">${noteTitle(n)}</span></a>`)}`}
+          ${pinned.length > 0 && html`<div class="ns-sec">收藏</div>${pinned.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes), noteTitle(n))}><span class="pt-t">${noteTitle(n)}</span></a>`)}`}
           <div class="ns-sec">页面 <span class="muted">${s.notes.length}</span></div>
-          ${s.notes.length === 0 ? html`<div class="small muted" style="padding:6px 10px">还没有页面。</div>` : html`<${PageTree} notes=${s.notes} activeId=${id} open=${tree.open} toggle=${tree.toggle} onCreate=${create} />`}
+          ${s.notes.length === 0 ? html`<div class="small muted" style="padding:6px 10px">还没有页面。</div>` : html`<${PageTree} notes=${s.notes} activeId=${id} open=${tree.open} toggle=${tree.toggle} onCreate=${create} openPath=${tree.openPath} />`}
           <button class="pt-row flat new" onClick=${() => create(null)}><span class="pt-t">+ 新页面</span></button>
           <div class="ns-sec">最近</div>
-          ${recent.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-t">${noteTitle(n)}</span></a>`)}`}
+          ${recent.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes), noteTitle(n))}><span class="pt-t">${noteTitle(n)}</span></a>`)}`}
       </div>
     </aside>
     <section class="card notes-main">
@@ -159,7 +176,7 @@ function Page({ note, notes, onCreateChild }) {
   const words = note.body.replace(/\s/g, '').length;
 
   return html`<div class="page">
-    <div class="crumbs">
+    <div class="crumbs" onContextMenu=${(e) => ctxMenu(e, pageMenu(note, notes, { move: () => setMoveOpen(true) }), title)}>
       <a href="#/notes">笔记</a>${crumbs.map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${title}</b>
       <span class="flex1"></span>
       <div class="page-acts">
@@ -185,7 +202,7 @@ function Page({ note, notes, onCreateChild }) {
         <div class="prop"><span class="pk"><${Icon} name="clock" size=${12} /> 更新</span><span class="pv muted">${new Date(note.updated).toLocaleString('zh-CN', { hour12: false })} · 创建 ${note.created} · ${words} 字</span></div>
       </div>
       <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} /><//>
-      ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
+      ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
       <div class="links-sec">
         ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? '' : '＋ '}${t}</a>`)}</div>`}
         <div class="sec-h" style="margin-top:14px">反向链接 <span class="muted">${backlinks.length}</span></div>

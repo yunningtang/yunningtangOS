@@ -68,6 +68,12 @@ html[data-theme="dark"] .seg>background:#333;box-shadow:none}
 .brand{display:grid;place-items:center;width:34px;height:34px;text-decoration:none}
 .brand .logo{width:28px;height:28px;border-radius:9px;background:var(--ink);color:var(--bg);display:grid;place-items:center}
 .side-tg{color:var(--text-4)}
+.side-week{font-size:.7rem;color:var(--text-4);padding-left:8px;letter-spacing:.04em}
+.side.mini .side-week{display:none}
+.ctx{position:fixed;z-index:300;width:200px}
+.ctx .pm{gap:9px;align-items:center;padding:6px 10px}.ctx .pm .ic{color:var(--text-4);flex-shrink:0}.ctx .pm.danger .ic{color:var(--red)}
+.ctx .pm.disabled{opacity:.4;cursor:default}.ctx .pm.disabled:hover{background:none}
+.ctx-sep{height:1px;background:var(--line);margin:4px 6px}
 .nav{display:flex;flex-direction:column;gap:1px}
 .nav a{display:flex;align-items:center;gap:9px;min-height:32px;padding:4px 10px;border-radius:var(--r2);font-size:.875rem;color:var(--text-3);text-decoration:none;transition:color .15s;position:relative}
 .nav a:hover{color:var(--text)}

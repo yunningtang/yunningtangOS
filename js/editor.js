@@ -2,6 +2,7 @@
 import { html, useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from '../vendor/preact.js';
 import { marked } from '../vendor/marked.js';
 import { Icon } from './ui.js';
+import { ctxMenu } from './ctx.js';
 import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks } from './blocks.js';
 import { todayStr, escapeHtml } from './util.js';
 
@@ -306,7 +307,14 @@ function Row({ b, editor }) {
     <div ...${common} class=${'b-text ' + (b.type === 'todo' && b.checked ? 'done' : '')}></div>
   </div>`;
   useEffect(() => { if (mdEdit === b.id && ref.current) { ref.current.focus(); } }, [mdEdit]);
-  return html`<div class=${'b-row' + dropCls + (dragId === b.id ? ' dragging' : '')} style=${`--ind:${b.indent || 0}`} data-type=${b.type}
+  const menu = (e) => { if (window.getSelection && !window.getSelection().isCollapsed) return; ctxMenu(e, [
+    ...['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'code'].map((t) => ({ label: TYPES[t].label, icon: b.type === t ? 'check' : 'note', onClick: () => { if (isText && t === 'code') update(b.id, { type: t, html: escapeHtml(textOf(b.html)) }); else if (b.type === 'code' && t !== 'code') update(b.id, { type: t, html: escapeHtml(textOf(b.html)).replace(/\n/g, '<br>') }); else update(b.id, { type: t }); } })),
+    'sep',
+    { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) },
+    { label: '复制一份', icon: 'layers', onClick: () => insertAfter(b.id, { ...block(b.type, b.html, { indent: b.indent, checked: b.checked, url: b.url, lang: b.lang, icon: b.icon }) }) },
+    { label: '删除块', icon: 'trash', danger: true, onClick: () => removeBlock(b.id) },
+  ], '块'); };
+  return html`<div class=${'b-row' + dropCls + (dragId === b.id ? ' dragging' : '')} style=${`--ind:${b.indent || 0}`} data-type=${b.type} onContextMenu=${menu}
     onDragOver=${(e) => { if (!dragId) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setDropAt({ id: b.id, after: e.clientY > r.top + r.height / 2 }); }}
     onDrop=${(e) => onDrop(e, b.id)}>
     <div class="b-gutter" contenteditable="false">

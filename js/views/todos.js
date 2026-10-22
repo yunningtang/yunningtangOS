@@ -2,6 +2,8 @@ import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, toggleTodo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort } from '../util.js';
+import { ctxMenu } from '../ctx.js';
+import { toast } from '../nav.js';
 
 // Quick-add grammar: "写论文 @明天 14:00 !1 #研究 #写作"
 export function quickParse(text) {
@@ -53,11 +55,30 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
   <//>`;
 }
 
+export function todoMenu(t, onEdit) {
+  const today = todayStr();
+  return [
+    { label: t.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) },
+    onEdit && { label: '编辑', icon: 'edit', onClick: () => onEdit(t) },
+    'sep',
+    { label: '今天', icon: 'calendar', onClick: () => upsert('todos', { id: t.id, due: today }) },
+    { label: '明天', icon: 'calendar', onClick: () => upsert('todos', { id: t.id, due: addDays(today, 1) }) },
+    { label: '下周', icon: 'calendar', onClick: () => upsert('todos', { id: t.id, due: addDays(today, 7) }) },
+    { label: '取消日期', icon: 'x', disabled: !t.due, onClick: () => upsert('todos', { id: t.id, due: '', time: '' }) },
+    'sep',
+    ...PRIORITY.map((p) => ({ label: `${p.label} ${p.name}`, icon: p.v === t.priority ? 'check' : 'flag', onClick: () => upsert('todos', { id: t.id, priority: p.v }) })),
+    'sep',
+    { label: '复制一份', icon: 'layers', onClick: () => upsert('todos', { ...t, id: uid(), done: false, completedAt: null, created: today }) },
+    { label: '复制标题', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(t.title); toast('已复制'); } },
+    { label: '删除', icon: 'trash', danger: true, onClick: () => remove('todos', t.id) },
+  ];
+}
+
 export function TodoItem({ t, onEdit, compact }) {
   const p = PRIORITY[t.priority] || PRIORITY[2];
   const today = todayStr();
   const dueCls = t.due && !t.done ? (t.due < today ? 'late' : t.due === today ? 'today' : '') : '';
-  return html`<div class=${'todo ' + (t.done ? 'done' : '')}>
+  return html`<div class=${'todo ' + (t.done ? 'done' : '')} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)}>
     <span class="pr" style=${`--pc:${p.color}`}></span>
     <button class="cb" onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
     <div class="tt">
@@ -143,7 +164,7 @@ export default function Todos() {
       ${allTags.length > 0 && html`<div class="filters">${allTags.map(([x, n]) => html`<${Tag} class=${'click ' + (tagF === x ? 'on' : '')} color=${tagF === x ? 'var(--teal)' : undefined} onClick=${() => setTagF(tagF === x ? '' : x)}>${x} <span class="muted">${n}</span><//>`)}</div>`}
       ${layout === 'board' ? html`<div class="board-cols">${PRIORITY.map((p) => { const list = sortBy(todos.filter((t) => t.priority === p.v), 'done', 'due', 'time'); return html`<div class="card bcol" key=${p.v} style=${`--pc:${p.color}`}>
         <div class="bh"><i></i>${p.label} · ${p.name}<span>${list.length}</span></div>
-        ${list.map((t) => html`<div class=${'bcard ' + (t.done ? 'done' : '')} key=${t.id} onClick=${() => { setEditing(t); setModal(true); }}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div>${t.title}</div><span class="meta">${t.due ? relDay(t.due) : ''}${t.time ? ' ' + t.time : ''}${t.area ? ' · ' + t.area : ''}${t.tags.map((x) => ' #' + x).join('')}</span></div></div>`)}
+        ${list.map((t) => html`<div class=${'bcard ' + (t.done ? 'done' : '')} key=${t.id} onClick=${() => { setEditing(t); setModal(true); }} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, (x) => { setEditing(x); setModal(true); }), t.title)}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div>${t.title}</div><span class="meta">${t.due ? relDay(t.due) : ''}${t.time ? ' ' + t.time : ''}${t.area ? ' · ' + t.area : ''}${t.tags.map((x) => ' #' + x).join('')}</span></div></div>`)}
         <button class="pt-row flat new" style="min-height:26px;font-size:.76rem" onClick=${() => { setEditing(null); setModal(true); }}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">添加</span></button>
       </div>`; })}</div>`
       : groups.length === 0 ? html`<${Empty} icon="checksq" text=${view === 'done' ? '还没有完成的事。' : '清清爽爽，没有待办。'} />` : groups.map(([name, list]) => html`

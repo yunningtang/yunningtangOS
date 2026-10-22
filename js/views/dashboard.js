@@ -1,8 +1,10 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, toggleTodo, update } from '../store.js';
 import { Icon, Card, Btn, Tag, Empty, Progress, useClock } from '../ui.js';
-import { todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS } from '../util.js';
-import { TodoModal, QuickAdd } from './todos.js';
+import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS } from '../util.js';
+import { TodoModal, QuickAdd, todoMenu } from './todos.js';
+import { ctxMenu } from '../ctx.js';
+import { upsert, remove } from '../store.js';
 import { goalPct } from './planner.js';
 import { ancestors, noteTitle, isBlank, newNote } from './notes.js';
 import { go } from '../nav.js';
@@ -109,16 +111,16 @@ export default function Dashboard() {
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl" style=${`height:${(to - from) * hourH}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}><span>${pad(from + i)}:00</span></div>`)}
-          ${blocks.map((b) => { const a = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60); if (e <= a) return null; const cur = a <= nowMin && e > nowMin; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (e <= nowMin ? ' past' : '')} style=${`top:${y(a)}px;height:${Math.max(y(e) - y(a) - 2, 18)}px;--bc:${kindColor(b.kind)}`} onClick=${() => go('plan/day')}><b>${b.title}</b><small>${b.start} – ${b.end}</small></div>`; })}
+          ${blocks.map((b) => { const a = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60); if (e <= a) return null; const cur = a <= nowMin && e > nowMin; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (e <= nowMin ? ' past' : '')} style=${`top:${y(a)}px;height:${Math.max(y(e) - y(a) - 2, 18)}px;--bc:${kindColor(b.kind)}`} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => remove('blocks', b.id) }], b.title)}><b>${b.title}</b><small>${b.start} – ${b.end}</small></div>`; })}
           ${nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="mt-now" style=${`top:${y(nowMin)}px`}></div>`}
         </div>
       <//>` },
     todos: { title: '待办', span: 1, el: html`<${Card} class="todo-card">
         <div class="card-h"><h3>待办 ${todos.length > 0 && html`<span class="muted small">${todos.length}</span>`}</h3><div class="card-act"><a class="ibtn" href="#/todos" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
-        ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '今天的都做完了。' : '今天没有待办。'} />` : html`<div class="tlist">${todos.map((t) => html`<label class="tl-i" key=${t.id}><input type="checkbox" checked=${false} onChange=${() => toggleTodo(t.id)} /><span class="flex1" onClick=${(e) => { e.preventDefault(); setEditing(t); }}>${t.title}</span>${t.time && html`<small>${t.time}</small>`}</label>`)}</div>`}
+        ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '今天的都做完了。' : '今天没有待办。'} />` : html`<div class="tlist">${todos.map((t) => html`<label class="tl-i" key=${t.id} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, setEditing), t.title)}><input type="checkbox" checked=${false} onChange=${() => toggleTodo(t.id)} /><span class="flex1" onClick=${(e) => { e.preventDefault(); setEditing(t); }}>${t.title}</span>${t.time && html`<small>${t.time}</small>`}</label>`)}</div>`}
         <${QuickAdd} defaults=${{ due: today }} placeholder="添加待办…" />
         ${doneTodos.length > 0 && html`<button class="done-tg" onClick=${() => setShowDone(!showDone)}><${Icon} name=${showDone ? 'down' : 'right'} size=${12} /> 已完成 ${doneTodos.length}</button>
-          ${showDone && html`<div class="tlist">${doneTodos.map((t) => html`<label class="tl-i done" key=${t.id}><input type="checkbox" checked=${true} onChange=${() => toggleTodo(t.id)} /><span class="flex1" onClick=${(e) => { e.preventDefault(); setEditing(t); }}>${t.title}</span>${t.time && html`<small>${t.time}</small>`}</label>`)}</div>`}`}
+          ${showDone && html`<div class="tlist">${doneTodos.map((t) => html`<label class="tl-i done" key=${t.id} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, setEditing), t.title)}><input type="checkbox" checked=${true} onChange=${() => toggleTodo(t.id)} /><span class="flex1" onClick=${(e) => { e.preventDefault(); setEditing(t); }}>${t.title}</span>${t.time && html`<small>${t.time}</small>`}</label>`)}</div>`}`}
       <//>` },
     pages: { title: '最近页面', span: 2, el: html`<${Card}>
         <div class="card-h"><h3>最近页面</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
@@ -166,7 +168,8 @@ export default function Dashboard() {
     return html`<div class=${'widget span-' + w.span + (drag && drag.id === id ? ' dragging' : '') + (ov ? (over.after ? ' drop-after' : ' drop-before') : '') + (custom ? ' custom' : '')} key=${id} data-id=${id}
       draggable=${custom} onDragStart=${(e) => { setDrag({ id }); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd=${() => { setDrag(null); setOver(null); }}
       onDragOver=${(e) => { if (!drag) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setOver({ id, after: e.clientY > r.top + r.height / 2 }); }}
-      onDrop=${(e) => onDrop(e, id, col)}>
+      onDrop=${(e) => onDrop(e, id, col)}
+      onContextMenu=${(e) => { if (e.target.closest('.tl-i, .mt-b, .dl-i, .thumb, .g-row, input, textarea, [contenteditable]')) return; ctxMenu(e, [{ label: custom ? '完成自定义' : '自定义主页', icon: 'grid', onClick: () => setCustom(!custom) }, 'sep', { label: '上移', icon: 'up', onClick: () => shift(id, -1) }, { label: '下移', icon: 'down', onClick: () => shift(id, 1) }, { label: col === 'main' ? '移到右栏' : '移到左栏', icon: 'right', onClick: () => moveTo(id, col === 'main' ? 'side' : 'main', null) }, 'sep', { label: '隐藏此卡片', icon: 'eye', danger: true, onClick: () => hide(id) }], w.title); }}>
       ${w.el}
       ${custom && html`<div class="w-tools"><span class="w-grip" title="拖动排序"><${Icon} name="dots" size=${14} /></span><button class="w-dots" onClick=${() => setWmenu(wmenu === id ? null : id)}><${Icon} name="down" size=${13} /></button>
         ${wmenu === id && html`<div class="popmenu w-menu">

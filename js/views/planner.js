@@ -3,6 +3,7 @@ import { useStore, update, upsert, remove } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput } from '../ui.js';
 import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
 import { TodoItem, TodoModal } from './todos.js';
+import { ctxMenu } from '../ctx.js';
 
 /* ---------- Weekly plan ---------- */
 function WeekBoard() {
@@ -43,7 +44,7 @@ function WeekBoard() {
           <div class="dh"><b>${WEEKDAY[i]}</b><span>${fmtShort(d)}${d === today ? ' · 今天' : ''}</span></div>
           <ul>
             ${todos.map((t) => html`<li class=${'todo-ref ' + (t.done ? 'done' : '')} style=${`--pc:${PRIORITY[t.priority].color}`} onClick=${() => setEditing(t)} title="待办（点击编辑）"><span class="dot"></span><span>${t.time ? html`<span class="mono muted">${t.time} </span>` : ''}${t.title}</span></li>`)}
-            ${items.map((it) => html`<li class=${it.done ? 'done' : ''} onClick=${() => toggle(d, it.id)}><span class="dot"></span><span class="flex1">${it.text}</span><button class="ibtn" style="width:18px;height:18px" onClick=${(e) => { e.stopPropagation(); del(d, it.id); }}><${Icon} name="x" size=${10} /></button></li>`)}
+            ${items.map((it) => html`<li class=${it.done ? 'done' : ''} onClick=${() => toggle(d, it.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: it.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggle(d, it.id) }, { label: '转为待办', icon: 'checksq', onClick: () => { upsert('todos', { id: uid(), title: it.text, done: it.done, priority: 2, due: d, time: '', tags: [], area: '', note: '', created: todayStr() }); del(d, it.id); } }, ...[1, 2, 3].map((n) => ({ label: `移到 ${n} 天后`, icon: 'right', onClick: () => { del(d, it.id); const nd = addDays(d, n); setWeek((w) => { w.items[nd] = w.items[nd] || []; w.items[nd].push({ ...it }); }); if (!days.includes(nd)) setStart(weekStart(nd)); } })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => del(d, it.id) }], it.text)}><span class="dot"></span><span class="flex1">${it.text}</span><button class="ibtn" style="width:18px;height:18px" onClick=${(e) => { e.stopPropagation(); del(d, it.id); }}><${Icon} name="x" size=${10} /></button></li>`)}
           </ul>
           <div class="add"><input type="text" placeholder="+ 计划" onKeyDown=${(e) => { if (e.key === 'Enter' && e.target.value.trim()) { addItem(d, e.target.value.trim()); e.target.value = ''; } }} /></div>
         <//>`;
@@ -99,7 +100,15 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 6, to = 24, ho
     ${blocks.map((b) => {
       const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60);
       if (e <= s) return null;
-      return html`<div class="blk" key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onClick=${(ev) => { ev.stopPropagation(); onEdit && onEdit(b); }}><b>${b.title}</b><small>${b.start}–${b.end}</small></div>`;
+      return html`<div class="blk" key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onClick=${(ev) => { ev.stopPropagation(); onEdit && onEdit(b); }} onContextMenu=${(ev) => ctxMenu(ev, [
+        { label: '编辑', icon: 'edit', onClick: () => onEdit && onEdit(b) },
+        { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(b.date, 1) }) },
+        { label: '复制一份（+1h）', icon: 'layers', onClick: () => upsert('blocks', { ...b, id: uid(), start: minToTime(timeToMin(b.start) + 60), end: minToTime(timeToMin(b.end) + 60) }) },
+        'sep',
+        ...BLOCK_KINDS.map((k) => ({ label: k.name, icon: k.v === b.kind ? 'check' : 'tag', onClick: () => upsert('blocks', { id: b.id, kind: k.v }) })),
+        'sep',
+        { label: '删除', icon: 'trash', danger: true, onClick: () => remove('blocks', b.id) },
+      ], b.title)}><b>${b.title}</b><small>${b.start}–${b.end}</small></div>`;
     })}
     ${isToday && nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="now" style=${`top:${y(nowMin)}px`}></div>`}
   </div>`;
@@ -219,7 +228,7 @@ function MonthGoals() {
     </div>
     ${goals.length === 0 ? html`<${Card}><${Empty} icon="target" text="这个月还没有目标。定三个就好，少即是多。" /><//>` : html`<div class="goals">${goals.map((g) => {
       const pct = goalPct(g);
-      return html`<${Card} class=${'goal ' + (pct >= 100 ? 'done-all' : '')} key=${g.id}>
+      return html`<${Card} class=${'goal ' + (pct >= 100 ? 'done-all' : '')} key=${g.id} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => { setEditing(g); setModal(true); } }, { label: '复制到下个月', icon: 'calendar', onClick: () => update((d) => { const nm = shiftMonth(month, 1); d.goals[nm] = d.goals[nm] || []; d.goals[nm].push({ ...g, id: uid(), progress: 0, krs: g.krs.map((k) => ({ ...k, id: uid(), done: false })) }); }) }, { label: '全部关键结果标为完成', icon: 'check', disabled: !g.krs.length, onClick: () => update((d) => { d.goals[month].find((x) => x.id === g.id).krs.forEach((k) => { k.done = true; }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => confirmDel() && update((d) => { d.goals[month] = d.goals[month].filter((x) => x.id !== g.id); }) }], g.title)}>
         <div class="gh"><div class="flex1"><h4>${g.title}</h4>${g.area && html`<${Tag}>${g.area}<//>`}</div><span class="pct">${pct}%</span><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => { setEditing(g); setModal(true); }} /></div>
         <div style="margin-top:10px"><${Progress} value=${pct} /></div>
         ${g.why && html`<p class="small muted" style="margin-top:8px">${g.why}</p>`}

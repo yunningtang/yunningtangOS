@@ -2,6 +2,8 @@ import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, upsert, remove, update } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, TagInput, confirmDel } from '../ui.js';
 import { uid, todayStr, hostOf, sortBy } from '../util.js';
+import { ctxMenu } from '../ctx.js';
+import { toast } from '../nav.js';
 
 export function LinkModal({ open, link, onClose }) {
   const [f, setF] = useState(null);
@@ -71,7 +73,7 @@ export default function Links() {
       ${tags.length > 0 && html`<div class="filters">${tags.map(([t, n]) => html`<${Tag} class="click" color=${tagF === t ? 'var(--teal)' : undefined} onClick=${() => setTagF(tagF === t ? '' : t)}>${t} <span class="muted">${n}</span><//>`)}</div>`}
       ${links.length === 0 ? html`<${Empty} icon="link" text="没有匹配的收藏。" />` : groups.map(([mon, list]) => html`
         <div class="group-h">${mon}<i></i><span>${list.length}</span></div>
-        <div class="links">${list.map((l) => html`<div class="lk" key=${l.id}>
+        <div class="links">${list.map((l) => html`<div class="lk" key=${l.id} onContextMenu=${(e) => ctxMenu(e, [{ label: '打开', icon: 'external', onClick: () => { window.open(l.url, '_blank', 'noopener'); upsert('links', { id: l.id, read: true }); } }, { label: '复制链接', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(l.url); toast('已复制'); } }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(l); setModal(true); } }, 'sep', { label: l.read ? '标为待读' : '标为已读', icon: 'eye', onClick: () => upsert('links', { id: l.id, read: !l.read }) }, { label: l.fav ? '取消最爱' : '最爱', icon: 'heart', onClick: () => upsert('links', { id: l.id, fav: !l.fav }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => remove('links', l.id) }], l.title)}>
                     <a class="fav" href=${l.url} target="_blank" rel="noopener" title=${l.host}><img src=${`https://www.google.com/s2/favicons?domain=${l.host}&sz=32`} alt="" onError=${(e) => { e.target.replaceWith(document.createTextNode((l.host || '?')[0])); }} /></a>
           <div class="li">
             <a href=${l.url} target="_blank" rel="noopener" style="text-decoration:none" onClick=${() => !l.read && upsert('links', { id: l.id, read: true })}><b>${l.title}</b></a>

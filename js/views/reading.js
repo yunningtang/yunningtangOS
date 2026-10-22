@@ -2,6 +2,7 @@ import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, upsert, remove } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, Stars, TagInput, confirmDel } from '../ui.js';
 import { uid, todayStr, sortBy } from '../util.js';
+import { ctxMenu } from '../ctx.js';
 
 const TYPES = [['book', '书'], ['paper', '论文'], ['article', '文章'], ['course', '课程']];
 const STATUS = [['want', '想读'], ['reading', '在读'], ['done', '读完'], ['paused', '搁置']];
@@ -90,7 +91,7 @@ export default function Reading() {
       <${Seg} options=${[{ v: 'all', label: '全部' }, ...STATUS.map(([v, n]) => ({ v, label: n }))]} value=${status} onChange=${setStatus} />
       <${Seg} options=${[{ v: 'all', label: '所有类型' }, ...TYPES.map(([v, n]) => ({ v, label: n }))]} value=${type} onChange=${setType} />
     </div>
-    ${books.length === 0 ? html`<${Card}><${Empty} icon="book" text="书架上还没有东西。" /><//>` : html`<div class="shelf">${books.map((b) => html`<${Card} class="bk lift" pad=${false} key=${b.id} onClick=${() => setOpen(b.id)}>
+    ${books.length === 0 ? html`<${Card}><${Empty} icon="book" text="书架上还没有东西。" /><//>` : html`<div class="shelf">${books.map((b) => html`<${Card} class="bk lift" pad=${false} key=${b.id} onClick=${() => setOpen(b.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: '打开', icon: 'book', onClick: () => setOpen(b.id) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(b); setModal(true); } }, 'sep', ...STATUS.map(([v, n]) => ({ label: n, icon: v === b.status ? 'check' : 'tag', onClick: () => upsert('books', { id: b.id, status: v, ...(v === 'reading' && !b.started ? { started: todayStr() } : {}), ...(v === 'done' ? { finished: b.finished || todayStr(), progress: b.total || 100 } : {}) }) })), 'sep', b.link && { label: '打开链接', icon: 'external', onClick: () => window.open(b.link, '_blank', 'noopener') }, { label: '删除', icon: 'trash', danger: true, onClick: () => confirmDel() && remove('books', b.id) }], b.title)}>
       <${Cover} b=${b} />
       <div class="bi">
         <h4>${b.title}</h4>

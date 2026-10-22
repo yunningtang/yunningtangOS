@@ -16,6 +16,7 @@ import { SearchPalette } from './search.js';
 import { PageTree, useTreeState, newNote, ancestors, noteTitle } from './views/notes.js';
 import { go, toast } from './nav.js';
 import { initLiquid } from './liquid.js';
+import { ctxMenu } from './ctx.js';
 import { detectLogin, autoSync } from './sync.js';
 import { subscribe } from './store.js';
 export { go, toast };
@@ -107,16 +108,16 @@ function App() {
     ${menu && html`<div class="side-bg" onClick=${() => setMenu(false)}></div>`}
     <aside class=${'side ' + (menu ? 'open ' : '') + (mini ? 'mini' : '')}>
       <div class="side-top">
-        <a class="brand" href="#/home" title="总览"><span class="logo"><${Icon} name="compass" size=${15} /></span></a>
+        <span class="side-week">${weekKey(todayStr())}</span>
         <button class="ibtn side-tg" title=${mini ? '展开侧栏' : '收起侧栏'} onClick=${toggleMini}><${Icon} name=${mini ? 'right' : 'left'} size=${14} /></button>
       </div>
       <nav class="nav" data-liquid=".nav > a, .pt-row"><span class="liq"></span>
         ${(() => { let section = ''; return ROUTES.map((r) => {
           if (r.sep !== undefined) { section = r.sep; return r.sep ? html`<button class=${'sep ' + (navOpen['s:' + r.sep] === false ? 'closed' : '')} onClick=${() => toggleNav('s:' + r.sep)}><span>${r.sep}</span><${Icon} name="down" size=${11} /></button>` : html`<div class="sep"></div>`; }
           if (section && navOpen['s:' + section] === false && !mini) return null;
-          return html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''} data-tip=${r.name}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
+          return html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''} data-tip=${r.name} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
             ${r.path === 'notes' && navOpen.notes && !mini && html`<div class="nav-tree">
-              <${PageTree} notes=${s.notes} activeId=${route.sub} open=${tree.open} toggle=${tree.toggle} onCreate=${(parent) => { const n = newNote({ parent }); if (parent) tree.openPath([parent]); go('notes/' + n.id); }} max=${200} />
+              <${PageTree} notes=${s.notes} activeId=${route.sub} open=${tree.open} toggle=${tree.toggle} onCreate=${(parent) => { const n = newNote({ parent }); if (parent) tree.openPath([parent]); go('notes/' + n.id); }} max=${200} openPath=${tree.openPath} />
               <div class="tree-acts"><button class="pt-row flat new" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><span class="pt-ic"><${Icon} name="plus" size=${12} /></span><span class="pt-t">新页面</span></button><button class="tree-mini" title="全部展开" onClick=${() => tree.openPath(s.notes.map((n) => n.id))}>展开</button><button class="tree-mini" title="全部收起" onClick=${() => tree.closeAll()}>收起</button></div>
             </div>`}`;
         }); })()}

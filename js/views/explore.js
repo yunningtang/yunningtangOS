@@ -3,6 +3,7 @@ import { useStore, upsert, remove } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Stars, TagInput, confirmDel, DateInput } from '../ui.js';
 import { uid, todayStr, sortBy, fmtDate } from '../util.js';
 import { mountGlobe } from '../globe.js';
+import { ctxMenu } from '../ctx.js';
 
 export function TripModal({ open, trip, onClose }) {
   const [f, setF] = useState(null);
@@ -85,7 +86,7 @@ export default function Explore() {
       </div>
       <div class="stack">
         <${Card} title="地点列表" sub="按时间倒序" action=${html`<select value=${kind} onChange=${(e) => setKind(e.target.value)} style="width:auto;padding:4px 26px 4px 8px;font-size:.72rem"><option value="all">全部</option><option value="trip">旅行</option><option value="live">居住</option><option value="wish">想去</option></select>`}>
-          ${trips.length === 0 ? html`<${Empty} icon="pin" text="还没有足迹。从出生的城市开始吧。" />` : html`<div class="trip-list">${trips.map((t) => html`<div class=${'trip ' + (sel === t.id ? 'on' : '')} key=${t.id} onClick=${() => setSel(t.id)}>
+          ${trips.length === 0 ? html`<${Empty} icon="pin" text="还没有足迹。从出生的城市开始吧。" />` : html`<div class="trip-list">${trips.map((t) => html`<div class=${'trip ' + (sel === t.id ? 'on' : '')} key=${t.id} onClick=${() => setSel(t.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: '在星球上查看', icon: 'globe', onClick: () => setSel(t.id) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(t); setModal(true); } }, 'sep', ...[['trip', '旅行'], ['live', '居住过'], ['wish', '想去']].map(([v, n]) => ({ label: n, icon: (t.kind || 'trip') === v ? 'check' : 'pin', onClick: () => upsert('trips', { id: t.id, kind: v }) })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => confirmDel() && remove('trips', t.id) }], t.place)}>
             <div class="pinic" data-kind=${t.kind || 'trip'}><${Icon} name=${t.kind === 'wish' ? 'star' : t.kind === 'live' ? 'home' : 'pin'} size=${14} /></div>
             <div class="ti"><b>${t.place}</b><small>${t.region ? t.region + ' · ' : ''}${t.country} · ${t.date}</small>${t.note && html`<p>${t.note}</p>`}</div>
           </div>`)}</div>`}
