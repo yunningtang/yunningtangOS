@@ -200,8 +200,7 @@ function MoveModal({ open, note, notes, onClose }) {
 }
 
 /* ---------- covers ---------- */
-export const COVERS = ['linear-gradient(135deg,#1a1a1a,#3a3a3a)', 'linear-gradient(135deg,#e8e6e1,#f6f5f2)', 'repeating-linear-gradient(45deg,#f4f3f0 0 10px,#ebeae6 10px 20px)', 'radial-gradient(120% 120% at 20% 20%,#fff,#d9d7d2 70%,#bdbab4)', 'linear-gradient(180deg,#2b2b2b,#111)', 'radial-gradient(100% 100% at 80% 10%,#cfcdc8,#8e8c87 70%,#4a4947)', 'linear-gradient(90deg,#111 0 50%,#f3f2ef 50%)', 'repeating-linear-gradient(0deg,#fff 0 6px,#e9e8e4 6px 7px)'];
-export const COVERS_OLD = ['linear-gradient(120deg,#d9e4f5,#eef2f7)', 'linear-gradient(120deg,#e8f1ec,#f4efe6)', 'linear-gradient(120deg,#f3e6e0,#efe3f1)', 'linear-gradient(120deg,#1f2937,#4b5563)', 'linear-gradient(120deg,#2b6777,#52ab98)', 'linear-gradient(120deg,#f7d9c4,#f4c6a5)', 'radial-gradient(120% 120% at 20% 20%,#fde68a,#f59e0b 60%,#b45309)', 'radial-gradient(100% 100% at 80% 10%,#c7d2fe,#6366f1 70%,#312e81)'];
+export const COVERS = ['linear-gradient(120deg,#cfe3ff,#eaf2ff)', 'linear-gradient(120deg,#d9f1e6,#f4efe3)', 'linear-gradient(120deg,#ffe1d6,#f0e3ff)', 'linear-gradient(120deg,#1f2937,#4b5563)', 'linear-gradient(120deg,#1d5c66,#52ab98)', 'linear-gradient(120deg,#f7d9c4,#f4c6a5)', 'radial-gradient(120% 120% at 20% 20%,#fde68a,#f59e0b 60%,#b45309)', 'radial-gradient(100% 100% at 80% 10%,#c7d2fe,#6366f1 70%,#312e81)', 'linear-gradient(135deg,#0f172a,#1e3a8a 60%,#38bdf8)'];
 export function nextCover(cur) { const i = COVERS.indexOf(cur); return COVERS[(i + 1) % COVERS.length]; }
 export function coverStyle(c) { return /^https?:/.test(c) ? `background-image:url(${c})` : `background:${c}`; }
 

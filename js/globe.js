@@ -26,47 +26,55 @@ export function mountGlobe(canvas, opts = {}) {
 
   function draw() {
     ctx.clearRect(0, 0, w, h);
-    const dark = document.documentElement.dataset.theme === 'dark';
-    const ink = dark ? '#f2f1ee' : '#141414';
     const r = proj.scale(), [cx, cy] = proj.translate();
-    // halo
-    const halo = ctx.createRadialGradient(cx, cy, r * 0.95, cx, cy, r * 1.25);
-    halo.addColorStop(0, 'rgba(0,0,0,0)'); halo.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = halo; ctx.fillRect(0, 0, w, h);
-    // sphere
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    const sea = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r);
-    sea.addColorStop(0, dark ? '#2a2a2a' : '#ffffff'); sea.addColorStop(1, dark ? '#1a1a1a' : '#f1f0ec');
-    ctx.fillStyle = sea; ctx.fill();
-    ctx.strokeStyle = dark ? 'rgba(255,255,255,.3)' : 'rgba(20,20,20,.5)'; ctx.lineWidth = 1; ctx.stroke();
+    // atmosphere
+    const atm = ctx.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.16);
+    atm.addColorStop(0, 'rgba(120,180,255,.55)'); atm.addColorStop(0.5, 'rgba(90,150,255,.18)'); atm.addColorStop(1, 'rgba(60,120,255,0)');
+    ctx.fillStyle = atm; ctx.beginPath(); ctx.arc(cx, cy, r * 1.16, 0, Math.PI * 2); ctx.fill();
+    // ocean
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+    const sea = ctx.createRadialGradient(cx - r * 0.45, cy - r * 0.45, r * 0.05, cx, cy, r * 1.05);
+    sea.addColorStop(0, '#4f9ff5'); sea.addColorStop(0.35, '#2c6fd6'); sea.addColorStop(0.75, '#153f9a'); sea.addColorStop(1, '#0a1f5c');
+    ctx.fillStyle = sea; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
     // graticule
-    ctx.beginPath(); path(grat); ctx.strokeStyle = dark ? 'rgba(255,255,255,.08)' : 'rgba(20,20,20,.08)'; ctx.lineWidth = .5; ctx.stroke();
-    // land
+    ctx.beginPath(); path(grat); ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = .5; ctx.stroke();
+    // land, coloured by screen latitude band (ice at poles, green temperate, tan subtropics)
     if (land) {
-      ctx.beginPath(); path(land);
-      ctx.fillStyle = dark ? 'rgba(255,255,255,.12)' : 'rgba(20,20,20,.08)'; ctx.fill();
-      ctx.strokeStyle = dark ? 'rgba(255,255,255,.55)' : 'rgba(20,20,20,.7)'; ctx.lineWidth = .7; ctx.stroke();
+      const lg = ctx.createLinearGradient(0, cy - r, 0, cy + r);
+      [[0, '#eef3f6'], [0.07, '#cfdcd6'], [0.14, '#5e8d57'], [0.3, '#78a35a'], [0.42, '#b9a86a'], [0.5, '#5f9a4a'], [0.6, '#7fa85c'], [0.72, '#8aa55f'], [0.88, '#c9d6d2'], [1, '#eef3f6']].forEach(([o, c]) => lg.addColorStop(o, c));
+      ctx.beginPath(); path(land); ctx.fillStyle = lg; ctx.fill();
+      ctx.strokeStyle = 'rgba(30,60,40,.35)'; ctx.lineWidth = .5; ctx.stroke();
+      // soft relief: darker inner edge
+      ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1.5; ctx.stroke();
     }
+    // terminator-ish shading and specular
+    const sh = ctx.createRadialGradient(cx - r * 0.5, cy - r * 0.5, r * 0.1, cx, cy, r);
+    sh.addColorStop(0, 'rgba(255,255,255,.18)'); sh.addColorStop(0.45, 'rgba(255,255,255,0)'); sh.addColorStop(0.85, 'rgba(5,12,40,.35)'); sh.addColorStop(1, 'rgba(2,6,24,.75)');
+    ctx.fillStyle = sh; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    const spec = ctx.createRadialGradient(cx - r * 0.55, cy - r * 0.55, 0, cx - r * 0.55, cy - r * 0.55, r * 0.5);
+    spec.addColorStop(0, 'rgba(255,255,255,.35)'); spec.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = spec; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    ctx.restore();
+    // limb
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(160,200,255,.45)'; ctx.lineWidth = 1; ctx.stroke();
     // markers
     const t = performance.now() / 1000;
     for (const m of markers) {
       const p = proj([m.lng, m.lat]);
-      if (!p) continue;
-      // visible side only
-      const [lx, ly] = [m.lng, m.lat];
-      const vis = geoVisible(proj, lx, ly);
-      if (!vis) continue;
+      if (!p || !geoVisible(proj, m.lng, m.lat)) continue;
       const sel = selected && selected === m.id;
-      const wish = m.kind === 'wish';
+      const col = m.kind === 'wish' ? '#f3b74a' : m.kind === 'live' ? '#5ee39a' : '#ffffff';
       const pulse = sel ? 6 + Math.sin(t * 4) * 2 : 0;
-      ctx.beginPath(); ctx.arc(p[0], p[1], 9 + pulse, 0, Math.PI * 2);
-      ctx.fillStyle = sel ? (dark ? 'rgba(255,255,255,.25)' : 'rgba(20,20,20,.18)') : 'rgba(0,0,0,0)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(p[0], p[1], sel ? 5.5 : 4.2, 0, Math.PI * 2);
-      ctx.fillStyle = wish ? (dark ? '#1a1a1a' : '#fff') : ink; ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(p[0], p[1], 8 + pulse, 0, Math.PI * 2);
+      ctx.fillStyle = sel ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.14)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(p[0], p[1], sel ? 5 : 3.8, 0, Math.PI * 2);
+      ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 10; ctx.fill(); ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(10,30,80,.8)'; ctx.lineWidth = 1; ctx.stroke();
       if (sel && m.label) {
         ctx.font = '500 12px "Noto Serif SC", serif';
-        ctx.fillStyle = ink; ctx.textAlign = 'left';
-        ctx.fillText(m.label, p[0] + 10, p[1] + 4);
+        ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 6;
+        ctx.fillText(m.label, p[0] + 11, p[1] + 4); ctx.shadowBlur = 0;
       }
     }
   }

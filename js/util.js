@@ -154,24 +154,32 @@ export function sortBy(arr, ...keys) {
 }
 
 export const PRIORITY = [
-  { v: 0, label: 'P0', name: '紧急', color: 'var(--ink)' },
-  { v: 1, label: 'P1', name: '重要', color: 'var(--g2)' },
-  { v: 2, label: 'P2', name: '普通', color: 'var(--g4)' },
-  { v: 3, label: 'P3', name: '随缘', color: 'var(--g6)' },
+  { v: 0, label: 'P0', name: '紧急', color: '#d94a4a' },
+  { v: 1, label: 'P1', name: '重要', color: '#e0973a' },
+  { v: 2, label: 'P2', name: '普通', color: '#3a8fd9' },
+  { v: 3, label: 'P3', name: '随缘', color: '#9aa3ad' },
 ];
 
 export const AREAS = ['学习', '工作', '创作', '健康', '关系', '财务', '生活', '探索'];
 
 export const BLOCK_KINDS = [
-  { v: 'focus', name: '深度专注', color: 'var(--ink)' },
-  { v: 'study', name: '学习', color: 'var(--g2)' },
-  { v: 'work', name: '工作', color: 'var(--g3)' },
-  { v: 'create', name: '创作', color: 'var(--g4)' },
-  { v: 'life', name: '生活', color: 'var(--g5)' },
-  { v: 'move', name: '运动', color: 'var(--g6)' },
-  { v: 'rest', name: '休息', color: 'var(--g7)' },
+  { v: 'focus', name: '深度专注', color: '#2f80ed' },
+  { v: 'study', name: '学习', color: '#7b61ff' },
+  { v: 'work', name: '工作', color: '#1f9d8a' },
+  { v: 'create', name: '创作', color: '#e2598b' },
+  { v: 'life', name: '生活', color: '#f2a93b' },
+  { v: 'move', name: '运动', color: '#4caf6e' },
+  { v: 'rest', name: '休息', color: '#9aa3ad' },
 ];
 
 export function kindColor(v) {
   return (BLOCK_KINDS.find((k) => k.v === v) || BLOCK_KINDS[0]).color;
+}
+
+// Stable pastel colour for a label (tags, areas).
+export const TAG_HUES = [4, 28, 48, 96, 160, 200, 230, 270, 320];
+export function tagHue(name) {
+  let h = 0;
+  for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return TAG_HUES[h % TAG_HUES.length];
 }

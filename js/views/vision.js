@@ -13,8 +13,8 @@ function LifeWheel({ areas, onChange }) {
     <div class="wheel"><svg viewBox="0 0 240 240">
       ${[2, 4, 6, 8, 10].map((v) => html`<polygon points=${areas.map((_, i) => pt(i, (v / 10) * R).join(',')).join(' ')} fill="none" stroke="var(--line-2)" stroke-width="1" />`)}
       ${areas.map((_, i) => html`<line x1=${cx} y1=${cy} x2=${pt(i, R)[0]} y2=${pt(i, R)[1]} stroke="var(--line-2)" />`)}
-      <polygon points=${poly} fill="rgba(var(--ac),.12)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" />
-      ${areas.map((a, i) => { const [x, y] = pt(i, (a.score / 10) * R); return html`<circle cx=${x} cy=${y} r="3.5" fill="var(--ink)" />`; })}
+      <polygon points=${poly} fill="rgba(var(--ac),.18)" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round" />
+      ${areas.map((a, i) => { const [x, y] = pt(i, (a.score / 10) * R); return html`<circle cx=${x} cy=${y} r="3.5" fill="var(--blue)" />`; })}
       ${areas.map((a, i) => { const [x, y] = pt(i, R + 16); return html`<text x=${x} y=${y} text-anchor="middle" dominant-baseline="middle" font-size="9" fill="var(--text-3)">${a.name}</text>`; })}
     </svg></div>
     <div class="wheel-ctl">${areas.map((a, i) => html`<div class="r"><span>${a.name}</span><input type="range" min="0" max="10" value=${a.score} onInput=${(e) => onChange(i, +e.target.value)} /><b>${a.score}</b></div>`)}</div>
