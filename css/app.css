@@ -430,8 +430,8 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .nb-layout .splitter{align-self:stretch;height:auto;min-height:60vh;position:sticky;top:60px;max-height:calc(100vh - 76px)}
 .nb-col,.list-col{position:sticky;top:60px;max-height:calc(100vh - 76px);display:flex;flex-direction:column;padding:10px;min-height:60vh;overflow:visible}
 .notes-main{overflow:visible}
-.nb-h,.lc-h{display:flex;align-items:center;gap:4px;padding:2px 4px 8px}
-.nb-h h3,.lc-h h3{font-size:.9rem;font-weight:600}
+.nb-h,.lc-h{display:flex;align-items:center;gap:4px;padding:2px 4px 8px;min-width:0}
+.nb-h h3,.lc-h h3{font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .nb-list{display:flex;flex-direction:column;gap:1px;overflow:auto;flex:1;position:relative}
 .nb-sec{font-size:.68rem;color:var(--text-4);padding:12px 10px 4px;letter-spacing:.08em;text-transform:uppercase}
 .nb-i{display:flex;align-items:center;gap:8px;min-height:32px;padding:4px 10px;border-radius:var(--r2);font-size:.86rem;color:var(--text-3);text-align:left;text-decoration:none;position:relative;width:100%}
@@ -502,7 +502,7 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .crumbs{display:flex;align-items:center;font-size:.8rem;color:var(--text-3);padding:12px 18px 8px;flex-wrap:wrap}
 .crumbs a{text-decoration:none;color:var(--text-3);padding:3px 6px;border-radius:var(--r3)}.crumbs a:hover{background:var(--hover);color:var(--text)}
 .crumbs span{color:var(--text-4);margin:0 1px}.crumbs b{font-weight:500;color:var(--text);padding:3px 6px}
-.page-acts{display:flex;gap:2px;align-items:center}
+.page-acts{display:flex;gap:2px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .page-acts .ibtn.on{color:var(--blue)}
 .page-cover{height:180px;border-radius:var(--r);background-size:cover;background-position:center;position:relative;margin-top:4px}
 .page-cover .cover-acts{position:absolute;right:12px;bottom:10px;display:flex;gap:4px;opacity:0;transition:opacity .15s}
