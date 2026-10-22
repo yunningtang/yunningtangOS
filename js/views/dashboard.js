@@ -1,5 +1,7 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, toggleTodo, update, removeUndo } from '../store.js';
+import { usePomo } from './focus.js';
+import * as pomo from '../pomo.js';
 import { Icon, Card, Btn, Tag, Empty, Progress, useClock } from '../ui.js';
 import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS } from '../util.js';
 import { TodoModal, QuickAdd, todoMenu } from './todos.js';
@@ -51,6 +53,7 @@ function Spark({ points, color = 'var(--blue)' }) {
 export default function Dashboard() {
   const s = useStore();
   const now = useClock();
+  const pst = usePomo();
   const today = todayStr();
   const [editing, setEditing] = useState(null);
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -132,7 +135,7 @@ export default function Dashboard() {
         <div class="mini-tl" style=${`height:${(to - from) * hourH}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}><span>${pad(from + i)}:00</span></div>`)}
           ${blocks.map((b) => { const a = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60); if (e <= a) return null; const cur = a <= nowMin && e > nowMin; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (e <= nowMin ? ' past' : '')} style=${`top:${y(a)}px;height:${Math.max(y(e) - y(a) - 2, 18)}px;--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) }], b.title)}><b>${b.title}</b><small>${b.start} – ${b.end}</small></div>`; })}
-          ${nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="mt-now" style=${`top:${y(nowMin)}px`}></div>`}
+          ${nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>`}
         </div>
       <//>` },
     todos: { title: '待办', span: 1, el: html`<${Card} class="todo-card" ...${dropProps('todo', (d) => upsert('todos', { id: d.id, due: today }))}>
@@ -160,7 +163,8 @@ export default function Dashboard() {
       <//>` },
     calendar: { title: '月历', span: 1, el: html`<${MonthCal} s=${s} today=${today} />` },
     focus: { title: '专注', span: 1, el: html`<${Card}>
-        <div class="card-h"><h3>专注</h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="时间线"><${Icon} name="plus" size=${15} /></a></div></div>
+        <div class="card-h"><h3>专注</h3><div class="card-act"><a class="btn ghost sm" href="#/focus"><${Icon} name="play" size=${13} /> 番茄钟</a></div></div>
+        ${pst.phase !== 'idle' && html`<a class="pomo-inline" href="#/focus"><${Icon} name=${pst.phase === 'break' ? 'moon' : 'play'} size=${13} /><b>${pomo.fmt(pomo.remaining())}</b><span>${pst.phase === 'break' ? '休息中' : pst.label || '专注中'}</span></a>`}
         <div class="focus-row"><div><div class="small muted">今日目标</div><div class="focus-big">${fmtH(focusToday)} <span class="muted">/ ${GOAL_MIN / 60}h</span></div></div><${Ring} value=${focusToday / GOAL_MIN} /></div>
         <div class="bars">${focusByDay.map((m, i) => html`<div class="bar" key=${i}><i style=${`height:${Math.max(4, Math.min(100, (m / GOAL_MIN) * 100))}%`} class=${week[i] === today ? 'on' : ''}></i><span>${['一', '二', '三', '四', '五', '六', '日'][i]}</span></div>`)}</div>
       <//>` },

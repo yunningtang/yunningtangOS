@@ -232,11 +232,12 @@ export function goalPct(g) {
   return Math.round((krs.filter((k) => k.done).length / krs.length) * 100);
 }
 
-function MonthGoals() {
+function MonthGoals({ openId }) {
   const s = useStore();
   const [month, setMonth] = useState(monthKey());
   const [editing, setEditing] = useState(null);
   const [modal, setModal] = useState(false);
+  useEffect(() => { if (!openId) return; for (const [m, gs] of Object.entries(s.goals)) { const g = gs.find((x) => x.id === openId); if (g) { setMonth(m); setEditing(g); setModal(true); break; } } }, [openId]);
   const goals = s.goals[month] || [];
   const [y, m] = month.split('-');
   const toggleKr = (gid, kid) => update((d) => { const g = d.goals[month].find((x) => x.id === gid); const k = g.krs.find((x) => x.id === kid); k.done = !k.done; });
@@ -276,6 +277,6 @@ export default function Planner({ route }) {
     <nav class="subnav" data-liquid="a"><span class="liq"></span>${tabs.map(([k, n]) => html`<a href=${'#/plan/' + k} class=${sub === k ? 'active' : ''}>${n}</a>`)}</nav>
     ${sub === 'week' && html`<${WeekBoard} />`}
     ${sub === 'day' && html`<${DayView} initial=${route.query && route.query.d} />`}
-    ${sub === 'month' && html`<${MonthGoals} />`}
+    ${sub === 'month' && html`<${MonthGoals} openId=${route.query && route.query.open} />`}
   </div>`;
 }

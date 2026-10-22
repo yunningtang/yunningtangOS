@@ -38,6 +38,7 @@ export function sanitize(html) {
         if (!tag) { out += walk(c); continue; }
         if (tag === 'br') { out += '<br>'; continue; }
         if (tag === 'a') {
+          if (c.classList.contains('ref')) { const kind = (c.dataset.kind || '').replace(/[^a-z]/g, ''), id = (c.dataset.id || '').replace(/[^\w-]/g, ''); if (kind && id) { out += `<a class="ref" data-kind="${kind}" data-id="${id}" contenteditable="false">${escapeHtml(c.textContent)}</a>`; continue; } }
           if (c.classList.contains('wiki')) { const title = c.dataset.title || c.textContent; out += `<a class="wiki" data-title="${escapeHtml(title)}" contenteditable="false">${escapeHtml(c.textContent)}</a>`; continue; }
           const href = (c.getAttribute('href') || '').trim();
           if (!/^(https?:|mailto:|#)/i.test(href)) { out += walk(c); continue; }
@@ -62,6 +63,8 @@ export function inlineMdToHtml(md) {
   let s = escapeHtml(md);
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
   s = s.replace(/\[\[([^\[\]|\n]+)(?:\|([^\[\]\n]+))?\]\]/g, (_, t, a) => `<a class="wiki" data-title="${t.trim()}" contenteditable="false">${a || t.trim()}</a>`);
+  s = s.replace(/@\[(todo|book|trip|goal|link):([\w-]+)\|([^\]]+)\]/g, (_, k, id, t) => `<a class="ref" data-kind="${k}" data-id="${id}" contenteditable="false">${t}</a>`);
+  s = s.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
   s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>').replace(/~~([^~]+)~~/g, '<s>$1</s>');
   s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   s = s.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
@@ -82,6 +85,9 @@ export function inlineHtmlToMd(html) {
         else if (tag === 'I' || tag === 'EM') out += `*${walk(c)}*`;
         else if (tag === 'S' || tag === 'DEL' || tag === 'STRIKE') out += `~~${walk(c)}~~`;
         else if (tag === 'CODE') out += `\`${c.textContent}\``;
+        else if (tag === 'A' && c.classList.contains('ref')) out += `@[${c.dataset.kind}:${c.dataset.id}|${c.textContent}]`;
+        else if (tag === 'MARK') out += `==${walk(c)}==`;
+        else if (tag === 'U') out += walk(c);
         else if (tag === 'A' && c.classList.contains('wiki')) out += `[[${c.dataset.title || c.textContent}]]`;
         else if (tag === 'A') out += `[${walk(c)}](${c.getAttribute('href')})`;
         else out += walk(c);

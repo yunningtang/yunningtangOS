@@ -27,6 +27,7 @@ export function linksOf(body) {
 export function renderMd(src) {
   let h = marked.parse((src || '').replace(/^> ?(💡|⚠️|✅|📌|❗)\s?/gm, '> **$1** '));
   h = h.replace(/<\/?(script|iframe|object|embed)[^>]*>/gi, '').replace(/\son\w+="[^"]*"/gi, '').replace(/javascript:/gi, '');
+  h = h.replace(/@\[(todo|book|trip|goal|link):([\w-]+)\|([^\]]+)\]/g, (_, k, id, t) => `<a class="ref" href="#/${{ todo: 'todos?open=', book: 'reading?open=', trip: 'explore?sel=', goal: 'plan/month?open=', link: 'links?open=' }[k]}${id}" data-kind="${k}">${escapeHtml(t)}</a>`).replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
   // Resolve [[links]] everywhere except inside code.
   return h.split(/(<code[\s\S]*?<\/code>|<pre[\s\S]*?<\/pre>)/).map((part, i) => i % 2 ? part : part.replace(LINK_RE, (_, t, alias) => `<a href="#/notes/t:${encodeURIComponent(t.trim())}" class="wiki">${escapeHtml(alias || t)}</a>`)).join('');
 }
@@ -101,6 +102,15 @@ export function newNote(patch = {}) {
   upsert('notes', n);
   return n;
 }
+export function ensureNotebook(name, color) { const b = get().notebooks.find((x) => x.name === name); return b || newNotebook(name, color); }
+// Find or create the page linked to an item from another module (book / trip / todo).
+export function linkedPage(ref, { title, nb, color, tags = [], body = '' }) {
+  const ex = get().notes.find((n) => n.ref === ref);
+  if (ex) return ex;
+  const b = ensureNotebook(nb, color);
+  return newNote({ title, nb: b.id, tags, body, ref, blocks: mdToBlocks(body) });
+}
+export function refLabel(ref) { const [k] = (ref || '').split(':'); return { book: '书', trip: '足迹', todo: '待办', goal: '目标' }[k] || k; }
 export function isBlank(n) { return !n.title.trim() && !(n.body || '').trim() && !n.cover; }
 let _curNb = null;
 export function currentNb() { return _curNb; }
@@ -318,6 +328,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
           ${(() => { const b = notebooks.find((x) => x.id === note.nb); return b ? html`<span class="pl-i"><i class="nb-dot" style=${`background:${b.color}`}></i>${b.name}</span>` : ''; })()}
           ${note.tags.length ? note.tags.map((t) => html`<${Tag}>${t}<//>`) : html`<span class="pl-i muted">无标签</span>`}
           <span class="pl-i muted">${new Date(note.updated).toLocaleDateString('zh-CN')} · ${words} 字</span>
+          ${note.ref && html`<a class="pl-i src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]} onClick=${(e) => e.stopPropagation()}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}
         </button>
         <div class="prop"><span class="pk"><${Icon} name="tag" size=${12} /> 标签</span><span class="pv"><${TagInput} value=${note.tags} onChange=${(v) => upsert('notes', { id: note.id, tags: v })} placeholder="空" /></span></div>
         <div class="prop"><span class="pk"><${Icon} name="book" size=${12} /> 本子</span><span class="pv"><select class="pv-sel" value=${note.nb || 'nb-inbox'} onChange=${(e) => { const b = e.target.value; const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b; if (x.id === note.id) x.parent = null; }); }); }}>${notebooks.map((b) => html`<option value=${b.id}>${b.name}</option>`)}</select></span></div>

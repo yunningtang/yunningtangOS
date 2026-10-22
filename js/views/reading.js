@@ -4,6 +4,8 @@ import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, Star
 import { uid, todayStr, sortBy } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
+import { linkedPage } from './notes.js';
+import { go } from '../nav.js';
 
 const TYPES = [['book', '书'], ['paper', '论文'], ['article', '文章'], ['course', '课程']];
 const STATUS = [['want', '想读'], ['reading', '在读'], ['done', '读完'], ['paused', '搁置']];
@@ -54,8 +56,9 @@ function Cover({ b, class: cls = '' }) {
   return html`<div class=${'cv ' + cls} style=${`--cc:${b.color || '#18a8a2'}`}>${b.cover ? html`<img src=${b.cover} alt="" loading="lazy" />` : b.title.slice(0, 10)}</div>`;
 }
 
-export default function Reading() {
+export default function Reading({ route }) {
   const s = useStore();
+  useEffect(() => { const id = route && route.query && route.query.open; if (id && s.books.some((b) => b.id === id)) setOpen(id); }, [route && route.query && route.query.open]);
   const [status, setStatus] = useState('all');
   const [type, setType] = useState('all');
   const [q, setQ] = useState('');
@@ -85,7 +88,9 @@ export default function Reading() {
     upsert('books', { id: uid(), title: m ? m[1].trim() : raw, author: m ? m[2].trim() : '', type: 'book', status: status === 'all' ? 'want' : status, progress: 0, total: 0, rating: 0, cover: '', link: '', note: '', tags: [], color: COLORS[s.books.length % COLORS.length], started: '', finished: '', created: todayStr() });
     setQuick('');
   };
-  const menu = (b) => [{ label: '打开', icon: 'book', onClick: () => setOpen(b.id) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(b); setModal(true); } }, 'sep', ...STATUS.map(([v, n]) => ({ label: n, icon: v === b.status ? 'check' : 'tag', onClick: () => setStatusOf(b, v) })), 'sep', b.link && { label: '打开链接', icon: 'external', onClick: () => window.open(b.link, '_blank', 'noopener') }, { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('books', b.id, b.title) }];
+  const notePage = (b) => { const n = linkedPage('book:' + b.id, { title: b.title, nb: '读书笔记', color: '#7461c9', tags: ['读书', ...b.tags], body: `# ${b.title}\n\n${b.author ? '作者：' + b.author + '\n\n' : ''}${b.note ? '> ' + b.note.replace(/\n/g, '\n> ') + '\n\n' : ''}## 摘录\n\n## 想法\n` }); go('notes/' + n.id); };
+  const hasPage = (b) => s.notes.some((n) => n.ref === 'book:' + b.id);
+  const menu = (b) => [{ label: '打开', icon: 'book', onClick: () => setOpen(b.id) }, { label: hasPage(b) ? '打开笔记页' : '新建笔记页', icon: 'note', onClick: () => notePage(b) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(b); setModal(true); } }, 'sep', ...STATUS.map(([v, n]) => ({ label: n, icon: v === b.status ? 'check' : 'tag', onClick: () => setStatusOf(b, v) })), 'sep', b.link && { label: '打开链接', icon: 'external', onClick: () => window.open(b.link, '_blank', 'noopener') }, { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('books', b.id, b.title) }];
 
   return html`<div>
     <div class="page-h">
@@ -113,13 +118,14 @@ export default function Reading() {
             ${b.status === 'reading' && html`<button class="btn ghost sm" onClick=${() => bump(b, b.total ? 10 : 5)}>+${b.total ? '10 页' : '5%'}</button>`}
             ${b.status === 'want' && html`<button class="btn ghost sm" onClick=${() => setStatusOf(b, 'reading')}>开始读</button>`}
             ${b.status === 'reading' && html`<button class="btn ghost sm" onClick=${() => setStatusOf(b, 'done')}>读完</button>`}
+            <${IconBtn} icon="note" title=${hasPage(b) ? '打开笔记页' : '新建笔记页'} class=${'ibtn ' + (hasPage(b) ? 'on' : '')} size=${13} onClick=${() => notePage(b)} />
             <${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => { setEditing(b); setModal(true); }} />
             <${IconBtn} icon="trash" class="ibtn danger" title="删除" size=${13} onClick=${() => removeUndo('books', b.id, b.title)} />
           </div>
         </div>`)}</div>`)}
     <//>
     <${BookModal} open=${modal} book=${editing} onClose=${() => setModal(false)} />
-    <${Modal} open=${!!sel} onClose=${() => setOpen(null)} title=${sel?.title || ''} wide foot=${sel && html`<${Btn} kind="ghost" icon="edit" onClick=${() => { setEditing(sel); setModal(true); }}>编辑<//><span class="flex1"></span>${sel.link && html`<a class="btn" href=${sel.link} target="_blank" rel="noopener"><${Icon} name="external" size=${13} /> 打开链接</a>`}`}>
+    <${Modal} open=${!!sel} onClose=${() => setOpen(null)} title=${sel?.title || ''} wide foot=${sel && html`<${Btn} kind="ghost" icon="edit" onClick=${() => { setEditing(sel); setModal(true); }}>编辑<//><${Btn} kind="ghost" icon="note" onClick=${() => { setOpen(null); notePage(sel); }}>${hasPage(sel) ? '打开笔记页' : '新建笔记页'}<//><span class="flex1"></span>${sel.link && html`<a class="btn" href=${sel.link} target="_blank" rel="noopener"><${Icon} name="external" size=${13} /> 打开链接</a>`}`}>
       ${sel && html`<div class="row" style="align-items:flex-start;gap:18px">
         <div class="cv" style=${`--cc:${sel.color || '#3b6fd6'}`}>${sel.cover ? html`<img src=${sel.cover} alt="" />` : sel.title.slice(0, 10)}</div>
         <div class="flex1">

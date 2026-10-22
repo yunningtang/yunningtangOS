@@ -4,6 +4,7 @@ import { marked } from '../vendor/marked.js';
 import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
+import { get as storeGet } from './store.js';
 import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks } from './blocks.js';
 import { todayStr, escapeHtml } from './util.js';
 
@@ -64,6 +65,31 @@ function onEdgeLine(el, which) {
   return which === 'up' ? rect.top - box.top < 14 : box.bottom - rect.bottom < 14;
 }
 function exec(cmd, val) { document.execCommand(cmd, false, val); }
+function toggleWrap(tagName) {
+  const s = sel(); if (!s.rangeCount) return;
+  const r = s.getRangeAt(0);
+  const inside = (n) => { while (n && n.nodeType !== 1) n = n.parentNode; return n && n.closest(tagName); };
+  const c = inside(r.startContainer);
+  if (c) { const frag = document.createDocumentFragment(); while (c.firstChild) frag.appendChild(c.firstChild); c.replaceWith(frag); return; }
+  if (r.collapsed) return;
+  const el = document.createElement(tagName);
+  try { r.surroundContents(el); } catch { el.appendChild(r.extractContents()); r.insertNode(el); }
+  s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(el); s.addRange(nr);
+}
+export function refTargets(q) {
+  const st = storeGet(); const k = (q || '').toLowerCase(); const out = [];
+  const add = (kind, id, title, hint) => { if (!k || title.toLowerCase().includes(k)) out.push({ kind, id, title, hint, label: title }); };
+  st.todos.filter((t) => !t.done).forEach((t) => add('todo', t.id, t.title, '待办'));
+  st.books.forEach((b) => add('book', b.id, b.title, b.author ? '书 · ' + b.author : '书'));
+  st.trips.forEach((t) => add('trip', t.id, t.place, '足迹 · ' + (t.country || '')));
+  Object.entries(st.goals).forEach(([m, gs]) => gs.forEach((g) => add('goal', g.id, g.title, '目标 · ' + m)));
+  st.links.forEach((l) => add('link', l.id, l.title, '收藏 · ' + (l.host || '')));
+  return out.slice(0, 10);
+}
+export function openRef(kind, id) {
+  const map = { todo: 'todos?open=' + id, book: 'reading?open=' + id, trip: 'explore?sel=' + id, goal: 'plan/month?open=' + id, link: 'links?open=' + id };
+  if (map[kind]) location.hash = '#/' + map[kind];
+}
 function toggleCode() {
   const s = sel(); if (!s.rangeCount) return;
   const r = s.getRangeAt(0);
@@ -85,6 +111,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const [dragId, setDragId] = useState(null);
   const [dropAt, setDropAt] = useState(null);
   const [mdEdit, setMdEdit] = useState(null);
+  const [tb, setTb] = useState(null); // { x, y }
   const refs = useRef(new Map());
   const root = useRef();
   const bsRef = useRef(bs); bsRef.current = bs;
@@ -133,6 +160,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (mod && !e.shiftKey && e.key.toLowerCase() === 'i') { e.preventDefault(); exec('italic'); return; }
     if (mod && !e.shiftKey && e.key.toLowerCase() === 'u') { e.preventDefault(); exec('underline'); return; }
     if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); toggleCode(); return; }
+    if (mod && e.shiftKey && e.key.toLowerCase() === 'h') { e.preventDefault(); toggleWrap('mark'); return; }
     if (mod && e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); exec('strikeThrough'); return; }
     if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); const sel0 = window.getSelection(); const range = sel0.rangeCount ? sel0.getRangeAt(0).cloneRange() : null; askPrompt('链接地址', '', { title: '插入链接', placeholder: 'https://' }).then((url) => { if (!url) return; el.focus(); if (range) { const s2 = window.getSelection(); s2.removeAllRanges(); s2.addRange(range); } exec('createLink', /^https?:/.test(url) ? url : 'https://' + url); }); return; }
     if (b.type === 'code' || b.type === 'md') {
@@ -199,11 +227,25 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     let m;
     if ((m = before.match(/\[\[([^\]]*)$/))) setMenu({ kind: 'link', id: b.id, q: m[1], idx: 0 });
     else if ((m = before.match(/(?:^|\s)\/([^\s/]*)$/))) setMenu({ kind: 'slash', id: b.id, q: m[1], idx: 0 });
+    else if ((m = before.match(/(?:^|\s)@([^\s@]*)$/))) setMenu({ kind: 'ref', id: b.id, q: m[1], idx: 0 });
     else if (menu) setMenu(null);
     b.html = el.innerHTML; scheduleEmit();
   };
   const scheduleEmit = () => { clearTimeout(emitTimer.current); emitTimer.current = setTimeout(() => emit(syncFromDom(bsRef.current)), 600); };
   useEffect(() => () => clearTimeout(emitTimer.current), []);
+  useEffect(() => {
+    const upd = () => {
+      const s = window.getSelection();
+      if (!s || s.isCollapsed || !s.rangeCount || !root.current) return setTb(null);
+      const r = s.getRangeAt(0); const a = r.commonAncestorContainer; const el = a.nodeType === 1 ? a : a.parentElement;
+      if (!el || !root.current.contains(el) || !el.closest('.b-text') || el.closest('pre')) return setTb(null);
+      const rect = r.getBoundingClientRect(); if (!rect.width && !rect.height) return setTb(null);
+      const rr = root.current.getBoundingClientRect();
+      setTb({ x: rect.left + rect.width / 2 - rr.left, y: rect.top - rr.top });
+    };
+    document.addEventListener('selectionchange', upd);
+    return () => document.removeEventListener('selectionchange', upd);
+  }, []);
 
   const menuItems = () => {
     if (!menu) return [];
@@ -214,11 +256,17 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       if (k.trim() && !ns.some((n) => n.title.toLowerCase() === k.trim())) list.push({ label: `＋ 新建页面「${menu.q.trim()}」`, title: menu.q.trim(), create: true });
       return list;
     }
+    if (menu.kind === 'ref') return refTargets(menu.q);
     const all = [...SLASH_TYPES.map((t) => ({ k: t, type: t, label: TYPES[t].label, hint: TYPES[t].hint })), ...SLASH_EXTRA];
     return all.filter((x) => !k || x.label.toLowerCase().includes(k) || x.k.includes(k) || (x.hint || '').toLowerCase().includes(k));
   };
   const applyMenu = (it, b) => {
     const el = refs.current.get(b.id); el.focus();
+    if (menu.kind === 'ref') {
+      deleteBeforeCaret(el, menu.q.length + 1);
+      exec('insertHTML', `<a class="ref" data-kind="${it.kind}" data-id="${it.id}" contenteditable="false">${escapeHtml(it.title)}</a>&nbsp;`);
+      setMenu(null); b.html = el.innerHTML; emit(syncFromDom(bsRef.current)); return;
+    }
     if (menu.kind === 'link') {
       deleteBeforeCaret(el, menu.q.length + 2);
       exec('insertHTML', `<a class="wiki" data-title="${escapeHtml(it.title)}" contenteditable="false">${escapeHtml(it.title)}</a>&nbsp;`);
@@ -276,8 +324,18 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const addBelow = (id) => insertAfter(id, block('p'));
   const items = menuItems();
 
-  return html`<div class=${'beditor font-' + (pageFont || 'default')} ref=${root} data-liquid=".b-row" onClick=${(e) => { const wk = e.target.closest && e.target.closest('a.wiki'); if (wk) { e.preventDefault(); onOpenLink && onOpenLink(wk.dataset.title || wk.textContent); return; } const lk = e.target.closest && e.target.closest('a[href]'); if (lk && !e.shiftKey) { e.preventDefault(); window.open(lk.getAttribute('href'), '_blank', 'noopener'); return; } if (e.target === root.current || e.target.classList.contains('liq')) { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); } }}>
+  return html`<div class=${'beditor font-' + (pageFont || 'default')} ref=${root} data-liquid=".b-row" onClick=${(e) => { const wk = e.target.closest && e.target.closest('a.wiki'); if (wk) { e.preventDefault(); onOpenLink && onOpenLink(wk.dataset.title || wk.textContent); return; } const rf = e.target.closest && e.target.closest('a.ref'); if (rf) { e.preventDefault(); openRef(rf.dataset.kind, rf.dataset.id); return; } const lk = e.target.closest && e.target.closest('a[href]'); if (lk && !e.shiftKey) { e.preventDefault(); window.open(lk.getAttribute('href'), '_blank', 'noopener'); return; } if (e.target === root.current || e.target.classList.contains('liq')) { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); } }}>
     <span class="liq"></span>
+    ${tb && html`<div class="sel-tb" style=${`left:${tb.x}px;top:${tb.y}px`} onMouseDown=${(e) => e.preventDefault()} onClick=${() => setTimeout(() => emit(syncFromDom(bsRef.current)), 0)}>
+      <button title="粗体 ⌘B" onClick=${() => exec('bold')}><b>B</b></button>
+      <button title="斜体 ⌘I" onClick=${() => exec('italic')}><i>I</i></button>
+      <button title="下划线 ⌘U" onClick=${() => exec('underline')}><u>U</u></button>
+      <button title="删除线" onClick=${() => exec('strikeThrough')}><s>S</s></button>
+      <button title="代码 ⌘E" class="mono" onClick=${() => toggleCode()}>${'</>'}</button>
+      <button title="荧光标记 ⌘⇧H" class="hl" onClick=${() => toggleWrap('mark')}>A</button>
+      <button title="链接 ⌘K" onClick=${() => { const s2 = window.getSelection(); const range = s2.rangeCount ? s2.getRangeAt(0).cloneRange() : null; askPrompt('链接地址', '', { title: '插入链接', placeholder: 'https://' }).then((url) => { if (!url) return; if (range) { s2.removeAllRanges(); s2.addRange(range); } exec('createLink', /^https?:/.test(url) ? url : 'https://' + url); const n = range && range.commonAncestorContainer; const row = n && (n.nodeType === 1 ? n : n.parentElement).closest('.b-row'); if (row) { const id = row.dataset.id; } emit(syncFromDom(bsRef.current)); }); }}><${Icon} name="link" size=${13} /></button>
+      <button title="清除格式" onClick=${() => exec('removeFormat')}><${Icon} name="x" size=${13} /></button>
+    </div>`}
     ${vis.map((b) => html`<${Row} key=${b.id} b=${b} editor=${{ refs, onKey, onInput, onPaste, update, removeBlock, insertAfter, addBelow, setHmenu, hmenu, dragId, setDragId, dropAt, setDropAt, onDrop, numberOf, mdEdit, setMdEdit, emit, bs, syncFromDom }} />
       ${menu && menu.id === b.id && items.length > 0 && html`<div class="popmenu bmenu">${items.map((it, i) => html`<div class=${'pm ' + (i === menu.idx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); applyMenu(it, b); }}><b>${it.label}</b>${it.hint && html`<small>${it.hint}</small>`}</div>`)}</div>`}`)}
     <div class="b-tail" onClick=${() => { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); }}></div>

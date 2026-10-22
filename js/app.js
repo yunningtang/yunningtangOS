@@ -12,6 +12,7 @@ import Notes from './views/notes.js';
 import Vision from './views/vision.js';
 import Explore from './views/explore.js';
 import Settings from './views/settings.js';
+import Focus, { MiniPomo } from './views/focus.js';
 import { SearchPalette } from './search.js';
 import { PageTree, useTreeState, newNote, newNotebook, ancestors, noteTitle, notebookMenu, movePage } from './views/notes.js';
 import { dragProps, dropProps } from './dnd.js';
@@ -29,6 +30,7 @@ export const ROUTES = [
   { sep: '每一天' },
   { path: 'todos', name: '待办', icon: 'checksq', view: Todos, count: (s) => s.todos.filter((t) => !t.done).length },
   { path: 'plan', name: '计划', icon: 'calendar', view: Planner },
+  { path: 'focus', name: '专注', icon: 'clock', view: Focus },
   { sep: '输入与输出' },
   { path: 'reading', name: '阅读', icon: 'book', view: Reading, count: (s) => s.books.filter((b) => b.status === 'reading').length },
   { path: 'links', name: '收藏', icon: 'link', view: Links },
@@ -41,10 +43,10 @@ export const ROUTES = [
 ];
 
 function parseHash() {
-  const h = location.hash.replace(/^#\/?/, '');
+  const raw = location.hash.replace(/^#\/?/, '');
+  const [h, q] = raw.split('?');
   const [path, ...rest] = h.split('/');
-  const [sub, q] = rest.join('/').split('?');
-  return { path: path || 'home', sub: sub || '', query: Object.fromEntries(new URLSearchParams(q || '')) };
+  return { path: path || 'home', sub: rest.join('/') || '', query: Object.fromEntries(new URLSearchParams(q || '')) };
 }
 
 export function useRoute() {
@@ -132,6 +134,7 @@ function App() {
             </div>`}`;
         }); })()}
       </nav>
+      <${MiniPomo} />
       <a class="side-user" href="#/settings" data-tip=${s.profile.name}><span class="side-avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</span><span class="flex1 nl"><b>${s.profile.name}</b><small>${s.settings.lastSync ? '已同步 ' + new Date(s.settings.lastSync).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '本地存储'}</small></span></a>
     </aside>
     ${!mini && html`<${Splitter} varName="sidebar" min=${180} max=${420} class="sp-side" />`}

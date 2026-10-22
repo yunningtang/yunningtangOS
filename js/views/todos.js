@@ -4,6 +4,8 @@ import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, conf
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { askConfirm } from '../confirm.js';
+import { linkedPage } from './notes.js';
+import { go } from '../nav.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { toast } from '../nav.js';
 
@@ -39,7 +41,7 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
     onClose();
   };
   return html`<${Modal} open=${open} onClose=${onClose} title=${todo ? '编辑待办' : '新建待办'} foot=${html`
-    ${todo && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { removeUndo('todos', todo.id, todo.title || todo.place || todo.url); onClose(); }}>删除<//>`}
+    ${todo && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { removeUndo('todos', todo.id, todo.title || todo.place || todo.url); onClose(); }}>删除<//><${Btn} kind="ghost" icon="note" onClick=${() => { onClose(); todoPage(todo); }}>笔记页<//><${Btn} kind="ghost" icon="clock" onClick=${() => { onClose(); go('focus?todo=' + todo.id); }}>专注<//>`}
     <span class="flex1"></span>
     <${Btn} kind="ghost" onClick=${onClose}>取消<//>
     <${Btn} kind="primary" icon="check" onClick=${save}>保存<//>`}>
@@ -57,9 +59,12 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
   <//>`;
 }
 
+export function todoPage(t) { const n = linkedPage('todo:' + t.id, { title: t.title, nb: '收件箱', tags: t.tags, body: `# ${t.title}\n\n${t.note ? t.note + '\n\n' : ''}` }); go('notes/' + n.id); }
 export function todoMenu(t, onEdit) {
   const today = todayStr();
   return [
+    { label: '开始专注', icon: 'clock', onClick: () => go('focus?todo=' + t.id) },
+    { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
     { label: t.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) },
     onEdit && { label: '编辑', icon: 'edit', onClick: () => onEdit(t) },
     'sep',
@@ -111,8 +116,9 @@ export function QuickAdd({ defaults = {}, placeholder = '添加待办… 例如�
   </div>`;
 }
 
-export default function Todos() {
+export default function Todos({ route }) {
   const s = useStore();
+  useEffect(() => { const id = route && route.query && route.query.open; const t = id && s.todos.find((x) => x.id === id); if (t) { setEditing(t); setModal(true); } }, [route && route.query && route.query.open]);
   const [view, setView] = useState('open');
   const [layout, setLayout] = useState('list');
   const [tagF, setTagF] = useState('');

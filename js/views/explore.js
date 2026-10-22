@@ -5,6 +5,8 @@ import { uid, todayStr, sortBy, fmtDate } from '../util.js';
 import { mountGlobe } from '../globe.js';
 import { ctxMenu } from '../ctx.js';
 import { Splitter } from '../resize.js';
+import { linkedPage } from './notes.js';
+import { go } from '../nav.js';
 import { dragProps, dropProps } from '../dnd.js';
 
 export function TripModal({ open, trip, onClose }) {
@@ -45,9 +47,12 @@ export function TripModal({ open, trip, onClose }) {
   <//>`;
 }
 
-export default function Explore() {
+export default function Explore({ route }) {
   const s = useStore();
-  const [sel, setSel] = useState(null);
+  const [sel, setSel] = useState((route && route.query && route.query.sel) || null);
+  useEffect(() => { const id = route && route.query && route.query.sel; if (id) setSel(id); }, [route && route.query && route.query.sel]);
+  const tripPage = (t) => { const n = linkedPage('trip:' + t.id, { title: t.place, nb: '旅行', color: '#c7873a', tags: ['旅行', ...t.tags], body: `# ${t.place}\n\n${[t.region, t.country].filter(Boolean).join(' · ')} · ${t.date}${t.end ? ' – ' + t.end : ''}\n\n${t.note ? t.note + '\n\n' : ''}## 行程\n\n## 记录\n` }); go('notes/' + n.id); };
+  const hasPage = (t) => s.notes.some((n) => n.ref === 'trip:' + t.id);
   const [editing, setEditing] = useState(null);
   const [modal, setModal] = useState(false);
   const [kind, setKind] = useState('all');
@@ -80,7 +85,7 @@ export default function Explore() {
           <button class="gbtn" title="自动旋转" onClick=${() => globe.current.toggleAuto()}><${Icon} name="refresh" size=${14} /></button>
           <div class="ov">拖动旋转 · 点击光点查看 · 琥珀色为想去</div>
         <//>
-        ${selTrip && html`<${Card} class="fi" title=${selTrip.place} sub=${`${selTrip.region ? selTrip.region + ' · ' : ''}${selTrip.country} · ${fmtDate(selTrip.date, true)}${selTrip.end ? ' – ' + fmtDate(selTrip.end) : ''}`} action=${html`<${IconBtn} icon="edit" title="编辑" onClick=${() => { setEditing(selTrip); setModal(true); }} /><${IconBtn} icon="x" title="关闭" onClick=${() => setSel(null)} />`}>
+        ${selTrip && html`<${Card} class="fi" title=${selTrip.place} sub=${`${selTrip.region ? selTrip.region + ' · ' : ''}${selTrip.country} · ${fmtDate(selTrip.date, true)}${selTrip.end ? ' – ' + fmtDate(selTrip.end) : ''}`} action=${html`<${Btn} small kind=${hasPage(selTrip) ? '' : 'ghost'} icon="note" onClick=${() => tripPage(selTrip)}>${hasPage(selTrip) ? '打开游记' : '写游记'}<//><${IconBtn} icon="edit" title="编辑" onClick=${() => { setEditing(selTrip); setModal(true); }} /><${IconBtn} icon="x" title="关闭" onClick=${() => setSel(null)} />`}>
           <div class="row wrap" style="gap:6px;margin-bottom:8px">${selTrip.rating > 0 && html`<${Stars} value=${selTrip.rating} />`}${selTrip.tags.map((t) => html`<${Tag}>${t}<//>`)}<${Tag}>${{ trip: '旅行', live: '居住', wish: '想去' }[selTrip.kind || 'trip']}<//></div>
           ${selTrip.note && html`<p style="font-size:.86rem;line-height:1.7;white-space:pre-wrap">${selTrip.note}</p>`}
           ${selTrip.photos.length > 0 && html`<div class="trip-photos">${selTrip.photos.map((p) => html`<a href=${p} target="_blank" rel="noopener"><img src=${p} alt="" loading="lazy" /></a>`)}</div>`}
@@ -89,7 +94,7 @@ export default function Explore() {
       <${Splitter} varName="expside" min=${260} max=${560} dir=${-1} class="sp-col" />
       <div class="stack">
         <${Card} title="地点列表" sub="按时间倒序" action=${html`<div class="seg" data-liquid="button"><span class="liq"></span>${[['all', '全部'], ['trip', '旅行'], ['live', '居住'], ['wish', '想去']].map(([v, n]) => html`<button type="button" class=${kind === v ? 'on' : ''} onClick=${() => setKind(v)} ...${v === 'all' ? {} : dropProps('trip', (d) => upsert('trips', { id: d.id, kind: v }))}>${n}</button>`)}</div>`}>
-          ${trips.length === 0 ? html`<${Empty} icon="pin" text="还没有足迹。从出生的城市开始吧。" />` : html`<div class="trip-list">${trips.map((t) => html`<div class=${'trip ' + (sel === t.id ? 'on' : '')} key=${t.id} ...${dragProps('trip', { id: t.id })} onClick=${() => setSel(t.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: '在星球上查看', icon: 'globe', onClick: () => setSel(t.id) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(t); setModal(true); } }, 'sep', ...[['trip', '旅行'], ['live', '居住过'], ['wish', '想去']].map(([v, n]) => ({ label: n, icon: (t.kind || 'trip') === v ? 'check' : 'pin', onClick: () => upsert('trips', { id: t.id, kind: v }) })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('trips', t.id, t.title || t.place || t.url) }], t.place)}>
+          ${trips.length === 0 ? html`<${Empty} icon="pin" text="还没有足迹。从出生的城市开始吧。" />` : html`<div class="trip-list">${trips.map((t) => html`<div class=${'trip ' + (sel === t.id ? 'on' : '')} key=${t.id} ...${dragProps('trip', { id: t.id })} onClick=${() => setSel(t.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: '在星球上查看', icon: 'globe', onClick: () => setSel(t.id) }, { label: hasPage(t) ? '打开游记' : '写游记', icon: 'note', onClick: () => tripPage(t) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(t); setModal(true); } }, 'sep', ...[['trip', '旅行'], ['live', '居住过'], ['wish', '想去']].map(([v, n]) => ({ label: n, icon: (t.kind || 'trip') === v ? 'check' : 'pin', onClick: () => upsert('trips', { id: t.id, kind: v }) })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('trips', t.id, t.title || t.place || t.url) }], t.place)}>
             <div class="pinic" data-kind=${t.kind || 'trip'}><${Icon} name=${t.kind === 'wish' ? 'star' : t.kind === 'live' ? 'home' : 'pin'} size=${14} /></div>
             <div class="ti"><b>${t.place}</b><small>${t.region ? t.region + ' · ' : ''}${t.country} · ${t.date}</small>${t.note && html`<p>${t.note}</p>`}</div>
           </div>`)}</div>`}

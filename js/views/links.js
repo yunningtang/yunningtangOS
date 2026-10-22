@@ -31,8 +31,9 @@ export function LinkModal({ open, link, onClose }) {
   <//>`;
 }
 
-export default function Links() {
+export default function Links({ route }) {
   const s = useStore();
+  useEffect(() => { const id = route && route.query && route.query.open; const l = id && s.links.find((x) => x.id === id); if (l) { setEditing(l); setModal(true); } }, [route && route.query && route.query.open]);
   const [q, setQ] = useState('');
   const [tagF, setTagF] = useState('');
   const [view, setView] = useState('all');
