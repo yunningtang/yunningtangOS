@@ -1,0 +1,6 @@
+{
+  "name": "yunningtang-os",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" }
+}

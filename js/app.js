@@ -16,6 +16,8 @@ import { SearchPalette } from './search.js';
 import { PageTree, useTreeState, newNote, ancestors, noteTitle } from './views/notes.js';
 import { go, toast } from './nav.js';
 import { initLiquid } from './liquid.js';
+import { detectLogin, autoSync } from './sync.js';
+import { subscribe } from './store.js';
 export { go, toast };
 
 export const ROUTES = [
@@ -127,4 +129,5 @@ function App() {
 
 seedIfEmpty();
 initLiquid();
+detectLogin().then(() => autoSync(subscribe));
 render(html`<${App} />`, document.getElementById('app'));

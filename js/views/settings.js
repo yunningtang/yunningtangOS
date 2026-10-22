@@ -1,8 +1,8 @@
-import { html, useState } from '../../vendor/preact.js';
+import { html, useState, useEffect } from '../../vendor/preact.js';
 import { useStore, update, replace, exportJSON, blank } from '../store.js';
 import { Icon, Btn, Card, Field, Seg, confirmDel } from '../ui.js';
 import { download, readFile, todayStr } from '../util.js';
-import { push, pull, smartSync } from '../sync.js';
+import { push, pull, smartSync, loginState, detectLogin, status as syncStatus } from '../sync.js';
 import { seed } from '../seed.js';
 import { toast } from '../nav.js';
 
@@ -10,11 +10,14 @@ export default function Settings() {
   const s = useStore();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [login, setLogin] = useState(loginState());
+  useEffect(() => { detectLogin().then(setLogin); const f = () => setErr(syncStatus.error || ''); syncStatus.listeners.add(f); return () => syncStatus.listeners.delete(f); }, []);
+  const authMsg = new URLSearchParams((location.hash.split('?')[1] || '')).get('auth');
   const setP = (k, v) => update((d) => { d.profile[k] = v; });
   const setSync = (k, v) => update((d) => { d.settings.sync[k] = v; });
   const run = async (fn, okMsg) => {
     setBusy(true); setErr('');
-    try { const r = await fn(); toast(okMsg || (r === 'pulled' ? '已从 GitHub 拉取' : '已推送到 GitHub')); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try { const r = await fn(); toast(okMsg || (r === 'pulled' ? '已从 GitHub 拉取' : r === 'same' ? '已是最新' : '已推送到 GitHub')); } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const importFile = async (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -39,23 +42,43 @@ export default function Settings() {
           </div>
         </div>
       <//>
-      <${Card} title="同步到 GitHub" sub="把整份数据存为仓库里的一个 JSON 文件；每次同步都是一次提交，可回滚。">
+      <${Card} title="同步" sub=${login && login.user ? '已登录，数据会自动同步到你的仓库。' : login && login.configured ? '登录后自动同步，不用贴 token。' : '把整份数据存为仓库里的一个 JSON 文件；每次同步都是一次提交，可回滚。'}>
         <div class="form">
-          <div class="grid2">
-            <${Field} label="仓库 owner/name"><input type="text" value=${s.settings.sync.repo} placeholder="yunningtang/yunningtangOS" onInput=${(e) => setSync('repo', e.target.value.trim())} /><//>
-            <${Field} label="分支"><input type="text" value=${s.settings.sync.branch} onInput=${(e) => setSync('branch', e.target.value.trim())} /><//>
-          </div>
-          <div class="grid2">
-            <${Field} label="文件路径"><input type="text" value=${s.settings.sync.path} onInput=${(e) => setSync('path', e.target.value.trim())} /><//>
-            <${Field} label="Fine-grained token" hint="只给这个仓库的 Contents 读写权限。token 只保存在本机浏览器。"><input type="password" value=${s.settings.sync.token} placeholder="github_pat_…" onInput=${(e) => setSync('token', e.target.value.trim())} /><//>
-          </div>
-          <div class="row wrap">
-            <${Btn} kind="primary" icon="refresh" disabled=${busy} onClick=${() => run(smartSync)}>智能同步<//>
-            <${Btn} icon="upload" disabled=${busy} onClick=${() => run(push, '已推送')}>推送（本地覆盖远端）<//>
-            <${Btn} icon="download" disabled=${busy} onClick=${() => { if (confirmDel('用远端数据覆盖本地？')) run(pull, '已拉取'); }}>拉取（远端覆盖本地）<//>
-          </div>
+          ${login && login.user ? html`
+            <div class="row" style="gap:12px">
+              <div class="avatar" style="width:40px;height:40px">${login.user.avatar ? html`<img src=${login.user.avatar} alt="" />` : login.user.login[0]}</div>
+              <div class="flex1"><b>${login.user.login}</b><div class="small muted">${login.target.repo} · ${login.target.branch} · ${login.target.path}</div></div>
+              <a class="btn sm" href="/api/auth/logout">退出登录</a>
+            </div>
+            <div class="row wrap">
+              <${Btn} kind="primary" disabled=${busy} onClick=${() => run(smartSync)}>立即同步<//>
+              <${Btn} disabled=${busy} onClick=${() => run(push, '已推送')}>推送（本地覆盖远端）<//>
+              <${Btn} disabled=${busy} onClick=${() => { if (confirmDel('用远端数据覆盖本地？')) run(pull, '已拉取'); }}>拉取（远端覆盖本地）<//>
+            </div>
+            <p class="small muted">打开页面时会自动拉取较新的一方；编辑后几秒自动推送；切换标签页或关闭前也会推送。</p>`
+          : login && login.configured ? html`
+            <div class="row wrap">
+              <a class="btn primary" href="/api/auth/login">用 GitHub 登录</a>
+              ${authMsg && authMsg !== 'ok' && html`<span class="small" style="color:var(--red)">登录失败：${authMsg}</span>`}
+            </div>
+            <p class="small muted">登录后 token 只存在加密的 httpOnly cookie 里，浏览器脚本拿不到；数据写入 ${login.target ? login.target.repo : '你配置的仓库'}。</p>`
+          : html`
+            <p class="small muted">当前是纯静态部署。要「登录即同步」，把仓库部署到 Vercel 并配置 OAuth（见 README）。现在可以先用 token 方式：</p>
+            <div class="grid2">
+              <${Field} label="仓库 owner/name"><input type="text" value=${s.settings.sync.repo} placeholder="yunningtang/yunningtangOS" onInput=${(e) => setSync('repo', e.target.value.trim())} /><//>
+              <${Field} label="分支"><input type="text" value=${s.settings.sync.branch} onInput=${(e) => setSync('branch', e.target.value.trim())} /><//>
+            </div>
+            <div class="grid2">
+              <${Field} label="文件路径"><input type="text" value=${s.settings.sync.path} onInput=${(e) => setSync('path', e.target.value.trim())} /><//>
+              <${Field} label="Fine-grained token" hint="只给这个仓库的 Contents 读写权限。token 只保存在本机浏览器。"><input type="password" value=${s.settings.sync.token} placeholder="github_pat_…" onInput=${(e) => setSync('token', e.target.value.trim())} /><//>
+            </div>
+            <div class="row wrap">
+              <${Btn} kind="primary" disabled=${busy} onClick=${() => run(smartSync)}>智能同步<//>
+              <${Btn} disabled=${busy} onClick=${() => run(push, '已推送')}>推送（本地覆盖远端）<//>
+              <${Btn} disabled=${busy} onClick=${() => { if (confirmDel('用远端数据覆盖本地？')) run(pull, '已拉取'); }}>拉取（远端覆盖本地）<//>
+            </div>`}
           <div class="sync-status"><span class=${'dot ' + (err ? 'err' : s.settings.lastSync ? 'ok' : '')}></span>${err || (s.settings.lastSync ? `上次同步 ${new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false })}` : '尚未同步')}</div>
-          <p class="small muted">提示：如果仓库是公开的，数据文件也会是公开的。私人内容请用私有仓库。智能同步会比较本地与远端的更新时间，取较新的一方。</p>
+          <p class="small muted">如果仓库是公开的，数据文件也会是公开的。私人内容请用私有仓库。</p>
         </div>
       <//>
       <${Card} title="备份" sub=${counts.map(([k, n]) => `${k} ${n}`).join(' · ')}>

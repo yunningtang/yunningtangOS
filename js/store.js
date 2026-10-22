@@ -63,6 +63,11 @@ export function get() {
   return state;
 }
 
+export function subscribe(fn) {
+  subs.add(fn);
+  return () => subs.delete(fn);
+}
+
 export function update(fn) {
   const draft = structuredClone(state);
   const r = fn(draft);

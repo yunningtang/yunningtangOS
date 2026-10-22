@@ -24,17 +24,38 @@
 ## 数据在哪里
 
 - 默认存在浏览器 `localStorage`（key `ytos.v1`），一份 JSON 文档，随时在设置里导出。
-- **GitHub 同步**（可选）：设置里填仓库、分支、文件路径（默认 `data/os.json`）和一个只给该仓库 Contents 读写权限的 fine-grained token。每次同步就是一次提交，可以回滚。
-  token 只保存在本机浏览器里。公开仓库里的数据文件也是公开的，私人内容请用私有仓库。
+- 同步到 GitHub 仓库里的一个文件（默认 `data/os.json`），每次同步是一次提交，可回滚。两种方式：
+  - **登录即同步（推荐，需要 Vercel）**：设置页点「用 GitHub 登录」，之后打开页面自动拉取、编辑后几秒自动推送。token 存在加密的 httpOnly cookie 里，浏览器脚本拿不到。
+  - **token 方式（纯静态托管）**：设置页填仓库、分支、路径和一个只给该仓库 Contents 读写权限的 fine-grained token。
 - 第一次打开会载入一份示例数据，设置里可以「清空全部」。
+- 公开仓库里的数据文件也是公开的，私人内容请指向一个私有仓库（`DATA_REPO` 可以是另一个仓库）。
 
 ## 部署
 
-纯静态，没有构建步骤。
+### 方式一：Vercel（有登录同步）
 
-- **GitHub Pages**：Settings → Pages → Source 选 `master` 根目录即可。
-- **Vercel / Netlify**：直接导入仓库，框架选 Other。
-- **本地**：`python3 -m http.server 8000` 然后打开 `http://localhost:8000`。
+1. 在 GitHub 新建一个 OAuth App：Settings → Developer settings → OAuth Apps → New。
+   Homepage 填你的站点地址，Authorization callback URL 填 `https://<你的域名>/api/auth/callback`。
+2. Vercel 导入这个仓库（框架选 Other，无需构建命令），在 Environment Variables 里填：
+
+   | 变量 | 说明 |
+   |---|---|
+   | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | OAuth App 的 ID 和 Secret |
+   | `SESSION_SECRET` | 随便一串长随机字符，用来加密 cookie |
+   | `DATA_REPO` | 存数据的仓库，如 `yunningtang/yunningtangOS` 或一个私有仓库 |
+   | `DATA_BRANCH` | 可选，默认 `main`（本仓库是 `master`） |
+   | `DATA_PATH` | 可选，默认 `data/os.json` |
+   | `ALLOWED_USER` | 你的 GitHub 用户名，只有这个账号能登录同步 |
+
+3. 部署后打开站点 → 设置 → 「用 GitHub 登录」。
+
+### 方式二：GitHub Pages（纯静态，token 同步）
+
+仓库里已有 `.github/workflows/pages.yml`。在 GitHub 的 Settings → Pages 把 Source 选为 **GitHub Actions**，之后每次推送 master 自动部署到 `https://yunningtang.github.io/yunningtangOS/`。
+
+### 本地
+
+`python3 -m http.server 8000` 然后打开 `http://localhost:8000`。
 
 ## 结构
 
@@ -48,7 +69,8 @@ js/editor.js        块编辑器（contenteditable 块、菜单、拖拽）
 js/blocks.js        块模型、HTML 白名单、Markdown 互转
 js/graph.js         笔记关系图
 js/globe.js         Canvas 星球（d3-geo 正射投影）
-js/sync.js          GitHub Contents API 同步
+js/sync.js          同步（登录模式走 /api，静态模式直连 GitHub API）
+api/                Vercel serverless：GitHub OAuth 登录、加密会话、读写数据文件
 js/seed.js          示例数据
 vendor/             preact + htm、marked、d3-geo + topojson、world-atlas 陆地数据（已打包，无 CDN 依赖）
 ```
