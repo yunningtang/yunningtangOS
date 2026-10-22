@@ -58,9 +58,9 @@ export default function Vision() {
     <div class="vision-grid">
       <div class="stack">
         <${Card} title="显化 · 肯定句" sub="用现在时写，像已经发生一样。总览页每天会轮换显示一条。">
-          <div class="quickadd"><input class="flex1" type="text" value=${txt} placeholder="我正在…" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && addStatement()} /></div>
+          <div class="quickadd"><${Icon} name="sparkle" size=${15} class="muted" /><input class="flex1" type="text" value=${txt} placeholder="我正在…" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && addStatement()} /></div>
           ${v.statements.length === 0 ? html`<${Empty} icon="sparkle" text="第一句写什么？试试：我每天都在变得更专注、更自由。" />` : html`<ul class="aff">${v.statements.map((st) => html`<li key=${st.id}>
-            <span class="aff-dash">—</span>
+            <${Icon} name="sparkle" size=${14} />
             ${editAff === st.id ? html`<input type="text" autofocus value=${st.text} onBlur=${(e) => { update((d) => { const x = d.vision.statements.find((y) => y.id === st.id); if (x) x.text = e.target.value; }); setEditAff(null); }} onKeyDown=${(e) => e.key === 'Enter' && e.target.blur()} />` : html`<span onClick=${() => setEditAff(st.id)}>${st.text}</span>`}
             <div class="acts"><${IconBtn} class="ibtn danger" icon="x" size=${12} title="删除" onClick=${() => update((d) => { d.vision.statements = d.vision.statements.filter((y) => y.id !== st.id); })} /></div>
           </li>`)}</ul>`}

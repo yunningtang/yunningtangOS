@@ -102,11 +102,11 @@ function App() {
   return html`<div class="shell">
     ${menu && html`<div class="side-bg" onClick=${() => setMenu(false)}></div>`}
     <aside class=${'side ' + (menu ? 'open' : '')}>
-      <a class="brand" href="#/home"><b>yunningtang OS</b><small>${weekKey(todayStr())}</small></a>
+      <a class="brand" href="#/home"><span class="logo"><${Icon} name="compass" size=${16} /></span><span><b>yunningtang OS</b><small>${weekKey(todayStr())}</small></span></a>
       <nav class="nav" data-liquid=".nav > a, .pt-row"><span class="liq"></span>
         ${ROUTES.map((r) => r.sep !== undefined
           ? html`<div class="sep">${r.sep}</div>`
-          : html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''}>${r.name}${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title="展开页面" onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
+          : html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''}><${Icon} name=${r.icon} size=${16} />${r.name}${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title="展开页面" onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
             ${r.path === 'notes' && navOpen.notes && html`<div class="nav-tree"><${PageTree} notes=${s.notes} activeId=${route.sub} open=${tree.open} toggle=${tree.toggle} onCreate=${(parent) => { const n = newNote({ parent }); if (parent) tree.openPath([parent]); go('notes/' + n.id); }} max=${12} /><button class="pt-row flat new" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><span class="pt-ic"><${Icon} name="plus" size=${12} /></span><span class="pt-t">新页面</span></button></div>`}`)}
       </nav>
       <div class="side-foot"><b>${s.profile.motto}</b><br/>${s.settings.lastSync ? '上次同步 ' + new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false }) : '本地存储 · 可在设置中同步到 GitHub'}</div>
@@ -116,8 +116,8 @@ function App() {
         <${IconBtn} class="ibtn hamb" icon="menu" title="菜单" onClick=${() => setMenu(true)} />
         <div class="ttl crumb-top">${curNote ? html`<a href="#/notes">笔记</a>${ancestors(s.notes, curNote).map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${noteTitle(curNote)}</b>` : route.path === 'plan' ? html`<a href="#/plan">计划</a><span>/</span><b>${{ week: '周计划', day: '每日时间线', month: '月度目标' }[route.sub] || '周计划'}</b>` : html`<b>${active.name}</b>`}</div>
         <div class="sp"></div>
-        <div class="searchbox" onClick=${() => setSearch(true)}><span>搜索</span><kbd>⌘K</kbd></div>
-        <button class="theme-glass" onClick=${toggleTheme} title="切换主题"><span class="im">亮</span><span class="is">暗</span></button>
+        <div class="searchbox" onClick=${() => setSearch(true)}><${Icon} name="search" size=${14} /><span>搜索</span><kbd>⌘K</kbd></div>
+        <button class="theme-glass" onClick=${toggleTheme} title="切换主题"><${Icon} name="moon" class="is" size=${15} /><${Icon} name="sun" class="im" size=${15} /></button>
       </header>
       <main key=${route.path} class="fi"><${View} route=${route} /></main>
     </div>

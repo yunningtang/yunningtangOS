@@ -85,7 +85,7 @@ export function Tag({ children, color, plain, class: cls = '', ...rest }) {
 }
 
 export function Empty({ icon = 'sparkle', text, children }) {
-  return html`<div class="empty"><p>${text}</p>${children}</div>`;
+  return html`<div class="empty"><${Icon} name=${icon} size=${20} /><p>${text}</p>${children}</div>`;
 }
 
 export function Field({ label, children, hint, class: cls = '' }) {

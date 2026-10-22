@@ -67,12 +67,13 @@ export default function Links() {
       </div>
     </div>
     <${Card}>
-      <div class="quickadd"><input class="flex1" type="text" value=${quick} placeholder="粘贴链接，回车快速收藏" onInput=${(e) => setQuick(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && quickAdd()} /><input type="search" value=${q} placeholder="搜索…" style="width:160px" onInput=${(e) => setQ(e.target.value)} /></div>
+      <div class="quickadd"><${Icon} name="link" size=${15} class="muted" /><input class="flex1" type="text" value=${quick} placeholder="粘贴链接，回车快速收藏" onInput=${(e) => setQuick(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && quickAdd()} /><input type="search" value=${q} placeholder="搜索…" style="width:160px" onInput=${(e) => setQ(e.target.value)} /></div>
       ${tags.length > 0 && html`<div class="filters">${tags.map(([t, n]) => html`<${Tag} class="click" color=${tagF === t ? 'var(--teal)' : undefined} onClick=${() => setTagF(tagF === t ? '' : t)}>${t} <span class="muted">${n}</span><//>`)}</div>`}
       ${links.length === 0 ? html`<${Empty} icon="link" text="没有匹配的收藏。" />` : groups.map(([mon, list]) => html`
         <div class="group-h">${mon}<i></i><span>${list.length}</span></div>
         <div class="links">${list.map((l) => html`<div class="lk" key=${l.id}>
-                    <div class="li">
+                    <a class="fav" href=${l.url} target="_blank" rel="noopener" title=${l.host}><img src=${`https://www.google.com/s2/favicons?domain=${l.host}&sz=32`} alt="" onError=${(e) => { e.target.replaceWith(document.createTextNode((l.host || '?')[0])); }} /></a>
+          <div class="li">
             <a href=${l.url} target="_blank" rel="noopener" style="text-decoration:none" onClick=${() => !l.read && upsert('links', { id: l.id, read: true })}><b>${l.title}</b></a>
             <span class="host">${l.host} · ${l.created}${l.read ? '' : ' · 待读'}</span>
             ${l.note && html`<p>${l.note}</p>`}

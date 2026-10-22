@@ -292,7 +292,7 @@ function Row({ b, editor }) {
     ${b.type === 'bullet' && html`<span class="b-mark">•</span>`}
     ${b.type === 'number' && html`<span class="b-mark num">${numberOf(b)}.</span>`}
     ${b.type === 'todo' && html`<button class=${'b-check ' + (b.checked ? 'on' : '')} onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { checked: !b.checked })}><${Icon} name="check" size=${11} /></button>`}
-    ${b.type === 'toggle' && html`<button class=${'b-tg ' + (b.open ? 'open' : '')} onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { open: !b.open })}>▸</button>`}
+    ${b.type === 'toggle' && html`<button class=${'b-tg ' + (b.open ? 'open' : '')} onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { open: !b.open })}><${Icon} name="right" size=${12} /></button>`}
     ${b.type === 'callout' && html`<span class="b-ico">│</span>`}
     <div ...${common} class=${'b-text ' + (b.type === 'todo' && b.checked ? 'done' : '')}></div>
   </div>`;
@@ -301,7 +301,7 @@ function Row({ b, editor }) {
     onDragOver=${(e) => { if (!dragId) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setDropAt({ id: b.id, after: e.clientY > r.top + r.height / 2 }); }}
     onDrop=${(e) => onDrop(e, b.id)}>
     <div class="b-gutter" contenteditable="false">
-      <button class="b-plus" title="在下方添加块" onMouseDown=${(e) => e.preventDefault()} onClick=${() => addBelow(b.id)}>+</button>
+      <button class="b-plus" title="在下方添加块" onMouseDown=${(e) => e.preventDefault()} onClick=${() => addBelow(b.id)}><${Icon} name="plus" size=${14} /></button>
       <button class="b-handle" title="拖动 · 点击打开菜单" draggable="true" onDragStart=${(e) => { setDragId(b.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.id); }} onDragEnd=${() => { setDragId(null); setDropAt(null); }} onMouseDown=${(e) => e.preventDefault()} onClick=${() => setHmenu(hmenu === b.id ? null : b.id)}>⋮⋮</button>
       ${hmenu === b.id && html`<div class="popmenu hmenu" onMouseDown=${(e) => e.preventDefault()}>
         <div class="pm-sec">转换为</div>

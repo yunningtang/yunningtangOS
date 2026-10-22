@@ -63,7 +63,7 @@ export function TodoItem({ t, onEdit, compact }) {
     <div class="tt">
       <div class="ti" onClick=${() => onEdit && onEdit(t)}>${t.title}</div>
       ${!compact && html`<div class="meta">
-        ${t.due && html`<span class=${'due ' + dueCls}>${relDay(t.due)}${t.time ? ' ' + t.time : ''}</span>`}
+        ${t.due && html`<span class=${'due ' + dueCls}><${Icon} name="calendar" size=${10} /> ${relDay(t.due)}${t.time ? ' ' + t.time : ''}</span>`}
         ${t.area && html`<span>${t.area}</span>`}
         ${t.tags.map((x) => html`<${Tag}>#${x}<//>`)}
         ${t.note && html`<span title=${t.note}>· ${t.note.slice(0, 40)}${t.note.length > 40 ? '…' : ''}</span>`}
