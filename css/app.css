@@ -603,7 +603,7 @@ input.page-title::placeholder{color:var(--text-4);opacity:.6}
 .bmenu{position:relative;left:0;top:0;margin:2px 0 6px;width:300px}
 .b-text{flex:1;min-width:0;outline:none;padding:3px 2px;white-space:pre-wrap;word-break:break-word;caret-color:var(--text);min-height:1.6em}
 .b-text:empty::before{content:attr(data-ph);color:var(--text-4);opacity:0;pointer-events:none}
-.b-text:focus:empty::before,.b-row[data-type="h1"] .b-text:empty::before,.b-row[data-type="h2"] .b-text:empty::before,.b-row[data-type="h3"] .b-text:empty::before{opacity:.6}
+.b-row.cur .b-text:empty::before,.b-row[data-type="h1"] .b-text:empty::before,.b-row[data-type="h2"] .b-text:empty::before,.b-row[data-type="h3"] .b-text:empty::before{opacity:.6}
 .b-p,.b-h1,.b-h2,.b-h3,.b-bullet,.b-number,.b-todo,.b-toggle,.b-quote,.b-callout{display:flex;align-items:flex-start;width:100%;min-width:0}
 .b-h1 .b-text{font-size:1.9rem;font-weight:700;line-height:1.3;margin-top:22px}
 .b-h2 .b-text{font-size:1.5rem;font-weight:600;line-height:1.3;margin-top:16px}
@@ -751,9 +751,9 @@ body.focus-mode .crumbs{position:sticky;top:0;background:var(--paper);z-index:5;
 
 /* ===== Editor extras ===== */
 .beditor:focus{outline:none}
-.beditor.bselecting,.beditor.bselecting *{user-select:none!important;cursor:default}
-.b-row.bsel{background:rgba(var(--ac),.12);border-radius:8px;box-shadow:0 0 0 1px rgba(var(--ac),.18) inset}
-.b-row.bsel .b-text{caret-color:transparent}
+.beditor{caret-color:var(--text)}
+.b-gutter,.b-mark,.b-check,.b-tg,.b-ico,.sel-tb,.link-pop,.bmenu,.hmenu,.b-tail{user-select:none;-webkit-user-select:none}
+.beditor ::selection{background:rgba(var(--ac),.22)}
 .link-pop{position:absolute;z-index:31;display:flex;align-items:center;gap:2px;padding:4px 4px 4px 10px;border-radius:10px;background:var(--paper);box-shadow:var(--pop);animation:pop .12s var(--ease);max-width:min(360px,90%)}
 .link-pop .lp-url{font-size:.78rem;color:var(--blue);text-decoration:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;margin-right:4px}
 .link-pop .ibtn{width:26px;height:26px}
