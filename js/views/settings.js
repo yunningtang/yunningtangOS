@@ -1,11 +1,38 @@
 import { html, useState, useEffect } from '../../vendor/preact.js';
 import { useStore, update, replace, exportJSON, blank } from '../store.js';
 import { Icon, Btn, Card, Field, Seg, confirmDel } from '../ui.js';
-import { download, readFile, todayStr } from '../util.js';
+import { download, readFile, todayStr, pickFile, imageToSquare } from '../util.js';
 import { push, pull, smartSync, loginState, detectLogin, status as syncStatus } from '../sync.js';
 import { seed } from '../seed.js';
 import { toast } from '../nav.js';
-import { askConfirm } from '../confirm.js';
+import { askConfirm, askPrompt } from '../confirm.js';
+import { ctxMenu } from '../ctx.js';
+
+export async function uploadAvatar(file) {
+  try {
+    const f = file || await pickFile('image/*'); if (!f) return;
+    const data = await imageToSquare(f, 320);
+    update((d) => { d.profile.avatar = data; }); toast('头像已更新');
+  } catch (x) { toast(x.message || '上传失败'); }
+}
+export async function avatarFromUrl() {
+  const v = await askPrompt('粘贴图片链接', '', { title: '用链接设置头像', placeholder: 'https://…' });
+  if (v == null) return; update((d) => { d.profile.avatar = v.trim(); });
+}
+export function avatarMenu(e, s) {
+  ctxMenu(e, [{ label: '上传照片', icon: 'image', onClick: () => uploadAvatar() }, { label: '用链接', icon: 'link', onClick: avatarFromUrl }, ...(s.profile.avatar ? ['sep', { label: '移除头像', icon: 'trash', danger: true, onClick: () => update((d) => { d.profile.avatar = ''; }) }] : [])], '头像');
+}
+// Clickable avatar: click to upload, drop an image onto it, right-click for options.
+export function AvatarPicker({ size = 60, class: cls = '' }) {
+  const s = useStore();
+  const [over, setOver] = useState(false);
+  return html`<button type="button" class=${'avatar-pick ' + (over ? 'over ' : '') + cls} style=${`width:${size}px;height:${size}px`} title="点击更换头像" onClick=${() => uploadAvatar()} onContextMenu=${(e) => avatarMenu(e, s)}
+    onDragOver=${(e) => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); setOver(true); } }} onDragLeave=${() => setOver(false)}
+    onDrop=${(e) => { setOver(false); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) { e.preventDefault(); uploadAvatar(f); } }}>
+    ${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : html`<span>${(s.profile.name || '?')[0]}</span>`}
+    <i class="ap-hint"><${Icon} name="image" size=${Math.round(size * .3)} /></i>
+  </button>`;
+}
 
 export default function Settings() {
   const s = useStore();
@@ -22,7 +49,7 @@ export default function Settings() {
   };
   const importFile = async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { const j = JSON.parse(await readFile(f)); if (!j.todos) throw new Error('不是有效的备份文件'); replace(j); toast('已导入'); } catch (x) { alert(x.message); }
+    try { const j = JSON.parse(await readFile(f)); if (!j.todos) throw new Error('不是有效的备份文件'); replace(j); toast('已导入'); } catch (x) { toast(x.message); }
     e.target.value = '';
   };
   const counts = [['待办', s.todos.length], ['时间块', s.blocks.length], ['书', s.books.length], ['收藏', s.links.length], ['笔记', s.notes.length], ['足迹', s.trips.length]];
@@ -32,11 +59,11 @@ export default function Settings() {
     <div class="settings">
       <${Card} title="个人">
         <div class="row" style="gap:16px;align-items:flex-start">
-          <div class="avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || '?')[0]}</div>
+          <${AvatarPicker} size=${72} />
           <div class="form flex1">
             <div class="grid2">
               <${Field} label="名字"><input type="text" value=${s.profile.name} onInput=${(e) => setP('name', e.target.value)} /><//>
-              <${Field} label="头像 URL"><input type="url" value=${s.profile.avatar} onInput=${(e) => setP('avatar', e.target.value)} /><//>
+              <${Field} label="头像"><div class="row" style="gap:6px;flex-wrap:wrap"><${Btn} small icon="image" onClick=${() => uploadAvatar()}>上传照片<//><${Btn} small kind="ghost" onClick=${avatarFromUrl}>用链接<//>${s.profile.avatar && html`<${Btn} small kind="ghost" onClick=${() => setP('avatar', '')}>移除<//>`}</div><//>
             </div>
             <${Field} label="座右铭"><input type="text" value=${s.profile.motto} onInput=${(e) => setP('motto', e.target.value)} /><//>
             <${Field} label="主题"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>

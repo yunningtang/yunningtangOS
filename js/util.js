@@ -132,6 +132,32 @@ export function readFile(file) {
   });
 }
 
+// Pick an image file from disk (or pass a File), centre-crop it to a square and return a small data URL.
+export function pickFile(accept = 'image/*') {
+  return new Promise((res) => {
+    const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.style.display = 'none';
+    i.onchange = () => { res(i.files && i.files[0] ? i.files[0] : null); i.remove(); };
+    document.body.appendChild(i); i.click();
+  });
+}
+
+export function imageToSquare(file, size = 320, quality = 0.88) {
+  return new Promise((res, rej) => {
+    if (!file || !/^image\//.test(file.type)) return rej(new Error('请选择图片文件'));
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight, side = Math.min(w, h);
+      const c = document.createElement('canvas'); c.width = c.height = size;
+      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+      g.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('图片无法读取')); };
+    img.src = url;
+  });
+}
+
 export function debounce(fn, ms) {
   let t;
   return (...a) => {

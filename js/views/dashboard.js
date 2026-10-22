@@ -12,6 +12,7 @@ import { upsert, remove } from '../store.js';
 import { goalPct } from './planner.js';
 import { ancestors, noteTitle, isBlank, newNote } from './notes.js';
 import { go } from '../nav.js';
+import { AvatarPicker } from './settings.js';
 
 const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
 const GOAL_MIN = 4 * 60;
@@ -136,7 +137,7 @@ export default function Dashboard() {
 
   const W = {
     profile: { title: '个人', span: 2, el: html`<${Card} class="profile">
-        <div class="avatar big">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</div>
+        <${AvatarPicker} size=${60} class="big" />
         <div class="flex1"><div class="p-name">${greeting(now)}，${s.profile.name}</div><div class="p-sub">${s.profile.motto} · ${now.getMonth() + 1}月${now.getDate()}日 ${WEEKDAY_SUN[now.getDay()]} · ${weekKey()}</div></div>
         <button class=${'btn ghost sm ' + (custom ? 'on' : '')} onClick=${() => setCustom(!custom)}><${Icon} name="grid" size=${14} /> ${custom ? '完成' : '自定义'}</button>
       <//>` },
