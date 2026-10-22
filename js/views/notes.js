@@ -164,7 +164,7 @@ export function useTreeState() {
 }
 
 /* ---------- main view: notebooks / pages / page ---------- */
-function snippet(n) { return (n.body || '').replace(/[#>*`\[\]\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); }
+function snippet(n) { return (n.body || '').replace(/@\[[a-z]+:[\w-]+\|([^\]]+)\]/g, '$1').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/==/g, '').replace(/[#>*`\[\]\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); }
 
 export default function Notes({ route }) {
   const s = useStore();
