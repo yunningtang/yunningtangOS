@@ -74,7 +74,8 @@ function toggleCode() {
 }
 
 /* ---------- editor ---------- */
-export function BlockEditor({ blocks: initial, onChange, notes = [], noteId, onCreatePage, onOpenLink, pageFont }) {
+export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont }) {
+  const allNotes = () => (notesRef ? notesRef.current : notes);
   const [bs, setBs] = useState(() => (initial && initial.length ? initial.map((b) => ({ ...b, v: 0 })) : [block('p', '', { v: 0 })]));
   const [focusReq, setFocusReq] = useState(null);
   const [menu, setMenu] = useState(null);
@@ -87,7 +88,14 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], noteId, onC
   const bsRef = useRef(bs); bsRef.current = bs;
   const emitTimer = useRef();
 
-  const emit = useCallback((next) => { clearTimeout(emitTimer.current); bsRef.current = next; setBs(next); onChange(next.map(({ v, ...b }) => ({ ...b, html: sanitize(b.html) }))); }, [onChange]);
+  const cleanCache = useRef(new Map()); // raw html -> sanitized html, so unchanged blocks are not re-parsed
+  const emit = useCallback((next) => {
+    clearTimeout(emitTimer.current); bsRef.current = next; setBs(next);
+    const cache = cleanCache.current, fresh = new Map();
+    const out = next.map(({ v, ...b }) => { let c = cache.get(b.html); if (c === undefined) c = sanitize(b.html); fresh.set(b.html, c); return { ...b, html: c }; });
+    cleanCache.current = fresh;
+    onChange(out);
+  }, [onChange]);
   const readHtml = (id) => { const el = refs.current.get(id); return el ? el.innerHTML : ''; };
   const syncFromDom = (list = bsRef.current) => list.map((b) => (refs.current.get(b.id) && TEXT_TYPES.includes(b.type) ? { ...b, html: readHtml(b.id) } : b));
   const bump = (b, patch) => ({ ...b, ...patch, v: (b.v || 0) + 1 });
@@ -192,15 +200,16 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], noteId, onC
     else if (menu) setMenu(null);
     b.html = el.innerHTML; scheduleEmit();
   };
-  const scheduleEmit = () => { clearTimeout(emitTimer.current); emitTimer.current = setTimeout(() => emit(syncFromDom(bsRef.current)), 300); };
+  const scheduleEmit = () => { clearTimeout(emitTimer.current); emitTimer.current = setTimeout(() => emit(syncFromDom(bsRef.current)), 600); };
   useEffect(() => () => clearTimeout(emitTimer.current), []);
 
   const menuItems = () => {
     if (!menu) return [];
     const k = menu.q.toLowerCase();
     if (menu.kind === 'link') {
-      const list = notes.filter((n) => n.id !== noteId && n.title && n.title.toLowerCase().includes(k)).slice(0, 8).map((n) => ({ label: n.title, title: n.title }));
-      if (k.trim() && !notes.some((n) => n.title.toLowerCase() === k.trim())) list.push({ label: `＋ 新建页面「${menu.q.trim()}」`, title: menu.q.trim(), create: true });
+      const ns = allNotes();
+      const list = ns.filter((n) => n.id !== noteId && n.title && n.title.toLowerCase().includes(k)).slice(0, 8).map((n) => ({ label: n.title, title: n.title }));
+      if (k.trim() && !ns.some((n) => n.title.toLowerCase() === k.trim())) list.push({ label: `＋ 新建页面「${menu.q.trim()}」`, title: menu.q.trim(), create: true });
       return list;
     }
     const all = [...SLASH_TYPES.map((t) => ({ k: t, type: t, label: TYPES[t].label, hint: TYPES[t].hint })), ...SLASH_EXTRA];

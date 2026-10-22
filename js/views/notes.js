@@ -1,4 +1,4 @@
-import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
+import { html, useState, useMemo, useEffect, useRef, Component } from '../../vendor/preact.js';
 import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field } from '../ui.js';
@@ -126,11 +126,21 @@ export default function Notes({ route }) {
 }
 
 /* ---------- page ---------- */
+// Re-renders only when the page changes; the editor keeps its own state while typing.
+class Still extends Component {
+  shouldComponentUpdate(p) { return p.k !== this.props.k; }
+  render(p) { return p.children; }
+}
+
 function Page({ note, notes, onCreateChild }) {
   const [moveOpen, setMoveOpen] = useState(false);
   const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: new Date().toISOString() }), 250), []);
   const onBlocks = useMemo(() => (blocks) => upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() }), [note.id]);
   const blocks = useMemo(() => (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), [note.id]);
+  const notesRef = useRef(notes); notesRef.current = notes;
+  const openLink = useMemo(() => (t) => go('notes/t:' + encodeURIComponent(t)), []);
+  const createRef = useRef(); createRef.current = (title) => { if (!findByTitle(get().notes, title)) newNote({ title, parent: note.id }); };
+  const createLinkedStable = useMemo(() => (t) => createRef.current(t), []);
   const createLinked = (title) => { if (!findByTitle(get().notes, title)) newNote({ title, parent: note.id }); };
   const crumbs = ancestors(notes, note);
   const kids = childrenOf(notes, note.id);
@@ -171,7 +181,7 @@ function Page({ note, notes, onCreateChild }) {
         <div class="prop"><span class="pk"><${Icon} name="layers" size=${12} /> 位置</span><span class="pv click" onClick=${() => setMoveOpen(true)}>${crumbs.length ? crumbs.map(noteTitle).join(' / ') : '顶层'}</span></div>
         <div class="prop"><span class="pk"><${Icon} name="clock" size=${12} /> 更新</span><span class="pv muted">${new Date(note.updated).toLocaleString('zh-CN', { hour12: false })} · 创建 ${note.created} · ${words} 字</span></div>
       </div>
-      <${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notes=${notes} noteId=${note.id} onCreatePage=${createLinked} onOpenLink=${(t) => go('notes/t:' + encodeURIComponent(t))} pageFont=${note.font} />
+      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} /><//>
       ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
       <div class="links-sec">
         ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? '' : '＋ '}${t}</a>`)}</div>`}

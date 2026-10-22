@@ -102,25 +102,27 @@ export function listOf(s, name) {
   return s[name];
 }
 
+// Hot paths avoid cloning the whole document: only the touched collection is copied.
+function commit(next) {
+  state = { ...next, updatedAt: new Date().toISOString() };
+  persist();
+  subs.forEach((f) => f());
+}
+
 export function upsert(name, item) {
-  update((s) => {
-    const i = s[name].findIndex((x) => x.id === item.id);
-    if (i >= 0) s[name][i] = { ...s[name][i], ...item };
-    else s[name].unshift(item);
-  });
+  const list = state[name];
+  const i = list.findIndex((x) => x.id === item.id);
+  const next = i >= 0 ? list.map((x, j) => (j === i ? { ...x, ...item } : x)) : [item, ...list];
+  commit({ ...state, [name]: next });
 }
 
 export function remove(name, id) {
-  update((s) => {
-    s[name] = s[name].filter((x) => x.id !== id);
-  });
+  commit({ ...state, [name]: state[name].filter((x) => x.id !== id) });
 }
 
 export function toggleTodo(id) {
-  update((s) => {
-    const t = s.todos.find((x) => x.id === id);
-    if (!t) return;
-    t.done = !t.done;
-    t.completedAt = t.done ? todayStr() : null;
-  });
+  const t = state.todos.find((x) => x.id === id);
+  if (!t) return;
+  const done = !t.done;
+  commit({ ...state, todos: state.todos.map((x) => (x.id === id ? { ...x, done, completedAt: done ? todayStr() : null } : x)) });
 }

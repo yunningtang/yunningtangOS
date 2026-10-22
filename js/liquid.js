@@ -40,10 +40,21 @@ export function initLiquid() {
     if (e.relatedTarget && c.contains(e.relatedTarget)) return;
     hovered.delete(c); settle(c);
   });
-  const mo = new MutationObserver(schedule);
+  const mo = new MutationObserver((muts) => {
+    // Typing inside contenteditable mutates the DOM constantly; the pills do not care about that.
+    for (const m of muts) {
+      const t = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+      if (t && t.closest && t.closest('[contenteditable], .b-text, input, textarea')) continue;
+      schedule(); return;
+    }
+  });
   mo.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
   window.addEventListener('resize', schedule);
   window.addEventListener('hashchange', () => setTimeout(() => settleAll(false), 30));
-  document.addEventListener('scroll', schedule, true);
+  document.addEventListener('scroll', (e) => {
+    const t = e.target && e.target.nodeType === 1 ? e.target : null;
+    if (!t) return; // page scroll does not move pills relative to their containers
+    const c = t.closest('[data-liquid]'); if (c) cancelAnimationFrame(raf), (raf = requestAnimationFrame(() => settle(c, true)));
+  }, true);
   setTimeout(() => settleAll(true), 50);
 }
