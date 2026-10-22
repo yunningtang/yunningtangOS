@@ -83,7 +83,7 @@ export function Tag({ children, color, class: cls = '', ...rest }) {
 }
 
 export function Empty({ icon = 'sparkle', text, children }) {
-  return html`<div class="empty"><${Icon} name=${icon} size=${22} /><p>${text}</p>${children}</div>`;
+  return html`<div class="empty"><p>${text}</p>${children}</div>`;
 }
 
 export function Field({ label, children, hint, class: cls = '' }) {
@@ -137,7 +137,7 @@ export function TagInput({ value = [], onChange, placeholder = '标签，回车�
 }
 
 export function Seg({ options, value, onChange }) {
-  return html`<div class="seg">${options.map((o) => html`<button type="button" class=${o.v === value ? 'on' : ''} onClick=${() => onChange(o.v)}>${o.label}</button>`)}</div>`;
+  return html`<div class="seg" data-liquid="button"><span class="liq"></span>${options.map((o) => html`<button type="button" class=${o.v === value ? 'on' : ''} onClick=${() => onChange(o.v)}>${o.label}</button>`)}</div>`;
 }
 
 export function useClock() {

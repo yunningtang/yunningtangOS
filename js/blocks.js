@@ -148,7 +148,7 @@ export function blocksToMd(blocks) {
       case 'number': lines.push(`${pad}${n}. ${t}`); break;
       case 'todo': lines.push(`${pad}- [${b.checked ? 'x' : ' '}] ${t}`); break;
       case 'quote': lines.push(...t.split('\n').map((l) => `> ${l}`), ''); break;
-      case 'callout': lines.push(`> ${b.icon || '💡'} ${t}`, ''); break;
+      case 'callout': lines.push(`> 💡 ${t}`, ''); break;
       case 'code': lines.push('```' + (b.lang || ''), textOf(b.html), '```', ''); break;
       case 'divider': lines.push('---', ''); break;
       case 'image': lines.push(`![${textOf(b.html)}](${b.url || ''})`, ''); break;

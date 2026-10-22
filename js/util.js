@@ -154,22 +154,22 @@ export function sortBy(arr, ...keys) {
 }
 
 export const PRIORITY = [
-  { v: 0, label: 'P0', name: '紧急', color: '#e5484d' },
-  { v: 1, label: 'P1', name: '重要', color: '#f0a020' },
-  { v: 2, label: 'P2', name: '普通', color: '#18a8a2' },
-  { v: 3, label: 'P3', name: '随缘', color: '#8a97a3' },
+  { v: 0, label: 'P0', name: '紧急', color: 'var(--ink)' },
+  { v: 1, label: 'P1', name: '重要', color: 'var(--g2)' },
+  { v: 2, label: 'P2', name: '普通', color: 'var(--g4)' },
+  { v: 3, label: 'P3', name: '随缘', color: 'var(--g6)' },
 ];
 
 export const AREAS = ['学习', '工作', '创作', '健康', '关系', '财务', '生活', '探索'];
 
 export const BLOCK_KINDS = [
-  { v: 'focus', name: '深度专注', color: '#18a8a2' },
-  { v: 'study', name: '学习', color: '#2878e8' },
-  { v: 'work', name: '工作', color: '#7c6cf0' },
-  { v: 'create', name: '创作', color: '#e0609a' },
-  { v: 'life', name: '生活', color: '#f0a020' },
-  { v: 'move', name: '运动', color: '#18e0a0' },
-  { v: 'rest', name: '休息', color: '#8a97a3' },
+  { v: 'focus', name: '深度专注', color: 'var(--ink)' },
+  { v: 'study', name: '学习', color: 'var(--g2)' },
+  { v: 'work', name: '工作', color: 'var(--g3)' },
+  { v: 'create', name: '创作', color: 'var(--g4)' },
+  { v: 'life', name: '生活', color: 'var(--g5)' },
+  { v: 'move', name: '运动', color: 'var(--g6)' },
+  { v: 'rest', name: '休息', color: 'var(--g7)' },
 ];
 
 export function kindColor(v) {

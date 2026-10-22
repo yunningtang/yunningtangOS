@@ -235,7 +235,7 @@ export default function Planner({ route }) {
   const tabs = [['week', '周计划'], ['day', '每日时间线'], ['month', '月度目标']];
   return html`<div>
     <div class="page-h"><div><div class="kicker">Planner</div><h1>计划</h1><div class="desc">月定方向，周定节奏，日定时间。</div></div></div>
-    <nav class="subnav">${tabs.map(([k, n]) => html`<a href=${'#/plan/' + k} class=${sub === k ? 'active' : ''}>${n}</a>`)}</nav>
+    <nav class="subnav" data-liquid="a"><span class="liq"></span>${tabs.map(([k, n]) => html`<a href=${'#/plan/' + k} class=${sub === k ? 'active' : ''}>${n}</a>`)}</nav>
     ${sub === 'week' && html`<${WeekBoard} />`}
     ${sub === 'day' && html`<${DayView} />`}
     ${sub === 'month' && html`<${MonthGoals} />`}

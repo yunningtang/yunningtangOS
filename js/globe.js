@@ -26,24 +26,26 @@ export function mountGlobe(canvas, opts = {}) {
 
   function draw() {
     ctx.clearRect(0, 0, w, h);
+    const dark = document.documentElement.dataset.theme === 'dark';
+    const ink = dark ? '#f2f1ee' : '#141414';
     const r = proj.scale(), [cx, cy] = proj.translate();
     // halo
     const halo = ctx.createRadialGradient(cx, cy, r * 0.95, cx, cy, r * 1.25);
-    halo.addColorStop(0, 'rgba(180,200,225,.18)'); halo.addColorStop(1, 'rgba(180,200,225,0)');
+    halo.addColorStop(0, 'rgba(0,0,0,0)'); halo.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = halo; ctx.fillRect(0, 0, w, h);
     // sphere
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
     const sea = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r);
-    sea.addColorStop(0, '#2b3b55'); sea.addColorStop(1, '#141c2a');
+    sea.addColorStop(0, dark ? '#2a2a2a' : '#ffffff'); sea.addColorStop(1, dark ? '#1a1a1a' : '#f1f0ec');
     ctx.fillStyle = sea; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = dark ? 'rgba(255,255,255,.3)' : 'rgba(20,20,20,.5)'; ctx.lineWidth = 1; ctx.stroke();
     // graticule
-    ctx.beginPath(); path(grat); ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = .5; ctx.stroke();
+    ctx.beginPath(); path(grat); ctx.strokeStyle = dark ? 'rgba(255,255,255,.08)' : 'rgba(20,20,20,.08)'; ctx.lineWidth = .5; ctx.stroke();
     // land
     if (land) {
       ctx.beginPath(); path(land);
-      ctx.fillStyle = 'rgba(225,232,240,.78)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = .6; ctx.stroke();
+      ctx.fillStyle = dark ? 'rgba(255,255,255,.12)' : 'rgba(20,20,20,.08)'; ctx.fill();
+      ctx.strokeStyle = dark ? 'rgba(255,255,255,.55)' : 'rgba(20,20,20,.7)'; ctx.lineWidth = .7; ctx.stroke();
     }
     // markers
     const t = performance.now() / 1000;
@@ -58,12 +60,12 @@ export function mountGlobe(canvas, opts = {}) {
       const wish = m.kind === 'wish';
       const pulse = sel ? 6 + Math.sin(t * 4) * 2 : 0;
       ctx.beginPath(); ctx.arc(p[0], p[1], 9 + pulse, 0, Math.PI * 2);
-      ctx.fillStyle = sel ? 'rgba(111,196,184,.3)' : wish ? 'rgba(220,180,106,.2)' : 'rgba(43,138,131,.22)'; ctx.fill();
+      ctx.fillStyle = sel ? (dark ? 'rgba(255,255,255,.25)' : 'rgba(20,20,20,.18)') : 'rgba(0,0,0,0)'; ctx.fill();
       ctx.beginPath(); ctx.arc(p[0], p[1], sel ? 5.5 : 4.2, 0, Math.PI * 2);
-      ctx.fillStyle = sel ? '#6fc4b8' : wish ? '#dcb46a' : '#2b8a83'; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.2; ctx.fill(); ctx.stroke();
+      ctx.fillStyle = wish ? (dark ? '#1a1a1a' : '#fff') : ink; ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.fill(); ctx.stroke();
       if (sel && m.label) {
         ctx.font = '500 12px "Noto Serif SC", serif';
-        ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.textAlign = 'left';
+        ctx.fillStyle = ink; ctx.textAlign = 'left';
         ctx.fillText(m.label, p[0] + 10, p[1] + 4);
       }
     }

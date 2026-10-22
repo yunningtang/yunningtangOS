@@ -13,8 +13,8 @@ function LifeWheel({ areas, onChange }) {
     <div class="wheel"><svg viewBox="0 0 240 240">
       ${[2, 4, 6, 8, 10].map((v) => html`<polygon points=${areas.map((_, i) => pt(i, (v / 10) * R).join(',')).join(' ')} fill="none" stroke="var(--line-2)" stroke-width="1" />`)}
       ${areas.map((_, i) => html`<line x1=${cx} y1=${cy} x2=${pt(i, R)[0]} y2=${pt(i, R)[1]} stroke="var(--line-2)" />`)}
-      <polygon points=${poly} fill="rgba(var(--ac),.22)" stroke="var(--teal)" stroke-width="2" stroke-linejoin="round" />
-      ${areas.map((a, i) => { const [x, y] = pt(i, (a.score / 10) * R); return html`<circle cx=${x} cy=${y} r="3.5" fill="var(--teal)" />`; })}
+      <polygon points=${poly} fill="rgba(var(--ac),.12)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" />
+      ${areas.map((a, i) => { const [x, y] = pt(i, (a.score / 10) * R); return html`<circle cx=${x} cy=${y} r="3.5" fill="var(--ink)" />`; })}
       ${areas.map((a, i) => { const [x, y] = pt(i, R + 16); return html`<text x=${x} y=${y} text-anchor="middle" dominant-baseline="middle" font-size="9" fill="var(--text-3)">${a.name}</text>`; })}
     </svg></div>
     <div class="wheel-ctl">${areas.map((a, i) => html`<div class="r"><span>${a.name}</span><input type="range" min="0" max="10" value=${a.score} onInput=${(e) => onChange(i, +e.target.value)} /><b>${a.score}</b></div>`)}</div>
@@ -58,9 +58,9 @@ export default function Vision() {
     <div class="vision-grid">
       <div class="stack">
         <${Card} title="显化 · 肯定句" sub="用现在时写，像已经发生一样。总览页每天会轮换显示一条。">
-          <div class="quickadd"><${Icon} name="sparkle" size=${15} class="muted" /><input class="flex1" type="text" value=${txt} placeholder="我正在…" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && addStatement()} /></div>
+          <div class="quickadd"><input class="flex1" type="text" value=${txt} placeholder="我正在…" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && addStatement()} /></div>
           ${v.statements.length === 0 ? html`<${Empty} icon="sparkle" text="第一句写什么？试试：我每天都在变得更专注、更自由。" />` : html`<ul class="aff">${v.statements.map((st) => html`<li key=${st.id}>
-            <${Icon} name="sparkle" size=${14} />
+            <span class="aff-dash">—</span>
             ${editAff === st.id ? html`<input type="text" autofocus value=${st.text} onBlur=${(e) => { update((d) => { const x = d.vision.statements.find((y) => y.id === st.id); if (x) x.text = e.target.value; }); setEditAff(null); }} onKeyDown=${(e) => e.key === 'Enter' && e.target.blur()} />` : html`<span onClick=${() => setEditAff(st.id)}>${st.text}</span>`}
             <div class="acts"><${IconBtn} class="ibtn danger" icon="x" size=${12} title="删除" onClick=${() => update((d) => { d.vision.statements = d.vision.statements.filter((y) => y.id !== st.id); })} /></div>
           </li>`)}</ul>`}

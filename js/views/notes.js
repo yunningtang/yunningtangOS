@@ -42,22 +42,6 @@ export function newNote(patch = {}) {
 }
 export function findByTitle(notes, title) { return notes.find((x) => x.title.trim().toLowerCase() === title.trim().toLowerCase()); }
 
-const SLASH = [
-  { k: 'h1', label: '标题 1', hint: '大标题', ins: '# ' },
-  { k: 'h2', label: '标题 2', hint: '中标题', ins: '## ' },
-  { k: 'h3', label: '标题 3', hint: '小标题', ins: '### ' },
-  { k: 'todo', label: '待办清单', hint: '可勾选', ins: '- [ ] ' },
-  { k: 'ul', label: '无序列表', hint: '项目符号', ins: '- ' },
-  { k: 'ol', label: '有序列表', hint: '编号', ins: '1. ' },
-  { k: 'quote', label: '引用', hint: '引述一段话', ins: '> ' },
-  { k: 'callout', label: '标注', hint: '💡 提示块', ins: '> 💡 ' },
-  { k: 'code', label: '代码块', hint: '```', ins: '```\n\n```', caret: -4 },
-  { k: 'hr', label: '分割线', hint: '---', ins: '---\n' },
-  { k: 'table', label: '表格', hint: '三列', ins: '| 列 1 | 列 2 | 列 3 |\n| --- | --- | --- |\n|  |  |  |\n' },
-  { k: 'date', label: '今天的日期', hint: todayStr(), ins: todayStr() + ' ' },
-  { k: 'link', label: '链接到页面', hint: '[[ ]] 双链', ins: '[[', special: 'link' },
-  { k: 'sub', label: '子页面', hint: '新建并链接', special: 'sub' },
-];
 
 /* ---------- page tree (sidebar) ---------- */
 export function PageTree({ notes, parent = null, depth = 0, activeId, open, toggle, onCreate, max = 60 }) {
@@ -69,8 +53,8 @@ export function PageTree({ notes, parent = null, depth = 0, activeId, open, togg
     return html`<li key=${n.id}>
       <div class=${'pt-row ' + (n.id === activeId ? 'active' : '')} style=${`padding-left:${8 + depth * 14}px`}>
         <button class=${'pt-tg ' + (has ? '' : 'none')} onClick=${() => toggle(n.id)} aria-label="展开"><${Icon} name=${isOpen ? 'down' : 'right'} size=${11} /></button>
-        <a href=${'#/notes/' + n.id} class="pt-link"><span class="pt-ic">${n.icon || '📄'}</span><span class="pt-t">${noteTitle(n)}</span></a>
-        <button class="pt-add" title="新建子页面" onClick=${() => onCreate(n.id)}><${Icon} name="plus" size=${11} /></button>
+        <a href=${'#/notes/' + n.id} class="pt-link"><span class="pt-t">${noteTitle(n)}</span></a>
+        <button class="pt-add" title="新建子页面" onClick=${() => onCreate(n.id)}>+</button>
       </div>
       ${isOpen && has && html`<${PageTree} notes=${notes} parent=${n.id} depth=${depth + 1} activeId=${activeId} open=${open} toggle=${toggle} onCreate=${onCreate} />`}
     </li>`;
@@ -117,20 +101,20 @@ export default function Notes({ route }) {
   return html`<div class="notes-layout">
     <aside class="card notes-side">
       <div class="ns-top">
-        <div class="searchin"><${Icon} name="search" size=${13} /><input type="search" value=${q} placeholder="搜索页面…" onInput=${(e) => setQ(e.target.value)} /></div>
-        <${IconBtn} icon="plus" title="新页面" onClick=${() => create(null)} />
+        <div class="searchin"><input type="search" value=${q} placeholder="搜索页面…" onInput=${(e) => setQ(e.target.value)} /></div>
+        <button class="btn ghost sm" onClick=${() => create(null)}>新建</button>
       </div>
       <div class="ns-tabs"><${Seg} options=${[{ v: 'pages', label: '页面' }, { v: 'tags', label: '标签' }, { v: 'graph', label: '图谱' }]} value=${tab} onChange=${(v) => { setTab(v); if (v === 'graph') go('notes/graph'); }} /></div>
-      <div class="ns-body">
-        ${results ? html`<div class="ns-sec">搜索结果 · ${results.length}</div>${results.length === 0 ? html`<div class="small muted" style="padding:6px 10px">没有匹配的页面。</div>` : results.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-ic">${n.icon || '📄'}</span><span class="pt-t">${noteTitle(n)}</span><span class="pt-sub">${ancestors(s.notes, n).map(noteTitle).join(' / ')}</span></a>`)}`
-        : tab === 'tags' ? html`${tags.length === 0 ? html`<div class="small muted" style="padding:6px 10px">还没有标签。</div>` : tags.map(([t, c]) => html`<details class="ns-tag" key=${t}><summary><span class="pt-ic">#</span><span class="pt-t">${t}</span><span class="pt-cnt">${c}</span></summary>${s.notes.filter((n) => n.tags.includes(t)).map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} style="padding-left:26px" href=${'#/notes/' + n.id}><span class="pt-ic">${n.icon || '📄'}</span><span class="pt-t">${noteTitle(n)}</span></a>`)}</details>`)}`
+      <div class="ns-body" data-liquid=".pt-row, summary"><span class="liq"></span>
+        ${results ? html`<div class="ns-sec">搜索结果 · ${results.length}</div>${results.length === 0 ? html`<div class="small muted" style="padding:6px 10px">没有匹配的页面。</div>` : results.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-t">${noteTitle(n)}</span><span class="pt-sub">${ancestors(s.notes, n).map(noteTitle).join(' / ')}</span></a>`)}`
+        : tab === 'tags' ? html`${tags.length === 0 ? html`<div class="small muted" style="padding:6px 10px">还没有标签。</div>` : tags.map(([t, c]) => html`<details class="ns-tag" key=${t}><summary><span class="pt-t">${t}</span><span class="pt-cnt">${c}</span></summary>${s.notes.filter((n) => n.tags.includes(t)).map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} style="padding-left:26px" href=${'#/notes/' + n.id}><span class="pt-t">${noteTitle(n)}</span></a>`)}</details>`)}`
         : html`
-          ${pinned.length > 0 && html`<div class="ns-sec">收藏</div>${pinned.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-ic">${n.icon || '📌'}</span><span class="pt-t">${noteTitle(n)}</span></a>`)}`}
+          ${pinned.length > 0 && html`<div class="ns-sec">收藏</div>${pinned.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-t">${noteTitle(n)}</span></a>`)}`}
           <div class="ns-sec">页面 <span class="muted">${s.notes.length}</span></div>
           ${s.notes.length === 0 ? html`<div class="small muted" style="padding:6px 10px">还没有页面。</div>` : html`<${PageTree} notes=${s.notes} activeId=${id} open=${tree.open} toggle=${tree.toggle} onCreate=${create} />`}
-          <button class="pt-row flat new" onClick=${() => create(null)}><span class="pt-ic"><${Icon} name="plus" size=${12} /></span><span class="pt-t">新页面</span></button>
+          <button class="pt-row flat new" onClick=${() => create(null)}><span class="pt-t">+ 新页面</span></button>
           <div class="ns-sec">最近</div>
-          ${recent.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-ic">${n.icon || '📄'}</span><span class="pt-t">${noteTitle(n)}</span></a>`)}`}
+          ${recent.map((n) => html`<a class=${'pt-row flat ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id}><span class="pt-t">${noteTitle(n)}</span></a>`)}`}
       </div>
     </aside>
     <section class="card notes-main">
@@ -160,7 +144,6 @@ function Page({ note, notes, onCreateChild }) {
   const outgoing = useMemo(() => linksOf(note.body).map((t) => ({ t, n: findByTitle(notes, t) })), [notes, note.body]);
   const snippet = (n, key) => { const line = n.body.split('\n').find((l) => l.includes(key)) || ''; return line.replace(/[#>*`]/g, '').trim().slice(0, 120); };
   const words = note.body.replace(/\s/g, '').length;
-  const setIcon = () => { const v = prompt('页面图标（一个 emoji，留空清除）', note.icon || ''); if (v !== null) upsert('notes', { id: note.id, icon: v.trim().slice(0, 4) }); };
 
   return html`<div class="page">
     <div class="crumbs">
@@ -168,35 +151,33 @@ function Page({ note, notes, onCreateChild }) {
       <span class="flex1"></span>
       <div class="page-acts">
         <div class="seg mini"><button class=${!note.font || note.font === 'default' ? 'on' : ''} title="默认字体" onClick=${() => upsert('notes', { id: note.id, font: 'default' })}>Ag</button><button class=${'serif-f ' + (note.font === 'serif' ? 'on' : '')} title="衬线" onClick=${() => upsert('notes', { id: note.id, font: 'serif' })}>Ag</button><button class=${'mono-f ' + (note.font === 'mono' ? 'on' : '')} title="等宽" onClick=${() => upsert('notes', { id: note.id, font: 'mono' })}>Ag</button></div>
-        <${IconBtn} icon="grid" title=${note.wide ? '标准宽度' : '全宽'} onClick=${() => upsert('notes', { id: note.id, wide: !note.wide })} />
-        <${IconBtn} icon="pin" title=${note.pinned ? '取消收藏' : '收藏'} class=${'ibtn ' + (note.pinned ? 'on' : '')} onClick=${() => upsert('notes', { id: note.id, pinned: !note.pinned })} />
-        <${IconBtn} icon="layers" title="移动到…" onClick=${() => setMoveOpen(true)} />
-        <${IconBtn} icon="plus" title="新建子页面" onClick=${onCreateChild} />
-        <${IconBtn} icon="trash" class="ibtn danger" title="删除" onClick=${() => { if (confirmDel(kids.length ? `删除「${title}」及其 ${kids.length} 个子页面？` : undefined)) { const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((n) => { if (n.parent && ids.has(n.parent) && !ids.has(n.id)) { ids.add(n.id); grew = true; } }); } update((d) => { d.notes = d.notes.filter((n) => !ids.has(n.id)); }); go('notes'); } }} />
+        <button class="btn ghost sm" onClick=${() => upsert('notes', { id: note.id, wide: !note.wide })}>${note.wide ? '标准宽' : '全宽'}</button>
+        <button class=${'btn ghost sm ' + (note.pinned ? 'on' : '')} onClick=${() => upsert('notes', { id: note.id, pinned: !note.pinned })}>${note.pinned ? '已收藏' : '收藏'}</button>
+        <button class="btn ghost sm" onClick=${() => setMoveOpen(true)}>移动</button>
+        <button class="btn ghost sm" onClick=${onCreateChild}>子页面</button>
+        <button class="btn ghost sm danger" onClick=${() => { if (confirmDel(kids.length ? `删除「${title}」及其 ${kids.length} 个子页面？` : undefined)) { const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((n) => { if (n.parent && ids.has(n.parent) && !ids.has(n.id)) { ids.add(n.id); grew = true; } }); } update((d) => { d.notes = d.notes.filter((n) => !ids.has(n.id)); }); go('notes'); } }}>删除</button>
       </div>
     </div>
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
       <div class="page-top">
-        <button class=${'page-icon ' + (note.cover ? 'on-cover' : '')} onClick=${setIcon} title="更换图标">${note.icon || '📄'}</button>
         <div class="page-hover-acts">
-          ${!note.icon && html`<button class="btn ghost sm" onClick=${setIcon}>添加图标</button>`}
           ${!note.cover && html`<button class="btn ghost sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover('') })}>添加封面</button>`}
         </div>
       </div>
       <input class="page-title" type="text" value=${note.title} placeholder="无标题" onInput=${(e) => save({ id: note.id, title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); const el = document.querySelector('.beditor .b-text'); if (el) el.focus(); } }} />
       <div class="props">
-        <div class="prop"><span class="pk"><${Icon} name="tag" size=${12} /> 标签</span><span class="pv"><${TagInput} value=${note.tags} onChange=${(v) => upsert('notes', { id: note.id, tags: v })} placeholder="空" /></span></div>
-        <div class="prop"><span class="pk"><${Icon} name="layers" size=${12} /> 位置</span><span class="pv click" onClick=${() => setMoveOpen(true)}>${crumbs.length ? crumbs.map(noteTitle).join(' / ') : '顶层'}</span></div>
-        <div class="prop"><span class="pk"><${Icon} name="clock" size=${12} /> 更新</span><span class="pv muted">${new Date(note.updated).toLocaleString('zh-CN', { hour12: false })} · 创建 ${note.created} · ${words} 字</span></div>
+        <div class="prop"><span class="pk">标签</span><span class="pv"><${TagInput} value=${note.tags} onChange=${(v) => upsert('notes', { id: note.id, tags: v })} placeholder="空" /></span></div>
+        <div class="prop"><span class="pk">位置</span><span class="pv click" onClick=${() => setMoveOpen(true)}>${crumbs.length ? crumbs.map(noteTitle).join(' / ') : '顶层'}</span></div>
+        <div class="prop"><span class="pk">更新</span><span class="pv muted">${new Date(note.updated).toLocaleString('zh-CN', { hour12: false })} · 创建 ${note.created} · ${words} 字</span></div>
       </div>
       <${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notes=${notes} noteId=${note.id} onCreatePage=${createLinked} onOpenLink=${(t) => go('notes/t:' + encodeURIComponent(t))} pageFont=${note.font} />
-      ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id}><span class="pt-ic">${k.icon || '📄'}</span>${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
+      ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id}>${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
       <div class="links-sec">
-        ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? (n.icon || '📄') : '＋'} ${t}</a>`)}</div>`}
+        ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? '' : '＋ '}${t}</a>`)}</div>`}
         <div class="sec-h" style="margin-top:14px">反向链接 <span class="muted">${backlinks.length}</span></div>
-        ${backlinks.length === 0 ? html`<p class="small muted">还没有其他页面链接到这里。在别的页面里写 <code>[[${title}]]</code> 就会出现在这。</p>` : backlinks.map((n) => html`<a class="bl" href=${'#/notes/' + n.id}><b>${n.icon || '📄'} ${noteTitle(n)}</b><p dangerouslySetInnerHTML=${{ __html: escapeHtml(snippet(n, '[[' + note.title)).replace(escapeHtml('[[' + note.title + ']]'), `<mark>${escapeHtml(note.title)}</mark>`) }}></p></a>`)}
-        ${mentions.length > 0 && html`<div class="sec-h" style="margin-top:14px">未链接的提及 <span class="muted">${mentions.length}</span></div>${mentions.map((n) => html`<div class="bl"><a href=${'#/notes/' + n.id}><b>${n.icon || '📄'} ${noteTitle(n)}</b></a><p>${snippet(n, note.title)}</p><button class="btn ghost sm" onClick=${() => upsert('notes', { id: n.id, body: n.body.split(note.title.trim()).join(`[[${note.title.trim()}]]`), updated: new Date().toISOString() })}>转为链接</button></div>`)}`}
+        ${backlinks.length === 0 ? html`<p class="small muted">还没有其他页面链接到这里。在别的页面里写 <code>[[${title}]]</code> 就会出现在这。</p>` : backlinks.map((n) => html`<a class="bl" href=${'#/notes/' + n.id}><b>${noteTitle(n)}</b><p dangerouslySetInnerHTML=${{ __html: escapeHtml(snippet(n, '[[' + note.title)).replace(escapeHtml('[[' + note.title + ']]'), `<mark>${escapeHtml(note.title)}</mark>`) }}></p></a>`)}
+        ${mentions.length > 0 && html`<div class="sec-h" style="margin-top:14px">未链接的提及 <span class="muted">${mentions.length}</span></div>${mentions.map((n) => html`<div class="bl"><a href=${'#/notes/' + n.id}><b>${noteTitle(n)}</b></a><p>${snippet(n, note.title)}</p><button class="btn ghost sm" onClick=${() => upsert('notes', { id: n.id, body: n.body.split(note.title.trim()).join(`[[${note.title.trim()}]]`), updated: new Date().toISOString() })}>转为链接</button></div>`)}`}
       </div>
     </div>
     <${MoveModal} open=${moveOpen} note=${note} notes=${notes} onClose=${() => setMoveOpen(false)} />
@@ -212,14 +193,15 @@ function MoveModal({ open, note, notes, onClose }) {
   walk(null, 0);
   return html`<${Modal} open=${open} onClose=${onClose} title="移动页面">
     <div class="move-list">
-      <button class=${'pt-row flat ' + (!note.parent ? 'active' : '')} onClick=${() => { upsert('notes', { id: note.id, parent: null }); onClose(); }}><span class="pt-ic">🏠</span><span class="pt-t">顶层</span></button>
-      ${opts.map(({ n, depth }) => html`<button class=${'pt-row flat ' + (note.parent === n.id ? 'active' : '')} style=${`padding-left:${10 + depth * 14}px`} onClick=${() => { upsert('notes', { id: note.id, parent: n.id }); onClose(); }}><span class="pt-ic">${n.icon || '📄'}</span><span class="pt-t">${noteTitle(n)}</span></button>`)}
+      <button class=${'pt-row flat ' + (!note.parent ? 'active' : '')} onClick=${() => { upsert('notes', { id: note.id, parent: null }); onClose(); }}><span class="pt-t">顶层</span></button>
+      ${opts.map(({ n, depth }) => html`<button class=${'pt-row flat ' + (note.parent === n.id ? 'active' : '')} style=${`padding-left:${10 + depth * 14}px`} onClick=${() => { upsert('notes', { id: note.id, parent: n.id }); onClose(); }}><span class="pt-t">${noteTitle(n)}</span></button>`)}
     </div>
   <//>`;
 }
 
 /* ---------- covers ---------- */
-export const COVERS = ['linear-gradient(120deg,#d9e4f5,#eef2f7)', 'linear-gradient(120deg,#e8f1ec,#f4efe6)', 'linear-gradient(120deg,#f3e6e0,#efe3f1)', 'linear-gradient(120deg,#1f2937,#4b5563)', 'linear-gradient(120deg,#2b6777,#52ab98)', 'linear-gradient(120deg,#f7d9c4,#f4c6a5)', 'radial-gradient(120% 120% at 20% 20%,#fde68a,#f59e0b 60%,#b45309)', 'radial-gradient(100% 100% at 80% 10%,#c7d2fe,#6366f1 70%,#312e81)'];
+export const COVERS = ['linear-gradient(135deg,#1a1a1a,#3a3a3a)', 'linear-gradient(135deg,#e8e6e1,#f6f5f2)', 'repeating-linear-gradient(45deg,#f4f3f0 0 10px,#ebeae6 10px 20px)', 'radial-gradient(120% 120% at 20% 20%,#fff,#d9d7d2 70%,#bdbab4)', 'linear-gradient(180deg,#2b2b2b,#111)', 'radial-gradient(100% 100% at 80% 10%,#cfcdc8,#8e8c87 70%,#4a4947)', 'linear-gradient(90deg,#111 0 50%,#f3f2ef 50%)', 'repeating-linear-gradient(0deg,#fff 0 6px,#e9e8e4 6px 7px)'];
+export const COVERS_OLD = ['linear-gradient(120deg,#d9e4f5,#eef2f7)', 'linear-gradient(120deg,#e8f1ec,#f4efe6)', 'linear-gradient(120deg,#f3e6e0,#efe3f1)', 'linear-gradient(120deg,#1f2937,#4b5563)', 'linear-gradient(120deg,#2b6777,#52ab98)', 'linear-gradient(120deg,#f7d9c4,#f4c6a5)', 'radial-gradient(120% 120% at 20% 20%,#fde68a,#f59e0b 60%,#b45309)', 'radial-gradient(100% 100% at 80% 10%,#c7d2fe,#6366f1 70%,#312e81)'];
 export function nextCover(cur) { const i = COVERS.indexOf(cur); return COVERS[(i + 1) % COVERS.length]; }
 export function coverStyle(c) { return /^https?:/.test(c) ? `background-image:url(${c})` : `background:${c}`; }
 

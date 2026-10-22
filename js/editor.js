@@ -199,7 +199,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], noteId, onC
     if (!menu) return [];
     const k = menu.q.toLowerCase();
     if (menu.kind === 'link') {
-      const list = notes.filter((n) => n.id !== noteId && n.title && n.title.toLowerCase().includes(k)).slice(0, 8).map((n) => ({ label: `${n.icon || '📄'} ${n.title}`, title: n.title }));
+      const list = notes.filter((n) => n.id !== noteId && n.title && n.title.toLowerCase().includes(k)).slice(0, 8).map((n) => ({ label: n.title, title: n.title }));
       if (k.trim() && !notes.some((n) => n.title.toLowerCase() === k.trim())) list.push({ label: `＋ 新建页面「${menu.q.trim()}」`, title: menu.q.trim(), create: true });
       return list;
     }
@@ -265,7 +265,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], noteId, onC
   const addBelow = (id) => insertAfter(id, block('p'));
   const items = menuItems();
 
-  return html`<div class=${'beditor font-' + (pageFont || 'default')} ref=${root} onClick=${(e) => { const wk = e.target.closest && e.target.closest('a.wiki'); if (wk) { e.preventDefault(); onOpenLink && onOpenLink(wk.dataset.title || wk.textContent); return; } const lk = e.target.closest && e.target.closest('a[href]'); if (lk && !e.shiftKey) { e.preventDefault(); window.open(lk.getAttribute('href'), '_blank', 'noopener'); return; } if (e.target === root.current) { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); } }}>
+  return html`<div class=${'beditor font-' + (pageFont || 'default')} ref=${root} data-liquid=".b-row" onClick=${(e) => { const wk = e.target.closest && e.target.closest('a.wiki'); if (wk) { e.preventDefault(); onOpenLink && onOpenLink(wk.dataset.title || wk.textContent); return; } const lk = e.target.closest && e.target.closest('a[href]'); if (lk && !e.shiftKey) { e.preventDefault(); window.open(lk.getAttribute('href'), '_blank', 'noopener'); return; } if (e.target === root.current || e.target.classList.contains('liq')) { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); } }}>
+    <span class="liq"></span>
     ${vis.map((b) => html`<${Row} key=${b.id} b=${b} editor=${{ refs, onKey, onInput, onPaste, update, removeBlock, insertAfter, addBelow, setHmenu, hmenu, dragId, setDragId, dropAt, setDropAt, onDrop, numberOf, mdEdit, setMdEdit, emit, bs, syncFromDom }} />
       ${menu && menu.id === b.id && items.length > 0 && html`<div class="popmenu bmenu">${items.map((it, i) => html`<div class=${'pm ' + (i === menu.idx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); applyMenu(it, b); }}><b>${it.label}</b>${it.hint && html`<small>${it.hint}</small>`}</div>`)}</div>`}`)}
     <div class="b-tail" onClick=${() => { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); }}></div>
@@ -291,8 +292,8 @@ function Row({ b, editor }) {
     ${b.type === 'bullet' && html`<span class="b-mark">•</span>`}
     ${b.type === 'number' && html`<span class="b-mark num">${numberOf(b)}.</span>`}
     ${b.type === 'todo' && html`<button class=${'b-check ' + (b.checked ? 'on' : '')} onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { checked: !b.checked })}><${Icon} name="check" size=${11} /></button>`}
-    ${b.type === 'toggle' && html`<button class=${'b-tg ' + (b.open ? 'open' : '')} onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { open: !b.open })}><${Icon} name="right" size=${12} /></button>`}
-    ${b.type === 'callout' && html`<button class="b-ico" onMouseDown=${(e) => e.preventDefault()} onClick=${() => { const v = prompt('标注图标', b.icon || '💡'); if (v !== null) update(b.id, { icon: v.trim().slice(0, 4) || '💡' }); }}>${b.icon || '💡'}</button>`}
+    ${b.type === 'toggle' && html`<button class=${'b-tg ' + (b.open ? 'open' : '')} onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { open: !b.open })}>▸</button>`}
+    ${b.type === 'callout' && html`<span class="b-ico">│</span>`}
     <div ...${common} class=${'b-text ' + (b.type === 'todo' && b.checked ? 'done' : '')}></div>
   </div>`;
   useEffect(() => { if (mdEdit === b.id && ref.current) { ref.current.focus(); } }, [mdEdit]);
@@ -300,7 +301,7 @@ function Row({ b, editor }) {
     onDragOver=${(e) => { if (!dragId) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setDropAt({ id: b.id, after: e.clientY > r.top + r.height / 2 }); }}
     onDrop=${(e) => onDrop(e, b.id)}>
     <div class="b-gutter" contenteditable="false">
-      <button class="b-plus" title="在下方添加块" onMouseDown=${(e) => e.preventDefault()} onClick=${() => addBelow(b.id)}><${Icon} name="plus" size=${14} /></button>
+      <button class="b-plus" title="在下方添加块" onMouseDown=${(e) => e.preventDefault()} onClick=${() => addBelow(b.id)}>+</button>
       <button class="b-handle" title="拖动 · 点击打开菜单" draggable="true" onDragStart=${(e) => { setDragId(b.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.id); }} onDragEnd=${() => { setDragId(null); setDropAt(null); }} onMouseDown=${(e) => e.preventDefault()} onClick=${() => setHmenu(hmenu === b.id ? null : b.id)}>⋮⋮</button>
       ${hmenu === b.id && html`<div class="popmenu hmenu" onMouseDown=${(e) => e.preventDefault()}>
         <div class="pm-sec">转换为</div>

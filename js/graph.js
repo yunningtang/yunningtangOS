@@ -40,10 +40,10 @@ export function mountGraph(canvas, notes, onOpen) {
     for (const n of nodes) {
       const r = 5 + Math.min(n.deg, 8) * 1.4, hot = hover === n;
       ctx.beginPath(); ctx.arc(n.x, n.y, r + (hot ? 2 : 0), 0, Math.PI * 2);
-      ctx.fillStyle = hot ? teal : (n.deg ? 'rgba(43,138,131,.75)' : 'rgba(128,140,155,.6)'); ctx.fill();
+      ctx.fillStyle = hot ? text : (n.deg ? 'rgba(80,80,80,.9)' : 'rgba(150,150,150,.7)'); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.font = `${hot ? 600 : 400} 12px "Noto Serif SC", serif`; ctx.fillStyle = hot ? text : muted; ctx.textAlign = 'center';
-      ctx.fillText((n.icon ? n.icon + ' ' : '') + n.label, n.x, n.y + r + 14);
+      ctx.fillText(n.label, n.x, n.y + r + 14);
     }
     ctx.restore();
   }

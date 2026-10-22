@@ -41,8 +41,8 @@ export default function Dashboard() {
         <h1>${greeting(now)}，${s.profile.name}</h1>
         <p>${s.profile.motto}</p>
         <div class="today">
-          ${current ? html`<${Tag} color=${kindColor(current.kind)}><${Icon} name="play" size=${10} /> 正在：${current.title} · 至 ${current.end}<//>` : next ? html`<${Tag}><${Icon} name="clock" size=${10} /> 下一项 ${next.start} ${next.title}<//>` : html`<${Tag}><${Icon} name="clock" size=${10} /> 今天还没有时间块<//>`}
-          ${doneToday > 0 && html`<${Tag} color="var(--green)">今天已完成 ${doneToday} 项<//>`}
+          ${current ? html`<${Tag}>正在：${current.title} · 至 ${current.end}<//>` : next ? html`<${Tag}>下一项 ${next.start} ${next.title}<//>` : html`<${Tag}>今天还没有时间块<//>`}
+          ${doneToday > 0 && html`<${Tag}>今天已完成 ${doneToday} 项<//>`}
         </div>
       <//>
       <${Card} class="clock">
@@ -52,7 +52,7 @@ export default function Dashboard() {
       <//>
     </div>
 
-    <div class="stats">${stats.map((x) => html`<a class="card stat lift" href=${x.to} style=${`--sc:${x.c}`}><span class="si"><${Icon} name=${x.icon} size=${18} /></span><span><b>${x.n}</b><small>${x.l}</small></span></a>`)}</div>
+    <div class="stats">${stats.map((x) => html`<a class="card stat" href=${x.to}><b>${x.n}</b><small>${x.l}</small></a>`)}</div>
 
     <div class="dash">
       <div class="col">
@@ -76,7 +76,7 @@ export default function Dashboard() {
         <//>
       </div>
       <div class="col">
-        ${quote && html`<${Card}><div class="quote"><${Icon} name="quote" size=${18} /><div>${quote.text}</div></div><a class="small muted" href="#/vision" style="display:block;margin-top:10px;text-decoration:none">愿景 →</a><//>`}
+        ${quote && html`<${Card}><div class="quote"><span class="qmark">“</span><div>${quote.text}</div></div><a class="small muted" href="#/vision" style="display:block;margin-top:10px;text-decoration:none">愿景 →</a><//>`}
         <${Card} title="本月目标" sub=${monthKey()} action=${html`<a class="btn ghost sm" href="#/plan/month">全部 →</a>`}>
           ${goals.length === 0 ? html`<${Empty} icon="target" text="这个月还没定目标。" /> ` : html`<div class="stack gap8">${goals.slice(0, 5).map((g) => html`<div><div class="row" style="justify-content:space-between;font-size:.8rem;margin-bottom:4px"><span>${g.title}</span><span class="mono muted">${goalPct(g)}%</span></div><${Progress} value=${goalPct(g)} /></div>`)}</div>`}
         <//>

@@ -75,7 +75,7 @@ export default function Explore() {
           <canvas ref=${canvas}></canvas>
           <div class="stat"><span><b>${countries.length}</b><small>国家 / 地区</small></span><span><b>${regions}</b><small>省 / 州</small></span><span><b>${s.trips.filter((t) => t.kind !== 'wish').length}</b><small>足迹</small></span></div>
           <button class="gbtn" title="自动旋转" onClick=${() => globe.current.toggleAuto()}><${Icon} name="refresh" size=${14} /></button>
-          <div class="ov">拖动旋转 · 点击光点查看 · <span style="color:#dcb46a">●</span> 想去</div>
+          <div class="ov">拖动旋转 · 点击光点查看 · 空心为想去</div>
         <//>
         ${selTrip && html`<${Card} class="fi" title=${selTrip.place} sub=${`${selTrip.region ? selTrip.region + ' · ' : ''}${selTrip.country} · ${fmtDate(selTrip.date, true)}${selTrip.end ? ' – ' + fmtDate(selTrip.end) : ''}`} action=${html`<${IconBtn} icon="edit" title="编辑" onClick=${() => { setEditing(selTrip); setModal(true); }} /><${IconBtn} icon="x" title="关闭" onClick=${() => setSel(null)} />`}>
           <div class="row wrap" style="gap:6px;margin-bottom:8px">${selTrip.rating > 0 && html`<${Stars} value=${selTrip.rating} />`}${selTrip.tags.map((t) => html`<${Tag}>${t}<//>`)}<${Tag}>${{ trip: '旅行', live: '居住', wish: '想去' }[selTrip.kind || 'trip']}<//></div>
@@ -86,7 +86,7 @@ export default function Explore() {
       <div class="stack">
         <${Card} title="地点列表" sub="按时间倒序" action=${html`<select value=${kind} onChange=${(e) => setKind(e.target.value)} style="width:auto;padding:4px 26px 4px 8px;font-size:.72rem"><option value="all">全部</option><option value="trip">旅行</option><option value="live">居住</option><option value="wish">想去</option></select>`}>
           ${trips.length === 0 ? html`<${Empty} icon="pin" text="还没有足迹。从出生的城市开始吧。" />` : html`<div class="trip-list">${trips.map((t) => html`<div class=${'trip ' + (sel === t.id ? 'on' : '')} key=${t.id} onClick=${() => setSel(t.id)}>
-            <div class="pinic"><${Icon} name=${t.kind === 'wish' ? 'star' : t.kind === 'live' ? 'home' : 'pin'} size=${14} /></div>
+            <span class="kind-dot" data-kind=${t.kind || 'trip'}></span>
             <div class="ti"><b>${t.place}</b><small>${t.region ? t.region + ' · ' : ''}${t.country} · ${t.date}</small>${t.note && html`<p>${t.note}</p>`}</div>
           </div>`)}</div>`}
         <//>
