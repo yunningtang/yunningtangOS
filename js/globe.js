@@ -64,7 +64,7 @@ export function mountGlobe(canvas, opts = {}) {
       const p = proj([m.lng, m.lat]);
       if (!p || !geoVisible(proj, m.lng, m.lat)) continue;
       const sel = selected && selected === m.id;
-      const col = m.kind === 'wish' ? '#f3b74a' : m.kind === 'live' ? '#5ee39a' : '#ffffff';
+      const col = m.kind === 'wish' ? '#f0c060' : m.kind === 'live' ? '#7fe0b0' : '#ffffff';
       const pulse = sel ? 6 + Math.sin(t * 4) * 2 : 0;
       ctx.beginPath(); ctx.arc(p[0], p[1], 8 + pulse, 0, Math.PI * 2);
       ctx.fillStyle = sel ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.14)'; ctx.fill();

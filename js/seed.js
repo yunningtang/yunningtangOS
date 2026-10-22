@@ -40,10 +40,10 @@ export function seed() {
   ];
 
   s.books = [
-    { id: uid(), title: '纳瓦尔宝典', author: 'Eric Jorgenson', type: 'book', status: 'reading', progress: 86, total: 280, rating: 0, cover: '', link: '', note: '“具体的知识无法被培训，只能被发现。”', tags: ['思维'], color: '#18a8a2', started: addDays(t, -9), finished: '', created: addDays(t, -9) },
-    { id: uid(), title: 'The Design of Everyday Things', author: 'Don Norman', type: 'book', status: 'reading', progress: 30, total: 0, rating: 0, cover: '', link: '', note: '', tags: ['设计'], color: '#f0a020', started: addDays(t, -20), finished: '', created: addDays(t, -20) },
-    { id: uid(), title: 'Attention Is All You Need', author: 'Vaswani et al.', type: 'paper', status: 'done', progress: 100, total: 0, rating: 5, cover: '', link: 'https://arxiv.org/abs/1706.03762', note: '重读一遍，这次关注 positional encoding 的设计动机。', tags: ['ML'], color: '#2878e8', started: '', finished: addDays(t, -3), created: addDays(t, -5) },
-    { id: uid(), title: '被讨厌的勇气', author: '岸见一郎', type: 'book', status: 'want', progress: 0, total: 0, rating: 0, cover: '', link: '', note: '', tags: ['心理'], color: '#e0609a', started: '', finished: '', created: addDays(t, -1) },
+    { id: uid(), title: '纳瓦尔宝典', author: 'Eric Jorgenson', type: 'book', status: 'reading', progress: 86, total: 280, rating: 0, cover: '', link: '', note: '“具体的知识无法被培训，只能被发现。”', tags: ['思维'], color: '#2d8f88', started: addDays(t, -9), finished: '', created: addDays(t, -9) },
+    { id: uid(), title: 'The Design of Everyday Things', author: 'Don Norman', type: 'book', status: 'reading', progress: 30, total: 0, rating: 0, cover: '', link: '', note: '', tags: ['设计'], color: '#c7873a', started: addDays(t, -20), finished: '', created: addDays(t, -20) },
+    { id: uid(), title: 'Attention Is All You Need', author: 'Vaswani et al.', type: 'paper', status: 'done', progress: 100, total: 0, rating: 5, cover: '', link: 'https://arxiv.org/abs/1706.03762', note: '重读一遍，这次关注 positional encoding 的设计动机。', tags: ['ML'], color: '#3b6fd6', started: '', finished: addDays(t, -3), created: addDays(t, -5) },
+    { id: uid(), title: '被讨厌的勇气', author: '岸见一郎', type: 'book', status: 'want', progress: 0, total: 0, rating: 0, cover: '', link: '', note: '', tags: ['心理'], color: '#c9588a', started: '', finished: '', created: addDays(t, -1) },
   ];
 
   s.links = [

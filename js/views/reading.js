@@ -5,7 +5,7 @@ import { uid, todayStr, sortBy } from '../util.js';
 
 const TYPES = [['book', '书'], ['paper', '论文'], ['article', '文章'], ['course', '课程']];
 const STATUS = [['want', '想读'], ['reading', '在读'], ['done', '读完'], ['paused', '搁置']];
-const COLORS = ['#18a8a2', '#2878e8', '#7c6cf0', '#e0609a', '#f0a020', '#1b6b5a', '#8a5a44', '#3c4a5a'];
+const COLORS = ['#2d8f88', '#3b6fd6', '#7461c9', '#c9588a', '#c7873a', '#2f6b5a', '#8a5a44', '#3c4a5a'];
 
 export function BookModal({ open, book, onClose }) {
   const [f, setF] = useState(null);

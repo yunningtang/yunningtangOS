@@ -42,7 +42,7 @@ export default function Dashboard() {
         <p>${s.profile.motto}</p>
         <div class="today">
           ${current ? html`<${Tag} color=${kindColor(current.kind)}><${Icon} name="play" size=${10} /> 正在：${current.title} · 至 ${current.end}<//>` : next ? html`<${Tag}><${Icon} name="clock" size=${10} /> 下一项 ${next.start} ${next.title}<//>` : html`<${Tag}><${Icon} name="clock" size=${10} /> 今天还没有时间块<//>`}
-          ${doneToday > 0 && html`<${Tag} color="var(--green)">今天已完成 ${doneToday} 项<//>`}
+          ${doneToday > 0 && html`<${Tag} plain>今天已完成 ${doneToday} 项<//>`}
         </div>
       <//>
       <${Card} class="clock">
