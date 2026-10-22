@@ -19,6 +19,7 @@ export function blank() {
     links: [],
     notes: [],
     notebooks: [],
+    trash: [],
     vision: { statements: [], board: [], areas: [], longterm: [] },
     trips: [],
     settings: { theme: 'auto', sync: { repo: '', branch: 'main', path: 'data/os.json', token: '' }, lastSync: null, seeded: false },
@@ -36,6 +37,8 @@ function migrate(s) {
   out.profile = { ...b.profile, ...(s.profile || {}) };
   out.notes = (out.notes || []).map((n, i) => { const x = { parent: null, order: i, icon: '', pinned: false, tags: [], cover: '', font: 'default', wide: false, nb: null, ...n }; if (!x.blocks || !x.blocks.length) x.blocks = mdToBlocks(x.body || ''); return x; });
   out.notebooks = out.notebooks || [];
+  const cutoff = Date.now() - 30 * 86400000;
+  out.trash = (out.trash || []).filter((n) => !n.deletedAt || new Date(n.deletedAt).getTime() > cutoff);
   // Migration to notebooks: top-level pages that have children become notebooks; loose pages go to 收件箱.
   if (!out.notebooks.length && out.notes.length) {
     const byId = new Map(out.notes.map((n) => [n.id, n]));

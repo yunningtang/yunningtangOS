@@ -432,7 +432,7 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .notes-main{overflow:visible}
 .nb-h,.lc-h{display:flex;align-items:center;gap:4px;padding:2px 4px 8px;min-width:0}
 .nb-h h3,.lc-h h3{font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.nb-list{display:flex;flex-direction:column;gap:1px;overflow:auto;flex:1;position:relative}
+.nb-list{display:flex;flex-direction:column;gap:1px;overflow:auto;flex:1;position:relative;min-height:0}
 .nb-sec{font-size:.68rem;color:var(--text-4);padding:12px 10px 4px;letter-spacing:.08em;text-transform:uppercase}
 .nb-i{display:flex;align-items:center;gap:8px;min-height:32px;padding:4px 10px;border-radius:var(--r2);font-size:.86rem;color:var(--text-3);text-align:left;text-decoration:none;position:relative;width:100%}
 .nb-i:hover{color:var(--text)}.nb-i.active{color:var(--text);font-weight:500}
@@ -442,6 +442,18 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .nb-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
 .nb-rename{flex:1;padding:2px 6px;font-size:.84rem;border-radius:6px;background:var(--bg)}
 .nb-foot{display:flex;gap:2px;padding-top:8px;border-top:1px solid var(--line);margin-top:6px}
+.nb-i.trash-i{margin-top:auto;color:var(--text-4)}
+.li-i{padding-right:60px}
+.li-i .li-acts{position:absolute;right:6px;top:8px;display:flex;gap:0;opacity:0;transition:opacity .15s;background:var(--paper);border-radius:9px;box-shadow:var(--shadow)}
+.li-i:hover .li-acts,.li-i.active .li-acts{opacity:1}
+.li-i .li-acts .ibtn{width:26px;height:26px}
+.li-i.trash small{color:var(--red)}
+.trash-bar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:color-mix(in srgb,var(--red) 8%,var(--paper));border-bottom:1px solid color-mix(in srgb,var(--red) 25%,transparent);font-size:.82rem;color:var(--text-2)}
+.trash-bar .ic{color:var(--red)}
+.trash-title{font-size:2rem;margin-bottom:18px;color:var(--text-3)}
+.toast{display:flex;align-items:center;gap:12px}
+.toast-act{color:var(--blue);font-weight:600;font-size:.8rem;padding:2px 6px;border-radius:6px}
+.toast-act:hover{background:rgba(255,255,255,.12)}
 .nb-foot .nb-i{flex:1;justify-content:center;min-height:30px;padding:2px 6px;font-size:.78rem}
 .lc-sort{width:auto;padding:4px 24px 4px 8px;font-size:.74rem;border:0;background-color:transparent;color:var(--text-3)}
 .list-col .searchin{flex:none;height:32px}

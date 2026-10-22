@@ -52,9 +52,33 @@ export function notebookMenu(nb, s, onRename) {
     { label: '重命名', icon: 'edit', onClick: onRename },
     { label: '换颜色', icon: 'tag', onClick: () => update((d) => { const b = d.notebooks.find((x) => x.id === nb.id); b.color = NB_COLORS[(NB_COLORS.indexOf(b.color) + 1) % NB_COLORS.length]; }) },
     'sep',
-    { label: '删除本子', icon: 'trash', danger: true, hint: count ? `${count} 页移到收件箱` : '', disabled: nb.id === 'nb-inbox', onClick: () => { if (!confirmDel(`删除本子「${nb.name}」？里面的 ${count} 页会移到收件箱。`)) return; update((d) => { d.notes.forEach((n) => { if (n.nb === nb.id) n.nb = 'nb-inbox'; }); d.notebooks = d.notebooks.filter((x) => x.id !== nb.id); }); } },
+    { label: '删除本子', icon: 'trash', danger: true, hint: count ? `${count} 页进最近删除` : '', disabled: nb.id === 'nb-inbox', onClick: () => { if (count && !confirmDel(`删除本子「${nb.name}」？里面的 ${count} 页会进入「最近删除」，30 天内可恢复。`)) return; const ids = s.notes.filter((n) => n.nb === nb.id).map((n) => n.id); update((d) => { d.notebooks = d.notebooks.filter((x) => x.id !== nb.id); }); if (ids.length) trashPages(ids, nb.name); } },
   ];
 }
+export function trashPages(ids, label) {
+  const set = ids instanceof Set ? ids : new Set(ids);
+  const now = new Date().toISOString();
+  let moved = [];
+  update((d) => {
+    moved = d.notes.filter((n) => set.has(n.id)).map((n) => ({ ...n, deletedAt: now }));
+    d.trash = [...moved, ...(d.trash || [])];
+    d.notes = d.notes.filter((n) => !set.has(n.id));
+  });
+  const cur = location.hash.split('/')[2];
+  if (cur && set.has(cur)) go('notes');
+  toast(`已删除${label ? '「' + label + '」' : ''}${moved.length > 1 ? ' 等 ' + moved.length + ' 页' : ''}`, { label: '撤销', onClick: () => restorePages(moved.map((n) => n.id)) });
+}
+export function restorePages(ids) {
+  const set = new Set(ids);
+  update((d) => {
+    const back = (d.trash || []).filter((n) => set.has(n.id));
+    d.trash = (d.trash || []).filter((n) => !set.has(n.id));
+    back.forEach((n) => { delete n.deletedAt; if (n.parent && !d.notes.some((x) => x.id === n.parent) && !back.some((x) => x.id === n.parent)) n.parent = null; if (!d.notebooks.some((b) => b.id === n.nb)) n.nb = 'nb-inbox'; });
+    d.notes = [...back, ...d.notes];
+  });
+}
+export function purgePages(ids) { const set = new Set(ids); update((d) => { d.trash = (d.trash || []).filter((n) => !set.has(n.id)); }); }
+export function daysLeft(n) { return Math.max(0, 30 - Math.floor((Date.now() - new Date(n.deletedAt).getTime()) / 86400000)); }
 export function subtreeIds(notes, id) { const ids = new Set([id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } return ids; }
 export function movePage(pageId, { nb, parent = null, before = null, after = null } = {}) {
   update((d) => {
@@ -99,7 +123,7 @@ export function pageMenu(n, notes, extra = {}) {
     extra.move && { label: '移动到…', icon: 'layers', onClick: extra.move },
     ...(extra.notebooks ? ['sep', ...extra.notebooks.map((b) => ({ label: `放入「${b.name}」`, icon: b.id === n.nb ? 'check' : 'book', onClick: () => { const ids = new Set([n.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b.id; if (x.id === n.id) x.parent = null; }); }); } }))] : []),
     'sep',
-    { label: '删除', icon: 'trash', danger: true, hint: kids ? `含 ${kids} 子页` : '', onClick: () => { if (!confirmDel(kids ? `删除「${noteTitle(n)}」及其 ${kids} 个子页面？` : undefined)) return; const ids = new Set([n.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes = d.notes.filter((x) => !ids.has(x.id)); }); if (ids.has(location.hash.split('/')[2])) go('notes'); } },
+    { label: '删除', icon: 'trash', danger: true, hint: kids ? `含 ${kids} 子页` : '', onClick: () => trashPages(subtreeIds(notes, n.id), noteTitle(n)) },
   ];
 }
 
@@ -144,7 +168,7 @@ export default function Notes({ route }) {
   const tree = useTreeState();
   const pick = (v) => { setNbSel(v); try { localStorage.setItem('ytos.nb', v); } catch {} };
   const setPane = (k, v) => setPanes((p) => { const n = { ...p, [k]: v }; try { localStorage.setItem('ytos.panes', JSON.stringify(n)); } catch {} return n; });
-  _curNb = nbSel.startsWith('nb-') || s.notebooks.some((b) => b.id === nbSel) ? nbSel : null;
+  _curNb = s.notebooks.some((b) => b.id === nbSel) ? nbSel : null;
 
   useEffect(() => {
     if (id && id.startsWith('t:')) {
@@ -156,18 +180,22 @@ export default function Notes({ route }) {
   }, [id]);
   const note = s.notes.find((n) => n.id === id);
   useEffect(() => { if (note) { tree.openPath(ancestors(s.notes, note).map((a) => a.id)); if (note.nb && nbSel !== 'all' && nbSel !== 'fav' && nbSel !== note.nb) pick(note.nb); } }, [id]);
+  useEffect(() => { if (nbSel === 'trash' && !(s.trash || []).length && !trashed) pick('all'); }, [s.trash]);
 
   const nbs = sortBy(s.notebooks, 'order');
   const inNb = (n) => nbSel === 'all' ? true : nbSel === 'fav' ? n.pinned : n.nb === nbSel;
+  const inTrash = nbSel === 'trash';
   const visible = useMemo(() => {
-    let l = s.notes.filter(inNb);
+    let l = inTrash ? [...(s.trash || [])] : s.notes.filter(inNb);
+    if (inTrash) { if (q.trim()) { const k = q.toLowerCase(); l = l.filter((n) => (n.title + ' ' + n.body).toLowerCase().includes(k)); } return sortBy(l, '-deletedAt'); }
     if (q.trim()) { const k = q.toLowerCase(); l = l.filter((n) => (n.title + ' ' + n.body + ' ' + n.tags.join(' ')).toLowerCase().includes(k)); }
     return sort === 'manual' ? sortBy(l, '-pinned', 'order') : sortBy(l, '-pinned', sort === 'title' ? 'title' : sort === 'created' ? '-created' : '-updated');
-  }, [s.notes, nbSel, q, sort]);
+  }, [s.notes, s.trash, nbSel, q, sort]);
   const create = (parent = null) => { const n = newNote({ parent, nb: nbSel === 'all' || nbSel === 'fav' ? 'nb-inbox' : nbSel }); if (parent) tree.openPath([parent]); go('notes/' + n.id); };
   const counts = useMemo(() => { const m = new Map(); s.notes.forEach((n) => m.set(n.nb, (m.get(n.nb) || 0) + 1)); return m; }, [s.notes]);
   const cur = nbs.find((b) => b.id === nbSel);
-  const listTitle = nbSel === 'all' ? '全部笔记' : nbSel === 'fav' ? '收藏' : cur ? cur.name : '笔记';
+  const listTitle = nbSel === 'all' ? '全部笔记' : nbSel === 'fav' ? '收藏' : nbSel === 'trash' ? '最近删除' : cur ? cur.name : '笔记';
+  const trashed = inTrash ? (s.trash || []).find((n) => n.id === id) : null;
 
   return html`<div class=${'nb-layout ' + (panes.nb ? '' : 'no-nb ') + (panes.list ? '' : 'no-list ')}>
     ${panes.nb && html`<aside class="card nb-col">
@@ -187,6 +215,7 @@ export default function Notes({ route }) {
         </div>`)}
         <button class="nb-i new" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }}><${Icon} name="plus" size=${13} /><span>新本子</span></button>
       </div>
+      <button class=${'nb-i trash-i ' + (nbSel === 'trash' ? 'active' : '')} onClick=${() => pick('trash')} ...${dropProps('page', (d) => { const n = s.notes.find((x) => x.id === d.id); if (n) trashPages(subtreeIds(s.notes, n.id), noteTitle(n)); })}><${Icon} name="trash" size=${14} /><span class="flex1">最近删除</span><small>${(s.trash || []).length}</small></button>
       <div class="nb-foot" style="position:relative"><a class=${'nb-i ' + (id === 'graph' ? 'active' : '')} href="#/notes/graph"><${Icon} name="compass" size=${14} /><span>图谱</span></a><a class=${'nb-i ' + (id === 'tags' ? 'active' : '')} href="#/notes/tags"><${Icon} name="tag" size=${14} /><span>标签</span></a></div>
     </aside>`}
     ${panes.nb && html`<${Splitter} varName="nbw" min=${150} max=${360} />`}
@@ -195,15 +224,19 @@ export default function Notes({ route }) {
         ${!panes.nb && html`<${IconBtn} icon="right" title="显示本子" onClick=${() => setPane('nb', true)} />`}
         <h3 class="flex1">${listTitle} <span class="muted small">${visible.length}</span></h3>
         <select class="lc-sort" value=${sort} onChange=${(e) => { setSort(e.target.value); try { localStorage.setItem('ytos.nsort', e.target.value); } catch {} }}><option value="updated">最近更新</option><option value="created">创建时间</option><option value="title">标题</option><option value="manual">自定义顺序</option></select>
-        <${IconBtn} icon="plus" title="新页面" onClick=${() => create(null)} />
+        ${inTrash ? html`<button class="btn ghost sm danger" disabled=${!(s.trash || []).length} onClick=${() => { if (confirmDel(`彻底删除最近删除中的 ${(s.trash || []).length} 页？此操作不可撤销。`)) purgePages((s.trash || []).map((n) => n.id)); }}>清空</button>` : html`<${IconBtn} icon="plus" title="新页面" onClick=${() => create(null)} />`}
         <${IconBtn} icon="left" title="收起列表" onClick=${() => setPane('list', false)} />
       </div>
       <div class="searchin"><${Icon} name="search" size=${13} /><input type="search" value=${q} placeholder="搜索…" onInput=${(e) => setQ(e.target.value)} /></div>
       <div class="lc-list" data-liquid=".li-i"><span class="liq"></span>
-        ${visible.length === 0 ? html`<${Empty} icon="note" text=${q ? '没有匹配的页面。' : '这个本子还是空的。'}><${Btn} small onClick=${() => create(null)}>新页面<//><//>` : visible.map((n) => { const nb = nbOf(s, n.nb); const par = n.parent ? s.notes.find((x) => x.id === n.parent) : null; return html`<a key=${n.id} class=${'li-i ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes, { notebooks: nbs, openPath: tree.openPath }), noteTitle(n))} ...${dragProps('page', { id: n.id })} ...${dropProps('page', (d, { after }) => { if (d.id === n.id) return; movePage(d.id, { parent: n.parent || null, nb: n.nb, [after ? 'after' : 'before']: n.id }); if (sort !== 'manual') { setSort('manual'); try { localStorage.setItem('ytos.nsort', 'manual'); } catch {} } }, { position: true })}>
+        ${visible.length === 0 ? html`<${Empty} icon=${inTrash ? 'trash' : 'note'} text=${q ? '没有匹配的页面。' : inTrash ? '最近删除是空的。删除的页面会在这里保留 30 天。' : '这个本子还是空的。'}>${!inTrash && html`<${Btn} small onClick=${() => create(null)}>新页面<//>`}<//>` : inTrash ? visible.map((n) => html`<a key=${n.id} class=${'li-i trash ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, [{ label: '恢复', icon: 'refresh', onClick: () => restorePages([n.id]) }, { label: '彻底删除', icon: 'trash', danger: true, onClick: () => confirmDel('彻底删除这一页？不可撤销。') && purgePages([n.id]) }], noteTitle(n))}>
+          <b>${noteTitle(n)}</b><p>${snippet(n) || '空白页'}</p><small>${daysLeft(n)} 天后自动删除</small>
+          <span class="li-acts"><button class="ibtn" title="恢复" onClick=${(e) => { e.preventDefault(); restorePages([n.id]); }}><${Icon} name="refresh" size=${13} /></button><button class="ibtn danger" title="彻底删除" onClick=${(e) => { e.preventDefault(); if (confirmDel('彻底删除这一页？不可撤销。')) purgePages([n.id]); }}><${Icon} name="trash" size=${13} /></button></span>
+        </a>`) : visible.map((n) => { const nb = nbOf(s, n.nb); const par = n.parent ? s.notes.find((x) => x.id === n.parent) : null; return html`<a key=${n.id} class=${'li-i ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes, { notebooks: nbs, openPath: tree.openPath }), noteTitle(n))} ...${dragProps('page', { id: n.id })} ...${dropProps('page', (d, { after }) => { if (d.id === n.id) return; movePage(d.id, { parent: n.parent || null, nb: n.nb, [after ? 'after' : 'before']: n.id }); if (sort !== 'manual') { setSort('manual'); try { localStorage.setItem('ytos.nsort', 'manual'); } catch {} } }, { position: true })}>
           <b>${n.pinned && html`<${Icon} name="pin" size=${11} class="li-pin" />`}${par ? html`<span class="li-par">${noteTitle(par)} / </span>` : ''}${noteTitle(n)}</b>
           <p>${snippet(n) || '空白页'}</p>
           <small>${n.updated.slice(5, 10).replace('-', '/')}${nbSel === 'all' || nbSel === 'fav' ? html` · <i style=${`background:${nb ? nb.color : '#999'}`}></i> ${nb ? nb.name : ''}` : ''}${n.tags.length ? ' · ' + n.tags.map((t) => '#' + t).join(' ') : ''}</small>
+          <span class="li-acts"><button class="ibtn" title=${n.pinned ? '取消收藏' : '收藏'} onClick=${(e) => { e.preventDefault(); upsert('notes', { id: n.id, pinned: !n.pinned }); }}><${Icon} name="pin" size=${13} /></button><button class="ibtn danger" title="删除" onClick=${(e) => { e.preventDefault(); trashPages(subtreeIds(s.notes, n.id), noteTitle(n)); }}><${Icon} name="trash" size=${13} /></button></span>
         </a>`; })}
       </div>
     </section>`}
@@ -212,6 +245,7 @@ export default function Notes({ route }) {
       ${!panes.list && html`<button class="pane-show" title="显示列表" onClick=${() => setPane('list', true)}><${Icon} name="right" size=${14} /></button>`}
       ${id === 'graph' ? html`<${GraphView} notes=${s.notes} />`
       : id === 'tags' ? html`<${TagsView} notes=${s.notes} />`
+      : trashed ? html`<div class="page"><div class="trash-bar"><${Icon} name="trash" size=${14} /><span class="flex1">这一页在「最近删除」里，${daysLeft(trashed)} 天后会自动删除。</span><${Btn} small kind="primary" icon="refresh" onClick=${() => { restorePages([trashed.id]); }}>恢复<//><${Btn} small kind="ghost danger" onClick=${() => { if (confirmDel('彻底删除这一页？不可撤销。')) { purgePages([trashed.id]); go('notes'); } }}>彻底删除<//></div><div class="page-body"><h1 class="trash-title">${noteTitle(trashed)}</h1><div class="md" dangerouslySetInnerHTML=${{ __html: renderMd(trashed.body) }}></div></div></div>`
       : !note ? html`<div class="notes-empty"><${Empty} icon="note" text=${cur ? `「${cur.name}」· 选一页，或新建一页。` : '选一页，或新建一页。'}><div class="row" style="gap:8px"><${Btn} small kind="primary" onClick=${() => create(null)}>新页面<//></div><//></div>`
       : html`<${Page} key=${note.id} note=${note} notes=${s.notes} notebooks=${nbs} onCreateChild=${() => create(note.id)} />`}
     </section>
@@ -271,7 +305,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
         <${IconBtn} icon="pin" title=${note.pinned ? '取消收藏' : '收藏'} class=${'ibtn ' + (note.pinned ? 'on' : '')} onClick=${() => upsert('notes', { id: note.id, pinned: !note.pinned })} />
         <${IconBtn} icon="layers" title="移动到…" onClick=${() => setMoveOpen(true)} />
         <${IconBtn} icon="plus" title="新建子页面" onClick=${onCreateChild} />
-        <${IconBtn} icon="trash" class="ibtn danger" title="删除" onClick=${() => { if (confirmDel(kids.length ? `删除「${title}」及其 ${kids.length} 个子页面？` : undefined)) { const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((n) => { if (n.parent && ids.has(n.parent) && !ids.has(n.id)) { ids.add(n.id); grew = true; } }); } update((d) => { d.notes = d.notes.filter((n) => !ids.has(n.id)); }); go('notes'); } }} />
+        <${IconBtn} icon="trash" class="ibtn danger" title="删除（可在最近删除中恢复）" onClick=${() => trashPages(subtreeIds(notes, note.id), title)} />
       </div>
     </div>
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}

@@ -4,7 +4,7 @@ export function go(path) {
 }
 
 let toastTimer;
-export function toast(msg) {
+export function toast(msg, action) {
   let el = document.querySelector('.toast');
   if (!el) {
     el = document.createElement('div');
@@ -12,6 +12,12 @@ export function toast(msg) {
     document.body.appendChild(el);
   }
   el.textContent = msg;
+  if (action) {
+    const b = document.createElement('button');
+    b.className = 'toast-act'; b.textContent = action.label;
+    b.onclick = () => { action.onClick(); el.remove(); };
+    el.appendChild(b);
+  }
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.remove(), 2200);
+  toastTimer = setTimeout(() => el.remove(), action ? 6000 : 2200);
 }
