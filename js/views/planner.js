@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput } from '../ui.js';
 import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
 import { TodoItem, TodoModal } from './todos.js';
 
@@ -76,9 +76,9 @@ export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
     <div class="form">
       <${Field} label="做什么"><input type="text" autofocus value=${f.title} onInput=${(e) => set('title', e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && save()} /><//>
       <div class="grid3">
-        <${Field} label="日期"><input type="date" value=${f.date} onInput=${(e) => set('date', e.target.value)} /><//>
-        <${Field} label="开始"><input type="time" value=${f.start} onInput=${(e) => set('start', e.target.value)} /><//>
-        <${Field} label="结束"><input type="time" value=${f.end} onInput=${(e) => set('end', e.target.value)} /><//>
+        <${Field} label="日期"><${DateInput} value=${f.date} clearable=${false} onChange=${(v) => set('date', v)} /><//>
+        <${Field} label="开始"><${TimeInput} value=${f.start} clearable=${false} onChange=${(v) => set('start', v)} /><//>
+        <${Field} label="结束"><${TimeInput} value=${f.end} clearable=${false} onChange=${(v) => set('end', v)} /><//>
       </div>
       <${Field} label="类型"><div class="kind-pick">${BLOCK_KINDS.map((k) => html`<button type="button" style=${`--kc:${k.color}`} class=${f.kind === k.v ? 'on' : ''} onClick=${() => set('kind', k.v)}><i></i>${k.name}</button>`)}</div><//>
       <${Field} label="备注"><textarea rows="2" value=${f.note} onInput=${(e) => set('note', e.target.value)}></textarea><//>
@@ -131,7 +131,7 @@ function DayView({ initial }) {
         <span class="lbl">${fmtDate(date, true)} · ${relDay(date)}</span>
         <${IconBtn} icon="right" title="后一天" onClick=${() => setDate(addDays(date, 1))} />
         <${Btn} kind="ghost" small onClick=${() => setDate(todayStr())}>今天<//>
-        <input type="date" value=${date} style="width:auto" onInput=${(e) => e.target.value && setDate(e.target.value)} />
+        <${DateInput} value=${date} clearable=${false} onChange=${(v) => v && setDate(v)} />
       </div>
       <div class="acts">
         ${blocks.length === 0 && html`<${Btn} small kind="ghost" icon="refresh" onClick=${copyYesterday}>复制昨天<//>`}

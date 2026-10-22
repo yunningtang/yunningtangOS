@@ -1,6 +1,6 @@
 // Shared UI primitives: icons, cards, inputs, modal, tags.
 import { html, useEffect, useRef, useState } from '../vendor/preact.js';
-import { tagHue } from './util.js';
+import { tagHue, todayStr as _today, pad as _pad, WEEKDAY_SUN as _WD, fmtDate as _fmt } from './util.js';
 
 const ICONS = {
   home: '<path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/>',
@@ -164,4 +164,71 @@ export function AutoTextarea({ value, onInput, ...rest }) {
 
 export function confirmDel(msg = '确定删除？此操作不可撤销。') {
   return window.confirm(msg);
+}
+
+/* ---------- Date & time pickers (styled like the app, no native controls) ---------- */
+
+function usePopover(open, setOpen, anchorRef) {
+  const [pos, setPos] = useState(null);
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = anchorRef.current.getBoundingClientRect();
+      const h = 330, w = 272;
+      const top = r.bottom + 6 + h > innerHeight ? Math.max(8, r.top - 6 - h) : r.bottom + 6;
+      const left = Math.min(r.left, innerWidth - w - 8);
+      setPos({ top, left });
+    };
+    place();
+    const close = (e) => { if (anchorRef.current && anchorRef.current.contains(e.target)) return; if (e.target.closest && e.target.closest('.pop')) return; setOpen(false); };
+    const key = (e) => e.key === 'Escape' && (e.stopPropagation(), setOpen(false));
+    document.addEventListener('mousedown', close); window.addEventListener('keydown', key, true); window.addEventListener('resize', place); window.addEventListener('scroll', place, true);
+    return () => { document.removeEventListener('mousedown', close); window.removeEventListener('keydown', key, true); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [open]);
+  return pos;
+}
+
+export function DateInput({ value, onChange, placeholder = '选择日期', clearable = true, class: cls = '' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  const pos = usePopover(open, setOpen, ref);
+  const [ym, setYm] = useState(() => (value || _today()).slice(0, 7));
+  useEffect(() => { if (open) setYm((value || _today()).slice(0, 7)); }, [open]);
+  const [y, m] = ym.split('-').map(Number);
+  const days = new Date(y, m, 0).getDate(), start = new Date(y, m - 1, 1).getDay();
+  const cells = [];
+  for (let i = 0; i < start; i++) cells.push(null);
+  for (let d = 1; d <= days; d++) cells.push(`${ym}-${_pad(d)}`);
+  const shift = (n) => { const d = new Date(y, m - 1 + n, 1); setYm(`${d.getFullYear()}-${_pad(d.getMonth() + 1)}`); };
+  const label = value ? `${_fmt(value, true)} ${_WD[new Date(value.replace(/-/g, '/')).getDay()]}` : placeholder;
+  const t = _today();
+  return html`<div class=${'pick ' + cls}>
+    <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'empty')} onClick=${() => setOpen(!open)}><${Icon} name="calendar" size=${13} /><span>${label}</span></button>
+    ${open && pos && html`<div class="pop cal" style=${`top:${pos.top}px;left:${pos.left}px`}>
+      <div class="pop-h"><button type="button" class="ibtn" onClick=${() => shift(-1)}><${Icon} name="left" size=${14} /></button><b>${y} 年 ${m} 月</b><button type="button" class="ibtn" onClick=${() => shift(1)}><${Icon} name="right" size=${14} /></button></div>
+      <div class="cal-grid">${['日', '一', '二', '三', '四', '五', '六'].map((w) => html`<span class="cal-w">${w}</span>`)}
+        ${cells.map((d, i) => d ? html`<button type="button" key=${d} class=${'cal-d ' + (d === value ? 'sel' : '') + (d === t ? ' today' : '')} onClick=${() => { onChange(d); setOpen(false); }}>${Number(d.slice(8))}</button>` : html`<span key=${'e' + i}></span>`)}
+      </div>
+      <div class="pop-f"><button type="button" class="btn ghost sm" onClick=${() => { onChange(t); setOpen(false); }}>今天</button><button type="button" class="btn ghost sm" onClick=${() => { onChange(t.slice(0, 8) + _pad(new Date().getDate() + 1 > days ? 1 : new Date().getDate() + 1)); setOpen(false); }}>明天</button><span class="flex1"></span>${clearable && value && html`<button type="button" class="btn ghost sm" onClick=${() => { onChange(''); setOpen(false); }}>清除</button>`}</div>
+    </div>`}
+  </div>`;
+}
+
+export function TimeInput({ value, onChange, placeholder = '时间', step = 30, clearable = true, class: cls = '' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  const listRef = useRef();
+  const pos = usePopover(open, setOpen, ref);
+  const slots = [];
+  for (let m = 0; m < 24 * 60; m += step) slots.push(`${_pad(Math.floor(m / 60))}:${_pad(m % 60)}`);
+  useEffect(() => { if (open && listRef.current) { const el = listRef.current.querySelector('.sel') || listRef.current.querySelector(`[data-t="${(value || '09:00').slice(0, 2)}:00"]`); if (el) listRef.current.scrollTop = el.offsetTop - 80; } }, [open]);
+  const commit = (v) => { const m = v.trim().match(/^(\d{1,2})[:：.]?(\d{2})?$/); if (!m) return; const h = Math.min(23, +m[1]), mm = Math.min(59, +(m[2] || 0)); onChange(`${_pad(h)}:${_pad(mm)}`); setOpen(false); };
+  return html`<div class=${'pick ' + cls}>
+    <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'empty')} onClick=${() => setOpen(!open)}><${Icon} name="clock" size=${13} /><span>${value || placeholder}</span></button>
+    ${open && pos && html`<div class="pop time" style=${`top:${pos.top}px;left:${pos.left}px`}>
+      <input type="text" class="time-in" placeholder="输入如 9:30" autofocus onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(e.target.value); } }} />
+      <div class="time-list" ref=${listRef}>${slots.map((s) => html`<button type="button" key=${s} data-t=${s} class=${'time-i ' + (s === value ? 'sel' : '')} onClick=${() => { onChange(s); setOpen(false); }}>${s}</button>`)}</div>
+      ${clearable && value && html`<div class="pop-f"><button type="button" class="btn ghost sm" onClick=${() => { onChange(''); setOpen(false); }}>清除</button></div>`}
+    </div>`}
+  </div>`;
 }

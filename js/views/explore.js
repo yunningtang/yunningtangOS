@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, upsert, remove } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Stars, TagInput, confirmDel } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Stars, TagInput, confirmDel, DateInput } from '../ui.js';
 import { uid, todayStr, sortBy, fmtDate } from '../util.js';
 import { mountGlobe } from '../globe.js';
 
@@ -30,8 +30,8 @@ export function TripModal({ open, trip, onClose }) {
         <${Field} label="经度 lng" hint="东经为正"><input type="number" step="0.0001" value=${f.lng} placeholder="-79.38" onInput=${(e) => set('lng', e.target.value)} /><//>
       </div>
       <div class="grid3">
-        <${Field} label="开始"><input type="date" value=${f.date} onInput=${(e) => set('date', e.target.value)} /><//>
-        <${Field} label="结束"><input type="date" value=${f.end} onInput=${(e) => set('end', e.target.value)} /><//>
+        <${Field} label="开始"><${DateInput} value=${f.date} onChange=${(v) => set('date', v)} /><//>
+        <${Field} label="结束"><${DateInput} value=${f.end} onChange=${(v) => set('end', v)} /><//>
         <${Field} label="类型"><select value=${f.kind} onChange=${(e) => set('kind', e.target.value)}><option value="trip">旅行</option><option value="live">居住过</option><option value="wish">想去</option></select><//>
       </div>
       <${Field} label="评分"><${Stars} value=${f.rating} onChange=${(v) => set('rating', v)} size=${16} /><//>
