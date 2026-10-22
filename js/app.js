@@ -13,7 +13,6 @@ import Vision from './views/vision.js';
 import Explore from './views/explore.js';
 import Settings from './views/settings.js';
 import { SearchPalette } from './search.js';
-import { startRipple } from './ripple.js';
 import { go, toast } from './nav.js';
 export { go, toast };
 
@@ -120,5 +119,4 @@ function App() {
 }
 
 seedIfEmpty();
-startRipple(document.getElementById('ripple'));
 render(html`<${App} />`, document.getElementById('app'));

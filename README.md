@@ -1,7 +1,7 @@
 # yunningtang OS
 
 一个只给自己用的「个人操作系统」：待办、计划、阅读、收藏、笔记、愿景、足迹，全部放在一个页面里。
-视觉延续了 portfolio 的海洋玻璃风格（Plus Jakarta Sans、teal 强调色、磨砂卡片、浅/深色主题）。
+视觉延续了 portfolio 的玻璃质感：柔和的色彩光斑作底、磨砂浮层卡片、细微颗粒、Noto Serif SC 做标题与数字、正文用系统字体，浅/深色主题。
 
 ## 模块
 
@@ -50,4 +50,4 @@ js/seed.js          示例数据
 vendor/             preact + htm、marked、d3-geo + topojson、world-atlas 陆地数据（已打包，无 CDN 依赖）
 ```
 
-依赖只有字体走 Google Fonts；断网时回退系统字体。
+唯一外部依赖是 Google Fonts 的 Noto Serif SC；断网时回退到系统宋体。

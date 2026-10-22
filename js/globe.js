@@ -29,21 +29,21 @@ export function mountGlobe(canvas, opts = {}) {
     const r = proj.scale(), [cx, cy] = proj.translate();
     // halo
     const halo = ctx.createRadialGradient(cx, cy, r * 0.95, cx, cy, r * 1.25);
-    halo.addColorStop(0, 'rgba(56,160,220,.25)'); halo.addColorStop(1, 'rgba(56,160,220,0)');
+    halo.addColorStop(0, 'rgba(180,200,225,.18)'); halo.addColorStop(1, 'rgba(180,200,225,0)');
     ctx.fillStyle = halo; ctx.fillRect(0, 0, w, h);
     // sphere
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
     const sea = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r);
-    sea.addColorStop(0, '#0f2a52'); sea.addColorStop(1, '#061329');
+    sea.addColorStop(0, '#2b3b55'); sea.addColorStop(1, '#141c2a');
     ctx.fillStyle = sea; ctx.fill();
-    ctx.strokeStyle = 'rgba(120,180,240,.35)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.stroke();
     // graticule
-    ctx.beginPath(); path(grat); ctx.strokeStyle = 'rgba(120,170,230,.12)'; ctx.lineWidth = .5; ctx.stroke();
+    ctx.beginPath(); path(grat); ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = .5; ctx.stroke();
     // land
     if (land) {
       ctx.beginPath(); path(land);
-      ctx.fillStyle = 'rgba(60,120,190,.22)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(150,205,255,.75)'; ctx.lineWidth = .8; ctx.stroke();
+      ctx.fillStyle = 'rgba(225,232,240,.78)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = .6; ctx.stroke();
     }
     // markers
     const t = performance.now() / 1000;
@@ -57,12 +57,12 @@ export function mountGlobe(canvas, opts = {}) {
       const sel = selected && selected === m.id;
       const wish = m.kind === 'wish';
       const pulse = sel ? 6 + Math.sin(t * 4) * 2 : 0;
-      ctx.beginPath(); ctx.arc(p[0], p[1], 7 + pulse, 0, Math.PI * 2);
-      ctx.fillStyle = sel ? 'rgba(95,212,176,.25)' : wish ? 'rgba(240,160,32,.14)' : 'rgba(255,255,255,.12)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(p[0], p[1], sel ? 4 : 3, 0, Math.PI * 2);
-      ctx.fillStyle = sel ? '#5fd4b0' : wish ? '#f0a020' : '#fff'; ctx.shadowColor = sel ? '#5fd4b0' : wish ? '#f0a020' : '#9fd4ff'; ctx.shadowBlur = 12; ctx.fill(); ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.arc(p[0], p[1], 9 + pulse, 0, Math.PI * 2);
+      ctx.fillStyle = sel ? 'rgba(111,196,184,.3)' : wish ? 'rgba(220,180,106,.2)' : 'rgba(43,138,131,.22)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(p[0], p[1], sel ? 5.5 : 4.2, 0, Math.PI * 2);
+      ctx.fillStyle = sel ? '#6fc4b8' : wish ? '#dcb46a' : '#2b8a83'; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.2; ctx.fill(); ctx.stroke();
       if (sel && m.label) {
-        ctx.font = '500 11px "Plus Jakarta Sans", system-ui, sans-serif';
+        ctx.font = '500 12px "Noto Serif SC", serif';
         ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.textAlign = 'left';
         ctx.fillText(m.label, p[0] + 10, p[1] + 4);
       }
