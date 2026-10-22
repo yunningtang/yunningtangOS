@@ -79,9 +79,19 @@ export default function Dashboard() {
   const doneWeek = s.todos.filter((t) => t.done && t.completedAt && week.includes(t.completedAt)).length;
   const fmtH = (min) => `${Math.floor(min / 60)}h ${pad(min % 60)}m`;
 
-  // compact timeline geometry
-  const from = 7, to = 23, hourH = 30;
+  // compact timeline geometry: range follows the day's blocks (never narrower than 07–23), overlaps go side by side
+  const hourH = 40, minH = 24;
+  const from = blocks.length ? Math.max(0, Math.min(7, ...blocks.map((b) => Math.floor(timeToMin(b.start) / 60)))) : 7;
+  const to = blocks.length ? Math.min(24, Math.max(23, ...blocks.map((b) => Math.ceil(Math.max(timeToMin(b.end), timeToMin(b.start) + 1) / 60)))) : 23;
   const y = (min) => ((min - from * 60) / 60) * hourH;
+  const laid = useMemo(() => {
+    // assign lanes to overlapping blocks (calendar-style columns)
+    const items = blocks.map((b) => { const a = timeToMin(b.start); const e = Math.max(timeToMin(b.end), a + 15); return { b, a, e: Math.max(e, a + Math.ceil((minH + 2) / hourH * 60)) }; });
+    let cluster = [], clusterEnd = -1; const out = [];
+    const flush = () => { if (!cluster.length) return; const lanes = []; cluster.forEach((it) => { let l = lanes.findIndex((end) => end <= it.a); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); cluster.forEach((it) => { it.lanes = lanes.length; out.push(it); }); cluster = []; clusterEnd = -1; };
+    items.forEach((it) => { if (cluster.length && it.a >= clusterEnd) flush(); cluster.push(it); clusterEnd = Math.max(clusterEnd, it.e); });
+    flush(); return out;
+  }, [blocks]);
 
   const DEFAULT = { main: ['profile', 'timeline', 'todos', 'pages', 'goals', 'focusweek'], side: ['calendar', 'focus', 'notes', 'links', 'week'], hidden: [], sizes: {} };
   const layout = useMemo(() => { const l = s.settings.dash || DEFAULT; const known = new Set([...DEFAULT.main, ...DEFAULT.side]); const used = new Set([...l.main, ...l.side, ...(l.hidden || [])]); const extra = [...known].filter((id) => !used.has(id)); return { main: l.main.filter((id) => known.has(id)).concat(extra.filter((id) => DEFAULT.main.includes(id))), side: l.side.filter((id) => known.has(id)).concat(extra.filter((id) => DEFAULT.side.includes(id))), hidden: (l.hidden || []).filter((id) => known.has(id)), sizes: l.sizes || {} }; }, [s.settings.dash]);
@@ -134,7 +144,7 @@ export default function Dashboard() {
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl" style=${`height:${(to - from) * hourH}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}><span>${pad(from + i)}:00</span></div>`)}
-          ${blocks.map((b) => { const a = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60); if (e <= a) return null; const cur = a <= nowMin && e > nowMin; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (e <= nowMin ? ' past' : '')} style=${`top:${y(a)}px;height:${Math.max(y(e) - y(a) - 2, 18)}px;--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) }], b.title)}><b>${b.title}</b><small>${b.start} – ${b.end}</small></div>`; })}
+          ${laid.map(({ b, a, e, lane, lanes }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const h = Math.max(y(e) - y(a) - 2, minH); const w = 100 / lanes; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin ? ' past' : '') + (h < 36 ? ' one' : '')} key=${b.id} style=${`top:${y(a)}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) }], b.title)} title=${`${b.title} ${b.start} – ${b.end}`}><b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small></div>`; })}
           ${nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>`}
         </div>
       <//>` },
