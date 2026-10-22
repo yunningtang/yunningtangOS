@@ -2,6 +2,7 @@
 // views subscribe through useStore() and mutate through update().
 import { useEffect, useReducer } from '../vendor/preact.js';
 import { debounce, todayStr } from './util.js';
+import { mdToBlocks } from './blocks.js';
 
 const KEY = 'ytos.v1';
 const subs = new Set();
@@ -32,7 +33,7 @@ function migrate(s) {
   out.settings = { ...b.settings, ...(s.settings || {}) };
   out.settings.sync = { ...b.settings.sync, ...((s.settings || {}).sync || {}) };
   out.profile = { ...b.profile, ...(s.profile || {}) };
-  out.notes = (out.notes || []).map((n, i) => ({ parent: null, order: i, icon: '', pinned: false, tags: [], ...n }));
+  out.notes = (out.notes || []).map((n, i) => { const x = { parent: null, order: i, icon: '', pinned: false, tags: [], cover: '', font: 'default', wide: false, ...n }; if (!x.blocks || !x.blocks.length) x.blocks = mdToBlocks(x.body || ''); return x; });
   return out;
 }
 
@@ -46,13 +47,17 @@ let state = (() => {
   return blank();
 })();
 
-const persist = debounce(() => {
+function flush() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch (e) {
     console.warn('persist failed', e);
   }
-}, 250);
+}
+const persist = debounce(flush, 250);
+window.addEventListener('pagehide', flush);
+window.addEventListener('beforeunload', flush);
+document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush());
 
 export function get() {
   return state;

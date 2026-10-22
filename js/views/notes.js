@@ -5,6 +5,8 @@ import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal,
 import { uid, todayStr, sortBy, debounce, escapeHtml } from '../util.js';
 import { go } from '../nav.js';
 import { mountGraph } from '../graph.js';
+import { BlockEditor } from '../editor.js';
+import { blocksToMd, mdToBlocks } from '../blocks.js';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -141,9 +143,11 @@ export default function Notes({ route }) {
 
 /* ---------- page ---------- */
 function Page({ note, notes, onCreateChild }) {
-  const [editing, setEditing] = useState(!note.body && !note.title);
   const [moveOpen, setMoveOpen] = useState(false);
   const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: new Date().toISOString() }), 250), []);
+  const onBlocks = useMemo(() => (blocks) => upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() }), [note.id]);
+  const blocks = useMemo(() => (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), [note.id]);
+  const createLinked = (title) => { if (!findByTitle(get().notes, title)) newNote({ title, parent: note.id }); };
   const crumbs = ancestors(notes, note);
   const kids = childrenOf(notes, note.id);
   const title = noteTitle(note);
@@ -163,23 +167,30 @@ function Page({ note, notes, onCreateChild }) {
       <a href="#/notes">笔记</a>${crumbs.map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${title}</b>
       <span class="flex1"></span>
       <div class="page-acts">
+        <div class="seg mini"><button class=${!note.font || note.font === 'default' ? 'on' : ''} title="默认字体" onClick=${() => upsert('notes', { id: note.id, font: 'default' })}>Ag</button><button class=${'serif-f ' + (note.font === 'serif' ? 'on' : '')} title="衬线" onClick=${() => upsert('notes', { id: note.id, font: 'serif' })}>Ag</button><button class=${'mono-f ' + (note.font === 'mono' ? 'on' : '')} title="等宽" onClick=${() => upsert('notes', { id: note.id, font: 'mono' })}>Ag</button></div>
+        <${IconBtn} icon="grid" title=${note.wide ? '标准宽度' : '全宽'} onClick=${() => upsert('notes', { id: note.id, wide: !note.wide })} />
         <${IconBtn} icon="pin" title=${note.pinned ? '取消收藏' : '收藏'} class=${'ibtn ' + (note.pinned ? 'on' : '')} onClick=${() => upsert('notes', { id: note.id, pinned: !note.pinned })} />
         <${IconBtn} icon="layers" title="移动到…" onClick=${() => setMoveOpen(true)} />
         <${IconBtn} icon="plus" title="新建子页面" onClick=${onCreateChild} />
         <${IconBtn} icon="trash" class="ibtn danger" title="删除" onClick=${() => { if (confirmDel(kids.length ? `删除「${title}」及其 ${kids.length} 个子页面？` : undefined)) { const ids = new Set([note.id]); let grew = true; while (grew) { grew = false; notes.forEach((n) => { if (n.parent && ids.has(n.parent) && !ids.has(n.id)) { ids.add(n.id); grew = true; } }); } update((d) => { d.notes = d.notes.filter((n) => !ids.has(n.id)); }); go('notes'); } }} />
       </div>
     </div>
-    <div class="page-body">
-      <button class="page-icon" onClick=${setIcon} title="更换图标">${note.icon || '📄'}</button>
-      <input class="page-title" type="text" value=${note.title} placeholder="无标题" onInput=${(e) => save({ id: note.id, title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); setEditing(true); } }} />
+    ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
+    <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
+      <div class="page-top">
+        <button class=${'page-icon ' + (note.cover ? 'on-cover' : '')} onClick=${setIcon} title="更换图标">${note.icon || '📄'}</button>
+        <div class="page-hover-acts">
+          ${!note.icon && html`<button class="btn ghost sm" onClick=${setIcon}>添加图标</button>`}
+          ${!note.cover && html`<button class="btn ghost sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover('') })}>添加封面</button>`}
+        </div>
+      </div>
+      <input class="page-title" type="text" value=${note.title} placeholder="无标题" onInput=${(e) => save({ id: note.id, title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); const el = document.querySelector('.beditor .b-text'); if (el) el.focus(); } }} />
       <div class="props">
-        <div class="prop"><span class="pk"><${Icon} name="tag" size=${12} /> 标签</span><span class="pv"><${TagInput} value=${note.tags} onChange=${(v) => upsert('notes', { id: note.id, tags: v })} placeholder="添加标签" /></span></div>
+        <div class="prop"><span class="pk"><${Icon} name="tag" size=${12} /> 标签</span><span class="pv"><${TagInput} value=${note.tags} onChange=${(v) => upsert('notes', { id: note.id, tags: v })} placeholder="空" /></span></div>
         <div class="prop"><span class="pk"><${Icon} name="layers" size=${12} /> 位置</span><span class="pv click" onClick=${() => setMoveOpen(true)}>${crumbs.length ? crumbs.map(noteTitle).join(' / ') : '顶层'}</span></div>
         <div class="prop"><span class="pk"><${Icon} name="clock" size=${12} /> 更新</span><span class="pv muted">${new Date(note.updated).toLocaleString('zh-CN', { hour12: false })} · 创建 ${note.created} · ${words} 字</span></div>
       </div>
-      ${editing
-        ? html`<${Editor} note=${note} notes=${notes} save=${save} onDone=${() => setEditing(false)} onCreateChild=${onCreateChild} />`
-        : html`<div class="md page-md" onClick=${(e) => { if (e.target.closest('a')) return; setEditing(true); }} title="点击编辑">${note.body.trim() ? html`<div dangerouslySetInnerHTML=${{ __html: renderMd(note.body) }}></div>` : html`<p class="muted">点击开始写… 输入 <code>/</code> 插入块，<code>[[</code> 链接页面。</p>`}</div>`}
+      <${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notes=${notes} noteId=${note.id} onCreatePage=${createLinked} onOpenLink=${(t) => go('notes/t:' + encodeURIComponent(t))} pageFont=${note.font} />
       ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id}><span class="pt-ic">${k.icon || '📄'}</span>${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
       <div class="links-sec">
         ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? (n.icon || '📄') : '＋'} ${t}</a>`)}</div>`}
@@ -207,84 +218,10 @@ function MoveModal({ open, note, notes, onClose }) {
   <//>`;
 }
 
-/* ---------- editor with [[ ]] and / menus ---------- */
-function Editor({ note, notes, save, onDone, onCreateChild }) {
-  const [body, setBody] = useState(note.body);
-  const [menu, setMenu] = useState(null); // {kind:'link'|'slash', q, start, idx}
-  const ta = useRef();
-  useEffect(() => { const el = ta.current; if (el) { el.focus(); el.selectionStart = el.selectionEnd = el.value.length; } }, []);
-  const commit = (v) => { setBody(v); save({ id: note.id, body: v }); };
-  const resize = () => { const el = ta.current; if (!el) return; el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 240) + 'px'; };
-  useEffect(resize, [body]);
-
-  const detect = (v, pos) => {
-    const before = v.slice(0, pos);
-    const lk = before.lastIndexOf('[[');
-    if (lk >= 0 && !before.slice(lk).includes(']]') && !before.slice(lk).includes('\n')) return { kind: 'link', q: before.slice(lk + 2), start: lk, idx: 0 };
-    const ln = before.lastIndexOf('\n') + 1;
-    const line = before.slice(ln);
-    const m = line.match(/(?:^|\s)\/([^\s/]*)$/);
-    if (m) return { kind: 'slash', q: m[1], start: pos - m[1].length - 1, idx: 0 };
-    return null;
-  };
-  const onInput = (e) => { const v = e.target.value; commit(v); setMenu(detect(v, e.target.selectionStart)); };
-  const items = useMemo(() => {
-    if (!menu) return [];
-    const k = menu.q.toLowerCase();
-    if (menu.kind === 'link') {
-      const list = notes.filter((n) => n.id !== note.id && n.title && n.title.toLowerCase().includes(k)).slice(0, 8).map((n) => ({ label: (n.icon || '📄') + ' ' + n.title, title: n.title }));
-      if (k.trim() && !notes.some((n) => n.title.toLowerCase() === k.trim())) list.push({ label: `＋ 新建页面「${menu.q.trim()}」`, title: menu.q.trim(), create: true });
-      return list;
-    }
-    return SLASH.filter((x) => !k || x.label.toLowerCase().includes(k) || x.k.includes(k) || x.hint.includes(k));
-  }, [menu, notes]);
-
-  const apply = (it) => {
-    const el = ta.current; const pos = el.selectionStart;
-    let v = body, caret;
-    if (menu.kind === 'link') {
-      const ins = `[[${it.title}]]`;
-      v = body.slice(0, menu.start) + ins + body.slice(pos);
-      caret = menu.start + ins.length;
-      if (it.create) newNote({ title: it.title, parent: note.id });
-    } else if (it.special === 'sub') {
-      const child = newNote({ title: '新子页面', parent: note.id });
-      const ins = `[[${child.title}]]`;
-      v = body.slice(0, menu.start) + ins + body.slice(pos); caret = menu.start + ins.length;
-    } else {
-      v = body.slice(0, menu.start) + it.ins + body.slice(pos);
-      caret = menu.start + it.ins.length + (it.caret || 0);
-    }
-    commit(v); setMenu(it.special === 'link' ? { kind: 'link', q: '', start: menu.start, idx: 0 } : null);
-    requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = caret; });
-  };
-  const onKey = (e) => {
-    if (menu && items.length) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setMenu({ ...menu, idx: (menu.idx + 1) % items.length }); return; }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setMenu({ ...menu, idx: (menu.idx - 1 + items.length) % items.length }); return; }
-      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); apply(items[menu.idx]); return; }
-    }
-    if (e.key === 'Escape') { if (menu) setMenu(null); else onDone(); return; }
-    if (e.key === 'Tab') { e.preventDefault(); const el = e.target, a = el.selectionStart; commit(body.slice(0, a) + '  ' + body.slice(el.selectionEnd)); requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = a + 2; }); }
-    if (e.key === 'Enter' && !e.shiftKey) {
-      // continue lists like Notion
-      const el = e.target, a = el.selectionStart;
-      const ln = body.lastIndexOf('\n', a - 1) + 1; const line = body.slice(ln, a);
-      const m = line.match(/^(\s*)(- \[[ x]\] |- |\* |\d+\. |> )(.*)$/);
-      if (m) {
-        e.preventDefault();
-        if (!m[3].trim()) { commit(body.slice(0, ln) + body.slice(a)); requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = ln; }); return; }
-        let pre = m[2]; if (/^\d+\. $/.test(pre)) pre = (parseInt(pre) + 1) + '. '; if (pre.startsWith('- [')) pre = '- [ ] ';
-        const ins = '\n' + m[1] + pre; commit(body.slice(0, a) + ins + body.slice(el.selectionEnd)); requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = a + ins.length; });
-      }
-    }
-  };
-  return html`<div class="editor-wrap">
-    <textarea ref=${ta} class="page-ta" value=${body} placeholder="开始写… 输入 / 插入块，[[ 链接页面" onInput=${onInput} onKeyDown=${onKey} onClick=${(e) => setMenu(detect(body, e.target.selectionStart))} onBlur=${() => setTimeout(() => setMenu(null), 150)}></textarea>
-    ${menu && items.length > 0 && html`<div class="popmenu">${items.map((it, i) => html`<div class=${'pm ' + (i === menu.idx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); apply(it); }}><b>${it.label}</b>${it.hint && html`<small>${it.hint}</small>`}</div>`)}</div>`}
-    <div class="editor-foot"><span class="small muted">Markdown · <code>/</code> 块 · <code>[[</code> 链接 · Esc 完成</span><span class="flex1"></span><${Btn} small kind="primary" icon="check" onClick=${onDone}>完成<//></div>
-  </div>`;
-}
+/* ---------- covers ---------- */
+export const COVERS = ['linear-gradient(120deg,#d9e4f5,#eef2f7)', 'linear-gradient(120deg,#e8f1ec,#f4efe6)', 'linear-gradient(120deg,#f3e6e0,#efe3f1)', 'linear-gradient(120deg,#1f2937,#4b5563)', 'linear-gradient(120deg,#2b6777,#52ab98)', 'linear-gradient(120deg,#f7d9c4,#f4c6a5)', 'radial-gradient(120% 120% at 20% 20%,#fde68a,#f59e0b 60%,#b45309)', 'radial-gradient(100% 100% at 80% 10%,#c7d2fe,#6366f1 70%,#312e81)'];
+export function nextCover(cur) { const i = COVERS.indexOf(cur); return COVERS[(i + 1) % COVERS.length]; }
+export function coverStyle(c) { return /^https?:/.test(c) ? `background-image:url(${c})` : `background:${c}`; }
 
 /* ---------- graph ---------- */
 function GraphView({ notes }) {
