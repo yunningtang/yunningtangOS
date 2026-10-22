@@ -221,7 +221,7 @@ export function TimeInput({ value, onChange, placeholder = '时间', step = 30, 
   const pos = usePopover(open, setOpen, ref);
   const slots = [];
   for (let m = 0; m < 24 * 60; m += step) slots.push(`${_pad(Math.floor(m / 60))}:${_pad(m % 60)}`);
-  useEffect(() => { if (open && listRef.current) { const el = listRef.current.querySelector('.sel') || listRef.current.querySelector(`[data-t="${(value || '09:00').slice(0, 2)}:00"]`); if (el) listRef.current.scrollTop = el.offsetTop - 80; } }, [open]);
+  useEffect(() => { if (open && listRef.current) { const el = listRef.current.querySelector('.sel') || listRef.current.querySelector(`[data-t="${(value || '09:00').slice(0, 2)}:00"]`); if (el) listRef.current.scrollTop = el.offsetTop - 80; } }, [open, pos]);
   const commit = (v) => { const m = v.trim().match(/^(\d{1,2})[:：.]?(\d{2})?$/); if (!m) return; const h = Math.min(23, +m[1]), mm = Math.min(59, +(m[2] || 0)); onChange(`${_pad(h)}:${_pad(mm)}`); setOpen(false); };
   return html`<div class=${'pick ' + cls}>
     <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'empty')} onClick=${() => setOpen(!open)}><${Icon} name="clock" size=${13} /><span>${value || placeholder}</span></button>

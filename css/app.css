@@ -578,7 +578,7 @@ input.page-title::placeholder{color:var(--text-4);opacity:.6}
 .cal-d:hover{background:var(--hover)}.cal-d.today{font-weight:600;color:var(--blue)}.cal-d.sel{background:var(--blue);color:#fff;font-weight:600}
 .pop.time{width:180px}
 .time-in{margin-bottom:6px}
-.time-list{max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:1px;scrollbar-width:thin}
+.time-list{position:relative;max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:1px;scrollbar-width:thin}
 .time-i{padding:6px 10px;border-radius:8px;font-size:.84rem;text-align:left;color:var(--text);font-variant-numeric:tabular-nums}
 .time-i:hover{background:var(--hover)}.time-i.sel{background:var(--blue);color:#fff}
 
