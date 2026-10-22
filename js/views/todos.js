@@ -3,6 +3,7 @@ import { useStore, update, upsert, remove, toggleTodo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort } from '../util.js';
 import { ctxMenu } from '../ctx.js';
+import { dragProps, dropProps } from '../dnd.js';
 import { toast } from '../nav.js';
 
 // Quick-add grammar: "写论文 @明天 14:00 !1 #研究 #写作"
@@ -78,7 +79,7 @@ export function TodoItem({ t, onEdit, compact }) {
   const p = PRIORITY[t.priority] || PRIORITY[2];
   const today = todayStr();
   const dueCls = t.due && !t.done ? (t.due < today ? 'late' : t.due === today ? 'today' : '') : '';
-  return html`<div class=${'todo ' + (t.done ? 'done' : '')} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)}>
+  return html`<div class=${'todo ' + (t.done ? 'done' : '')} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })}>
     <span class="pr" style=${`--pc:${p.color}`}></span>
     <button class="cb" onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
     <div class="tt">
@@ -162,14 +163,15 @@ export default function Todos() {
     <${Card}>
       <${QuickAdd} />
       ${allTags.length > 0 && html`<div class="filters">${allTags.map(([x, n]) => html`<${Tag} class=${'click ' + (tagF === x ? 'on' : '')} color=${tagF === x ? 'var(--teal)' : undefined} onClick=${() => setTagF(tagF === x ? '' : x)}>${x} <span class="muted">${n}</span><//>`)}</div>`}
-      ${layout === 'board' ? html`<div class="board-cols">${PRIORITY.map((p) => { const list = sortBy(todos.filter((t) => t.priority === p.v), 'done', 'due', 'time'); return html`<div class="card bcol" key=${p.v} style=${`--pc:${p.color}`}>
+      ${layout === 'board' ? html`<div class="board-cols">${PRIORITY.map((p) => { const list = sortBy(todos.filter((t) => t.priority === p.v), 'done', 'due', 'time'); return html`<div class="card bcol" key=${p.v} style=${`--pc:${p.color}`} ...${dropProps('todo', (d) => upsert('todos', { id: d.id, priority: p.v }))}>
         <div class="bh"><i></i>${p.label} · ${p.name}<span>${list.length}</span></div>
-        ${list.map((t) => html`<div class=${'bcard ' + (t.done ? 'done' : '')} key=${t.id} onClick=${() => { setEditing(t); setModal(true); }} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, (x) => { setEditing(x); setModal(true); }), t.title)}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div>${t.title}</div><span class="meta">${t.due ? relDay(t.due) : ''}${t.time ? ' ' + t.time : ''}${t.area ? ' · ' + t.area : ''}${t.tags.map((x) => ' #' + x).join('')}</span></div></div>`)}
+        ${list.map((t) => html`<div class=${'bcard ' + (t.done ? 'done' : '')} key=${t.id} ...${dragProps('todo', { id: t.id })} onClick=${() => { setEditing(t); setModal(true); }} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, (x) => { setEditing(x); setModal(true); }), t.title)}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div>${t.title}</div><span class="meta">${t.due ? relDay(t.due) : ''}${t.time ? ' ' + t.time : ''}${t.area ? ' · ' + t.area : ''}${t.tags.map((x) => ' #' + x).join('')}</span></div></div>`)}
         <button class="pt-row flat new" style="min-height:26px;font-size:.76rem" onClick=${() => { setEditing(null); setModal(true); }}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">添加</span></button>
       </div>`; })}</div>`
       : groups.length === 0 ? html`<${Empty} icon="checksq" text=${view === 'done' ? '还没有完成的事。' : '清清爽爽，没有待办。'} />` : groups.map(([name, list]) => html`
+        <div class="todo-group" ...${dropProps('todo', (d) => { const map = { 逾期: addDays(today, -1), 今天: today, 明天: addDays(today, 1), 本周: addDays(today, 2), 之后: addDays(today, 8), 未排期: '', 已完成: null }; const due = map[name]; if (due === null) { const t = s.todos.find((x) => x.id === d.id); if (t && !t.done) toggleTodo(d.id); } else upsert('todos', { id: d.id, due, ...(due === '' ? { time: '' } : {}) }); })}>
         <div class="group-h">${name}<i></i><span>${list.length}</span></div>
-        ${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} onEdit=${(x) => { setEditing(x); setModal(true); }} />`)}`)}
+        ${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} onEdit=${(x) => { setEditing(x); setModal(true); }} />`)}</div>`)}
       ${view === 'done' && todos.length > 0 && html`<div class="row" style="justify-content:flex-end;margin-top:10px"><${Btn} kind="ghost" small icon="archive" onClick=${() => { if (confirmDel('清空所有已完成的待办？')) update((d) => { d.todos = d.todos.filter((t) => !t.done); }); }}>清空已完成<//></div>`}
     <//>
     <${TodoModal} open=${modal} todo=${editing} onClose=${() => setModal(false)} />

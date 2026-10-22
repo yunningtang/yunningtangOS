@@ -3,6 +3,7 @@ import { useStore, upsert, remove, update } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, TagInput, confirmDel } from '../ui.js';
 import { uid, todayStr, hostOf, sortBy } from '../util.js';
 import { ctxMenu } from '../ctx.js';
+import { dragProps, dropProps } from '../dnd.js';
 import { toast } from '../nav.js';
 
 export function LinkModal({ open, link, onClose }) {
@@ -44,7 +45,7 @@ export default function Links() {
     if (view === 'unread') l = l.filter((x) => !x.read);
     if (tagF) l = l.filter((x) => x.tags.includes(tagF));
     if (q) { const k = q.toLowerCase(); l = l.filter((x) => (x.title + x.url + x.note + x.tags.join(' ')).toLowerCase().includes(k)); }
-    return sortBy(l, '-created');
+    return l;
   }, [s.links, view, tagF, q]);
   const tags = useMemo(() => { const m = new Map(); s.links.forEach((l) => l.tags.forEach((t) => m.set(t, (m.get(t) || 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1]); }, [s.links]);
   const quickAdd = () => {
@@ -70,10 +71,10 @@ export default function Links() {
     </div>
     <${Card}>
       <div class="quickadd"><${Icon} name="link" size=${15} class="muted" /><input class="flex1" type="text" value=${quick} placeholder="粘贴链接，回车快速收藏" onInput=${(e) => setQuick(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && quickAdd()} /><input type="search" value=${q} placeholder="搜索…" style="width:160px" onInput=${(e) => setQ(e.target.value)} /></div>
-      ${tags.length > 0 && html`<div class="filters">${tags.map(([t, n]) => html`<${Tag} class="click" color=${tagF === t ? 'var(--teal)' : undefined} onClick=${() => setTagF(tagF === t ? '' : t)}>${t} <span class="muted">${n}</span><//>`)}</div>`}
+      ${tags.length > 0 && html`<div class="filters">${tags.map(([t, n]) => html`<${Tag} class="click" color=${tagF === t ? 'var(--teal)' : undefined} onClick=${() => setTagF(tagF === t ? '' : t)} ...${dropProps('link', (d) => { const l = s.links.find((x) => x.id === d.id); if (l && !l.tags.includes(t)) upsert('links', { id: l.id, tags: [...l.tags, t] }); })}>${t} <span class="muted">${n}</span><//>`)}</div>`}
       ${links.length === 0 ? html`<${Empty} icon="link" text="没有匹配的收藏。" />` : groups.map(([mon, list]) => html`
         <div class="group-h">${mon}<i></i><span>${list.length}</span></div>
-        <div class="links">${list.map((l) => html`<div class="lk" key=${l.id} onContextMenu=${(e) => ctxMenu(e, [{ label: '打开', icon: 'external', onClick: () => { window.open(l.url, '_blank', 'noopener'); upsert('links', { id: l.id, read: true }); } }, { label: '复制链接', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(l.url); toast('已复制'); } }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(l); setModal(true); } }, 'sep', { label: l.read ? '标为待读' : '标为已读', icon: 'eye', onClick: () => upsert('links', { id: l.id, read: !l.read }) }, { label: l.fav ? '取消最爱' : '最爱', icon: 'heart', onClick: () => upsert('links', { id: l.id, fav: !l.fav }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => remove('links', l.id) }], l.title)}>
+        <div class="links">${list.map((l) => html`<div class="lk" key=${l.id} ...${dragProps('link', { id: l.id })} ...${dropProps('link', (d, { after }) => { if (d.id === l.id) return; update((dd) => { const from = dd.links.findIndex((x) => x.id === d.id); const [mv] = dd.links.splice(from, 1); let to = dd.links.findIndex((x) => x.id === l.id); if (after) to++; dd.links.splice(to, 0, mv); dd.links.forEach((x, i) => { x.created = x.created; }); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: '打开', icon: 'external', onClick: () => { window.open(l.url, '_blank', 'noopener'); upsert('links', { id: l.id, read: true }); } }, { label: '复制链接', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(l.url); toast('已复制'); } }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(l); setModal(true); } }, 'sep', { label: l.read ? '标为待读' : '标为已读', icon: 'eye', onClick: () => upsert('links', { id: l.id, read: !l.read }) }, { label: l.fav ? '取消最爱' : '最爱', icon: 'heart', onClick: () => upsert('links', { id: l.id, fav: !l.fav }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => remove('links', l.id) }], l.title)}>
                     <a class="fav" href=${l.url} target="_blank" rel="noopener" title=${l.host}><img src=${`https://www.google.com/s2/favicons?domain=${l.host}&sz=32`} alt="" onError=${(e) => { e.target.replaceWith(document.createTextNode((l.host || '?')[0])); }} /></a>
           <div class="li">
             <a href=${l.url} target="_blank" rel="noopener" style="text-decoration:none" onClick=${() => !l.read && upsert('links', { id: l.id, read: true })}><b>${l.title}</b></a>

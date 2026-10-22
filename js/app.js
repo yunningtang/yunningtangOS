@@ -13,7 +13,8 @@ import Vision from './views/vision.js';
 import Explore from './views/explore.js';
 import Settings from './views/settings.js';
 import { SearchPalette } from './search.js';
-import { PageTree, useTreeState, newNote, newNotebook, ancestors, noteTitle, notebookMenu } from './views/notes.js';
+import { PageTree, useTreeState, newNote, newNotebook, ancestors, noteTitle, notebookMenu, movePage } from './views/notes.js';
+import { dragProps, dropProps } from './dnd.js';
 import { go, toast } from './nav.js';
 import { initLiquid } from './liquid.js';
 import { ctxMenu } from './ctx.js';
@@ -118,7 +119,7 @@ function App() {
           return html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''} data-tip=${r.name} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
             ${r.path === 'notes' && navOpen.notes && !mini && html`<div class="nav-tree">
               ${[...s.notebooks].sort((a, b) => a.order - b.order).map((b) => html`<div key=${b.id}>
-                <div class=${'pt-row nb-row ' + (navOpen['nb:' + b.id] === false ? 'closed' : '')} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, () => { const v = prompt('本子名称', b.name); if (v && v.trim()) update((d) => { d.notebooks.find((x) => x.id === b.id).name = v.trim(); }); }), b.name)}>
+                <div class=${'pt-row nb-row ' + (navOpen['nb:' + b.id] === false ? 'closed' : '')} ...${dragProps('notebook', { id: b.id })} ...${dropProps(['page', 'notebook'], (d, { after }) => { if (d.id === b.id) return; if (s.notes.some((n) => n.id === d.id)) movePage(d.id, { nb: b.id, parent: null }); else update((dd) => { const list = dd.notebooks.sort((x, y) => x.order - y.order); const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === b.id); if (after) to++; list.splice(to, 0, mv); list.forEach((x, i) => { x.order = i; }); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, () => { const v = prompt('本子名称', b.name); if (v && v.trim()) update((d) => { d.notebooks.find((x) => x.id === b.id).name = v.trim(); }); }), b.name)}>
                   <button class="pt-tg" onClick=${() => toggleNav('nb:' + b.id)}><${Icon} name=${navOpen['nb:' + b.id] === false ? 'right' : 'down'} size=${11} /></button>
                   <a class="pt-link" href="#/notes" onClick=${() => { try { localStorage.setItem('ytos.nb', b.id); } catch {} }}><i class="nb-dot" style=${`background:${b.color}`}></i><span class="pt-t">${b.name}</span></a>
                   <button class="pt-add" title="新建页面" onClick=${() => { const n = newNote({ nb: b.id }); go('notes/' + n.id); }}><${Icon} name="plus" size=${11} /></button>

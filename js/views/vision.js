@@ -2,6 +2,9 @@ import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, confirmDel, AutoTextarea } from '../ui.js';
 import { uid, todayStr, AREAS } from '../util.js';
+import { ctxMenu } from '../ctx.js';
+import { dragProps, dropProps } from '../dnd.js';
+import { toast } from '../nav.js';
 
 const DEFAULT_AREAS = ['学习成长', '事业', '创作', '健康', '关系', '财务', '玩乐', '精神'];
 
@@ -59,14 +62,14 @@ export default function Vision() {
       <div class="stack">
         <${Card} title="显化 · 肯定句" sub="用现在时写，像已经发生一样。总览页每天会轮换显示一条。">
           <div class="quickadd"><${Icon} name="sparkle" size=${15} class="muted" /><input class="flex1" type="text" value=${txt} placeholder="我正在…" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && addStatement()} /></div>
-          ${v.statements.length === 0 ? html`<${Empty} icon="sparkle" text="第一句写什么？试试：我每天都在变得更专注、更自由。" />` : html`<ul class="aff">${v.statements.map((st) => html`<li key=${st.id}>
+          ${v.statements.length === 0 ? html`<${Empty} icon="sparkle" text="第一句写什么？试试：我每天都在变得更专注、更自由。" />` : html`<ul class="aff">${v.statements.map((st) => html`<li key=${st.id} ...${dragProps('aff', { id: st.id })} ...${dropProps('aff', (d, { after }) => { if (d.id === st.id) return; update((dd) => { const l = dd.vision.statements; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === st.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => setEditAff(st.id) }, { label: '复制文字', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(st.text); toast('已复制'); } }, { label: '放到愿景板', icon: 'image', onClick: () => update((d) => { d.vision.board.unshift({ id: uid(), img: '', caption: '', text: st.text }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => update((d) => { d.vision.statements = d.vision.statements.filter((y) => y.id !== st.id); }) }], '肯定句')}>
             <${Icon} name="sparkle" size=${14} />
             ${editAff === st.id ? html`<input type="text" autofocus value=${st.text} onBlur=${(e) => { update((d) => { const x = d.vision.statements.find((y) => y.id === st.id); if (x) x.text = e.target.value; }); setEditAff(null); }} onKeyDown=${(e) => e.key === 'Enter' && e.target.blur()} />` : html`<span onClick=${() => setEditAff(st.id)}>${st.text}</span>`}
             <div class="acts"><${IconBtn} class="ibtn danger" icon="x" size=${12} title="删除" onClick=${() => update((d) => { d.vision.statements = d.vision.statements.filter((y) => y.id !== st.id); })} /></div>
           </li>`)}</ul>`}
         <//>
         <${Card} title="愿景板" sub="图片 URL 或一句话。" action=${html`<${Btn} small icon="plus" onClick=${() => setBoardModal(true)}>添加<//>`}>
-          ${v.board.length === 0 ? html`<${Empty} icon="image" text="把想去的地方、想成为的样子贴上来。" />` : html`<div class="board">${v.board.map((b) => html`<div class=${'bi ' + (b.img ? '' : 'txt')} key=${b.id}>
+          ${v.board.length === 0 ? html`<${Empty} icon="image" text="把想去的地方、想成为的样子贴上来。" />` : html`<div class="board">${v.board.map((b) => html`<div class=${'bi ' + (b.img ? '' : 'txt')} key=${b.id} ...${dragProps('board', { id: b.id })} ...${dropProps('board', (d, { after }) => { if (d.id === b.id) return; update((dd) => { const l = dd.vision.board; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === b.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [b.img && { label: '打开图片', icon: 'external', onClick: () => window.open(b.img, '_blank', 'noopener') }, { label: '改说明', icon: 'edit', onClick: () => { const v2 = prompt('说明 / 文字', b.img ? b.caption : b.text); if (v2 !== null) update((d) => { const x = d.vision.board.find((y) => y.id === b.id); if (b.img) x.caption = v2; else x.text = v2; }); } }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => update((d) => { d.vision.board = d.vision.board.filter((y) => y.id !== b.id); }) }], '愿景板')}>
             ${b.img ? html`<img src=${b.img} alt=${b.caption} loading="lazy" />${b.caption && html`<div class="cap">${b.caption}</div>`}` : b.text}
             <button class="ibtn del" onClick=${() => update((d) => { d.vision.board = d.vision.board.filter((y) => y.id !== b.id); })}><${Icon} name="x" size=${12} /></button>
           </div>`)}</div>`}
@@ -78,7 +81,7 @@ export default function Vision() {
           <p class="small muted" style="margin-top:12px">每个月初回来拖一次，看看哪一块在被忽略。</p>
         <//>
         <${Card} title="长期目标" sub="一到三年内" action=${html`<${Btn} small icon="plus" onClick=${() => setLtModal(true)}>添加<//>`}>
-          ${v.longterm.length === 0 ? html`<${Empty} icon="flag" text="三年后的你，在做什么？" />` : html`<div class="lt">${v.longterm.map((g) => html`<div class=${'li ' + (g.done ? 'done' : '')} key=${g.id}>
+          ${v.longterm.length === 0 ? html`<${Empty} icon="flag" text="三年后的你，在做什么？" />` : html`<div class="lt">${v.longterm.map((g) => html`<div class=${'li ' + (g.done ? 'done' : '')} key=${g.id} ...${dragProps('lt', { id: g.id })} ...${dropProps('lt', (d, { after }) => { if (d.id === g.id) return; update((dd) => { const l = dd.vision.longterm; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === g.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: g.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => update((d) => { const x = d.vision.longterm.find((y) => y.id === g.id); x.done = !x.done; }) }, { label: '改期限', icon: 'calendar', onClick: () => { const v2 = prompt('期限', g.by); if (v2 !== null) update((d) => { d.vision.longterm.find((y) => y.id === g.id).by = v2; }); } }, { label: '拆成本月目标', icon: 'target', onClick: () => update((d) => { const mk = new Date().toISOString().slice(0, 7); d.goals[mk] = d.goals[mk] || []; d.goals[mk].push({ id: uid(), title: g.title, area: g.area || '', why: '长期目标的一步', progress: 0, krs: [] }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => update((d) => { d.vision.longterm = d.vision.longterm.filter((y) => y.id !== g.id); }) }], g.title)}>
             <button class=${'cb ' + (g.done ? 'on' : '')} style=${`width:18px;height:18px;border-radius:6px;border:1.5px solid ${g.done ? 'var(--teal)' : 'var(--text-4)'};background:${g.done ? 'var(--teal)' : 'transparent'};color:#fff;display:grid;place-items:center`} onClick=${() => update((d) => { const x = d.vision.longterm.find((y) => y.id === g.id); x.done = !x.done; })}><${Icon} name="check" size=${11} /></button>
             <b>${g.title}</b>${g.area && html`<${Tag}>${g.area}<//>`}<span class="by">${g.by}</span>
             <${IconBtn} class="ibtn danger" icon="x" size=${12} title="删除" onClick=${() => confirmDel() && update((d) => { d.vision.longterm = d.vision.longterm.filter((y) => y.id !== g.id); })} />

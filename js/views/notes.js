@@ -5,6 +5,7 @@ import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal,
 import { uid, todayStr, sortBy, debounce, escapeHtml } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
+import { dragProps, dropProps } from '../dnd.js';
 import { mountGraph } from '../graph.js';
 import { BlockEditor } from '../editor.js';
 import { blocksToMd, mdToBlocks } from '../blocks.js';
@@ -53,6 +54,21 @@ export function notebookMenu(nb, s, onRename) {
     { label: '删除本子', icon: 'trash', danger: true, hint: count ? `${count} 页移到收件箱` : '', disabled: nb.id === 'nb-inbox', onClick: () => { if (!confirmDel(`删除本子「${nb.name}」？里面的 ${count} 页会移到收件箱。`)) return; update((d) => { d.notes.forEach((n) => { if (n.nb === nb.id) n.nb = 'nb-inbox'; }); d.notebooks = d.notebooks.filter((x) => x.id !== nb.id); }); } },
   ];
 }
+export function subtreeIds(notes, id) { const ids = new Set([id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } return ids; }
+export function movePage(pageId, { nb, parent = null, before = null, after = null } = {}) {
+  update((d) => {
+    const ids = subtreeIds(d.notes, pageId);
+    if (parent && ids.has(parent)) return;
+    const page = d.notes.find((x) => x.id === pageId); if (!page) return;
+    const targetNb = nb || (parent ? (d.notes.find((x) => x.id === parent) || {}).nb : null) || page.nb;
+    d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = targetNb; });
+    page.parent = parent || null;
+    const ref = before || after; if (ref) { const r = d.notes.find((x) => x.id === ref); if (r) page.order = (r.order || 0) + (after ? 0.5 : -0.5); }
+    // normalise orders among siblings
+    const sib = d.notes.filter((x) => (x.parent || null) === (page.parent || null) && x.nb === targetNb).sort((a, b) => (a.order || 0) - (b.order || 0));
+    sib.forEach((x, i) => { x.order = i; });
+  });
+}
 export function newNote(patch = {}) {
   const inherit = patch.parent ? (get().notes.find((x) => x.id === patch.parent) || {}).nb : null;
   const n = { id: uid(), title: '', body: '', tags: [], parent: null, nb: inherit || patch.nb || currentNb() || 'nb-inbox', order: Date.now(), pinned: false, icon: '', created: todayStr(), updated: new Date().toISOString(), ...patch };
@@ -71,6 +87,9 @@ export function pageMenu(n, notes, extra = {}) {
   return [
     { label: '打开', icon: 'note', onClick: () => go('notes/' + n.id) },
     { label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/notes/' + n.id, '_blank') },
+    extra.focus && { label: '专注模式', icon: 'eye', onClick: extra.focus },
+    extra.cover && { label: n.cover ? '更换封面' : '添加封面', icon: 'image', onClick: extra.cover },
+    extra.cover && n.cover && { label: '移除封面', icon: 'x', onClick: () => upsert('notes', { id: n.id, cover: '' }) },
     'sep',
     { label: '新建子页面', icon: 'plus', onClick: () => { const c = newNote({ parent: n.id }); extra.openPath && extra.openPath([n.id]); go('notes/' + c.id); } },
     { label: n.pinned ? '取消收藏' : '收藏', icon: 'pin', onClick: () => upsert('notes', { id: n.id, pinned: !n.pinned }) },
@@ -90,7 +109,7 @@ export function PageTree({ notes, parent = null, depth = 0, activeId, open, togg
     const has = notes.some((x) => x.parent === n.id);
     const isOpen = !!open[n.id];
     return html`<li key=${n.id}>
-      <div class=${'pt-row ' + (n.id === activeId ? 'active' : '')} style=${`padding-left:${8 + depth * 14}px`} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, notes, { openPath }), noteTitle(n))}>
+      <div class=${'pt-row ' + (n.id === activeId ? 'active' : '')} style=${`padding-left:${8 + depth * 14}px`} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, notes, { openPath }), noteTitle(n))} ...${dragProps('page', { id: n.id })} ...${dropProps('page', (d, { event }) => { if (d.id === n.id) return; const r = event.currentTarget.getBoundingClientRect(); const y = (event.clientY - r.top) / r.height; if (y > 0.3 && y < 0.7) { movePage(d.id, { parent: n.id }); openPath && openPath([n.id]); } else movePage(d.id, { parent: n.parent || null, nb: n.nb, [y >= 0.7 ? 'after' : 'before']: n.id }); })}>
         <button class=${'pt-tg ' + (has ? '' : 'none')} onClick=${() => toggle(n.id)} aria-label="展开"><${Icon} name=${isOpen ? 'down' : 'right'} size=${11} /></button>
         <a href=${'#/notes/' + n.id} class="pt-link"><${Icon} name="note" size=${14} class="pt-ic" /><span class="pt-t">${noteTitle(n)}</span></a>
         <button class="pt-add" title="新建子页面" onClick=${() => onCreate(n.id)}><${Icon} name="plus" size=${11} /></button>
@@ -119,6 +138,8 @@ export default function Notes({ route }) {
   const [nbSel, setNbSel] = useState(() => { try { return localStorage.getItem('ytos.nb') || 'all'; } catch { return 'all'; } });
   const [panes, setPanes] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.panes') || '{"nb":true,"list":true}'); } catch { return { nb: true, list: true }; } });
   const [renaming, setRenaming] = useState(null);
+  const [expanded, setExpanded] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.nbx') || '{}'); } catch { return {}; } });
+  useEffect(() => { try { localStorage.setItem('ytos.nbx', JSON.stringify(expanded)); } catch {} }, [expanded]);
   const tree = useTreeState();
   const pick = (v) => { setNbSel(v); try { localStorage.setItem('ytos.nb', v); } catch {} };
   const setPane = (k, v) => setPanes((p) => { const n = { ...p, [k]: v }; try { localStorage.setItem('ytos.panes', JSON.stringify(n)); } catch {} return n; });
@@ -140,7 +161,7 @@ export default function Notes({ route }) {
   const visible = useMemo(() => {
     let l = s.notes.filter(inNb);
     if (q.trim()) { const k = q.toLowerCase(); l = l.filter((n) => (n.title + ' ' + n.body + ' ' + n.tags.join(' ')).toLowerCase().includes(k)); }
-    return sortBy(l, '-pinned', sort === 'title' ? 'title' : sort === 'created' ? '-created' : '-updated');
+    return sort === 'manual' ? sortBy(l, '-pinned', 'order') : sortBy(l, '-pinned', sort === 'title' ? 'title' : sort === 'created' ? '-created' : '-updated');
   }, [s.notes, nbSel, q, sort]);
   const create = (parent = null) => { const n = newNote({ parent, nb: nbSel === 'all' || nbSel === 'fav' ? 'nb-inbox' : nbSel }); if (parent) tree.openPath([parent]); go('notes/' + n.id); };
   const counts = useMemo(() => { const m = new Map(); s.notes.forEach((n) => m.set(n.nb, (m.get(n.nb) || 0) + 1)); return m; }, [s.notes]);
@@ -152,13 +173,17 @@ export default function Notes({ route }) {
       <div class="nb-h"><h3>本子</h3><div class="row" style="gap:2px"><${IconBtn} icon="plus" title="新本子" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }} /><${IconBtn} icon="left" title="收起" onClick=${() => setPane('nb', false)} /></div></div>
       <div class="nb-list" data-liquid=".nb-i"><span class="liq"></span>
         <button class=${'nb-i ' + (nbSel === 'all' ? 'active' : '')} onClick=${() => pick('all')}><${Icon} name="note" size=${14} /><span class="flex1">全部笔记</span><small>${s.notes.length}</small></button>
-        <button class=${'nb-i ' + (nbSel === 'fav' ? 'active' : '')} onClick=${() => pick('fav')}><${Icon} name="pin" size=${14} /><span class="flex1">收藏</span><small>${s.notes.filter((n) => n.pinned).length}</small></button>
+        <button class=${'nb-i ' + (nbSel === 'fav' ? 'active' : '')} onClick=${() => pick('fav')} ...${dropProps('page', (d) => upsert('notes', { id: d.id, pinned: true }))}><${Icon} name="pin" size=${14} /><span class="flex1">收藏</span><small>${s.notes.filter((n) => n.pinned).length}</small></button>
         <div class="nb-sec">本子</div>
-        ${nbs.map((b) => html`<button key=${b.id} class=${'nb-i ' + (nbSel === b.id ? 'active' : '')} onClick=${() => pick(b.id)} onDblClick=${() => setRenaming(b.id)} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, () => setRenaming(b.id)), b.name)}>
+        ${nbs.map((b) => html`<div key=${b.id}><button class=${'nb-i ' + (nbSel === b.id ? 'active' : '')} onClick=${() => pick(b.id)} onDblClick=${() => setRenaming(b.id)} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, () => setRenaming(b.id)), b.name)}
+          ...${dragProps('notebook', { id: b.id })} ...${dropProps(['page', 'notebook'], (d, { after }) => { if (d.id === b.id) return; if (s.notes.some((n) => n.id === d.id)) { movePage(d.id, { nb: b.id, parent: null }); } else { update((dd) => { const list = dd.notebooks.sort((x, y) => x.order - y.order); const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === b.id); if (after) to++; list.splice(to, 0, mv); list.forEach((x, i) => { x.order = i; }); }); } }, { position: true })}>
+          <span class=${'nb-tg ' + (expanded[b.id] ? 'open' : '')} onClick=${(e) => { e.stopPropagation(); setExpanded((x) => ({ ...x, [b.id]: !x[b.id] })); }}><${Icon} name="right" size=${11} /></span>
           <i class="nb-dot" style=${`background:${b.color}`}></i>
           ${renaming === b.id ? html`<input class="nb-rename" autofocus value=${b.name} onClick=${(e) => e.stopPropagation()} onBlur=${(e) => { const v = e.target.value.trim(); if (v) update((d) => { d.notebooks.find((x) => x.id === b.id).name = v; }); setRenaming(null); }} onKeyDown=${(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setRenaming(null); }} />` : html`<span class="flex1">${b.name}</span>`}
           <small>${counts.get(b.id) || 0}</small>
-        </button>`)}
+        </button>
+        ${expanded[b.id] && html`<div class="nb-sub"><${PageTree} notes=${s.notes} nb=${b.id} activeId=${id} open=${tree.open} toggle=${tree.toggle} onCreate=${create} openPath=${tree.openPath} max=${200} /></div>`}
+        </div>`)}
         <button class="nb-i new" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }}><${Icon} name="plus" size=${13} /><span>新本子</span></button>
       </div>
       <div class="nb-foot"><a class=${'nb-i ' + (id === 'graph' ? 'active' : '')} href="#/notes/graph"><${Icon} name="compass" size=${14} /><span>图谱</span></a><a class=${'nb-i ' + (id === 'tags' ? 'active' : '')} href="#/notes/tags"><${Icon} name="tag" size=${14} /><span>标签</span></a></div>
@@ -167,13 +192,13 @@ export default function Notes({ route }) {
       <div class="lc-h">
         ${!panes.nb && html`<${IconBtn} icon="right" title="显示本子" onClick=${() => setPane('nb', true)} />`}
         <h3 class="flex1">${listTitle} <span class="muted small">${visible.length}</span></h3>
-        <select class="lc-sort" value=${sort} onChange=${(e) => { setSort(e.target.value); try { localStorage.setItem('ytos.nsort', e.target.value); } catch {} }}><option value="updated">最近更新</option><option value="created">创建时间</option><option value="title">标题</option></select>
+        <select class="lc-sort" value=${sort} onChange=${(e) => { setSort(e.target.value); try { localStorage.setItem('ytos.nsort', e.target.value); } catch {} }}><option value="updated">最近更新</option><option value="created">创建时间</option><option value="title">标题</option><option value="manual">自定义顺序</option></select>
         <${IconBtn} icon="plus" title="新页面" onClick=${() => create(null)} />
         <${IconBtn} icon="left" title="收起列表" onClick=${() => setPane('list', false)} />
       </div>
       <div class="searchin"><${Icon} name="search" size=${13} /><input type="search" value=${q} placeholder="搜索…" onInput=${(e) => setQ(e.target.value)} /></div>
       <div class="lc-list" data-liquid=".li-i"><span class="liq"></span>
-        ${visible.length === 0 ? html`<${Empty} icon="note" text=${q ? '没有匹配的页面。' : '这个本子还是空的。'}><${Btn} small onClick=${() => create(null)}>新页面<//><//>` : visible.map((n) => { const nb = nbOf(s, n.nb); const par = n.parent ? s.notes.find((x) => x.id === n.parent) : null; return html`<a key=${n.id} class=${'li-i ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes, { notebooks: nbs, openPath: tree.openPath }), noteTitle(n))}>
+        ${visible.length === 0 ? html`<${Empty} icon="note" text=${q ? '没有匹配的页面。' : '这个本子还是空的。'}><${Btn} small onClick=${() => create(null)}>新页面<//><//>` : visible.map((n) => { const nb = nbOf(s, n.nb); const par = n.parent ? s.notes.find((x) => x.id === n.parent) : null; return html`<a key=${n.id} class=${'li-i ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes, { notebooks: nbs, openPath: tree.openPath }), noteTitle(n))} ...${dragProps('page', { id: n.id })} ...${dropProps('page', (d, { after }) => { if (d.id === n.id) return; movePage(d.id, { parent: n.parent || null, nb: n.nb, [after ? 'after' : 'before']: n.id }); if (sort !== 'manual') { setSort('manual'); try { localStorage.setItem('ytos.nsort', 'manual'); } catch {} } }, { position: true })}>
           <b>${n.pinned && html`<${Icon} name="pin" size=${11} class="li-pin" />`}${par ? html`<span class="li-par">${noteTitle(par)} / </span>` : ''}${noteTitle(n)}</b>
           <p>${snippet(n) || '空白页'}</p>
           <small>${n.updated.slice(5, 10).replace('-', '/')}${nbSel === 'all' || nbSel === 'fav' ? html` · <i style=${`background:${nb ? nb.color : '#999'}`}></i> ${nb ? nb.name : ''}` : ''}${n.tags.length ? ' · ' + n.tags.map((t) => '#' + t).join(' ') : ''}</small>
@@ -206,6 +231,8 @@ class Still extends Component {
 
 function Page({ note, notes, notebooks = [], onCreateChild }) {
   const [moveOpen, setMoveOpen] = useState(false);
+  const [focus, setFocus] = useState(() => document.body.classList.contains('focus-mode'));
+  useEffect(() => { document.body.classList.toggle('focus-mode', focus); const k = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-bg, .popmenu, .ctx')) setFocus(false); }; window.addEventListener('keydown', k); return () => { window.removeEventListener('keydown', k); document.body.classList.remove('focus-mode'); }; }, [focus]);
   const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: new Date().toISOString() }), 250), []);
   const onBlocks = useMemo(() => (blocks) => upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() }), [note.id]);
   const blocks = useMemo(() => (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), [note.id]);
@@ -228,11 +255,13 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   const words = note.body.replace(/\s/g, '').length;
 
   return html`<div class="page">
-    <div class="crumbs" onContextMenu=${(e) => ctxMenu(e, pageMenu(note, notes, { move: () => setMoveOpen(true), notebooks }), title)}>
+    <div class="crumbs" onContextMenu=${(e) => ctxMenu(e, pageMenu(note, notes, { move: () => setMoveOpen(true), notebooks, focus: () => setFocus(true), cover: () => upsert('notes', { id: note.id, cover: nextCover(note.cover || '') }) }), title)}>
       <a href="#/notes">笔记</a>${(() => { const b = notebooks.find((x) => x.id === note.nb); return b ? html`<span>/</span><a href="#/notes" onClick=${() => { try { localStorage.setItem('ytos.nb', b.id); } catch {} }}><i class="nb-dot" style=${`background:${b.color};margin-right:5px`}></i>${b.name}</a>` : ''; })()}${crumbs.map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${title}</b>
       <span class="flex1"></span>
       <div class="page-acts">
         <div class="seg mini"><button class=${!note.font || note.font === 'default' ? 'on' : ''} title="默认字体" onClick=${() => upsert('notes', { id: note.id, font: 'default' })}>Ag</button><button class=${'serif-f ' + (note.font === 'serif' ? 'on' : '')} title="衬线" onClick=${() => upsert('notes', { id: note.id, font: 'serif' })}>Ag</button><button class=${'mono-f ' + (note.font === 'mono' ? 'on' : '')} title="等宽" onClick=${() => upsert('notes', { id: note.id, font: 'mono' })}>Ag</button></div>
+        <${IconBtn} icon=${focus ? 'x' : 'external'} title=${focus ? '退出专注（Esc）' : '专注模式（全屏）'} onClick=${() => setFocus(!focus)} />
+        <${IconBtn} icon="image" title=${note.cover ? '更换封面' : '添加封面'} onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover || '') })} />
         <${IconBtn} icon="grid" title=${note.wide ? '标准宽度' : '全宽'} onClick=${() => upsert('notes', { id: note.id, wide: !note.wide })} />
         <${IconBtn} icon="pin" title=${note.pinned ? '取消收藏' : '收藏'} class=${'ibtn ' + (note.pinned ? 'on' : '')} onClick=${() => upsert('notes', { id: note.id, pinned: !note.pinned })} />
         <${IconBtn} icon="layers" title="移动到…" onClick=${() => setMoveOpen(true)} />
@@ -242,11 +271,6 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     </div>
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
-      <div class="page-top">
-        <div class="page-hover-acts">
-          ${!note.cover && html`<button class="btn ghost sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover('') })}>添加封面</button>`}
-        </div>
-      </div>
       <input class="page-title" type="text" value=${note.title} placeholder="无标题" onInput=${(e) => save({ id: note.id, title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); const el = document.querySelector('.beditor .b-text'); if (el) el.focus(); } }} />
       <div class="props">
         <div class="prop"><span class="pk"><${Icon} name="tag" size=${12} /> 标签</span><span class="pv"><${TagInput} value=${note.tags} onChange=${(v) => upsert('notes', { id: note.id, tags: v })} placeholder="空" /></span></div>

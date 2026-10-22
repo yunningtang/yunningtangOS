@@ -1,9 +1,10 @@
-import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
-import { useStore, update, upsert, remove } from '../store.js';
+import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
+import { useStore, update, upsert, remove, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput } from '../ui.js';
 import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
-import { TodoItem, TodoModal } from './todos.js';
+import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
+import { dragProps, dropProps } from '../dnd.js';
 
 /* ---------- Weekly plan ---------- */
 function WeekBoard() {
@@ -40,11 +41,11 @@ function WeekBoard() {
       ${days.map((d, i) => {
         const items = wk.items[d] || [];
         const todos = sortBy(s.todos.filter((t) => t.due === d), 'priority', 'time');
-        return html`<${Card} class=${'wday ' + (d === today ? 'today' : '')} pad=${false}>
+        return html`<${Card} class=${'wday ' + (d === today ? 'today' : '')} pad=${false} ...${dropProps(['todo', 'wkitem', 'block'], (x) => { if (x.kind === 'wkitem') { if (x.date === d) return; setWeek((w) => { const it = (w.items[x.date] || []).find((i) => i.id === x.id); if (!it) return; w.items[x.date] = w.items[x.date].filter((i) => i.id !== x.id); w.items[d] = w.items[d] || []; w.items[d].push(it); }); } else if (x.kind === 'block') upsert('blocks', { id: x.id, date: d }); else upsert('todos', { id: x.id, due: d }); })}>
           <div class="dh"><b>${WEEKDAY[i]}</b><span>${fmtShort(d)}${d === today ? ' · 今天' : ''}</span></div>
           <ul>
-            ${todos.map((t) => html`<li class=${'todo-ref ' + (t.done ? 'done' : '')} style=${`--pc:${PRIORITY[t.priority].color}`} onClick=${() => setEditing(t)} title="待办（点击编辑）"><span class="dot"></span><span>${t.time ? html`<span class="mono muted">${t.time} </span>` : ''}${t.title}</span></li>`)}
-            ${items.map((it) => html`<li class=${it.done ? 'done' : ''} onClick=${() => toggle(d, it.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: it.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggle(d, it.id) }, { label: '转为待办', icon: 'checksq', onClick: () => { upsert('todos', { id: uid(), title: it.text, done: it.done, priority: 2, due: d, time: '', tags: [], area: '', note: '', created: todayStr() }); del(d, it.id); } }, ...[1, 2, 3].map((n) => ({ label: `移到 ${n} 天后`, icon: 'right', onClick: () => { del(d, it.id); const nd = addDays(d, n); setWeek((w) => { w.items[nd] = w.items[nd] || []; w.items[nd].push({ ...it }); }); if (!days.includes(nd)) setStart(weekStart(nd)); } })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => del(d, it.id) }], it.text)}><span class="dot"></span><span class="flex1">${it.text}</span><button class="ibtn" style="width:18px;height:18px" onClick=${(e) => { e.stopPropagation(); del(d, it.id); }}><${Icon} name="x" size=${10} /></button></li>`)}
+            ${todos.map((t) => html`<li class=${'todo-ref ' + (t.done ? 'done' : '')} style=${`--pc:${PRIORITY[t.priority].color}`} onClick=${() => setEditing(t)} title="待办（点击编辑）" ...${dragProps('todo', { id: t.id })} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, setEditing), t.title)}><span class="dot"></span><span>${t.time ? html`<span class="mono muted">${t.time} </span>` : ''}${t.title}</span></li>`)}
+            ${items.map((it) => html`<li class=${it.done ? 'done' : ''} onClick=${() => toggle(d, it.id)} ...${dragProps('wkitem', { kind: 'wkitem', id: it.id, date: d })} onContextMenu=${(e) => ctxMenu(e, [{ label: it.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggle(d, it.id) }, { label: '转为待办', icon: 'checksq', onClick: () => { upsert('todos', { id: uid(), title: it.text, done: it.done, priority: 2, due: d, time: '', tags: [], area: '', note: '', created: todayStr() }); del(d, it.id); } }, ...[1, 2, 3].map((n) => ({ label: `移到 ${n} 天后`, icon: 'right', onClick: () => { del(d, it.id); const nd = addDays(d, n); setWeek((w) => { w.items[nd] = w.items[nd] || []; w.items[nd].push({ ...it }); }); if (!days.includes(nd)) setStart(weekStart(nd)); } })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => del(d, it.id) }], it.text)}><span class="dot"></span><span class="flex1">${it.text}</span><button class="ibtn" style="width:18px;height:18px" onClick=${(e) => { e.stopPropagation(); del(d, it.id); }}><${Icon} name="x" size=${10} /></button></li>`)}
           </ul>
           <div class="add"><input type="text" placeholder="+ 计划" onKeyDown=${(e) => { if (e.key === 'Enter' && e.target.value.trim()) { addItem(d, e.target.value.trim()); e.target.value = ''; } }} /></div>
         <//>`;
@@ -89,6 +90,30 @@ export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
 
 export function Timeline({ date, blocks, onEdit, onCreate, from = 6, to = 24, hourH = 52 }) {
   const [now, setNow] = useState(new Date());
+  const [ghost, setGhost] = useState(null); // { id, start, end }
+  const dragRef = useRef(null);
+  const SNAP = 15;
+  const beginDrag = (ev, b, mode) => {
+    if (ev.button !== 0) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const st = timeToMin(b.start), en = timeToMin(b.end);
+    dragRef.current = { id: b.id, mode, y0: ev.clientY, st, en, moved: false };
+    const onMove = (e) => {
+      const d = dragRef.current; if (!d) return;
+      const dm = Math.round(((e.clientY - d.y0) / hourH) * 60 / SNAP) * SNAP;
+      if (Math.abs(e.clientY - d.y0) > 3) d.moved = true;
+      let ns = d.st, ne = d.en;
+      if (d.mode === 'move') { ns = Math.max(from * 60, Math.min(to * 60 - (d.en - d.st), d.st + dm)); ne = ns + (d.en - d.st); }
+      else { ne = Math.max(d.st + SNAP, Math.min(to * 60, d.en + dm)); }
+      setGhost({ id: d.id, start: minToTime(ns), end: minToTime(ne) });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+      const d = dragRef.current; dragRef.current = null;
+      setGhost((g) => { if (d && d.moved && g && g.id === d.id) upsert('blocks', { id: d.id, start: g.start, end: g.end }); else if (d && !d.moved && mode === 'move') onEdit && onEdit(b); return null; });
+    };
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+  };
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
   const hours = [];
   for (let h = from; h < to; h++) hours.push(h);
@@ -96,11 +121,12 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 6, to = 24, ho
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const isToday = date === todayStr();
   return html`<div class="tl" style=${`--h:${hourH}px`}>
-    ${hours.map((h) => html`<div class=${'hour ' + (onCreate ? 'click' : '')} onClick=${onCreate ? () => onCreate(minToTime(h * 60)) : undefined}><span>${String(h).padStart(2, '0')}:00</span></div>`)}
-    ${blocks.map((b) => {
+    ${hours.map((h) => html`<div class=${'hour ' + (onCreate ? 'click' : '')} onClick=${onCreate ? () => onCreate(minToTime(h * 60)) : undefined} ...${dropProps(['todo', 'block'], (d) => { if (d.kind === 'block') { const b = get().blocks.find((x) => x.id === d.id); if (!b) return; const len = timeToMin(b.end) - timeToMin(b.start); upsert('blocks', { id: b.id, date, start: minToTime(h * 60), end: minToTime(h * 60 + len) }); } else { const t = get().todos.find((x) => x.id === d.id); if (!t) return; upsert('todos', { id: t.id, due: date, time: minToTime(h * 60) }); if (onCreate && !get().blocks.some((x) => x.date === date && x.title === t.title)) upsert('blocks', { id: uid(), date, start: minToTime(h * 60), end: minToTime(h * 60 + 60), title: t.title, kind: 'focus', note: '' }); } })}><span>${String(h).padStart(2, '0')}:00</span></div>`)}
+    ${blocks.map((b0) => {
+      const b = ghost && ghost.id === b0.id ? { ...b0, start: ghost.start, end: ghost.end } : b0;
       const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60);
       if (e <= s) return null;
-      return html`<div class="blk" key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onClick=${(ev) => { ev.stopPropagation(); onEdit && onEdit(b); }} onContextMenu=${(ev) => ctxMenu(ev, [
+      return html`<div class=${'blk ' + (ghost && ghost.id === b.id ? 'moving' : '')} key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onPointerDown=${(ev) => beginDrag(ev, b0, 'move')} onClick=${(ev) => ev.stopPropagation()} onContextMenu=${(ev) => ctxMenu(ev, [
         { label: '编辑', icon: 'edit', onClick: () => onEdit && onEdit(b) },
         { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(b.date, 1) }) },
         { label: '复制一份（+1h）', icon: 'layers', onClick: () => upsert('blocks', { ...b, id: uid(), start: minToTime(timeToMin(b.start) + 60), end: minToTime(timeToMin(b.end) + 60) }) },
@@ -108,7 +134,7 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 6, to = 24, ho
         ...BLOCK_KINDS.map((k) => ({ label: k.name, icon: k.v === b.kind ? 'check' : 'tag', onClick: () => upsert('blocks', { id: b.id, kind: k.v }) })),
         'sep',
         { label: '删除', icon: 'trash', danger: true, onClick: () => remove('blocks', b.id) },
-      ], b.title)}><b>${b.title}</b><small>${b.start}–${b.end}</small></div>`;
+      ], b.title)}><b>${b.title}</b><small>${b.start}–${b.end}</small><span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
     })}
     ${isToday && nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="now" style=${`top:${y(nowMin)}px`}></div>`}
   </div>`;
@@ -228,11 +254,11 @@ function MonthGoals() {
     </div>
     ${goals.length === 0 ? html`<${Card}><${Empty} icon="target" text="这个月还没有目标。定三个就好，少即是多。" /><//>` : html`<div class="goals">${goals.map((g) => {
       const pct = goalPct(g);
-      return html`<${Card} class=${'goal ' + (pct >= 100 ? 'done-all' : '')} key=${g.id} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => { setEditing(g); setModal(true); } }, { label: '复制到下个月', icon: 'calendar', onClick: () => update((d) => { const nm = shiftMonth(month, 1); d.goals[nm] = d.goals[nm] || []; d.goals[nm].push({ ...g, id: uid(), progress: 0, krs: g.krs.map((k) => ({ ...k, id: uid(), done: false })) }); }) }, { label: '全部关键结果标为完成', icon: 'check', disabled: !g.krs.length, onClick: () => update((d) => { d.goals[month].find((x) => x.id === g.id).krs.forEach((k) => { k.done = true; }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => confirmDel() && update((d) => { d.goals[month] = d.goals[month].filter((x) => x.id !== g.id); }) }], g.title)}>
+      return html`<${Card} class=${'goal ' + (pct >= 100 ? 'done-all' : '')} key=${g.id} ...${dragProps('goal', { id: g.id })} ...${dropProps('goal', (d, { after }) => { if (d.id === g.id) return; update((dd) => { const list = dd.goals[month]; const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === g.id); if (after) to++; list.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => { setEditing(g); setModal(true); } }, { label: '复制到下个月', icon: 'calendar', onClick: () => update((d) => { const nm = shiftMonth(month, 1); d.goals[nm] = d.goals[nm] || []; d.goals[nm].push({ ...g, id: uid(), progress: 0, krs: g.krs.map((k) => ({ ...k, id: uid(), done: false })) }); }) }, { label: '全部关键结果标为完成', icon: 'check', disabled: !g.krs.length, onClick: () => update((d) => { d.goals[month].find((x) => x.id === g.id).krs.forEach((k) => { k.done = true; }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => confirmDel() && update((d) => { d.goals[month] = d.goals[month].filter((x) => x.id !== g.id); }) }], g.title)}>
         <div class="gh"><div class="flex1"><h4>${g.title}</h4>${g.area && html`<${Tag}>${g.area}<//>`}</div><span class="pct">${pct}%</span><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => { setEditing(g); setModal(true); }} /></div>
         <div style="margin-top:10px"><${Progress} value=${pct} /></div>
         ${g.why && html`<p class="small muted" style="margin-top:8px">${g.why}</p>`}
-        ${g.krs.filter((k) => k.text.trim()).length > 0 && html`<ul class="krs">${g.krs.filter((k) => k.text.trim()).map((k) => html`<li class=${k.done ? 'done' : ''} onClick=${() => toggleKr(g.id, k.id)}><span class="cb"><${Icon} name="check" size=${10} /></span><span>${k.text}</span></li>`)}</ul>`}
+        ${g.krs.filter((k) => k.text.trim()).length > 0 && html`<ul class="krs">${g.krs.filter((k) => k.text.trim()).map((k) => html`<li class=${k.done ? 'done' : ''} onClick=${() => toggleKr(g.id, k.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: k.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleKr(g.id, k.id) }, { label: '转为待办', icon: 'checksq', onClick: () => upsert('todos', { id: uid(), title: k.text, done: false, priority: 1, due: '', time: '', tags: [], area: g.area || '', note: `来自目标「${g.title}」`, created: todayStr() }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => update((d) => { const gg = d.goals[month].find((x) => x.id === g.id); gg.krs = gg.krs.filter((x) => x.id !== k.id); }) }], k.text)}><span class="cb"><${Icon} name="check" size=${10} /></span><span>${k.text}</span></li>`)}</ul>`}
       <//>`;
     })}</div>`}
     <${GoalModal} open=${modal} goal=${editing} month=${month} onClose=${() => setModal(false)} />
