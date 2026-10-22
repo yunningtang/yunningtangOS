@@ -158,6 +158,23 @@ export function imageToSquare(file, size = 320, quality = 0.88) {
   });
 }
 
+// Any image file -> data URL, downscaled so the longest side is at most maxSide.
+export function imageToDataUrl(file, maxSide = 1600, quality = 0.86) {
+  return new Promise((res, rej) => {
+    if (!file || !/^image\//.test(file.type)) return rej(new Error('请选择图片文件'));
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL(file.type === 'image/png' || file.type === 'image/gif' ? 'image/png' : 'image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('图片无法读取')); };
+    img.src = url;
+  });
+}
+
 export function debounce(fn, ms) {
   let t;
   return (...a) => {

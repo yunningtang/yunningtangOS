@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, confirmDel, AutoTextarea } from '../ui.js';
-import { uid, todayStr, AREAS } from '../util.js';
+import { uid, todayStr, AREAS, pickFile, imageToDataUrl } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { Splitter } from '../resize.js';
 import { askPrompt } from '../confirm.js';
@@ -55,6 +55,9 @@ export default function Vision() {
     setLf({ title: '', by: '', area: '' }); setLtModal(false);
   };
   const avg = (areas.reduce((n, a) => n + a.score, 0) / areas.length).toFixed(1);
+  const delStatement = (st) => { update((d) => { d.vision.statements = d.vision.statements.filter((y) => y.id !== st.id); }); toast('已删除', { label: '撤销', onClick: () => update((d) => { d.vision.statements.push(st); }) }); };
+  const affMenu = (st) => [{ label: '编辑', icon: 'edit', onClick: () => setEditAff(st.id) }, { label: '复制文字', icon: 'layers', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(st.text); toast('已复制'); } }, { label: '放到愿景板', icon: 'image', onClick: () => update((d) => { d.vision.board.unshift({ id: uid(), img: '', caption: '', text: st.text }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => delStatement(st) }];
+  const uploadBoard = async () => { try { const f = await pickFile('image/*'); if (!f) return; const img = await imageToDataUrl(f, 1200); setBf((x) => ({ ...x, img })); } catch (x) { toast(x.message || '上传失败'); } };
 
   return html`<div>
     <div class="page-h">
@@ -63,17 +66,20 @@ export default function Vision() {
     <div class="vision-grid">
       <div class="stack">
         <${Card} title="显化 · 肯定句" sub="用现在时写，像已经发生一样。总览页每天会轮换显示一条。">
-          <div class="quickadd"><${Icon} name="sparkle" size=${15} class="muted" /><input class="flex1" type="text" value=${txt} placeholder="我正在…" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && addStatement()} /></div>
-          ${v.statements.length === 0 ? html`<${Empty} icon="sparkle" text="第一句写什么？试试：我每天都在变得更专注、更自由。" />` : html`<ul class="aff">${v.statements.map((st) => html`<li key=${st.id} ...${dragProps('aff', { id: st.id })} ...${dropProps('aff', (d, { after }) => { if (d.id === st.id) return; update((dd) => { const l = dd.vision.statements; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === st.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => setEditAff(st.id) }, { label: '复制文字', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(st.text); toast('已复制'); } }, { label: '放到愿景板', icon: 'image', onClick: () => update((d) => { d.vision.board.unshift({ id: uid(), img: '', caption: '', text: st.text }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => update((d) => { d.vision.statements = d.vision.statements.filter((y) => y.id !== st.id); }) }], '肯定句')}>
-            <${Icon} name="sparkle" size=${14} />
-            ${editAff === st.id ? html`<input type="text" autofocus value=${st.text} onBlur=${(e) => { update((d) => { const x = d.vision.statements.find((y) => y.id === st.id); if (x) x.text = e.target.value; }); setEditAff(null); }} onKeyDown=${(e) => e.key === 'Enter' && e.target.blur()} />` : html`<span onClick=${() => setEditAff(st.id)}>${st.text}</span>`}
-            <div class="acts"><${IconBtn} class="ibtn danger" icon="x" size=${12} title="删除" onClick=${() => update((d) => { d.vision.statements = d.vision.statements.filter((y) => y.id !== st.id); })} /></div>
-          </li>`)}</ul>`}
+          <div class=${'aff-write ' + (txt.trim() ? 'has' : '')}>
+            <${AutoTextarea} value=${txt} placeholder="我正在…" rows="1" onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addStatement(); } }} />
+            <div class="aff-write-f"><span class="hint">Enter 写下 · Shift+Enter 换行</span><${Btn} small kind="primary" disabled=${!txt.trim()} onClick=${addStatement}>写下<//></div>
+          </div>
+          ${v.statements.length === 0 ? html`<${Empty} icon="sparkle" text="第一句写什么？试试：我每天都在变得更专注、更自由。" />` : html`<ol class="aff">${v.statements.map((st, idx) => html`<li key=${st.id} ...${dragProps('aff', { id: st.id })} ...${dropProps('aff', (d, { after }) => { if (d.id === st.id) return; update((dd) => { const l = dd.vision.statements; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === st.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, affMenu(st), '肯定句')}>
+            <span class="aff-n">${String(idx + 1).padStart(2, '0')}</span>
+            ${editAff === st.id ? html`<${AutoTextarea} class="aff-edit" autofocus value=${st.text} onInput=${(e) => update((d) => { const x = d.vision.statements.find((y) => y.id === st.id); if (x) x.text = e.target.value; })} onBlur=${() => setEditAff(null)} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') e.target.blur(); }} />` : html`<span class="aff-t" onClick=${() => setEditAff(st.id)}>${st.text}</span>`}
+            <div class="acts"><${IconBtn} icon="dots" size=${14} title="更多…" onClick=${(e) => ctxMenu(e, affMenu(st), '肯定句')} /></div>
+          </li>`)}</ol>`}
         <//>
-        <${Card} title="愿景板" sub="图片 URL 或一句话。" action=${html`<${Btn} small icon="plus" onClick=${() => setBoardModal(true)}>添加<//>`}>
+        <${Card} title="愿景板" sub="上传照片、贴图片链接，或只写一句话。" action=${html`<${Btn} small icon="plus" onClick=${() => setBoardModal(true)}>添加<//>`}>
           ${v.board.length === 0 ? html`<${Empty} icon="image" text="把想去的地方、想成为的样子贴上来。" />` : html`<div class="board">${v.board.map((b) => html`<div class=${'bi ' + (b.img ? '' : 'txt')} key=${b.id} ...${dragProps('board', { id: b.id })} ...${dropProps('board', (d, { after }) => { if (d.id === b.id) return; update((dd) => { const l = dd.vision.board; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === b.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [b.img && { label: '打开图片', icon: 'external', onClick: () => window.open(b.img, '_blank', 'noopener') }, { label: '改说明', icon: 'edit', onClick: async () => { const v2 = await askPrompt('说明 / 文字', b.img ? b.caption : b.text, { title: '愿景板' }); if (v2 !== null) update((d) => { const x = d.vision.board.find((y) => y.id === b.id); if (b.img) x.caption = v2; else x.text = v2; }); } }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => update((d) => { d.vision.board = d.vision.board.filter((y) => y.id !== b.id); }) }], '愿景板')}>
             ${b.img ? html`<img src=${b.img} alt=${b.caption} loading="lazy" />${b.caption && html`<div class="cap">${b.caption}</div>`}` : b.text}
-            <button class="ibtn del" onClick=${() => update((d) => { d.vision.board = d.vision.board.filter((y) => y.id !== b.id); })}><${Icon} name="x" size=${12} /></button>
+            <button class="ibtn del" title="更多…" onClick=${(e) => e.currentTarget.parentElement.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: e.clientX, clientY: e.clientY }))}><${Icon} name="dots" size=${13} /></button>
           </div>`)}</div>`}
         <//>
       </div>
@@ -87,14 +93,14 @@ export default function Vision() {
           ${v.longterm.length === 0 ? html`<${Empty} icon="flag" text="三年后的你，在做什么？" />` : html`<div class="lt">${v.longterm.map((g) => html`<div class=${'li ' + (g.done ? 'done' : '')} key=${g.id} ...${dragProps('lt', { id: g.id })} ...${dropProps('lt', (d, { after }) => { if (d.id === g.id) return; update((dd) => { const l = dd.vision.longterm; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === g.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: g.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => update((d) => { const x = d.vision.longterm.find((y) => y.id === g.id); x.done = !x.done; }) }, { label: '改期限', icon: 'calendar', onClick: async () => { const v2 = await askPrompt('期限', g.by, { title: '改期限', placeholder: '2027 / 30 岁前' }); if (v2 !== null) update((d) => { d.vision.longterm.find((y) => y.id === g.id).by = v2; }); } }, { label: '拆成本月目标', icon: 'target', onClick: () => update((d) => { const mk = new Date().toISOString().slice(0, 7); d.goals[mk] = d.goals[mk] || []; d.goals[mk].push({ id: uid(), title: g.title, area: g.area || '', why: '长期目标的一步', progress: 0, krs: [] }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => { update((d) => { d.vision.longterm = d.vision.longterm.filter((y) => y.id !== g.id); }); toast(`已删除「${g.title}」`, { label: '撤销', onClick: () => update((d) => { d.vision.longterm.push(g); }) }); } }], g.title)}>
             <button class=${'cb ' + (g.done ? 'on' : '')} style=${`width:18px;height:18px;border-radius:6px;border:1.5px solid ${g.done ? 'var(--teal)' : 'var(--text-4)'};background:${g.done ? 'var(--teal)' : 'transparent'};color:#fff;display:grid;place-items:center`} onClick=${() => update((d) => { const x = d.vision.longterm.find((y) => y.id === g.id); x.done = !x.done; })}><${Icon} name="check" size=${11} /></button>
             <b>${g.title}</b>${g.area && html`<${Tag}>${g.area}<//>`}<span class="by">${g.by}</span>
-            <${IconBtn} class="ibtn danger" icon="x" size=${12} title="删除" onClick=${() => { update((d) => { d.vision.longterm = d.vision.longterm.filter((y) => y.id !== g.id); }); toast(`已删除「${g.title}」`, { label: '撤销', onClick: () => update((d) => { d.vision.longterm.push(g); }) }); }} />
+            <${IconBtn} class="ibtn lt-more" icon="dots" size=${14} title="更多…" onClick=${(e) => e.currentTarget.parentElement.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: e.clientX, clientY: e.clientY }))} />
           </div>`)}</div>`}
         <//>
       </div>
     </div>
     <${Modal} open=${boardModal} onClose=${() => setBoardModal(false)} title="添加到愿景板" foot=${html`<${Btn} kind="ghost" onClick=${() => setBoardModal(false)}>取消<//><${Btn} kind="primary" onClick=${addBoard}>添加<//>`}>
       <div class="form">
-        <${Field} label="图片 URL"><input type="url" value=${bf.img} placeholder="https://…" onInput=${(e) => setBf({ ...bf, img: e.target.value })} /><//>
+        <${Field} label="图片"><div class="row" style="gap:8px"><${Btn} small icon="image" onClick=${uploadBoard}>上传图片<//><input class="flex1" type="url" value=${bf.img.startsWith('data:') ? '' : bf.img} placeholder="或粘贴图片链接 https://…" onInput=${(e) => setBf({ ...bf, img: e.target.value })} /></div>${bf.img && html`<div class="board-prev"><img src=${bf.img} alt="" /><button class="ibtn" title="移除" onClick=${() => setBf({ ...bf, img: '' })}><${Icon} name="x" size=${12} /></button></div>`}<//>
         <${Field} label="说明"><input type="text" value=${bf.caption} onInput=${(e) => setBf({ ...bf, caption: e.target.value })} /><//>
         <${Field} label="或者只写一句话（没有图片时显示为文字卡）"><input type="text" value=${bf.text} onInput=${(e) => setBf({ ...bf, text: e.target.value })} /><//>
       </div>

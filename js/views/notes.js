@@ -164,7 +164,7 @@ export function useTreeState() {
 }
 
 /* ---------- main view: notebooks / pages / page ---------- */
-function snippet(n) { return (n.body || '').replace(/@\[[a-z]+:[\w-]+\|([^\]]+)\]/g, '$1').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/==/g, '').replace(/[#>*`\[\]\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); }
+function snippet(n) { return (n.body || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '$1').replace(/<\/?u>/g, '').replace(/=={[a-z]}/g, '').replace(/@\[[a-z]+:[\w-]+\|([^\]]+)\]/g, '$1').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/==/g, '').replace(/[#>*`\[\]\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); }
 
 export default function Notes({ route }) {
   const s = useStore();
@@ -247,7 +247,7 @@ export default function Notes({ route }) {
           <b>${n.pinned && html`<${Icon} name="pin" size=${11} class="li-pin" />`}${par ? html`<span class="li-par">${noteTitle(par)} / </span>` : ''}${noteTitle(n)}</b>
           <p>${snippet(n) || '空白页'}</p>
           <small>${n.updated.slice(5, 10).replace('-', '/')}${nbSel === 'all' || nbSel === 'fav' ? html` · <i style=${`background:${nb ? nb.color : '#999'}`}></i> ${nb ? nb.name : ''}` : ''}${n.tags.length ? ' · ' + n.tags.map((t) => '#' + t).join(' ') : ''}</small>
-          <span class="li-acts"><button class="ibtn" title=${n.pinned ? '取消收藏' : '收藏'} onClick=${(e) => { e.preventDefault(); upsert('notes', { id: n.id, pinned: !n.pinned }); }}><${Icon} name="pin" size=${13} /></button><button class="ibtn danger" title="删除" onClick=${(e) => { e.preventDefault(); trashPages(subtreeIds(s.notes, n.id), noteTitle(n)); }}><${Icon} name="trash" size=${13} /></button></span>
+          <span class="li-acts"><button class="ibtn" title="更多…" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); ctxMenu(e, pageMenu(n, s.notes, { notebooks: nbs, openPath: tree.openPath }), noteTitle(n)); }}><${Icon} name="dots" size=${14} /></button></span>
         </a>`; })}
       </div>
     </section>`}
@@ -316,7 +316,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
         <${IconBtn} icon="pin" title=${note.pinned ? '取消收藏' : '收藏'} class=${'ibtn ' + (note.pinned ? 'on' : '')} onClick=${() => upsert('notes', { id: note.id, pinned: !note.pinned })} />
         <${IconBtn} icon="layers" title="移动到…" onClick=${() => setMoveOpen(true)} />
         <${IconBtn} icon="plus" title="新建子页面" onClick=${onCreateChild} />
-        <${IconBtn} icon="trash" class="ibtn danger" title="删除（可在最近删除中恢复）" onClick=${() => trashPages(subtreeIds(notes, note.id), title)} />
+        <${IconBtn} icon="dots" title="更多…" onClick=${(e) => ctxMenu(e, pageMenu(note, notes, { move: () => setMoveOpen(true), notebooks, focus: () => setFocus(true), cover: () => upsert('notes', { id: note.id, cover: nextCover(note.cover || '') }) }), title)} />
       </div>
     </div>
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
