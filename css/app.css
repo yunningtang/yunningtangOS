@@ -594,7 +594,7 @@ input.page-title::placeholder{color:var(--text-4);opacity:.6}
 .b-row.drop-before::before,.b-row.drop-after::after{content:"";position:absolute;left:0;right:0;height:2px;background:var(--ink);border-radius:2px}
 .b-row.drop-before::before{top:-2px}.b-row.drop-after::after{bottom:-2px}
 .b-gutter{position:absolute;left:-46px;top:3px;display:flex;gap:0;opacity:0;transition:opacity .1s;height:24px;align-items:center}
-.b-row:hover>.b-gutter,.b-row:focus-within>.b-gutter{opacity:1}
+.b-row:hover>.b-gutter{opacity:1}
 .b-plus,.b-handle{width:22px;height:24px;border-radius:var(--r3);display:grid;place-items:center;color:var(--text-4);font-size:.8rem;letter-spacing:-2px}
 .b-plus{font-size:1rem;letter-spacing:0}
 .b-plus:hover,.b-handle:hover{background:var(--hover-2);color:var(--text)}

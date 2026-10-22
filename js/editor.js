@@ -515,7 +515,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     const lk = e.target.closest && e.target.closest('a[href]');
     if (lk) { e.preventDefault(); if (e.metaKey || e.ctrlKey) { window.open(lk.getAttribute('href'), '_blank', 'noopener'); return; } const r = lk.getBoundingClientRect(), rr = root.current.getBoundingClientRect(); setLp({ x: r.left - rr.left, y: r.bottom - rr.top + 6, href: lk.getAttribute('href'), el: lk }); return; }
     // click on the empty space below the last block: a drag that ends in another block also "clicks" the root, so require press and release there
-    const blank = (t) => t === root.current || t.classList.contains('liq') || t.classList.contains('b-tail');
+    const blank = (t) => t === root.current || t.classList.contains('b-tail');
     if (blank(e.target) && downAt.current && blank(downAt.current) && sel().isCollapsed) { const last = bs[bs.length - 1]; if (last && TEXT_TYPES.includes(last.type) && !textOf(last.html)) setFocusReq({ id: last.id, pos: 'end' }); else insertAfter(last.id, block('p')); }
   };
   const onCtx = (e) => {
@@ -536,11 +536,10 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const items = menuItems();
   const tbBtn = (title, fn, child, cls = '') => html`<button title=${title} class=${cls} onMouseDown=${(e) => e.preventDefault()} onClick=${() => { fn(); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); }}>${child}</button>`;
 
-  return html`<div class=${'beditor font-' + (pageFont || 'default')} ref=${root} contenteditable="true" spellcheck="false" data-liquid=".b-row"
+  return html`<div class=${'beditor font-' + (pageFont || 'default')} ref=${root} contenteditable="true" spellcheck="false"
     onKeyDown=${onKey} onInput=${onInput} onPaste=${onPaste} onCopy=${onCopy} onCut=${onCut} onClick=${onClick} onContextMenu=${onCtx} onDrop=${onDrop}
     onCompositionStart=${() => { composing.current = true; }} onCompositionEnd=${() => { composing.current = false; scheduleEmit(); }}
     onMouseDown=${(e) => { downAt.current = e.target; if (lpRef.current && !(e.target.closest && e.target.closest('.link-pop'))) setLp(null); }}>
-    <span class="liq" contenteditable="false"></span>
     ${lp && html`<div class="link-pop" contenteditable="false" style=${`left:${lp.x}px;top:${lp.y}px`} onMouseDown=${(e) => e.stopPropagation()}>
       <a class="lp-url" href=${lp.href} target="_blank" rel="noopener" title=${lp.href}><${Icon} name="external" size=${12} /> ${hostName(lp.href)}</a>
       <button class="ibtn" title="编辑链接" onClick=${editLink}><${Icon} name="edit" size=${13} /></button>
