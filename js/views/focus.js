@@ -117,6 +117,7 @@ function useTick(ms) { const [, f] = useState(0); useEffect(() => { const t = se
 function Span({ rem }) { useTick(15000); const now = new Date(); return html`<div class="pomo-span">${hhmm(now)} → ${hhmm(new Date(now.getTime() + rem * 1000))}</div>`; }
 function Dial({ rem, phase, full }) {
   useTick(1000);
+  const secDelay = useRef(-((Date.now() / 1000) % 60)); // fixed at mount so the sweep is not restarted on every render
   const [drag, setDrag] = useState(null); // minutes while dragging the sector (idle only)
   const [tilt, setTilt] = useState(null); // [rx, ry] from the pointer, for the 3D lean
   const ref = useRef();
@@ -165,7 +166,7 @@ function Dial({ rem, phase, full }) {
         <path d=${`M${C - 5},${C + 16} L${C - 3},${C - R + 16} L${C + 3},${C - R + 16} L${C + 5},${C + 16} Z`} class="d3-hand-p" />
         <path d=${`M${C - 1.2},${C} L${C - 1.2},${C - R + 22} L${C + 1.2},${C - R + 22} L${C + 1.2},${C} Z`} class="d3-hand-core" />
       </g>
-      <g class=${'d3-sec ' + (phase !== 'idle' && pomo.get().paused ? 'paused' : '')} style=${`transform-origin:${C}px ${C}px;animation-delay:-${((Date.now() / 1000) % 60).toFixed(2)}s`}><line x1=${C} y1=${C + 18} x2=${C} y2=${C - R + 10} class="d3-sec-l" /><circle cx=${C} cy=${C + 18} r="3" class="d3-sec-t" /></g>
+      <g class=${'d3-sec ' + (phase !== 'idle' && pomo.get().paused ? 'paused' : '')} style=${`transform-origin:${C}px ${C}px;animation-delay:${secDelay.current.toFixed(2)}s`}><line x1=${C} y1=${C + 18} x2=${C} y2=${C - R + 10} class="d3-sec-l" /><circle cx=${C} cy=${C + 18} r="3" class="d3-sec-t" /></g>
       <circle cx=${C} cy=${C} r="10" class="d3-hub" /><circle cx=${C} cy=${C} r="4" class="d3-hub-in" />
     </svg>
     ${drag != null && html`<div class="d3-bubble">${drag} 分钟</div>`}
