@@ -364,7 +364,10 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .todo.done .tt .ti{color:var(--text-4);text-decoration:line-through}
 .todo .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;align-items:center;font-size:.72rem;color:var(--text-4)}
 .todo .meta .due.late{color:var(--red)}.todo .meta .due.today{color:var(--blue)}
-.todo .pr{width:3px;align-self:stretch;border-radius:2px;background:var(--pc);flex-shrink:0;opacity:.8}
+.todo .pr{display:none}
+.todo .pflag{display:inline-flex;vertical-align:-1px;margin-right:5px;color:var(--pc)}
+.todo.p0 .cb{border-color:var(--red)}.todo.p0 .cb:hover{border-color:var(--red)}
+.todo.p3 .tt .ti{color:var(--text-3)}
 .todo .acts{opacity:0;transition:opacity .1s;display:flex}
 .todo:hover .acts,.todo:focus-within .acts{opacity:1}
 .quickadd{display:flex;gap:8px;align-items:center;padding:4px 8px 4px 12px;border-radius:12px;background:var(--input);margin-bottom:8px;border:1px solid transparent}

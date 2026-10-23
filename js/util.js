@@ -197,10 +197,10 @@ export function sortBy(arr, ...keys) {
 }
 
 export const PRIORITY = [
-  { v: 0, label: 'P0', name: '紧急', color: '#d2524f' },
-  { v: 1, label: 'P1', name: '重要', color: '#d07f3a' },
-  { v: 2, label: 'P2', name: '普通', color: '#3b6fd6' },
-  { v: 3, label: 'P3', name: '随缘', color: '#9aa3ad' },
+  { v: 0, label: 'P0', name: '紧急', color: 'var(--red)' },
+  { v: 1, label: 'P1', name: '重要', color: 'var(--amber)' },
+  { v: 2, label: 'P2', name: '普通', color: 'var(--blue)' },
+  { v: 3, label: 'P3', name: '随缘', color: 'var(--text-4)' },
 ];
 
 export const AREAS = ['学习', '工作', '创作', '健康', '关系', '财务', '生活', '探索'];
