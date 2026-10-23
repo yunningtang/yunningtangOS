@@ -1,5 +1,5 @@
 // Shared UI primitives: icons, cards, inputs, modal, tags.
-import { html, useEffect, useRef, useState } from '../vendor/preact.js';
+import { html, useEffect, useRef, useState, createPortal } from '../vendor/preact.js';
 import { tagHue, todayStr as _today, pad as _pad, WEEKDAY_SUN as _WD, fmtDate as _fmt } from './util.js';
 
 const ICONS = {
@@ -221,13 +221,13 @@ export function DateInput({ value, onChange, placeholder = '选择日期', clear
   const t = _today();
   return html`<div class=${'pick ' + cls}>
     <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'is-empty')} onClick=${() => setOpen(!open)}><${Icon} name="calendar" size=${13} /><span>${label}</span></button>
-    ${open && pos && html`<div class="pop cal" style=${`top:${pos.top}px;left:${pos.left}px`}>
+    ${open && pos && createPortal(html`<div class="pop cal" style=${`top:${pos.top}px;left:${pos.left}px`}>
       <div class="pop-h"><button type="button" class="ibtn" onClick=${() => shift(-1)}><${Icon} name="left" size=${14} /></button><b>${y} 年 ${m} 月</b><button type="button" class="ibtn" onClick=${() => shift(1)}><${Icon} name="right" size=${14} /></button></div>
       <div class="cal-grid">${['日', '一', '二', '三', '四', '五', '六'].map((w) => html`<span class="cal-w">${w}</span>`)}
         ${cells.map((d, i) => d ? html`<button type="button" key=${d} class=${'cal-d ' + (d === value ? 'sel' : '') + (d === t ? ' today' : '')} onClick=${() => { onChange(d); setOpen(false); }}>${Number(d.slice(8))}</button>` : html`<span key=${'e' + i}></span>`)}
       </div>
       <div class="pop-f"><button type="button" class="btn ghost sm" onClick=${() => { onChange(t); setOpen(false); }}>今天</button><button type="button" class="btn ghost sm" onClick=${() => { onChange(t.slice(0, 8) + _pad(new Date().getDate() + 1 > days ? 1 : new Date().getDate() + 1)); setOpen(false); }}>明天</button><span class="flex1"></span>${clearable && value && html`<button type="button" class="btn ghost sm" onClick=${() => { onChange(''); setOpen(false); }}>清除</button>`}</div>
-    </div>`}
+    </div>`, document.body)}
   </div>`;
 }
 
@@ -240,9 +240,9 @@ export function Select({ value, options = [], onChange, placeholder = '—', cla
   const cur = opts.find((o) => o.v === value);
   return html`<div class=${'pick ' + cls}>
     <button type="button" ref=${ref} class=${'pick-btn ' + (cur ? '' : 'is-empty')} onClick=${() => setOpen(!open)}><span class="flex1">${cur ? cur.label : placeholder}</span><${Icon} name="down" size=${12} class="caret" /></button>
-    ${open && pos && html`<div class="pop sel" style=${`top:${pos.top}px;left:${pos.left}px`}>
+    ${open && pos && createPortal(html`<div class="pop sel" style=${`top:${pos.top}px;left:${pos.left}px`}>
       <div class="time-list">${clearable && html`<button type="button" class=${'time-i ' + (!value ? 'sel' : '')} onClick=${() => { onChange(''); setOpen(false); }}>${placeholder}</button>`}${opts.map((o) => html`<button type="button" key=${o.v} class=${'time-i ' + (o.v === value ? 'sel' : '')} onClick=${() => { onChange(o.v); setOpen(false); }}>${o.label}</button>`)}</div>
-    </div>`}
+    </div>`, document.body)}
   </div>`;
 }
 
@@ -257,10 +257,10 @@ export function TimeInput({ value, onChange, placeholder = '时间', step = 30, 
   const commit = (v) => { const m = v.trim().match(/^(\d{1,2})[:：.]?(\d{2})?$/); if (!m) return; const h = Math.min(23, +m[1]), mm = Math.min(59, +(m[2] || 0)); onChange(`${_pad(h)}:${_pad(mm)}`); setOpen(false); };
   return html`<div class=${'pick ' + cls}>
     <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'is-empty')} onClick=${() => setOpen(!open)}><${Icon} name="clock" size=${13} /><span>${value || placeholder}</span></button>
-    ${open && pos && html`<div class="pop time" style=${`top:${pos.top}px;left:${pos.left}px`}>
+    ${open && pos && createPortal(html`<div class="pop time" style=${`top:${pos.top}px;left:${pos.left}px`}>
       <input type="text" class="time-in" placeholder="输入如 9:30" autofocus onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(e.target.value); } }} />
       <div class="time-list" ref=${listRef}>${slots.map((s) => html`<button type="button" key=${s} data-t=${s} class=${'time-i ' + (s === value ? 'sel' : '')} onClick=${() => { onChange(s); setOpen(false); }}>${s}</button>`)}</div>
       ${clearable && value && html`<div class="pop-f"><button type="button" class="btn ghost sm" onClick=${() => { onChange(''); setOpen(false); }}>清除</button></div>`}
-    </div>`}
+    </div>`, document.body)}
   </div>`;
 }
