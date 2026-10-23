@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, toggleTodo, update, removeUndo } from '../store.js';
-import { usePomo } from './focus.js';
+import { usePomo, PomoCard } from './focus.js';
 import * as pomo from '../pomo.js';
 import { Icon, Card, Btn, Tag, Empty, Progress, useClock } from '../ui.js';
 import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS } from '../util.js';
@@ -121,7 +121,6 @@ export default function Dashboard() {
   const [drag, setDrag] = useState(null); // { id }
   const [over, setOver] = useState(null); // { id, after } | { col }
   const [custom, setCustom] = useState(false);
-  const [fwLabel, setFwLabel] = useState('');
   const [wmenu, setWmenu] = useState(null);
   const moveTo = (id, index) => {
     const list = layout.order.filter((x) => x !== id); const at = index == null ? list.length : Math.max(0, Math.min(list.length, index));
@@ -198,33 +197,7 @@ export default function Dashboard() {
         ${quote && html`<div class="quote-line"><${Icon} name="sparkle" size=${13} /> ${quote.text}</div>`}
       <//>` },
     calendar: { title: '月历', span: 1, el: html`<${MonthCal} s=${s} today=${today} />` },
-    focus: { title: '专注', span: 1, el: (() => {
-      const rem = pomo.remaining(); const total = (pst.phase === 'break' ? pst.breakLen : pst.workLen) * 60; const pct = pst.phase === 'idle' ? 0 : 1 - rem / total; const R = 118, C = 2 * Math.PI * R;
-      return html`<${Card} class=${'focus-w ' + pst.phase + (pst.paused ? ' paused' : '')} pad=${false}>
-        <div class="fw-hero">
-          <div class="fw-top"><span class="fh-k">${pst.phase === 'idle' ? '专注' : pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停' : '专注中'}</span><a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a></div>
-          <div class="pomo-ring"><svg viewBox="0 0 280 280"><defs><linearGradient id="pgw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--pg1)" /><stop offset="1" stop-color="var(--pg2)" /></linearGradient></defs>
-            <circle cx="140" cy="140" r=${R} class="pr-bg" /><circle cx="140" cy="140" r=${R} class="pr-fg" stroke="url(#pgw)" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - pct)} />
-            ${pst.phase !== 'idle' && html`<circle class="pr-dot" cx=${140 + R * Math.cos((pct * 360 - 90) * Math.PI / 180)} cy=${140 + R * Math.sin((pct * 360 - 90) * Math.PI / 180)} r="6" />`}</svg>
-            <div class="pomo-t"><div class="pomo-time">${pomo.fmt(rem)}</div><div class="pomo-sub">${pst.phase === 'idle' ? `${pst.workLen} 分钟` : pst.phase === 'break' ? '休息' : (pst.label || '专注')}</div></div>
-          </div>
-          ${pst.phase === 'idle' ? html`
-            <form class="fw-start" onSubmit=${(e) => { e.preventDefault(); pomo.start({ label: fwLabel.trim() }); setFwLabel(''); }}>
-              <input type="text" value=${fwLabel} placeholder="这一轮要做什么？" onInput=${(e) => setFwLabel(e.target.value)} />
-              <button type="submit" class="fw-go" title="开始专注"><${Icon} name="play" size=${14} /> 开始</button>
-            </form>
-            <div class="chips fw-chips">${[25, 45, 50, 90].map((w) => html`<button key=${w} type="button" class=${'chip ' + (pst.workLen === w ? 'on' : '')} onClick=${() => pomo.setLens(w, Math.max(5, Math.round(w / 5)))}>${w}<i>分</i></button>`)}</div>`
-          : html`<div class="fw-ctl">
-              <button class="pf-btn main" onClick=${() => (pst.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${pst.paused ? 'play' : 'pause'} size=${13} /> ${pst.paused ? '继续' : '暂停'}</button>
-              ${pst.phase === 'work' ? html`<button class="pf-btn" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${13} /> 完成</button>` : html`<button class="pf-btn" onClick=${() => pomo.skip()}><${Icon} name="right" size=${13} /> 跳过</button>`}
-              <button class="pf-btn danger" title="放弃" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${13} /></button>
-            </div>`}
-        </div>
-        <div class="fw-foot">
-          <div class="fw-today"><small>今天</small><b>${fmtH(focusToday)}</b><span class="muted">/ ${GOAL_MIN / 60}h</span><span class="flex1"></span><span class="muted small">${Math.round((focusToday / GOAL_MIN) * 100)}%</span></div>
-          <div class="prog"><i style=${`width:${Math.min(100, (focusToday / GOAL_MIN) * 100)}%`}></i></div>
-        </div>
-      <//>`; })() },
+    focus: { title: '专注', span: 1, el: html`<${PomoCard} />` },
     notes: { title: '笔记', span: 1, el: html`<${Card}>
         <div class="card-h"><h3>笔记</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${(nbOf(s, n.nb) || {}).color || 'var(--text-4)'}`} title=${(nbOf(s, n.nb) || {}).name || ''}></i><div><b>${noteTitle(n)}</b><small>${n.updated.slice(5, 16).replace('T', ' · ')}</small></div></a>`)}</div>
