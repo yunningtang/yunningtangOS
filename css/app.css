@@ -24,8 +24,8 @@ html[data-theme="light"]{
   --sel:rgba(79,124,245,.16);--cal-bg:#f3f5f9;--code-bg:#f3f5f9;--blue:#4f7cf5;--ac:79,124,245;
   --red:#d2524f;--amber:#c7873a;--green:#3f8f62;--teal:#2d8f88;--violet:#7461c9;--rose:#c9588a;--orange:#d87b3a;
   --liq:rgba(22,25,31,.065);
-  --glass:rgba(255,255,255,.56);--glass-side:rgba(246,247,250,.62);--glass-line:rgba(255,255,255,.7);--glass-edge:rgba(20,24,40,.07);--glass-hl:rgba(255,255,255,.85);--glass-shadow:0 14px 40px -28px rgba(20,24,60,.35);--blur:22px;
-  --blob1:rgba(79,124,245,.14);--blob2:rgba(201,88,138,.1);--blob3:rgba(45,143,136,.11);--blob4:rgba(199,135,58,.08);
+  --glass:rgba(255,255,255,.68);--glass-side:rgba(246,247,250,.6);--glass-line:rgba(255,255,255,.95);--glass-edge:rgba(20,24,40,.06);--glass-hl:rgba(255,255,255,1);--glass-shadow:0 2px 12px rgba(20,24,40,.04),0 12px 32px -24px rgba(20,24,40,.25);--blur:22px;
+  --blob1:rgba(79,124,245,.12);--blob2:rgba(201,88,138,.08);--blob3:rgba(45,143,136,.09);--blob4:rgba(199,135,58,.07);
 }
 html[data-theme="dark"]{
   --bg:#121419;--side:#121419;--paper:#1b1e25;--card-bg:#1a1d24;
@@ -207,9 +207,10 @@ html[data-theme="dark"] .tag.th{color:hsl(var(--th) 45% 76%);border-color:hsl(va
 
 /* ===== Cards (flat panels) ===== */
 .card{position:relative;border-radius:var(--r);background:var(--glass);-webkit-backdrop-filter:blur(var(--blur)) saturate(1.6);backdrop-filter:blur(var(--blur)) saturate(1.6);box-shadow:inset 0 1px 0 var(--glass-hl),0 0 0 1px var(--glass-edge),var(--glass-shadow);transition:box-shadow .25s var(--ease);overflow:hidden}
-.card::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1px var(--glass-line);mix-blend-mode:soft-light}
+.card::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1.5px var(--glass-line)}
+html[data-theme="dark"] .card::after{box-shadow:inset 0 0 0 1px var(--glass-line)}
 .card.pad{padding:18px 20px}
-.card:hover{box-shadow:inset 0 1px 0 var(--glass-hl),0 0 0 1px var(--glass-edge),0 18px 46px -26px rgba(20,24,60,.4)}
+.card:hover{box-shadow:inset 0 1px 0 var(--glass-hl),0 0 0 1px rgba(20,24,40,.09),0 2px 12px rgba(20,24,40,.05),0 18px 40px -24px rgba(20,24,40,.3)}
 .card-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
 .card-h h3{font-size:var(--fs-lg);font-weight:600;letter-spacing:-.01em}
 .card-sub{display:block;font-size:var(--fs-xs);color:var(--text-4);margin-top:2px;font-weight:400}
