@@ -11,8 +11,8 @@ import { dropProps } from '../dnd.js';
 import { snippetOf, newNote } from './notes.js';
 import { mdToBlocks } from '../blocks.js';
 
-const NODE_COLORS = [['', '默认'], ['#4f7cf5', '蓝'], ['#2d8f88', '青'], ['#4a9a6a', '绿'], ['#c7873a', '琥珀'], ['#c9588a', '玫红'], ['#7461c9', '紫'], ['#d2524f', '红']];
-const PEN_COLORS = ['#1b1d21', '#4f7cf5', '#d2524f', '#4a9a6a', '#c7873a', '#7461c9'];
+const NODE_COLORS = [['', '默认'], ['#4d6bfe', '蓝'], ['#2d8f88', '青'], ['#4a9a6a', '绿'], ['#c7873a', '琥珀'], ['#c9588a', '玫红'], ['#7461c9', '紫'], ['#d2524f', '红']];
+const PEN_COLORS = ['#1b1d21', '#4d6bfe', '#d2524f', '#4a9a6a', '#c7873a', '#7461c9'];
 const now = () => new Date().toISOString();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -62,7 +62,7 @@ function Board({ board, notes, notebooks }) {
   const viewRef = useRef(view); const setView = (v) => { const next = typeof v === 'function' ? v(viewRef.current) : v; viewRef.current = next; setViewState(next); };
   useEffect(() => { const t = setTimeout(() => lsSet('ytos.cv.' + board.id, view), 300); return () => clearTimeout(t); }, [view]);
   const [tool, setTool] = useState('select');
-  const [pen, setPen] = useState({ color: '#4f7cf5', width: 3 });
+  const [pen, setPen] = useState({ color: '#4d6bfe', width: 3 });
   const [sel, setSel] = useState(null); // { kind: 'node'|'edge'|'stroke', id }
   const [editing, setEditing] = useState(null);
   const [temp, setTemp] = useState(null);

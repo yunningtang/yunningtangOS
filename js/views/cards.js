@@ -11,7 +11,7 @@ import { snippetOf } from './notes.js';
 
 export const STATUS = [
   { v: 'idea', label: '待开始', color: '#8a8f98' },
-  { v: 'doing', label: '进行中', color: '#4f7cf5' },
+  { v: 'doing', label: '进行中', color: '#4d6bfe' },
   { v: 'review', label: '待复习', color: '#c7873a' },
   { v: 'done', label: '已完成', color: '#4a9a6a' },
 ];

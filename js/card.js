@@ -43,7 +43,7 @@ export function blockLines(blocks) {
   return out;
 }
 
-export function renderCard({ title, sub = '', blocks = [], foot = '', color = '#4f7cf5', dark = false }) {
+export function renderCard({ title, sub = '', blocks = [], foot = '', color = '#4d6bfe', dark = false }) {
   const W = 1080, PAD = 72, S = 2; const inner = W - PAD * 2;
   const bg = dark ? '#15171a' : '#f6f4ee', card = dark ? '#1f2228' : '#ffffff', text = dark ? '#ececea' : '#1b1d21', muted = dark ? '#9b9b98' : '#6b7079', line = dark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.08)';
   const c = document.createElement('canvas'); const ctx = c.getContext('2d');

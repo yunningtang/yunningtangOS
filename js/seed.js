@@ -53,7 +53,7 @@ export function seed() {
   ];
 
   const nMeta = uid(), nRes = uid(), nMethod = uid(), nLife = uid(), nRead = uid(), nPaper = uid(), nSprint = uid(), nTrip = uid();
-  s.notebooks = [{ id: 'nb-inbox', name: '收件箱', color: '#8a8f98', order: 0 }, { id: 'nb-res', name: '研究', color: '#4f7cf5', order: 1 }, { id: 'nb-method', name: '方法', color: '#2d8f88', order: 2 }, { id: 'nb-life', name: '生活', color: '#c7873a', order: 3 }];
+  s.notebooks = [{ id: 'nb-inbox', name: '收件箱', color: '#8a8f98', order: 0 }, { id: 'nb-res', name: '研究', color: '#4d6bfe', order: 1 }, { id: 'nb-method', name: '方法', color: '#2d8f88', order: 2 }, { id: 'nb-life', name: '生活', color: '#c7873a', order: 3 }];
   s.notes = [
     { id: nMeta, nb: 'nb-inbox', title: '个人 OS 的使用方式', icon: '', parent: null, order: 0, body: '# 怎么用这个系统\n\n- **总览**：每天早上打开，看今天的待办与时间线。\n- **计划**：周日晚上写本周焦点；月初定三个月目标。\n- **阅读 / 收藏**：读到好东西先丢进来，周末统一消化。\n- **笔记**：像 Notion 一样是页面树。页面里输入 `/` 插入块，输入两个左方括号链接到别的页面，比如 [[阅读方法]]；页面底部会显示谁链接到了它。\n- **愿景**：肯定句每天轮换一条显示在总览。\n- **探索**：去过的地方都点亮在星球上。\n\n> 💡 数据在本机浏览器里。设置里可以同步到 GitHub 仓库，或导出 JSON 备份。', tags: ['meta'], pinned: true, created: t, updated: now },
     { id: nRes, nb: 'nb-res', title: '研究概览', icon: '', parent: null, order: 1, body: '研究相关的一切：论文、实验、组会。\n\n- [[论文写作计划]]\n- [[Attention 论文笔记]]\n- 方法论见 [[阅读方法]]', tags: ['研究'], pinned: false, created: addDays(t, -30), updated: now },
