@@ -1168,6 +1168,6 @@ html[data-theme="dark"] .heat-col i.l1{background:#2a3d66}html[data-theme="dark"
   .nb-foot .nb-i span{font-size:.7rem}
   .ctable .c-upd,.ctable th:last-child{display:none}.ctable .c-title span{max-width:140px}
   .cards-bar{padding:4px 10px 10px}.ctable-wrap,.cards-board{padding:0 8px 24px}
-  .cv-wrap{height:calc(100vh - 150px)}.cv-tb{padding:6px 8px;gap:4px}.cv-tools button{padding:0 8px}.cv-tb>.btn span,.cv-tb>.btn{font-size:.74rem}.cv-hint{display:none}
+  .cv-wrap{height:calc(100vh - 150px)}.cv-tb{padding:6px 8px;gap:4px}.cv-tools button{padding:0 8px}.cv-add .t{display:none}.cv-add{width:30px;padding:0;justify-content:center}.cv-hint{display:none}
 }
 body.print-page .nt-sec{display:none}
