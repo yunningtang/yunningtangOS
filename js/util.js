@@ -220,9 +220,17 @@ export function kindColor(v) {
 }
 
 // Stable pastel colour for a label (tags, areas).
-export const TAG_HUES = [8, 150, 190, 215, 240, 265, 300, 340];
+// Each tag gets its own hue: the first time a tag is seen it takes the next free colour from a
+// list ordered so neighbours contrast well; past the list, golden-angle hues keep them distinct.
+export const TAG_HUES = [215, 350, 160, 30, 265, 190, 10, 120, 290, 45, 240, 330, 175, 80, 200, 315, 140, 20];
+const HUE_KEY = 'ytos.taghue';
+let hueMap = null;
+function loadHues() { if (hueMap) return hueMap; try { hueMap = new Map(Object.entries(JSON.parse(localStorage.getItem(HUE_KEY) || '{}'))); } catch { hueMap = new Map(); } return hueMap; }
 export function tagHue(name) {
-  let h = 0;
-  for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return TAG_HUES[h % TAG_HUES.length];
+  const key = String(name).trim().replace(/^#/, '').toLowerCase(); if (!key) return TAG_HUES[0];
+  const m = loadHues(); if (m.has(key)) return m.get(key);
+  const used = new Set(m.values()); let h = TAG_HUES.find((x) => !used.has(x));
+  if (h == null) { let i = m.size; do { h = Math.round((i * 137.508) % 360); i++; } while (used.has(h)); }
+  m.set(key, h); try { localStorage.setItem(HUE_KEY, JSON.stringify(Object.fromEntries(m))); } catch {}
+  return h;
 }
