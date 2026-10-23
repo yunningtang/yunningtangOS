@@ -13,6 +13,7 @@ import { goalPct } from './planner.js';
 import { ancestors, noteTitle, isBlank, newNote, nbOf } from './notes.js';
 import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
+import { NowWidget } from './now.js';
 
 const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
 const GOAL_MIN = 4 * 60;
@@ -103,15 +104,17 @@ export default function Dashboard() {
     return out;
   }, [blocks]);
 
-  const SPAN = { profile: 3, timeline: 1, todos: 1, focus: 1, pages: 2, calendar: 1, goals: 2, notes: 1, focusweek: 2, links: 1, week: 3 };
-  const ORDER = ['profile', 'timeline', 'todos', 'focus', 'pages', 'calendar', 'goals', 'notes', 'focusweek', 'links', 'week'];
+  const SPAN = { profile: 3, now: 1, timeline: 1, todos: 1, focus: 1, pages: 2, calendar: 1, goals: 2, notes: 1, focusweek: 2, links: 1, week: 2 };
+  const ORDER = ['profile', 'now', 'timeline', 'todos', 'focus', 'pages', 'calendar', 'goals', 'notes', 'focusweek', 'links', 'week'];
   const DEFAULT = { order: ORDER, hidden: [], sizes: {} };
   const layout = useMemo(() => {
     const l = s.settings.dash || DEFAULT; const known = new Set(ORDER);
     const base = l.order || [...(l.main || []), ...(l.side || [])]; // older two-column layouts fold into one list
     const hidden = (l.hidden || []).filter((id) => known.has(id));
     const used = new Set([...base, ...hidden]);
-    return { order: base.filter((id) => known.has(id)).concat(ORDER.filter((id) => !used.has(id))), hidden, sizes: l.sizes || {} };
+    let order = base.filter((id) => known.has(id)).concat(ORDER.filter((id) => !used.has(id) && id !== 'now'));
+    if (!used.has('now')) order.splice(Math.min(1, order.length), 0, 'now'); // new widget lands right under the profile card
+    return { order, hidden, sizes: l.sizes || {} };
   }, [s.settings.dash]);
   const setLayout = (next) => update((d) => { d.settings.dash = next; });
   const [drag, setDrag] = useState(null); // { id }
@@ -159,6 +162,7 @@ export default function Dashboard() {
         <div class="flex1"><div class="p-name">${greeting(now)}，${s.profile.name}</div><div class="p-sub">${s.profile.motto} · ${now.getMonth() + 1}月${now.getDate()}日 ${WEEKDAY_SUN[now.getDay()]} · ${weekKey()}</div></div>
         <button class=${'btn ghost sm ' + (custom ? 'on' : '')} onClick=${() => setCustom(!custom)}><${Icon} name="grid" size=${14} /> ${custom ? '完成' : '自定义'}</button>
       <//>` },
+    now: { title: '此刻', span: 1, el: html`<${NowWidget} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl-wrap" ref=${(el) => { if (el && !el.dataset.scrolled) { el.dataset.scrolled = 1; const target = nowMin >= from * 60 && nowMin <= to * 60 ? y(nowMin) : (blocks.length ? y(timeToMin(blocks[0].start)) : 0); el.scrollTop = Math.max(0, target - 140); } }}>

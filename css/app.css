@@ -986,6 +986,22 @@ html[data-theme="dark"] .heat-col i.l1{background:#2a3d66}html[data-theme="dark"
 @media(max-width:520px){.stats{grid-template-columns:1fr 1fr}.week{grid-template-columns:1fr}.card.pad{padding:14px}.page-h h1{font-size:1.4rem}.hero .greet h1{font-size:1.5rem}.board-cols{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
+/* ===== Now widget: clock / place / weather ===== */
+.now-w.pad{padding:18px 20px 16px;display:flex;flex-direction:column}
+.now-clock{display:flex;align-items:baseline;gap:4px;font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1}
+.now-clock b{font-size:2.6rem;font-weight:700}.now-clock small{font-size:1rem;color:var(--text-4);font-weight:500}
+.now-date{margin-top:6px;font-size:.8rem;color:var(--text-3)}
+.now-loc{display:inline-flex;align-items:center;gap:5px;margin-top:14px;font-size:.8rem;color:var(--text-2);padding:3px 8px 3px 6px;margin-left:-6px;border-radius:8px;max-width:100%}.now-loc:hover{background:var(--hover)}.now-loc .ic{color:var(--text-4);flex-shrink:0}.now-loc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.now-loc small{color:var(--text-4)}
+.now-wx{display:flex;align-items:center;gap:12px;margin-top:10px;padding:12px 14px;border-radius:12px;background:var(--side)}
+.now-wx .wx-ic{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--blue);background:var(--paper);box-shadow:var(--shadow);flex-shrink:0}.now-wx.night .wx-ic{color:var(--violet)}
+.now-wx .wx-t{font-size:1.5rem;font-weight:600;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}.now-wx .wx-t i{font-style:normal;font-size:.9rem;color:var(--text-4);margin-left:1px}
+.now-wx .wx-d{font-size:.74rem;color:var(--text-3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now-days{display:flex;justify-content:space-between;margin-top:10px;padding:0 4px}
+.now-days div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.68rem;color:var(--text-4)}.now-days .ic{color:var(--text-3)}.now-days b{font-weight:500;color:var(--text-2);font-variant-numeric:tabular-nums}
+.now-msg{margin-top:10px;font-size:.76rem;color:var(--text-4);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.now-msg .btn{height:26px}
+.place-pop{width:260px}.place-pop .time-i small{display:block;font-size:.68rem;color:var(--text-4)}
+
 /* ===== Print (导出 PDF) ===== */
 @media print{
   body.print-page{background:#fff!important}
