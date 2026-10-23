@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useMemo } from '../../vendor/preact.js';
+import { html, useState, useEffect, useMemo, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, toggleTodo } from '../store.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
@@ -111,19 +111,57 @@ function useTick(ms) { const [, f] = useState(0); useEffect(() => { const t = se
 function Span({ rem }) { useTick(15000); const now = new Date(); return html`<div class="pomo-span">${hhmm(now)} → ${hhmm(new Date(now.getTime() + rem * 1000))}</div>`; }
 function Dial({ rem, phase, full }) {
   useTick(1000);
-  const now = Date.now(); const C = 140, R = 112;
-  const a0 = ((now / 60000) % 60) * 6; const span = Math.min(360, (rem / 60) * 6); const a1 = a0 + span;
+  const [drag, setDrag] = useState(null); // minutes while dragging the sector (idle only)
+  const [tilt, setTilt] = useState(null); // [rx, ry] from the pointer, for the 3D lean
+  const ref = useRef();
+  const C = 140, R = 104, PIE_R = R / 2;
+  const nowA = ((Date.now() / 60000) % 60) * 6;
+  const mins = drag != null ? drag : rem / 60;
+  const span = Math.min(360, mins * 6);
+  const circ = 2 * Math.PI * PIE_R;
+  const idle = phase === 'idle';
+  const angleAt = (e) => { const r = ref.current.getBoundingClientRect(); const x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2); return ((Math.atan2(x, -y) * 180 / Math.PI) + 360) % 360; };
+  const minsAt = (e) => { let d = (angleAt(e) - nowA + 360) % 360; let m = Math.round(d / 6 / 5) * 5; if (m === 0) m = 60; return Math.max(5, Math.min(60, m)); };
+  const down = (e) => { if (!idle || e.button) return; e.preventDefault(); ref.current.setPointerCapture(e.pointerId); setDrag(minsAt(e)); };
+  const move = (e) => {
+    if (drag != null) { setDrag(minsAt(e)); return; }
+    const r = ref.current.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5; setTilt([-y * 14, x * 14]);
+  };
+  const up = (e) => { if (drag == null) return; const m = drag; setDrag(null); pomo.setLens(m, Math.max(3, Math.round(m / 5))); };
+  const leave = () => setTilt(null);
+  const wheel = (e) => { if (!idle) return; e.preventDefault(); const cur = pomo.get().workLen; const m = Math.max(5, Math.min(180, cur + (e.deltaY < 0 ? 5 : -5))); pomo.setLens(m, Math.max(3, Math.round(m / 5))); };
+  const style = tilt ? `transform:perspective(600px) rotateX(${tilt[0]}deg) rotateY(${tilt[1]}deg)` : '';
   const pt = (a, r) => [C + r * Math.sin(a * Math.PI / 180), C - r * Math.cos(a * Math.PI / 180)];
-  const [sx, sy] = pt(a0, R), [ex, ey] = pt(a1, R);
-  const sector = span >= 360 ? `M${C - R},${C} a${R},${R} 0 1,0 ${R * 2},0 a${R},${R} 0 1,0 ${-R * 2},0` : `M${C},${C} L${sx},${sy} A${R},${R} 0 ${span > 180 ? 1 : 0},1 ${ex},${ey} Z`;
-  const [hx, hy] = pt(a0, R * 0.8);
-  return html`<div class=${'dial ' + phase}><svg viewBox="0 0 280 280">
-    <circle cx=${C} cy=${C} r=${R + 14} class="dl-face" />
-    <path d=${sector} class="dl-sector" />
-    ${Array.from({ length: 60 }, (_, i) => { const big = i % 5 === 0; const [x1, y1] = pt(i * 6, R + 3), [x2, y2] = pt(i * 6, R + (big ? 11 : 7)); return html`<line key=${i} x1=${x1} y1=${y1} x2=${x2} y2=${y2} class=${'dl-tick ' + (big ? 'big' : '')} />`; })}
-    <line x1=${C} y1=${C} x2=${hx} y2=${hy} class="dl-hand" />
-    <circle cx=${C} cy=${C} r="7" class="dl-hub" />
-  </svg></div>`;
+  const uid = full ? 'f' : 'w';
+  return html`<div class=${'dial3 ' + phase + (drag != null ? ' turning' : '') + (idle ? ' idle' : '')} ref=${ref} style=${style} onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onPointerLeave=${leave} onWheel=${wheel} title=${idle ? '拖动表盘或滚轮设置时长' : ''}>
+    <svg viewBox="0 0 280 280">
+      <defs>
+        <radialGradient id=${'rim' + uid} cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="var(--d-rim1)" /><stop offset="1" stop-color="var(--d-rim2)" /></radialGradient>
+        <radialGradient id=${'face' + uid} cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="var(--d-face1)" /><stop offset="1" stop-color="var(--d-face2)" /></radialGradient>
+        <linearGradient id=${'pie' + uid} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--pg1)" /><stop offset="1" stop-color="var(--pg2)" /></linearGradient>
+        <linearGradient id=${'gloss' + uid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55" /><stop offset="1" stop-color="#fff" stop-opacity="0" /></linearGradient>
+        <linearGradient id=${'hand' + uid} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--pg1)" /><stop offset="1" stop-color="var(--pg2)" /></linearGradient>
+        <filter id=${'soft' + uid} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5" /></filter>
+      </defs>
+      <circle cx=${C} cy=${C} r=${R + 22} class="d3-shadow" />
+      <circle cx=${C} cy=${C} r=${R + 18} fill=${'url(#rim' + uid + ')'} class="d3-rim" />
+      <circle cx=${C} cy=${C} r=${R + 8} class="d3-groove" />
+      <circle cx=${C} cy=${C} r=${R + 4} fill=${'url(#face' + uid + ')'} class="d3-face" />
+      <g class="d3-pie" style=${`transform:rotate(${nowA}deg);transform-origin:${C}px ${C}px`}>
+        <circle cx=${C} cy=${C} r=${PIE_R} fill="none" stroke=${'url(#pie' + uid + ')'} stroke-width=${R} stroke-dasharray=${`${circ * span / 360} ${circ}`} class="d3-pie-c" style=${`transform:rotate(-90deg);transform-origin:${C}px ${C}px`} />
+      </g>
+      ${Array.from({ length: 60 }, (_, i) => { const big = i % 5 === 0; const [x1, y1] = pt(i * 6, R - 2), [x2, y2] = pt(i * 6, R - (big ? 12 : 7)); return html`<line key=${i} x1=${x1} y1=${y1} x2=${x2} y2=${y2} class=${'d3-tick ' + (big ? 'big' : '')} />`; })}
+      ${[15, 30, 45, 60].map((n) => { const [x, y] = pt(n * 6, R - 24); return html`<text key=${n} x=${x} y=${y + 4} class="d3-num">${n}</text>`; })}
+      <ellipse cx=${C} cy=${C - R * 0.45} rx=${R * 0.78} ry=${R * 0.42} fill=${'url(#gloss' + uid + ')'} class="d3-gloss" />
+      <g class="d3-hand" style=${`transform:rotate(${nowA}deg);transform-origin:${C}px ${C}px`}>
+        <path d=${`M${C - 5},${C + 16} L${C - 3},${C - R + 16} L${C + 3},${C - R + 16} L${C + 5},${C + 16} Z`} class="d3-hand-sh" filter=${'url(#soft' + uid + ')'} />
+        <path d=${`M${C - 5},${C + 16} L${C - 3},${C - R + 16} L${C + 3},${C - R + 16} L${C + 5},${C + 16} Z`} class="d3-hand-p" />
+        <path d=${`M${C - 1.2},${C} L${C - 1.2},${C - R + 22} L${C + 1.2},${C - R + 22} L${C + 1.2},${C} Z`} class="d3-hand-core" />
+      </g>
+      <circle cx=${C} cy=${C} r="10" class="d3-hub" /><circle cx=${C} cy=${C} r="4" class="d3-hub-in" />
+    </svg>
+    ${drag != null && html`<div class="d3-bubble">${drag} 分钟</div>`}
+  </div>`;
 }
 
 /* ---------- statistics: heatmap + day/week/month/year chart ---------- */
