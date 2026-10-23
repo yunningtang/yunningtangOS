@@ -1,1 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#18a8a2"/><stop offset="1" stop-color="#2878e8"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#g)"/><circle cx="32" cy="32" r="13" fill="none" stroke="#fff" stroke-width="3"/><ellipse cx="32" cy="32" rx="24" ry="8" fill="none" stroke="#fff" stroke-width="2.4" transform="rotate(-24 32 32)"/><circle cx="32" cy="32" r="4" fill="#fff"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    .bg{fill:#ffffff}.a{fill:#4f7cf5}.b{fill:#15171a}.c{fill:none;stroke:#15171a;stroke-width:3}.d{fill:#c9cdd4}
+    @media (prefers-color-scheme:dark){.bg{fill:#15171a}.b{fill:#f1efe8}.c{stroke:#f1efe8}.d{fill:#5a5e66}}
+  </style>
+  <rect class="bg" width="64" height="64" rx="16"/>
+  <rect class="a" x="13" y="13" width="17" height="17" rx="5"/>
+  <rect class="b" x="34" y="13" width="17" height="17" rx="5"/>
+  <rect class="c" x="14.5" y="35.5" width="14" height="14" rx="4"/>
+  <rect class="d" x="34" y="34" width="17" height="17" rx="5"/>
+</svg>
