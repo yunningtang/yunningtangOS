@@ -11,6 +11,7 @@ import { todayStr, escapeHtml, imageToDataUrl, pickFile } from './util.js';
 import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './files.js';
 import { fetchAttachment } from './sync.js';
 import { toast } from './nav.js';
+import { TEMPLATES, templateBlocks } from './templates.js';
 
 // Last thing copied from any editor in this tab: lets paste keep block types (lists, headings, todos) intact.
 let lastCopy = null;
@@ -20,6 +21,7 @@ const SLASH_EXTRA = [
   { k: 'date', label: '今天的日期', hint: todayStr() },
   { k: 'link', label: '链接到页面', hint: '[[ 双链' },
   { k: 'sub', label: '新建子页面', hint: '在这里嵌入' },
+  ...TEMPLATES.map((t) => ({ k: 'tpl:' + t.k, label: '模板：' + t.label, hint: t.hint })),
 ];
 const SLASH_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'table', 'code', 'divider', 'image', 'file'];
 const CONVERT_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'code'];
@@ -166,7 +168,7 @@ export function focusEditor(root, where = 'start') {
 }
 
 /* ---------- editor ---------- */
-export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop }) {
+export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop, onExport }) {
   const allNotes = () => (notesRef ? notesRef.current : notes);
   const [bs, setBs] = useState(() => (initial && initial.length ? initial.map((b) => ({ ...b, v: 0 })) : [block('p', '', { v: 0 })]));
   const [focusReq, setFocusReq] = useState(null);
@@ -492,6 +494,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     deleteBeforeCaret(el, m.q.length + 1);
     setMenu(null);
     if (it.k === 'date') { exec('insertText', todayStr() + ' '); emit(syncFromDom(bsRef.current)); return; }
+    if (it.k && it.k.startsWith('tpl:')) { const tpl = templateBlocks(it.k.slice(4)).map((x) => ({ ...x, v: 0 })); const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); const empty = !el.textContent.trim(); list.splice(empty ? i : i + 1, empty ? 1 : 0, ...tpl); emit(list); const first = tpl.find((x) => TEXT_TYPES.includes(x.type) && !textOf(x.html)) || tpl[0]; setFocusReq({ id: first.id, pos: 'end' }); return; }
     if (it.k === 'link') { exec('insertText', '[['); setMenu({ kind: 'link', id: b.id, q: '', idx: 0 }); return; }
     if (it.k === 'sub') { askPrompt('子页面标题', '', { title: '新建子页面', placeholder: '标题' }).then((title) => { if (!title) return; if (onCreatePage) onCreatePage(title); setCaret(el, 'end'); insertNodeAt(sel().getRangeAt(0), mkAnchor('wiki', { title }, title)); emit(syncFromDom(bsRef.current)); }); return; }
     const type = it.type;
@@ -620,6 +623,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       { label: '复制', icon: 'layers', hint: '⌘C', onClick: () => document.execCommand('copy') },
       { label: '删除选中内容', icon: 'trash', danger: true, hint: '⌫', onClick: () => deleteAcross() },
       'sep',
+      onExport && { label: '导出选中为图片卡片', icon: 'image', onClick: () => onExport(selectedBlocks(), 'save') },
+      onExport && { label: '复制选中为图片', icon: 'image', onClick: () => onExport(selectedBlocks(), 'copy') },
+      onExport && 'sep',
       ...['p', 'h2', 'h3', 'bullet', 'number', 'todo', 'quote'].map((t) => ({ label: '转为' + TYPES[t].label, icon: 'note', onClick: () => emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) && TEXT_TYPES.includes(b.type) ? bump(b, { type: t }) : b))) })),
     ], `${rows.length} 个块`);
   };

@@ -8,6 +8,7 @@ import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { toast } from '../nav.js';
+import { NoteTasks, noteTasks } from './ntasks.js';
 
 // Quick-add grammar: "写论文 @明天 14:00 !1 #研究 #写作"
 export function quickParse(text) {
@@ -179,6 +180,7 @@ export default function Todos({ route }) {
         <div class="todo-group" ...${dropProps('todo', (d) => { const map = { 逾期: addDays(today, -1), 今天: today, 明天: addDays(today, 1), 本周: addDays(today, 2), 之后: addDays(today, 8), 未排期: '', 已完成: null }; const due = map[name]; if (due === null) { const t = s.todos.find((x) => x.id === d.id); if (t && !t.done) toggleTodo(d.id); } else upsert('todos', { id: d.id, due, ...(due === '' ? { time: '' } : {}) }); })}>
         <div class="group-h">${name}<i></i><span>${list.length}</span></div>
         ${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} onEdit=${(x) => { setEditing(x); setModal(true); }} />`)}</div>`)}
+      ${view !== 'done' && !tagF && noteTasks(s.notes).length > 0 && html`<div class="todo-group nt-sec"><div class="group-h">笔记里的待办<i></i><a class="group-link" href="#/notes/tasks">全部 ${noteTasks(s.notes).length} →</a></div><${NoteTasks} notes=${s.notes} notebooks=${s.notebooks} limit=${8} /></div>`}
       ${view === 'done' && todos.length > 0 && html`<div class="row" style="justify-content:flex-end;margin-top:10px"><${Btn} kind="ghost" small icon="archive" onClick=${async () => { if (await askConfirm(`将移除 ${todos.length} 项已完成的待办。`, { title: '清空已完成？', ok: '清空' })) update((d) => { d.todos = d.todos.filter((t) => !t.done); }); }}>清空已完成<//></div>`}
     <//>
     <${TodoModal} open=${modal} todo=${editing} onClose=${() => setModal(false)} />

@@ -21,6 +21,7 @@ export function SearchPalette({ open, onClose }) {
     const m = (...xs) => xs.join(' ').toLowerCase().includes(k);
     ROUTES.filter((r) => r.path && m(r.name, r.path)).forEach((r) => add('页面', r.name, '', r.path));
     s.todos.filter((t) => m(t.title, t.note, t.tags.join(' '))).slice(0, 6).forEach((t) => add('待办', t.title, t.due || '', 'todos'));
+    (s.canvases || []).filter((c) => m(c.title)).slice(0, 3).forEach((c) => add('画布', c.title || '未命名画布', `${c.nodes.length} 个节点`, 'notes/canvas/' + c.id));
     s.notes.filter((n) => m(n.title, n.body, n.tags.join(' '))).slice(0, 6).forEach((n) => add('笔记', n.title || '无标题', n.tags.join(' '), 'notes/' + n.id));
     s.books.filter((b) => m(b.title, b.author, b.note)).slice(0, 5).forEach((b) => add('阅读', b.title, b.author, 'reading'));
     s.links.filter((l) => m(l.title, l.url, l.note, l.tags.join(' '))).slice(0, 5).forEach((l) => add('收藏', l.title, l.host, l.url));

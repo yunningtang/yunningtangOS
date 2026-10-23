@@ -64,6 +64,13 @@ const ICONS = {
   zap: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
   wheel: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>',
   archive: '<path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/>',
+  cursor: '<path d="M4 3l7.5 17 2.6-7.3L21.5 10z"/>',
+  type: '<path d="M5 7V4h14v3M9 20h6M12 4v16"/>',
+  pen: '<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.6 7.6"/><circle cx="11" cy="11" r="2"/>',
+  eraser: '<path d="M20 20H8.5L3 14.5 12.5 5l7 7-6 6"/><path d="M6 11.5l6.5 6.5"/>',
+  kanban: '<rect x="3" y="3" width="5" height="18" rx="1.5"/><rect x="10" y="3" width="5" height="12" rx="1.5"/><rect x="17" y="3" width="4" height="8" rx="1.5"/>',
+  frame: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 8h4v4H8zM14 13h3v3h-3zM12 10l2 3"/>',
+  maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
   tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/>',
 };
 
