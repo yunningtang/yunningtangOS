@@ -6,7 +6,7 @@ import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
 import { get as storeGet } from './store.js';
-import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd } from './blocks.js';
+import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable } from './blocks.js';
 import { todayStr, escapeHtml, imageToDataUrl } from './util.js';
 import { toast } from './nav.js';
 
@@ -19,7 +19,7 @@ const SLASH_EXTRA = [
   { k: 'link', label: '链接到页面', hint: '[[ 双链' },
   { k: 'sub', label: '新建子页面', hint: '在这里嵌入' },
 ];
-const SLASH_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'code', 'divider', 'image'];
+const SLASH_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'table', 'code', 'divider', 'image'];
 const CONVERT_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'code'];
 
 /* ---------- caret helpers ---------- */
@@ -31,6 +31,7 @@ function caretOffset(el) {
   return r.toString().length;
 }
 function setCaret(el, pos) {
+  if (el.tagName === 'TABLE') { const cells = el.querySelectorAll('td,th'); el = pos === 'end' ? cells[cells.length - 1] : cells[0]; if (!el) return; }
   const host = hostOf(el); if (host && document.activeElement !== host) host.focus({ preventScroll: true });
   const s = sel(), r = document.createRange();
   const len = el.textContent.length;
@@ -42,7 +43,7 @@ function setCaret(el, pos) {
     if (acc + l >= target) { r.setStart(node, target - acc); done = true; break; }
     acc += l;
   }
-  if (!done) { r.selectNodeContents(el); r.collapse(false); } else r.collapse(true);
+  if (!done) { if (!el.textContent.length) { r.setStart(el, 0); r.collapse(true); } else { r.selectNodeContents(el); r.collapse(false); } } else r.collapse(true);
   s.removeAllRanges(); s.addRange(r);
   const rect = el.getBoundingClientRect();
   if (rect.bottom > innerHeight - 40 || rect.top < 60) el.scrollIntoView({ block: 'nearest' });
@@ -90,12 +91,22 @@ function blocksToHtml(blocks) {
       case 'quote': case 'callout': return `<blockquote>${h}</blockquote>`;
       case 'code': return `<pre><code>${h}</code></pre>`;
       case 'divider': return '<hr>';
+      case 'table': return '<table>' + (b.rows || []).map((r, i) => '<tr>' + r.map((c) => (b.header !== false && i === 0 ? `<th>${c}</th>` : `<td>${c}</td>`)).join('') + '</tr>').join('') + '</table>';
       case 'image': return `<img src="${escapeHtml(b.url || '')}" alt="${escapeHtml(textOf(h))}">`;
       default: return `<p>${h}</p>`;
     }
   }).join('\n').replace(/<\/ul>\n<ul>/g, '\n').replace(/<\/ol>\n<ol>/g, '\n');
 }
-function cloneBlock(x) { return { ...block(x.type, x.html, { indent: x.indent || 0, checked: !!x.checked, url: x.url, lang: x.lang, icon: x.icon }), v: 0 }; }
+function cloneBlock(x) { return { ...block(x.type, x.html, { indent: x.indent || 0, checked: !!x.checked, url: x.url, lang: x.lang, icon: x.icon, ...(x.rows ? { rows: x.rows.map((r) => [...r]), header: x.header } : {}) }), v: 0 }; }
+/* ---------- tables ---------- */
+const tableRows = (tbl) => [...tbl.rows].map((tr) => [...tr.cells].map((td) => td.innerHTML.replace(/^(<br>)+|(<br>)+$/g, '')));
+function renderTable(tbl, b) {
+  const rows = b.rows || emptyTable(); const header = b.header !== false;
+  // an empty cell gets a <br> so the caret can sit in it (Chrome does the same while editing)
+  tbl.innerHTML = rows.map((r, i) => '<tr>' + r.map((c) => `<${header && i === 0 ? 'th' : 'td'} class="b-cell">${c || '<br>'}</${header && i === 0 ? 'th' : 'td'}>`).join('') + '</tr>').join('');
+  tbl.dataset.json = JSON.stringify([rows, header]);
+}
+function cellOf(node) { const el = node && (node.nodeType === 1 ? node : node.parentElement); return el && el.closest ? el.closest('td,th') : null; }
 function onEdgeLine(el, which) {
   const s = sel(); if (!s.rangeCount) return true;
   const r = s.getRangeAt(0).cloneRange(); const rects = r.getClientRects(); const box = el.getBoundingClientRect();
@@ -187,11 +198,15 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (!hist.current.lock && prev && !sameDoc(prev, next)) { hist.current.past.push(prev); if (hist.current.past.length > 200) hist.current.past.shift(); hist.current.future = []; }
     bsRef.current = next; setBs(next);
     const cache = cleanCache.current, fresh = new Map();
-    const out = next.map(({ v, ...b }) => { let c = cache.get(b.html); if (c === undefined) c = sanitize(b.html); fresh.set(b.html, c); return { ...b, html: c }; });
+    const out = next.map(({ v, ...b }) => { if (b.type === 'table') return { ...b, html: '', rows: (b.rows || []).map((r) => r.map((c) => sanitize(c))) }; let c = cache.get(b.html); if (c === undefined) c = sanitize(b.html); fresh.set(b.html, c); return { ...b, html: c }; });
     cleanCache.current = fresh;
     onChange(out);
   }, [onChange]);
-  const syncFromDom = (list = bsRef.current) => list.map((b) => { const el = refs.current.get(b.id); return el && el.isConnected && b.type !== 'divider' && el.innerHTML !== b.html ? { ...b, html: el.innerHTML } : b; });
+  const syncFromDom = (list = bsRef.current) => list.map((b) => {
+    const el = refs.current.get(b.id); if (!el || !el.isConnected || b.type === 'divider') return b;
+    if (b.type === 'table') { const rows = tableRows(el); const json = JSON.stringify([rows, b.header !== false]); if (json === el.dataset.json) return b; el.dataset.json = json; return { ...b, rows }; }
+    return el.innerHTML !== b.html ? { ...b, html: el.innerHTML } : b;
+  });
   const bump = (b, patch) => ({ ...b, ...patch, v: (b.v || 0) + 1 });
   const scheduleEmit = () => { clearTimeout(emitTimer.current); emitTimer.current = setTimeout(() => emit(syncFromDom(bsRef.current)), 500); };
   useEffect(() => () => clearTimeout(emitTimer.current), []);
@@ -227,6 +242,30 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     else if (b.type === 'code' && t !== 'code') update(b.id, { type: t, html: escapeHtml(textOf(b.html)).replace(/\n/g, '<br>') });
     else update(b.id, { type: t });
   };
+
+  /* --- table operations (row / column indices from the DOM cell) --- */
+  const tableOp = (b, op, ri = 0, ci = 0) => {
+    const cur = syncFromDom(bsRef.current).find((x) => x.id === b.id); if (!cur) return;
+    let rows = (cur.rows || emptyTable()).map((r) => [...r]); let header = cur.header !== false;
+    const w = rows[0] ? rows[0].length : 1;
+    if (op === 'rowBelow') rows.splice(ri + 1, 0, Array(w).fill(''));
+    else if (op === 'rowAbove') rows.splice(ri, 0, Array(w).fill(''));
+    else if (op === 'colRight') rows.forEach((r) => r.splice(ci + 1, 0, ''));
+    else if (op === 'colLeft') rows.forEach((r) => r.splice(ci, 0, ''));
+    else if (op === 'delRow') { if (rows.length > 1) rows.splice(ri, 1); else { removeBlock(b.id); return; } }
+    else if (op === 'delCol') { if (w > 1) rows.forEach((r) => r.splice(ci, 1)); else { removeBlock(b.id); return; } }
+    else if (op === 'header') header = !header;
+    const list = syncFromDom(bsRef.current).map((x) => (x.id === b.id ? bump(x, { rows, header }) : x)); emit(list);
+    const fr = op === 'rowBelow' ? ri + 1 : op === 'rowAbove' ? ri : Math.min(ri, rows.length - 1), fc = op === 'colRight' ? ci + 1 : op === 'colLeft' ? ci : Math.min(ci, rows[0].length - 1);
+    setFocusReq({ id: b.id, pos: 'start', then: () => { const tbl = refs.current.get(b.id); const cell = tbl && tbl.rows[fr] && tbl.rows[fr].cells[fc]; if (cell) setCaret(cell, 'end'); } });
+  };
+  const tableMenu = (b, cell) => { const ri = cell ? cell.parentElement.rowIndex : 0, ci = cell ? cell.cellIndex : 0; return [
+    { label: '上方插入行', icon: 'up', onClick: () => tableOp(b, 'rowAbove', ri, ci) }, { label: '下方插入行', icon: 'down', onClick: () => tableOp(b, 'rowBelow', ri, ci) },
+    { label: '左侧插入列', icon: 'left', onClick: () => tableOp(b, 'colLeft', ri, ci) }, { label: '右侧插入列', icon: 'right', onClick: () => tableOp(b, 'colRight', ri, ci) },
+    'sep', { label: b.header === false ? '首行作为表头' : '取消表头', icon: 'grid', onClick: () => tableOp(b, 'header', ri, ci) },
+    'sep', { label: '删除这一行', icon: 'x', onClick: () => tableOp(b, 'delRow', ri, ci) }, { label: '删除这一列', icon: 'x', onClick: () => tableOp(b, 'delCol', ri, ci) }, { label: '删除表格', icon: 'trash', danger: true, onClick: () => removeBlock(b.id) },
+  ]; };
+  Object.assign(api.current, { tableOp, tableMenu });
 
   /* --- undo / redo across block operations --- */
   const restore = (snap) => { const next = snap.map((b) => ({ ...b, v: ++vclock })); hist.current.lock = true; emit(next); hist.current.lock = false; return next; };
@@ -312,6 +351,16 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (mod && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); moveBlock(b.id, e.key === 'ArrowUp' ? -1 : 1); return; }
     if (mod && e.key === 'Enter') { if (b.type === 'todo') { e.preventDefault(); update(b.id, { checked: !b.checked }); } else if (b.type === 'toggle') { e.preventDefault(); update(b.id, { open: !b.open }); } return; }
     if (!el) return;
+    if (b.type === 'table') {
+      const cell = cellOf(sel().anchorNode); if (!cell) return;
+      const cells = [...el.querySelectorAll('td,th')]; const i = cells.indexOf(cell);
+      if (e.key === 'Tab') { e.preventDefault(); if (e.shiftKey) { if (i > 0) setCaret(cells[i - 1], 'end'); else { const n = neighbor(b.id, -1); if (n) setFocusReq({ id: n.id, pos: 'end' }); } } else if (i < cells.length - 1) setCaret(cells[i + 1], 'end'); else tableOp(b, 'rowBelow', el.rows.length - 1, 0); return; }
+      if (e.key === 'Enter') { e.preventDefault(); if (e.metaKey || e.ctrlKey) { tableOp(b, 'rowBelow', cell.parentElement.rowIndex, cell.cellIndex); return; } exec('insertLineBreak'); scheduleEmit(); return; }
+      if (e.key === 'ArrowDown' && !e.shiftKey && cell.parentElement.rowIndex === el.rows.length - 1 && onEdgeLine(cell, 'down')) { const n = neighbor(b.id, 1); if (n) { e.preventDefault(); setFocusReq({ id: n.id, pos: 'start' }); } else { e.preventDefault(); insertAfter(b.id, block('p')); } return; }
+      if (e.key === 'ArrowUp' && !e.shiftKey && cell.parentElement.rowIndex === 0 && onEdgeLine(cell, 'up')) { const n = neighbor(b.id, -1); if (n) { e.preventDefault(); setFocusReq({ id: n.id, pos: 'end' }); } else if (onExitTop) { e.preventDefault(); onExitTop(); } return; }
+      if (e.key === 'Backspace' && !cell.textContent && sel().isCollapsed) { e.preventDefault(); if (i > 0) setCaret(cells[i - 1], 'end'); return; }
+      return;
+    }
     if (b.type === 'code' || b.type === 'md') {
       if (e.key === 'Escape') { el.blur(); setMdEdit(null); root.current.focus({ preventScroll: true }); }
       if (e.key === 'Tab') { e.preventDefault(); exec('insertText', '  '); }
@@ -357,7 +406,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     const { b, el } = c;
     const t = e.inputType || ''; const d = e.data;
     if (composing.current || t === 'insertCompositionText') { scheduleEmit(); return; }
-    if (b.type === 'code' || b.type === 'md') { scheduleEmit(); return; }
+    if (b.type === 'code' || b.type === 'md' || b.type === 'table') { scheduleEmit(); return; }
     const m = menuRef.current;
     if (m && m.id === b.id) {
       const before = textBeforeCaret(el); let mm;
@@ -437,6 +486,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (type === 'image') { askPrompt('图片链接', '', { title: '插入图片', placeholder: 'https://…' }).then((url) => { if (!url) return; if (!el.textContent.trim()) update(b.id, { type: 'image', url, html: '' }); else insertAfter(b.id, block('image', '', { url })); }); return; }
     if (type === 'divider') { if (!el.textContent.trim()) { const list = syncFromDom(bsRef.current).map((x) => (x.id === b.id ? bump(x, { type: 'divider', html: '' }) : x)); const i = list.findIndex((x) => x.id === b.id); const nb = { ...block('p'), v: 0 }; list.splice(i + 1, 0, nb); emit(list); setFocusReq({ id: nb.id, pos: 'start' }); } else insertAfter(b.id, block('divider'), null); return; }
     if (type === 'code') { update(b.id, { type, html: escapeHtml(el.textContent) }, 'end'); return; }
+    if (type === 'table') { const rows = emptyTable(); if (!el.textContent.trim()) update(b.id, { type, html: '', rows, header: true }, 'start'); else insertAfter(b.id, block('table', '', { rows, header: true }), 'start'); return; }
     update(b.id, { type, html: el.innerHTML, checked: false }, 'end');
   };
 
@@ -461,8 +511,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const insertBlocksAt = (b, el, parsed) => {
     if (!parsed.length) return;
     const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); if (i < 0) return;
-    const empty = !el || !el.textContent.trim();
+    const empty = TEXT_TYPES.includes(b.type) && (!el || !el.textContent.trim());
     const v0 = parsed.map((x) => ({ ...x, v: 0 }));
+    if (!TEXT_TYPES.includes(b.type)) { if (b.type === 'table' && v0.length === 1 && v0[0].type === 'p') { exec('insertHTML', v0[0].html); scheduleEmit(); return; } list.splice(i + 1, 0, ...v0); emit(list); const last = v0[v0.length - 1]; setFocusReq({ id: last.id, pos: 'end' }); return; }
     if (empty && (b.type === 'p' || !TEXT_TYPES.includes(v0[0].type) || v0.length > 1)) { list.splice(i, 1, ...v0.map((x, k) => (k === 0 && TEXT_TYPES.includes(x.type) && b.type !== 'p' && v0.length === 1 ? { ...x, type: b.type, indent: b.indent || 0 } : x))); }
     else if (el && (v0[0].type === 'p' || v0[0].type === b.type)) { exec('insertHTML', v0[0].html); list[i] = bump(list[i], { html: el.innerHTML }); list.splice(i + 1, 0, ...v0.slice(1)); if (v0.length === 1) { emit(list); return; } }
     else list.splice(i + 1, 0, ...v0);
@@ -485,7 +536,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       const parsed = await parseClipboard(data, b.type);
       if (!parsed.length) { if (data.text) exec('insertText', data.text); scheduleEmit(); return; }
       if (s0 && !s0.isCollapsed) s0.deleteFromDocument();
-      if (parsed.length === 1 && parsed[0].type === 'p' && (el.textContent.trim() || b.type !== 'p')) { exec('insertHTML', parsed[0].html); emit(syncFromDom(bsRef.current)); return; }
+      if (parsed.length === 1 && parsed[0].type === 'p' && TEXT_TYPES.includes(b.type) && (el.textContent.trim() || b.type !== 'p')) { exec('insertHTML', parsed[0].html); emit(syncFromDom(bsRef.current)); return; }
       insertBlocksAt(b, el, parsed);
     };
     if (rowsInSelection(root.current).length >= 2) deleteAcross(() => { go(); }); else go();
@@ -587,14 +638,15 @@ class Row extends Component {
     if (this.props.md && !prev.md && this.el) this.el.focus();
   }
   componentWillUnmount() { const { api, b } = this.props; if (api.refs.current.get(b.id) === this.el) api.refs.current.delete(b.id); }
-  sync() { const el = this.el, b = this.props.b; if (el) { this.props.api.refs.current.set(b.id, el); if (el.innerHTML !== b.html) el.innerHTML = b.html; } }
+  sync() { const el = this.el, b = this.props.b; if (!el) return; this.props.api.refs.current.set(b.id, el); if (b.type === 'table') { if (el.dataset.json !== JSON.stringify([b.rows || emptyTable(), b.header !== false])) renderTable(el, b); return; } if (el.innerHTML !== b.html) el.innerHTML = b.html; }
   render({ b, api, hm, drag, dragging, drop, md, num }) {
     const { update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert } = api;
-    const setEl = (el) => { this.el = el; if (el) api.refs.current.set(b.id, el); };
+    const setEl = (el) => { this.el = el; if (el) { api.refs.current.set(b.id, el); if (b.type === 'table' && !el.dataset.json) renderTable(el, b); } };
     const dropCls = drop ? ' drop-' + drop : '';
     let body;
     if (b.type === 'divider') body = html`<div class="b-divider" contenteditable="false" tabindex="0" onKeyDown=${(e) => { if (e.key === 'Backspace' || e.key === 'Delete') removeBlock(b.id); }}><hr/></div>`;
     else if (b.type === 'image') body = html`<figure class="b-image" contenteditable="false"><img src=${b.url} alt="" onError=${(e) => { e.target.style.opacity = .3; }} /><figcaption ref=${setEl} class="b-text b-cap" contenteditable="true" data-ph="图片说明"></figcaption></figure>`;
+    else if (b.type === 'table') body = html`<div class="b-tablewrap"><table ref=${setEl} class="b-table b-text"></table><button class="tb-add col" contenteditable="false" title="添加一列" onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.tableOp(b, 'colRight', 0, (b.rows && b.rows[0] ? b.rows[0].length : 1) - 1)}>+</button><button class="tb-add row" contenteditable="false" title="添加一行" onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.tableOp(b, 'rowBelow', (b.rows ? b.rows.length : 1) - 1, 0)}>+</button></div>`;
     else if (b.type === 'code') body = html`<div class="b-code" contenteditable="false"><input class="b-lang" value=${b.lang || ''} placeholder="语言" onInput=${(e) => update(b.id, { lang: e.target.value })} /><pre ref=${setEl} contenteditable="plaintext-only" class="b-text" data-ph="代码"></pre></div>`;
     else if (b.type === 'md') body = md
       ? html`<pre ref=${setEl} contenteditable="plaintext-only" class="b-text b-mdsrc" onBlur=${() => setMdEdit(null)}></pre>`
@@ -609,6 +661,7 @@ class Row extends Component {
     </div>`;
     const menu = (e) => {
       if (window.getSelection && !window.getSelection().isCollapsed) return; e.stopPropagation();
+      if (b.type === 'table') { const cell = e.target.closest && e.target.closest('td,th'); ctxMenu(e, [...api.tableMenu(b, cell), 'sep', { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) }], '表格'); return; }
       ctxMenu(e, [
         ...CONVERT_TYPES.map((t) => ({ label: TYPES[t].label, icon: b.type === t ? 'check' : 'note', onClick: () => convert(b, t) })),
         'sep',

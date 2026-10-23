@@ -17,12 +17,28 @@ export const TYPES = {
   code: { label: '代码', hint: '等宽代码块' },
   divider: { label: '分割线', hint: '水平线' },
   image: { label: '图片', hint: '粘贴图片链接' },
-  md: { label: 'Markdown', hint: '原始 Markdown（表格等）' },
+  table: { label: '表格', hint: '3 × 3，可增删行列' },
+  md: { label: 'Markdown', hint: '原始 Markdown' },
 };
 export const LIST_TYPES = ['bullet', 'number', 'todo', 'toggle'];
 export const TEXT_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout'];
 
 export const block = (type = 'p', html = '', extra = {}) => ({ id: uid(), type, html, indent: 0, ...extra });
+export const emptyTable = (r = 3, c = 3) => Array.from({ length: r }, () => Array.from({ length: c }, () => ''));
+export const cellMd = (h) => inlineHtmlToMd(h).replace(/\n/g, ' ').replace(/\|/g, '\\|').trim();
+export function tableToMd(rows, header = true) {
+  const w = Math.max(1, ...rows.map((r) => r.length));
+  const line = (r) => '| ' + Array.from({ length: w }, (_, i) => cellMd(r[i] || '')).join(' | ') + ' |';
+  const body = rows.map(line);
+  return header ? [body[0] || line([]), '| ' + Array(w).fill('---').join(' | ') + ' |', ...body.slice(1)].join('\n') : [line(Array(w).fill('')), '| ' + Array(w).fill('---').join(' | ') + ' |', ...body].join('\n');
+}
+export function mdTable(lines) {
+  const split = (l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map((c) => c.replace(/\\\|/g, '|').trim());
+  const rows = lines.map(split); let header = false;
+  if (rows.length > 1 && rows[1].every((c) => /^:?-{2,}:?$/.test(c))) { rows.splice(1, 1); header = true; }
+  const w = Math.max(1, ...rows.map((r) => r.length));
+  return block('table', '', { rows: rows.map((r) => Array.from({ length: w }, (_, i) => inlineMdToHtml(r[i] || ''))), header });
+}
 
 /* ---------- inline html sanitiser ---------- */
 // Keeps a small inline whitelist. Styled spans from Google Docs / Word / web pages are mapped to the
@@ -107,12 +123,12 @@ export function htmlToBlocks(html) {
     }
   };
   const table = (el) => {
-    const rows = [...el.querySelectorAll('tr')].map((tr) => [...tr.children].map((td) => td.textContent.trim().replace(/\|/g, '\\|').replace(/\s+/g, ' ')));
+    const trs = [...el.querySelectorAll('tr')].filter((tr) => tr.closest('table') === el);
+    const rows = trs.map((tr) => [...tr.children].map((td) => sanitize(td.innerHTML).replace(/^(<br>)+|(<br>)+$/g, '').trim()));
     if (!rows.length) return;
     const w = Math.max(...rows.map((r) => r.length));
-    const line = (r) => '| ' + Array.from({ length: w }, (_, i) => r[i] || '').join(' | ') + ' |';
-    const md = [line(rows[0]), '| ' + Array(w).fill('---').join(' | ') + ' |', ...rows.slice(1).map(line)].join('\n');
-    out.push(block('md', escapeHtml(md)));
+    const header = !!(trs[0] && [...trs[0].children].every((c) => c.tagName === 'TH'));
+    out.push(block('table', '', { rows: rows.map((r) => Array.from({ length: w }, (_, i) => r[i] || '')), header }));
   };
   const walk = (node) => {
     for (const c of node.childNodes) {
@@ -203,7 +219,7 @@ export function mdToBlocks(md) {
     }
     if (line.startsWith('|')) {
       const buf = []; while (i < lines.length && lines[i].trim().startsWith('|')) buf.push(lines[i++].trim());
-      out.push(block('md', escapeHtml(buf.join('\n')))); continue;
+      out.push(mdTable(buf)); continue;
     }
     if (!line) { i++; continue; }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { out.push(block('divider')); i++; continue; }
@@ -247,6 +263,7 @@ export function blocksToMd(blocks) {
       case 'divider': lines.push('---', ''); break;
       case 'image': lines.push(`![${textOf(b.html)}](${b.url || ''})`, ''); break;
       case 'md': lines.push(textOf(b.html), ''); break;
+      case 'table': lines.push(tableToMd(b.rows || [], b.header !== false), ''); break;
       default: lines.push(t, '');
     }
     const next = blocks[idx + 1];
@@ -256,5 +273,5 @@ export function blocksToMd(blocks) {
 }
 
 export function blocksToText(blocks) {
-  return blocks.map((b) => textOf(b.html)).join('\n');
+  return blocks.map((b) => (b.type === 'table' ? (b.rows || []).map((r) => r.map(textOf).join(' ')).join('\n') : textOf(b.html))).join('\n');
 }
