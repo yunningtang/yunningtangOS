@@ -104,11 +104,12 @@ export default function Dashboard() {
     return out;
   }, [blocks]);
 
-  const SPAN = { profile: 3, now: 1, timeline: 1, todos: 1, focus: 1, pages: 2, calendar: 1, goals: 2, notes: 1, focusweek: 2, links: 1, week: 2 };
-  const ORDER = ['profile', 'now', 'timeline', 'todos', 'focus', 'pages', 'calendar', 'goals', 'notes', 'focusweek', 'links', 'week'];
-  const DEFAULT = { order: ORDER, hidden: [], sizes: {} };
+  // rows are grouped by similar natural height so stretching to the row does not leave half-empty cards
+  const SPAN = { profile: 3, now: 1, timeline: 1, todos: 1, focus: 1, calendar: 1, notes: 1, pages: 2, links: 1, goals: 2, week: 1, focusweek: 3 };
+  const ORDER = ['profile', 'now', 'timeline', 'todos', 'focus', 'calendar', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek'];
+  const DEFAULT = { v: 2, order: ORDER, hidden: [], sizes: {} };
   const layout = useMemo(() => {
-    const l = s.settings.dash || DEFAULT; const known = new Set(ORDER);
+    const l = s.settings.dash && s.settings.dash.v >= 2 ? s.settings.dash : DEFAULT; const known = new Set(ORDER);
     const base = l.order || [...(l.main || []), ...(l.side || [])]; // older two-column layouts fold into one list
     const hidden = (l.hidden || []).filter((id) => known.has(id));
     const used = new Set([...base, ...hidden]);
@@ -116,7 +117,7 @@ export default function Dashboard() {
     if (!used.has('now')) order.splice(Math.min(1, order.length), 0, 'now'); // new widget lands right under the profile card
     return { order, hidden, sizes: l.sizes || {} };
   }, [s.settings.dash]);
-  const setLayout = (next) => update((d) => { d.settings.dash = next; });
+  const setLayout = (next) => update((d) => { d.settings.dash = { ...next, v: 2 }; });
   const [drag, setDrag] = useState(null); // { id }
   const [over, setOver] = useState(null); // { id, after } | { col }
   const [custom, setCustom] = useState(false);
@@ -220,8 +221,8 @@ export default function Dashboard() {
             </div>`}
         </div>
         <div class="fw-foot">
-          <div class="fw-today"><small>今天</small><b>${fmtH(focusToday)}</b><span class="muted">/ ${GOAL_MIN / 60}h</span></div>
-          <div class="bars">${focusByDay.map((m, i) => html`<div class="bar" key=${i}><i style=${`height:${Math.max(4, Math.min(100, (m / GOAL_MIN) * 100))}%`} class=${week[i] === today ? 'on' : ''}></i><span>${['一', '二', '三', '四', '五', '六', '日'][i]}</span></div>`)}</div>
+          <div class="fw-today"><small>今天</small><b>${fmtH(focusToday)}</b><span class="muted">/ ${GOAL_MIN / 60}h</span><span class="flex1"></span><span class="muted small">${Math.round((focusToday / GOAL_MIN) * 100)}%</span></div>
+          <div class="prog"><i style=${`width:${Math.min(100, (focusToday / GOAL_MIN) * 100)}%`}></i></div>
         </div>
       <//>`; })() },
     notes: { title: '笔记', span: 1, el: html`<${Card}>
