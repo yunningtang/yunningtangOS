@@ -1,7 +1,7 @@
 import { html, useState, useEffect, useMemo } from '../../vendor/preact.js';
 import { useStore } from '../store.js';
 
-export const GOAL_MIN = 4 * 60;
+
 import { Icon, Card, Btn, Seg, Empty, Tag, Select } from '../ui.js';
 import { todayStr, sortBy, timeToMin, kindColor, addDays, pad } from '../util.js';
 import * as pomo from '../pomo.js';
@@ -59,8 +59,6 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   const [customLen, setCustomLen] = useState(false);
   useEffect(() => { if (initialTodo) { const t = s.todos.find((x) => x.id === initialTodo); if (t) { setTodoId(t.id); setLabel(t.title); } } }, [initialTodo]);
   const todos = sortBy(s.todos.filter((t) => !t.done && (t.due === today || !t.due)), 'priority');
-  const focusToday = s.blocks.filter((b) => b.date === today && b.kind === 'focus').reduce((n, b) => n + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0);
-  const fmtH = (min) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}m`;
   const rem = pomo.remaining(); const total = (pst.phase === 'break' ? pst.breakLen : pst.workLen) * 60; const pct = pst.phase === 'idle' ? 0 : 1 - rem / total; const R = 118, C = 2 * Math.PI * R;
   const begin = () => { pomo.start({ label: label.trim(), todoId }); if (!full) setLabel(''); };
   const presets = [[25, 5], [45, 10], [50, 10], [90, 15]];
@@ -81,10 +79,6 @@ export function PomoCard({ full = false, initialTodo = '' }) {
           ${pst.phase === 'work' ? html`<button class="pf-btn" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${13} /> 完成</button>` : html`<button class="pf-btn" onClick=${() => pomo.skip()}><${Icon} name="right" size=${13} /> 跳过</button>`}
           <button class="pf-btn danger" title="放弃" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${13} /></button>
         </div>`}
-    </div>
-    <div class="fw-foot">
-      <div class="fw-today"><small>今天</small><b>${fmtH(focusToday)}</b><span class="muted">/ ${GOAL_MIN / 60}h</span><span class="flex1"></span><span class="muted small">${Math.round((focusToday / GOAL_MIN) * 100)}%</span></div>
-      <div class="prog"><i style=${`width:${Math.min(100, (focusToday / GOAL_MIN) * 100)}%`}></i></div>
     </div>
   <//>`;
 }

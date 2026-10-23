@@ -16,7 +16,6 @@ import { AvatarPicker } from './settings.js';
 import { NowWidget } from './now.js';
 
 const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
-const GOAL_MIN = 4 * 60;
 
 function MonthCal({ s, today }) {
   const [ym, setYm] = useState(today.slice(0, 7));
