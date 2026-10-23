@@ -608,9 +608,9 @@ input.page-title::placeholder{color:var(--text-4);opacity:.6}
 .mchip:hover{background:var(--hover)}.mchip .ic{color:var(--text-4)}
 .mchip.ghost{color:var(--text-4);padding:0 7px}.mchip.ghost:hover{color:var(--text-2)}
 .mchip.src{color:var(--blue);text-decoration:none}.mchip.src:hover{background:rgba(var(--ac),.08)}
-.mtag{display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 9px;border-radius:8px;font-size:.72rem;line-height:1.4;font-weight:500;--tcd:var(--tc)}
-.mtag a{color:inherit;text-decoration:none}.mtag button{width:16px;height:16px;border-radius:5px;color:var(--text-4);opacity:0;font-size:.8rem;line-height:1;display:grid;place-items:center}
-.mtag:hover button{opacity:1}.mtag button:hover{background:rgba(0,0,0,.08);color:var(--text)}
+.mtag{display:inline-flex;align-items:center;gap:0;padding:3px 9px;border-radius:8px;font-size:.72rem;line-height:1.4;font-weight:500;--tcd:var(--tc)}
+.mtag a{color:inherit;text-decoration:none}.mtag button{width:0;height:16px;margin:0 -4px 0 0;border-radius:5px;color:inherit;opacity:0;font-size:.8rem;line-height:1;display:grid;place-items:center;overflow:hidden;transition:width .12s,margin .12s,opacity .12s}
+.mtag:hover button{width:16px;margin:0 -4px 0 3px;opacity:.7}.mtag button:hover{background:rgba(0,0,0,.1);opacity:1}
 .mtag-in{height:26px;width:96px;padding:0 8px;border-radius:8px;border:1px solid rgba(var(--ac),.5);background:var(--bg);font-size:.78rem;box-shadow:none}
 .mtag-in:focus{outline:none;box-shadow:none;border-color:rgba(var(--ac),.6)}
 .mdate{color:var(--text-4);margin-left:4px;cursor:default;font-variant-numeric:tabular-nums}
