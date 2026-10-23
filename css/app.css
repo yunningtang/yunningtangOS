@@ -1370,3 +1370,14 @@ html[data-theme="dark"] .d3-shadow{fill:rgba(0,0,0,.55)}
 .wiki-peek p{font-size:.76rem;color:var(--text-3);margin-top:5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .wiki-peek small{display:block;margin-top:6px;font-size:.68rem;color:var(--text-4)}
 .kind-add{display:inline-flex;align-items:center;padding:3px 8px;border-radius:var(--r3);font-size:.74rem;border:1px dashed var(--line-2);color:var(--text-4)}.kind-add:hover{color:var(--text);border-color:var(--text-4)}
+
+/* cards / canvas as standalone pages */
+.nb-layout.standalone .page>.crumbs,.nb-layout.standalone .cv-tb{padding-left:18px}
+.nb-layout.standalone .m-back{display:none}
+.cv-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.cv-card.new{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:176px;border:1.5px dashed var(--line-2);background:transparent;box-shadow:none;color:var(--text-4);font-size:.86rem}.cv-card.new:hover{color:var(--text);border-color:var(--text-4);box-shadow:none}
+.sess{position:relative}.sess .sess-n{display:flex;flex-direction:column;gap:1px}.sess-note{font-size:.72rem;color:var(--text-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sess .sess-acts{opacity:0;margin-left:2px}.sess:hover .sess-acts{opacity:1}.sess .sess-acts .ibtn{width:24px;height:24px}
+.d3-hour{transition:transform .9s linear}.d3-hour-p{fill:var(--text-2);opacity:.85}html[data-theme="dark"] .d3-hour-p{fill:#d8dbe6}
+/* canvas: snapping guides */
+.cv-guide{position:absolute;background:var(--rose);opacity:.8;pointer-events:none}.cv-guide.v{width:1px;top:-100000px;bottom:-100000px}.cv-guide.h{height:1px;left:-100000px;right:-100000px}

@@ -234,6 +234,8 @@ export default function Notes({ route }) {
   const listTitle = nbSel === 'all' ? '全部笔记' : nbSel === 'fav' ? '收藏' : nbSel === 'trash' ? '最近删除' : cur ? cur.name : '笔记';
   const trashed = inTrash ? (s.trash || []).find((n) => n.id === id) : null;
 
+  const standalone = id === 'cards' || (id || '').startsWith('canvas');
+  if (standalone) return html`<div class="nb-layout no-nb no-list standalone m-page"><section class="card notes-main">${id === 'cards' ? html`<${CardsView} notes=${s.notes} notebooks=${nbs} />` : html`<${CanvasView} id=${id.slice(7)} notes=${s.notes} notebooks=${nbs} />`}</section></div>`;
   return html`<div class=${'nb-layout ' + (panes.nb ? '' : 'no-nb ') + (panes.list ? '' : 'no-list ') + (id ? 'm-page ' : '')}>
     ${panes.nb && html`<aside class="card nb-col">
       <div class="nb-h"><h3>本子</h3><div class="row" style="gap:2px"><${IconBtn} icon="plus" title="新本子" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }} /><${IconBtn} icon="left" title="收起" onClick=${() => setPane('nb', false)} /></div></div>

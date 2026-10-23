@@ -66,6 +66,7 @@ function Board({ board, notes, notebooks }) {
   const [sel, setSel] = useState(null); // { kind: 'node'|'edge'|'stroke', id }
   const [editing, setEditing] = useState(null);
   const [temp, setTemp] = useState(null);
+  const [guides, setGuides] = useState([]); // alignment guides while dragging a node
   const [picker, setPicker] = useState(false);
   const vp = useRef();
   const node = (id) => bRef.current.nodes.find((n) => n.id === id);
@@ -77,6 +78,18 @@ function Board({ board, notes, notebooks }) {
 
   const addText = (x, y, text = '') => { const n = { id: uid(), type: 'text', x: Math.round(x), y: Math.round(y), w: 220, h: 64, text, color: '' }; commit({ ...bRef.current, nodes: [...bRef.current.nodes, n] }); setSel({ kind: 'node', id: n.id }); setEditing(n.id); return n; };
   const addNote = (noteId, x, y) => { if (bRef.current.nodes.some((n) => n.note === noteId)) { toast('这一页已经在画布上了'); return; } const n = { id: uid(), type: 'note', note: noteId, x: Math.round(x), y: Math.round(y), w: 240, h: 110, color: '' }; commit({ ...bRef.current, nodes: [...bRef.current.nodes, n] }); setSel({ kind: 'node', id: n.id }); };
+  // mind-map style: Tab = child to the right (connected), Enter = sibling below (connected to the same parent)
+  const spawn = (pid, child) => {
+    if (editing === pid && document.activeElement) document.activeElement.blur();
+    const p = node(pid); if (!p) return;
+    const nn = { id: uid(), type: 'text', x: child ? p.x + p.w + 70 : p.x, y: child ? p.y : p.y + p.h + 28, w: Math.max(180, Math.min(260, p.w)), h: 56, text: '', color: p.color || '' };
+    const others = bRef.current.nodes; let guard = 0;
+    while (guard++ < 30 && others.some((o) => nn.x < o.x + o.w + 12 && nn.x + nn.w + 12 > o.x && nn.y < o.y + o.h + 12 && nn.y + nn.h + 12 > o.y)) nn.y += 40;
+    let edges = bRef.current.edges;
+    if (child) edges = [...edges, { id: uid(), from: p.id, to: nn.id, label: '' }];
+    else { const pe = edges.find((x) => x.to === p.id); if (pe) edges = [...edges, { id: uid(), from: pe.from, to: nn.id, label: '' }]; }
+    commit({ ...bRef.current, nodes: [...others, nn], edges }); setSel({ kind: 'node', id: nn.id }); setEditing(nn.id);
+  };
   const removeSel = (s = sel) => {
     if (!s) return; const prev = bRef.current; let next;
     if (s.kind === 'node') next = { ...prev, nodes: prev.nodes.filter((n) => n.id !== s.id), edges: prev.edges.filter((e) => e.from !== s.id && e.to !== s.id) };
@@ -96,7 +109,9 @@ function Board({ board, notes, notebooks }) {
   }, []);
   useEffect(() => {
     const h = (e) => {
-      if (editing || e.target.closest('input,textarea,[contenteditable="true"],[contenteditable="plaintext-only"],.modal')) return;
+      if (e.target.closest('input,textarea,.modal') || (e.target.closest('[contenteditable]') && e.key !== 'Tab' && !(e.key === 'Enter' && !e.shiftKey && (e.metaKey || e.ctrlKey)))) return;
+      if ((e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) && (sel && sel.kind === 'node' || editing)) { e.preventDefault(); spawn(editing || sel.id, e.key === 'Tab'); return; }
+      if (editing) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); removeSel(); }
       else if (e.key === 'Escape') { setSel(null); setTool('select'); }
       else if (e.key === 'v') setTool('select'); else if (e.key === 't') setTool('text'); else if (e.key === 'p') setTool('pen'); else if (e.key === 'e') setTool('erase');
@@ -131,7 +146,19 @@ function Board({ board, notes, notebooks }) {
     if (d.kind === 'pinch') { const pts = [...pointers.current.values()]; if (pts.length < 2) return; const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y); const r = vp.current.getBoundingClientRect(); const cx = (pts[0].x + pts[1].x) / 2 - r.left, cy = (pts[0].y + pts[1].y) / 2 - r.top; const z = clamp(d.z0 * dist / d.d0, 0.2, 3); const ocx = d.cx - r.left, ocy = d.cy - r.top; setView({ x: cx - (ocx - d.v0.x) * z / d.z0, y: cy - (ocy - d.v0.y) * z / d.z0, z }); return; }
     const [wx, wy] = toWorld(e);
     if (d.kind === 'pan') { if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) > 2) d.moved = true; setView((v) => ({ ...v, x: d.vx + e.clientX - d.sx, y: d.vy + e.clientY - d.sy })); }
-    else if (d.kind === 'node') { if (Math.abs(wx - d.wx) + Math.abs(wy - d.wy) > 1) d.moved = true; patchNode(d.id, { x: Math.round(d.x0 + wx - d.wx), y: Math.round(d.y0 + wy - d.wy) }, false); }
+    else if (d.kind === 'node') {
+      if (Math.abs(wx - d.wx) + Math.abs(wy - d.wy) > 1) d.moved = true;
+      let nx = Math.round(d.x0 + wx - d.wx), ny = Math.round(d.y0 + wy - d.wy); const me = node(d.id); const gs = [];
+      if (me && !e.shiftKey) {
+        const tol = 6 / viewRef.current.z; let bx = null, by = null;
+        for (const o of bRef.current.nodes) { if (o.id === d.id) continue;
+          for (const [mine, theirs] of [[0, o.x], [me.w / 2, o.x + o.w / 2], [me.w, o.x + o.w], [0, o.x + o.w + 24], [me.w, o.x - 24]]) { const dx = theirs - (nx + mine); if (Math.abs(dx) <= tol && (bx == null || Math.abs(dx) < Math.abs(bx.d))) bx = { d: dx, at: theirs }; }
+          for (const [mine, theirs] of [[0, o.y], [me.h / 2, o.y + o.h / 2], [me.h, o.y + o.h], [0, o.y + o.h + 24], [me.h, o.y - 24]]) { const dy = theirs - (ny + mine); if (Math.abs(dy) <= tol && (by == null || Math.abs(dy) < Math.abs(by.d))) by = { d: dy, at: theirs }; }
+        }
+        if (bx) { nx += bx.d; gs.push({ v: bx.at }); } if (by) { ny += by.d; gs.push({ h: by.at }); }
+      }
+      setGuides(gs); patchNode(d.id, { x: nx, y: ny }, false);
+    }
     else if (d.kind === 'resize') patchNode(d.id, { w: Math.round(clamp(d.w + wx - d.x, 120, 900)), h: Math.round(clamp(d.h + wy - d.y, 40, 900)) }, false);
     else if (d.kind === 'pen') { d.pts.push([Math.round(wx), Math.round(wy)]); setTemp({ pts: d.pts.slice() }); }
     else if (d.kind === 'connect') setTemp({ from: d.from, x: wx, y: wy });
@@ -142,6 +169,7 @@ function Board({ board, notes, notebooks }) {
     const d = dragRef.current; if (!d) return;
     if (d.kind === 'pinch') { if (pointers.current.size < 2) dragRef.current = null; return; }
     dragRef.current = null;
+    setGuides([]);
     if (d.kind === 'node' || d.kind === 'resize') { if (d.kind === 'resize' || d.moved) commit(bRef.current); }
     else if (d.kind === 'pen') { setTemp(null); if (d.pts.length > 1) commit({ ...bRef.current, strokes: [...bRef.current.strokes, { id: uid(), color: pen.color, width: pen.width, pts: simplify(d.pts) }] }); }
     else if (d.kind === 'erase') { if (d.hit) commit(bRef.current); }
@@ -209,8 +237,9 @@ function Board({ board, notes, notebooks }) {
         </g>
       </svg>
       <div class="cv-layer" style=${`transform:${tr}`}>
+        ${guides.map((g, i) => g.v != null ? html`<i key=${i} class="cv-guide v" style=${`left:${g.v}px`}></i>` : html`<i key=${i} class="cv-guide h" style=${`top:${g.h}px`}></i>`)}
         ${b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); return html`<div key=${n.id} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${n.type === 'note' ? 'height' : 'min-height'}:${n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
-          ${n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'plaintext-only' : 'false'} ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerText !== (n.text || '')) el.innerText = n.text || ''; if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } e.stopPropagation(); }} data-ph="输入文字…"></div>`
+          ${n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'plaintext-only' : 'false'} ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerText !== (n.text || '')) el.innerText = n.text || ''; if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } e.stopPropagation(); }} data-ph="输入文字…"></div>`
           : page ? html`<div class="cv-nt">${nbk && html`<i class="nb-dot" style=${`background:${nbk.color}`}></i>`}<b>${page.title || '无标题'}</b><a class="cv-open" href=${'#/notes/' + page.id} title="打开页面"><${Icon} name="external" size=${12} /></a></div><p class="cv-snip">${snippetOf(page) || '空白页'}</p>`
           : html`<div class="cv-nt muted"><${Icon} name="note" size=${13} /><b>页面已删除</b></div>`}
           <span class="cv-handle" title="拖到另一个节点来连线"></span>
@@ -218,7 +247,7 @@ function Board({ board, notes, notebooks }) {
         </div>`; })}
       </div>
       ${b.nodes.length === 0 && b.strokes.length === 0 && html`<div class="cv-empty"><${Icon} name="frame" size=${22} /><p>双击空白处写字，或从左边把页面拖进来。</p></div>`}
-      <div class="cv-hint">拖动空白处平移 · ⌘+滚轮缩放 · 双击添加文字 · 从节点右侧的圆点拖出连线 · Delete 删除</div>
+      <div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · ⌘+滚轮缩放</div>
     </div>
     ${picker && html`<${PagePicker} notes=${notes} notebooks=${notebooks} onClose=${() => setPicker(false)} onPick=${(id) => { const [cx, cy] = picker.x != null ? [picker.x, picker.y] : center(); addNote(id, cx - 120, cy - 55); setPicker(false); }} />`}
   </div>`;
@@ -238,11 +267,10 @@ function CanvasList({ canvases }) {
   const create = async () => { const v = await askPrompt('画布名称', '', { title: '新画布', placeholder: '比如：论文思路 / 项目地图' }); if (v == null) return; const c = newCanvas(v.trim()); go('notes/canvas/' + c.id); };
   return html`<div class="page"><div class="crumbs"><a class="m-back" href="#/notes" title="返回"><${Icon} name="left" size=${16} /></a><a href="#/notes">笔记</a><span>/</span><b>画布</b><span class="flex1"></span><${Btn} small kind="primary" icon="plus" onClick=${create}>新画布<//></div>
     <div class="page-body">
-      <p class="small muted" style="margin-bottom:16px">画布是一块无限大的白板：把页面拖上去、写几行字、画几笔、用箭头把它们连起来，就是你自己的脑图。</p>
-      ${list.length === 0 ? html`<${Empty} icon="frame" text="还没有画布。"><${Btn} small onClick=${create}>新建一块<//><//>` : html`<div class="cv-grid">${list.map((c) => html`<a key=${c.id} class="cv-card" href=${'#/notes/canvas/' + c.id} onContextMenu=${(e) => ctxMenu(e, canvasMenu(c), c.title || '未命名画布')}>
+      <div class="cv-grid"><button class="cv-card new" onClick=${create}><${Icon} name="plus" size=${20} /><span>新画布</span><small>无限白板 · 脑图 · 页面地图</small></button>${list.map((c) => html`<a key=${c.id} class="cv-card" href=${'#/notes/canvas/' + c.id} onContextMenu=${(e) => ctxMenu(e, canvasMenu(c), c.title || '未命名画布')}>
         <div class="cv-prev"><svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet">${(() => { const bb = bbox(c); if (!bb) return null; const s = Math.min(180 / Math.max(bb.w, 1), 100 / Math.max(bb.h, 1)); const ox = 100 - (bb.x + bb.w / 2) * s, oy = 60 - (bb.y + bb.h / 2) * s; return html`<g transform=${`translate(${ox},${oy}) scale(${s})`}>${c.edges.map((e) => { const a = c.nodes.find((n) => n.id === e.from), b2 = c.nodes.find((n) => n.id === e.to); return a && b2 ? html`<line key=${e.id} x1=${a.x + a.w / 2} y1=${a.y + a.h / 2} x2=${b2.x + b2.w / 2} y2=${b2.y + b2.h / 2} stroke="currentColor" stroke-width=${2 / s} opacity=".4" />` : null; })}${c.nodes.map((n) => html`<rect key=${n.id} x=${n.x} y=${n.y} width=${n.w} height=${n.h} rx=${8 / s} fill=${n.color || 'currentColor'} opacity=${n.color ? '.8' : '.35'} />`)}${c.strokes.map((st) => html`<path key=${st.id} d=${strokePath(st.pts)} fill="none" stroke=${st.color} stroke-width=${st.width / s} stroke-linecap="round" />`)}</g>`; })()}</svg></div>
         <b>${c.title || '未命名画布'}</b><small>${c.nodes.length} 个节点 · ${c.edges.length} 条连线 · ${c.updated.slice(5, 10).replace('-', '/')}</small>
-      </a>`)}</div>`}
+      </a>`)}</div>
     </div></div>`;
 }
 

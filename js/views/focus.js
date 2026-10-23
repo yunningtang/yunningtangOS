@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useMemo, useRef } from '../../vendor/preact.js';
-import { useStore, update, upsert, toggleTodo } from '../store.js';
+import { useStore, update, upsert, toggleTodo, removeUndo } from '../store.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
 import { uid } from '../util.js';
@@ -24,11 +24,17 @@ export default function Focus({ route }) {
   const pct = st.phase === 'idle' ? 0 : 1 - rem / total;
   const today = todayStr();
   const todos = sortBy(s.todos.filter((t) => !t.done && (t.due === today || !t.due)), 'priority');
-  const sessions = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today && b.kind === 'focus'), 'start'), [s.blocks]);
-  const mins = sessions.reduce((n, b) => n + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0);
-  const streak = useMemo(() => { let n = 0; const d = new Date(); for (;;) { const k = todayStr(d); if (s.blocks.some((b) => b.date === k && b.kind === 'focus')) { n++; d.setDate(d.getDate() - 1); } else break; if (n > 365) break; } return n; }, [s.blocks]);
+  const all = s.sessions || [];
+  const sessions = useMemo(() => sortBy(all.filter((b) => b.date === today), 'start'), [all]);
+  const mins = sessions.reduce((n, b) => n + (b.mins || 0), 0);
   useEffect(() => { document.title = st.phase === 'idle' ? '专注 · yunningtang OS' : `${pomo.fmt(rem)} · ${st.phase === 'break' ? '休息' : st.label || '专注'}`; return () => { document.title = 'yunningtang OS'; }; }, [rem, st.phase]);
-  const focusedOn = useMemo(() => { const m = new Map(); sessions.forEach((b) => { const id = (b.note || '').startsWith('todo:') ? b.note.slice(5) : ''; if (id) m.set(id, (m.get(id) || 0) + Math.max(0, timeToMin(b.end) - timeToMin(b.start))); }); return m; }, [sessions]);
+  const focusedOn = useMemo(() => { const m = new Map(); sessions.forEach((b) => { if (b.todo) m.set(b.todo, (m.get(b.todo) || 0) + (b.mins || 0)); }); return m; }, [sessions]);
+  const sessMenu = (e, b) => ctxMenu(e, [
+    { label: b.note ? '编辑备注' : '添加备注', icon: 'edit', onClick: async () => { const v = await askPrompt('这一段做了什么、感觉如何？', b.note || '', { title: '备注' }); if (v != null) upsert('sessions', { id: b.id, note: v.trim(), updated: new Date().toISOString() }); } },
+    { label: '改名', icon: 'tag', onClick: async () => { const v = await askPrompt('名称', b.title || '', { title: '这一段专注' }); if (v != null && v.trim()) upsert('sessions', { id: b.id, title: v.trim(), updated: new Date().toISOString() }); } },
+    'sep',
+    { label: '删除这一段', icon: 'trash', danger: true, onClick: () => removeUndo('sessions', b.id, b.title || '专注') },
+  ], `${b.start}–${b.end}`);
   const lenMenu = (e, t) => ctxMenu(e, [...LENS.map((n) => ({ label: `${n} 分钟`, icon: (t.focusLen || 25) === n ? 'check' : 'clock', onClick: () => upsert('todos', { id: t.id, focusLen: n }) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('分钟数', String(t.focusLen || 25), { title: '专注时长' }), 10); if (v >= 5 && v <= 180) upsert('todos', { id: t.id, focusLen: v }); } }], t.title);
   const dayFrom = 6, dayTo = 24;
   const posOf = (t) => Math.max(0, Math.min(100, ((timeToMin(t) - dayFrom * 60) / ((dayTo - dayFrom) * 60)) * 100));
@@ -43,7 +49,7 @@ export default function Focus({ route }) {
           ${sessions.map((b) => html`<i key=${b.id} class="ds-b" style=${`left:${posOf(b.start)}%;width:${Math.max(1.2, posOf(b.end) - posOf(b.start))}%`} title=${`${b.title} ${b.start}–${b.end}`}></i>`)}
           ${st.phase === 'work' && html`<i class="ds-b live" style=${`left:${posOf(new Date(st.startedAt).toTimeString().slice(0, 5))}%;width:${Math.max(1.2, ((st.workLen - rem / 60) / ((dayTo - dayFrom) * 60)) * 100)}%`}></i>`}
         </div>
-        ${sessions.length > 0 && html`<div class="sec-h" style="margin-top:14px">已完成</div><div class="sess-list">${[...sessions].reverse().slice(0, 6).map((b) => html`<div class="sess" key=${b.id}><i></i><span class="sess-t">${b.start}–${b.end}</span><span class="sess-n">${b.title || '专注'}</span><span class="sess-m">${timeToMin(b.end) - timeToMin(b.start)} 分</span></div>`)}</div>`}
+        ${sessions.length > 0 && html`<div class="sec-h" style="margin-top:14px">已完成 <span class="muted small" style="text-transform:none;letter-spacing:0;font-weight:400">右键可备注或删除</span></div><div class="sess-list">${[...sessions].reverse().slice(0, 8).map((b) => html`<div class="sess" key=${b.id} onContextMenu=${(e) => sessMenu(e, b)}><i></i><span class="sess-t">${b.start}–${b.end}</span><span class="sess-n">${b.title || '专注'}${b.note && html`<small class="sess-note">${b.note}</small>`}</span><span class="sess-m">${b.mins} 分</span><span class="sess-acts"><button class="ibtn" title="备注" onClick=${(e) => sessMenu(e, b)}><${Icon} name="dots" size=${13} /></button></span></div>`)}</div>`}
       <//>
     </div>
     <div class="widget span-1">
@@ -57,7 +63,7 @@ export default function Focus({ route }) {
         </div>`; })}</div>`}
       <//>
     </div>
-    <div class="widget span-3"><${FocusStats} blocks=${s.blocks} /></div>
+    <div class="widget span-3"><${FocusStats} sessions=${all} /></div>
   </div>`;
 }
 
@@ -153,6 +159,7 @@ function Dial({ rem, phase, full }) {
       ${Array.from({ length: 60 }, (_, i) => { const big = i % 5 === 0; const [x1, y1] = pt(i * 6, R - 2), [x2, y2] = pt(i * 6, R - (big ? 12 : 7)); return html`<line key=${i} x1=${x1} y1=${y1} x2=${x2} y2=${y2} class=${'d3-tick ' + (big ? 'big' : '')} />`; })}
       ${[15, 30, 45, 60].map((n) => { const [x, y] = pt(n * 6, R - 24); return html`<text key=${n} x=${x} y=${y + 4} class="d3-num">${n}</text>`; })}
       <ellipse cx=${C} cy=${C - R * 0.45} rx=${R * 0.78} ry=${R * 0.42} fill=${'url(#gloss' + uid + ')'} class="d3-gloss" />
+      <g class="d3-hour" style=${`transform:rotate(${((new Date().getHours() % 12) + new Date().getMinutes() / 60) * 30}deg);transform-origin:${C}px ${C}px`}><path d=${`M${C - 5},${C + 12} L${C - 3.5},${C - R * 0.52} L${C + 3.5},${C - R * 0.52} L${C + 5},${C + 12} Z`} class="d3-hour-p" /></g>
       <g class="d3-hand" style=${`transform:rotate(${nowA}deg);transform-origin:${C}px ${C}px`}>
         <path d=${`M${C - 5},${C + 16} L${C - 3},${C - R + 16} L${C + 3},${C - R + 16} L${C + 5},${C + 16} Z`} class="d3-hand-sh" filter=${'url(#soft' + uid + ')'} />
         <path d=${`M${C - 5},${C + 16} L${C - 3},${C - R + 16} L${C + 3},${C - R + 16} L${C + 5},${C + 16} Z`} class="d3-hand-p" />
@@ -166,12 +173,12 @@ function Dial({ rem, phase, full }) {
 }
 
 /* ---------- statistics: heatmap + day/week/month/year chart ---------- */
-const dur = (b) => Math.max(0, timeToMin(b.end) - timeToMin(b.start));
+const dur = (b) => b.mins || Math.max(0, timeToMin(b.end) - timeToMin(b.start));
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
-function FocusStats({ blocks }) {
+function FocusStats({ sessions }) {
   const [unit, setUnit] = useState('day');
   const [cursor, setCursor] = useState(() => todayStr());
-  const focus = useMemo(() => blocks.filter((b) => b.kind === 'focus'), [blocks]);
+  const focus = sessions;
   const perDay = useMemo(() => { const m = new Map(); focus.forEach((b) => m.set(b.date, (m.get(b.date) || 0) + dur(b))); return m; }, [focus]);
   const today = todayStr();
   const streak = useMemo(() => { let n = 0; let d = today; if (!perDay.get(d)) d = addDays(d, -1); while (perDay.get(d) && n < 1000) { n++; d = addDays(d, -1); } return n; }, [perDay]);

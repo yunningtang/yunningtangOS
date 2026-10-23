@@ -32,7 +32,7 @@ function finish() {
     const end = new Date(), start = new Date(st.startedAt);
     const mins = Math.max(1, Math.round((end - start) / 60000));
     const pad = (n) => String(n).padStart(2, '0');
-    upsert('blocks', { id: uid(), date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), title: st.label || '专注', kind: 'focus', note: st.todoId ? `todo:${st.todoId}` : '', pomo: true });
+    upsert('sessions', { id: uid(), date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: new Date().toISOString() });
     st.count += 1;
     beep(); notify('专注完成', `${st.label || '专注'} · ${mins} 分钟。休息一下。`);
     st = { ...st, phase: 'break', startedAt: Date.now(), endsAt: Date.now() + st.breakLen * 60000, paused: false };

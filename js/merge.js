@@ -1,7 +1,7 @@
 // Three-way merge of two state documents against the last synced copy ("base").
 // Per record: whichever side changed it since the base wins; if both changed, the newer
 // `updated` stamp wins (local when there is none). A deletion loses to an edit on the other side.
-const LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases'];
+const LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions'];
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const stamp = (x) => (x && (x.updated || x.updatedAt || x.deletedAt || x.completedAt || '')) || '';
 

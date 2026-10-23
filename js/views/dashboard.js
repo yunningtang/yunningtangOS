@@ -71,11 +71,12 @@ export default function Dashboard() {
   const recentLinks = s.links.slice(0, 3);
   const quote = s.vision.statements.length ? s.vision.statements[now.getDate() % s.vision.statements.length] : null;
 
-  const focusToday = blocks.filter((b) => FOCUS_KINDS.includes(b.kind)).reduce((n, b) => n + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0);
-  const focusByDay = week.map((d) => s.blocks.filter((b) => b.date === d && FOCUS_KINDS.includes(b.kind)).reduce((n, b) => n + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0));
+  const sess = s.sessions || [];
+  const focusToday = sess.filter((b) => b.date === today).reduce((n, b) => n + (b.mins || 0), 0);
+  const focusByDay = week.map((d) => sess.filter((b) => b.date === d).reduce((n, b) => n + (b.mins || 0), 0));
   const last7 = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6));
   const doneSeries = last7.map((d) => s.todos.filter((t) => t.done && t.completedAt === d).length);
-  const focusSeries = last7.map((d) => s.blocks.filter((b) => b.date === d && FOCUS_KINDS.includes(b.kind)).reduce((n, b) => n + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0) / 60);
+  const focusSeries = last7.map((d) => sess.filter((b) => b.date === d).reduce((n, b) => n + (b.mins || 0), 0) / 60);
   const noteSeries = last7.map((d) => s.notes.filter((n) => (n.updated || '').slice(0, 10) === d).length);
   const doneWeek = s.todos.filter((t) => t.done && t.completedAt && week.includes(t.completedAt)).length;
   const fmtH = (min) => `${Math.floor(min / 60)}h ${pad(min % 60)}m`;
