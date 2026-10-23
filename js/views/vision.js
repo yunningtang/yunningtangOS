@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, confirmDel, AutoTextarea } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, confirmDel, AutoTextarea, Select } from '../ui.js';
 import { uid, todayStr, AREAS, pickFile, imageToDataUrl } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { Splitter } from '../resize.js';
@@ -110,7 +110,7 @@ export default function Vision() {
         <${Field} label="目标"><input type="text" autofocus value=${lf.title} onInput=${(e) => setLf({ ...lf, title: e.target.value })} onKeyDown=${(e) => e.key === 'Enter' && addLt()} /><//>
         <div class="grid2">
           <${Field} label="期限"><input type="text" value=${lf.by} placeholder="2027 / 30 岁前" onInput=${(e) => setLf({ ...lf, by: e.target.value })} /><//>
-          <${Field} label="领域"><select value=${lf.area} onChange=${(e) => setLf({ ...lf, area: e.target.value })}><option value="">—</option>${AREAS.map((a) => html`<option value=${a}>${a}</option>`)}</select><//>
+          <${Field} label="领域"><${Select} value=${lf.area} options=${AREAS} placeholder="—" clearable onChange=${(v) => setLf({ ...lf, area: v })} /><//>
         </div>
       </div>
     <//>

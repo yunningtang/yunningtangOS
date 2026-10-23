@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, upsert, remove, removeUndo } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Stars, TagInput, confirmDel, DateInput } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Stars, TagInput, confirmDel, DateInput, Select } from '../ui.js';
 import { uid, todayStr, sortBy, fmtDate } from '../util.js';
 import { mountGlobe } from '../globe.js';
 import { ctxMenu } from '../ctx.js';
@@ -37,7 +37,7 @@ export function TripModal({ open, trip, onClose }) {
       <div class="grid3">
         <${Field} label="开始"><${DateInput} value=${f.date} onChange=${(v) => set('date', v)} /><//>
         <${Field} label="结束"><${DateInput} value=${f.end} onChange=${(v) => set('end', v)} /><//>
-        <${Field} label="类型"><select value=${f.kind} onChange=${(e) => set('kind', e.target.value)}><option value="trip">旅行</option><option value="live">居住过</option><option value="wish">想去</option></select><//>
+        <${Field} label="类型"><${Select} value=${f.kind} options=${[{ v: 'trip', label: '旅行' }, { v: 'live', label: '居住过' }, { v: 'wish', label: '想去' }]} onChange=${(v) => set('kind', v)} /><//>
       </div>
       <${Field} label="评分"><${Stars} value=${f.rating} onChange=${(v) => set('rating', v)} size=${16} /><//>
       <${Field} label="标签"><${TagInput} value=${f.tags} onChange=${(v) => set('tags', v)} /><//>
@@ -51,7 +51,7 @@ export default function Explore({ route }) {
   const s = useStore();
   const [sel, setSel] = useState((route && route.query && route.query.sel) || null);
   useEffect(() => { const id = route && route.query && route.query.sel; if (id) setSel(id); }, [route && route.query && route.query.sel]);
-  const tripPage = (t) => { const n = linkedPage('trip:' + t.id, { title: t.place, nb: '旅行', color: '#c7873a', tags: ['旅行', ...t.tags], body: `# ${t.place}\n\n${[t.region, t.country].filter(Boolean).join(' · ')} · ${t.date}${t.end ? ' – ' + t.end : ''}\n\n${t.note ? t.note + '\n\n' : ''}## 行程\n\n## 记录\n` }); go('notes/' + n.id); };
+  const tripPage = (t) => { const n = linkedPage('trip:' + t.id, { title: t.place, nb: '旅行', color: '#c7873a', tags: ['旅行', ...t.tags], body: `${[t.region, t.country].filter(Boolean).join(' · ')} · ${t.date}${t.end ? ' – ' + t.end : ''}\n\n${t.note ? t.note + '\n\n' : ''}## 行程\n\n## 记录\n` }); go('notes/' + n.id); };
   const hasPage = (t) => s.notes.some((n) => n.ref === 'trip:' + t.id);
   const [editing, setEditing] = useState(null);
   const [modal, setModal] = useState(false);

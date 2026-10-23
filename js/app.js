@@ -29,7 +29,8 @@ export const ROUTES = [
   { path: 'home', name: '总览', icon: 'home', view: Dashboard },
   { sep: '每一天' },
   { path: 'todos', name: '待办', icon: 'checksq', view: Todos, count: (s) => s.todos.filter((t) => !t.done).length },
-  { path: 'plan', name: '计划', icon: 'calendar', view: Planner },
+  { path: 'plan', href: 'plan/day', name: '今天', icon: 'sun', nav: true, match: (r) => r.path === 'plan' && r.sub === 'day' },
+  { path: 'plan', name: '计划', icon: 'calendar', view: Planner, match: (r) => r.path === 'plan' && r.sub !== 'day' },
   { path: 'focus', name: '专注', icon: 'clock', view: Focus },
   { sep: '输入与输出' },
   { path: 'reading', name: '阅读', icon: 'book', view: Reading, count: (s) => s.books.filter((b) => b.status === 'reading').length },
@@ -38,8 +39,7 @@ export const ROUTES = [
   { sep: '远方' },
   { path: 'vision', name: '愿景', icon: 'sparkle', view: Vision },
   { path: 'explore', name: '探索', icon: 'globe', view: Explore },
-  { sep: '' },
-  { path: 'settings', name: '设置', icon: 'settings', view: Settings },
+  { path: 'settings', name: '设置', icon: 'settings', view: Settings, hidden: true },
 ];
 
 function parseHash() {
@@ -75,7 +75,7 @@ function App() {
   const toggleMini = () => setMini((m) => { try { localStorage.setItem('ytos.side', m ? 'full' : 'mini'); } catch {} return !m; });
   const toggleNav = (k) => setNavOpen((o) => { const n = { ...o, [k]: o[k] === false }; try { localStorage.setItem('ytos.nav', JSON.stringify(n)); } catch {} return n; });
   const curNote = route.path === 'notes' ? s.notes.find((n) => n.id === route.sub) : null;
-  const active = ROUTES.find((r) => r.path === route.path) || ROUTES[0];
+  const active = ROUTES.find((r) => r.path === route.path && r.view) || ROUTES[0];
   const View = active.view;
 
   useEffect(() => {
@@ -119,8 +119,10 @@ function App() {
       <nav class="nav" data-liquid=".nav > a, .pt-row"><span class="liq"></span>
         ${(() => { let section = ''; return ROUTES.map((r) => {
           if (r.sep !== undefined) { section = r.sep; return r.sep ? html`<button class=${'sep ' + (navOpen['s:' + r.sep] === false ? 'closed' : '')} onClick=${() => toggleNav('s:' + r.sep)}><span>${r.sep}</span><${Icon} name="down" size=${11} /></button>` : html`<div class="sep"></div>`; }
+          if (r.hidden) return null;
           if (section && navOpen['s:' + section] === false && !mini) return null;
-          return html`<a href=${'#/' + r.path} class=${route.path === r.path ? 'active' : ''} data-tip=${r.name} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
+          const isActive = r.match ? r.match(route) : route.path === r.path;
+          return html`<a href=${'#/' + (r.href || r.path)} class=${isActive ? 'active' : ''} data-tip=${r.name} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
             ${r.path === 'notes' && navOpen.notes && !mini && html`<div class="nav-tree">
               ${[...s.notebooks].sort((a, b) => a.order - b.order).map((b) => html`<div key=${b.id}>
                 <div class=${'pt-row nb-row ' + (navOpen['nb:' + b.id] === false ? 'closed' : '')} ...${dragProps('notebook', { id: b.id })} ...${dropProps(['page', 'notebook'], (d, { after }) => { if (d.id === b.id) return; if (s.notes.some((n) => n.id === d.id)) movePage(d.id, { nb: b.id, parent: null }); else update((dd) => { const list = dd.notebooks.sort((x, y) => x.order - y.order); const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === b.id); if (after) to++; list.splice(to, 0, mv); list.forEach((x, i) => { x.order = i; }); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, async () => { const v = await askPrompt('本子名称', b.name, { title: '重命名本子' }); if (v && v.trim()) update((d) => { d.notebooks.find((x) => x.id === b.id).name = v.trim(); }); }), b.name)}>
@@ -135,7 +137,7 @@ function App() {
         }); })()}
       </nav>
       <${MiniPomo} />
-      <a class="side-user" href="#/settings" data-tip=${s.profile.name}><span class="side-avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</span><span class="flex1 nl"><b>${s.profile.name}</b><small>${s.settings.lastSync ? '已同步 ' + new Date(s.settings.lastSync).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '本地存储'}</small></span></a>
+      <a class=${'side-user ' + (route.path === 'settings' ? 'active' : '')} href="#/settings" data-tip="设置" title="设置"><span class="side-avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</span><span class="flex1 nl"><b>${s.profile.name}</b><small>${s.settings.lastSync ? '已同步 ' + new Date(s.settings.lastSync).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '本地存储'}</small></span><${Icon} name="settings" size=${15} class="su-gear nl" /></a>
     </aside>
     ${!mini && html`<${Splitter} varName="sidebar" min=${180} max=${420} class="sp-side" />`}
     <div class="main">

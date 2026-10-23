@@ -31,6 +31,9 @@ const ICONS = {
   heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
   target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
   pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  bookmark: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/>',
+  print: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
   upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
@@ -208,6 +211,21 @@ export function DateInput({ value, onChange, placeholder = '选择日期', clear
         ${cells.map((d, i) => d ? html`<button type="button" key=${d} class=${'cal-d ' + (d === value ? 'sel' : '') + (d === t ? ' today' : '')} onClick=${() => { onChange(d); setOpen(false); }}>${Number(d.slice(8))}</button>` : html`<span key=${'e' + i}></span>`)}
       </div>
       <div class="pop-f"><button type="button" class="btn ghost sm" onClick=${() => { onChange(t); setOpen(false); }}>今天</button><button type="button" class="btn ghost sm" onClick=${() => { onChange(t.slice(0, 8) + _pad(new Date().getDate() + 1 > days ? 1 : new Date().getDate() + 1)); setOpen(false); }}>明天</button><span class="flex1"></span>${clearable && value && html`<button type="button" class="btn ghost sm" onClick=${() => { onChange(''); setOpen(false); }}>清除</button>`}</div>
+    </div>`}
+  </div>`;
+}
+
+// Custom dropdown with the same look as the date / time pickers.
+export function Select({ value, options = [], onChange, placeholder = '—', class: cls = '', clearable = false }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  const pos = usePopover(open, setOpen, ref);
+  const opts = options.map((o) => (typeof o === 'string' ? { v: o, label: o } : o));
+  const cur = opts.find((o) => o.v === value);
+  return html`<div class=${'pick ' + cls}>
+    <button type="button" ref=${ref} class=${'pick-btn ' + (cur ? '' : 'empty')} onClick=${() => setOpen(!open)}><span class="flex1">${cur ? cur.label : placeholder}</span><${Icon} name="down" size=${12} class="caret" /></button>
+    ${open && pos && html`<div class="pop sel" style=${`top:${pos.top}px;left:${pos.left}px`}>
+      <div class="time-list">${clearable && html`<button type="button" class=${'time-i ' + (!value ? 'sel' : '')} onClick=${() => { onChange(''); setOpen(false); }}>${placeholder}</button>`}${opts.map((o) => html`<button type="button" key=${o.v} class=${'time-i ' + (o.v === value ? 'sel' : '')} onClick=${() => { onChange(o.v); setOpen(false); }}>${o.label}</button>`)}</div>
     </div>`}
   </div>`;
 }

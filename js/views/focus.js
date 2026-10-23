@@ -1,6 +1,6 @@
 import { html, useState, useEffect, useMemo } from '../../vendor/preact.js';
 import { useStore } from '../store.js';
-import { Icon, Card, Btn, Seg, Empty, Tag } from '../ui.js';
+import { Icon, Card, Btn, Seg, Empty, Tag, Select } from '../ui.js';
 import { todayStr, sortBy, timeToMin, kindColor, addDays, pad } from '../util.js';
 import * as pomo from '../pomo.js';
 import { go } from '../nav.js';
@@ -61,7 +61,7 @@ export default function Focus({ route }) {
               <div class="chips">${presets.map(([w, b]) => html`<button key=${w} class=${'chip ' + (st.workLen === w && !customLen ? 'on' : '')} onClick=${() => { setCustomLen(false); pomo.setLens(w, b); }}>${w}<i>分</i></button>`)}
                 ${customLen ? html`<input class="chip-in" type="number" min="5" max="180" value=${st.workLen} autofocus onInput=${(e) => { const w = Math.max(5, Math.min(180, +e.target.value || 25)); pomo.setLens(w, Math.max(3, Math.round(w / 5))); }} />` : html`<button class=${'chip ' + (presets.every(([w]) => w !== st.workLen) ? 'on' : '')} onClick=${() => setCustomLen(true)}>自定义</button>`}
               </div>
-              ${todos.length > 0 && html`<select class="pf-todo" value=${todoId} onChange=${(e) => { setTodoId(e.target.value); const t = s.todos.find((x) => x.id === e.target.value); if (t) setLabel(t.title); }}><option value="">关联待办…</option>${todos.map((t) => html`<option value=${t.id}>${t.title}</option>`)}</select>`}
+              ${todos.length > 0 && html`<${Select} class="pf-todo" value=${todoId} placeholder="关联待办…" clearable options=${todos.map((t) => ({ v: t.id, label: t.title }))} onChange=${(v) => { setTodoId(v); const t = s.todos.find((x) => x.id === v); if (t) setLabel(t.title); }} />`}
             </div>
             <button class="pf-start" onClick=${begin}><${Icon} name="play" size=${16} /> 开始专注</button>
           </div>`

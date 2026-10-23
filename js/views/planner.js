@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select } from '../ui.js';
 import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
@@ -19,7 +19,8 @@ function WeekBoard() {
   const today = todayStr();
 
   const setWeek = (fn) => update((d) => { d.weeks[key] = d.weeks[key] || { focus: '', items: {}, review: '' }; fn(d.weeks[key]); });
-  const addItem = (date, text) => setWeek((w) => { w.items[date] = w.items[date] || []; w.items[date].push({ id: uid(), text, done: false }); });
+  // "+ 计划" creates a real todo due that day, so the week board edits like the todo list
+  const addItem = (date, text) => upsert('todos', { id: uid(), title: text, done: false, priority: 2, due: date, time: '', tags: [], area: '', note: '', created: todayStr() });
   const toggle = (date, id) => setWeek((w) => { const it = (w.items[date] || []).find((x) => x.id === id); if (it) it.done = !it.done; });
   const del = (date, id) => setWeek((w) => { w.items[date] = (w.items[date] || []).filter((x) => x.id !== id); });
 
@@ -47,7 +48,7 @@ function WeekBoard() {
         return html`<${Card} class=${'wday ' + (d === today ? 'today' : '')} pad=${false} ...${dropProps(['todo', 'wkitem', 'block'], (x) => { if (x.kind === 'wkitem') { if (x.date === d) return; setWeek((w) => { const it = (w.items[x.date] || []).find((i) => i.id === x.id); if (!it) return; w.items[x.date] = w.items[x.date].filter((i) => i.id !== x.id); w.items[d] = w.items[d] || []; w.items[d].push(it); }); } else if (x.kind === 'block') upsert('blocks', { id: x.id, date: d }); else upsert('todos', { id: x.id, due: d }); })}>
           <div class="dh"><b>${WEEKDAY[i]}</b><span>${fmtShort(d)}${d === today ? ' · 今天' : ''}</span></div>
           <ul>
-            ${todos.map((t) => html`<li class=${'todo-ref ' + (t.done ? 'done' : '')} style=${`--pc:${PRIORITY[t.priority].color}`} onClick=${() => setEditing(t)} title="待办（点击编辑）" ...${dragProps('todo', { id: t.id })} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, setEditing), t.title)}><span class="dot"></span><span>${t.time ? html`<span class="mono muted">${t.time} </span>` : ''}${t.title}</span></li>`)}
+            ${todos.map((t) => html`<li class="todo-li" key=${t.id} ...${dragProps('todo', { id: t.id })}><${TodoItem} t=${t} compact onEdit=${(x) => setEditing(x)} /></li>`)}
             ${items.map((it) => html`<li class=${it.done ? 'done' : ''} onClick=${() => toggle(d, it.id)} ...${dragProps('wkitem', { kind: 'wkitem', id: it.id, date: d })} onContextMenu=${(e) => ctxMenu(e, [{ label: it.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggle(d, it.id) }, { label: '转为待办', icon: 'checksq', onClick: () => { upsert('todos', { id: uid(), title: it.text, done: it.done, priority: 2, due: d, time: '', tags: [], area: '', note: '', created: todayStr() }); del(d, it.id); } }, ...[1, 2, 3].map((n) => ({ label: `移到 ${n} 天后`, icon: 'right', onClick: () => { del(d, it.id); const nd = addDays(d, n); setWeek((w) => { w.items[nd] = w.items[nd] || []; w.items[nd].push({ ...it }); }); if (!days.includes(nd)) setStart(weekStart(nd)); } })), 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => del(d, it.id) }], it.text)}><span class="dot"></span><span class="flex1">${it.text}</span><button class="ibtn" style="width:18px;height:18px" onClick=${(e) => { e.stopPropagation(); del(d, it.id); }}><${Icon} name="x" size=${10} /></button></li>`)}
           </ul>
           <div class="add"><input type="text" placeholder="+ 计划" onKeyDown=${(e) => { if (e.key === 'Enter' && e.target.value.trim()) { addItem(d, e.target.value.trim()); e.target.value = ''; } }} /></div>
@@ -91,7 +92,7 @@ export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
   <//>`;
 }
 
-export function Timeline({ date, blocks, onEdit, onCreate, from = 6, to = 24, hourH = 52 }) {
+export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, hourH = 52 }) {
   const [now, setNow] = useState(new Date());
   const [ghost, setGhost] = useState(null); // { id, start, end }
   const dragRef = useRef(null);
@@ -177,8 +178,10 @@ function DayView({ initial }) {
       </div>
     </div>
     <div class="day-layout">
-      <${Card} title="时间线" sub="点击空白处在该小时新建">
+      <${Card} title="时间线" sub="0–24 小时 · 点击空白处在该小时新建">
+        <div class="tl-scroll" ref=${(el) => { if (el && !el.dataset.s) { el.dataset.s = 1; const n = new Date(); const first = blocks[0] ? timeToMin(blocks[0].start) : 8 * 60; const target = date === todayStr() ? n.getHours() * 60 + n.getMinutes() : first; el.scrollTop = Math.max(0, (target / 60) * 52 - 160); } }}>
         <${Timeline} date=${date} blocks=${blocks} onEdit=${(b) => { setEditing(b); setModal(true); }} onCreate=${(t) => { setEditing(null); setStart(t); setModal(true); }} />
+        </div>
       <//>
       <${Splitter} varName="dayside" min=${240} max=${520} dir=${-1} class="sp-col" />
       <div class="stack">
@@ -215,7 +218,7 @@ function GoalModal({ open, goal, onClose, month }) {
     <div class="form">
       <${Field} label="目标"><input type="text" autofocus value=${f.title} placeholder="这个月想达成…" onInput=${(e) => set('title', e.target.value)} /><//>
       <div class="grid2">
-        <${Field} label="领域"><select value=${f.area} onChange=${(e) => set('area', e.target.value)}><option value="">—</option>${AREAS.map((a) => html`<option value=${a}>${a}</option>`)}</select><//>
+        <${Field} label="领域"><${Select} value=${f.area} options=${AREAS} placeholder="—" clearable onChange=${(v) => set('area', v)} /><//>
         <${Field} label=${`手动进度 ${f.progress}%`} hint="有关键结果时按勾选自动计算"><input type="range" min="0" max="100" step="5" value=${f.progress} onInput=${(e) => set('progress', +e.target.value)} /><//>
       </div>
       <${Field} label="为什么重要"><textarea rows="2" value=${f.why} onInput=${(e) => set('why', e.target.value)}></textarea><//>

@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, upsert, remove, removeUndo } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, Stars, TagInput, confirmDel } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, Stars, TagInput, confirmDel, Select } from '../ui.js';
 import { uid, todayStr, sortBy } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
@@ -33,8 +33,8 @@ export function BookModal({ open, book, onClose }) {
         <${Field} label="作者"><input type="text" value=${f.author} onInput=${(e) => set('author', e.target.value)} /><//>
       </div>
       <div class="grid3">
-        <${Field} label="类型"><select value=${f.type} onChange=${(e) => set('type', e.target.value)}>${TYPES.map(([v, n]) => html`<option value=${v}>${n}</option>`)}</select><//>
-        <${Field} label="状态"><select value=${f.status} onChange=${(e) => set('status', e.target.value)}>${STATUS.map(([v, n]) => html`<option value=${v}>${n}</option>`)}</select><//>
+        <${Field} label="类型"><${Select} value=${f.type} options=${TYPES.map(([v, n]) => ({ v, label: n }))} onChange=${(v) => set('type', v)} /><//>
+        <${Field} label="状态"><${Select} value=${f.status} options=${STATUS.map(([v, n]) => ({ v, label: n }))} onChange=${(v) => set('status', v)} /><//>
         <${Field} label="评分"><div style="padding-top:6px"><${Stars} value=${f.rating} onChange=${(v) => set('rating', v)} size=${16} /></div><//>
       </div>
       <div class="grid2">
@@ -88,7 +88,7 @@ export default function Reading({ route }) {
     upsert('books', { id: uid(), title: m ? m[1].trim() : raw, author: m ? m[2].trim() : '', type: 'book', status: status === 'all' ? 'want' : status, progress: 0, total: 0, rating: 0, cover: '', link: '', note: '', tags: [], color: COLORS[s.books.length % COLORS.length], started: '', finished: '', created: todayStr() });
     setQuick('');
   };
-  const notePage = (b) => { const n = linkedPage('book:' + b.id, { title: b.title, nb: '读书笔记', color: '#7461c9', tags: ['读书', ...b.tags], body: `# ${b.title}\n\n${b.author ? '作者：' + b.author + '\n\n' : ''}${b.note ? '> ' + b.note.replace(/\n/g, '\n> ') + '\n\n' : ''}## 摘录\n\n## 想法\n` }); go('notes/' + n.id); };
+  const notePage = (b) => { const n = linkedPage('book:' + b.id, { title: b.title, nb: '读书笔记', color: '#7461c9', tags: ['读书', ...b.tags], body: `${b.author ? '作者：' + b.author + '\n\n' : ''}${b.note ? '> ' + b.note.replace(/\n/g, '\n> ') + '\n\n' : ''}## 摘录\n\n## 想法\n` }); go('notes/' + n.id); };
   const hasPage = (b) => s.notes.some((n) => n.ref === 'book:' + b.id);
   const menu = (b) => [{ label: '打开', icon: 'book', onClick: () => setOpen(b.id) }, { label: hasPage(b) ? '打开笔记页' : '新建笔记页', icon: 'note', onClick: () => notePage(b) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(b); setModal(true); } }, 'sep', ...STATUS.map(([v, n]) => ({ label: n, icon: v === b.status ? 'check' : 'tag', onClick: () => setStatusOf(b, v) })), 'sep', b.link && { label: '打开链接', icon: 'external', onClick: () => window.open(b.link, '_blank', 'noopener') }, { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('books', b.id, b.title) }];
 

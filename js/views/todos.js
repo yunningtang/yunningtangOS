@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, toggleTodo, removeUndo } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { askConfirm } from '../confirm.js';
@@ -50,7 +50,7 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
       <div class="grid3">
         <${Field} label="日期"><${DateInput} value=${f.due} onChange=${(v) => set('due', v)} /><//>
         <${Field} label="时间"><${TimeInput} value=${f.time} onChange=${(v) => set('time', v)} /><//>
-        <${Field} label="领域"><select value=${f.area} onChange=${(e) => set('area', e.target.value)}><option value="">—</option>${AREAS.map((a) => html`<option value=${a}>${a}</option>`)}</select><//>
+        <${Field} label="领域"><${Select} value=${f.area} options=${AREAS} placeholder="—" clearable onChange=${(v) => set('area', v)} /><//>
       </div>
       <${Field} label="优先级"><div class="pri-pick">${PRIORITY.map((p) => html`<button type="button" style=${`--pc:${p.color}`} class=${f.priority === p.v ? 'on' : ''} title=${p.name} onClick=${() => set('priority', p.v)}>${p.label}</button>`)}</div><//>
       <${Field} label="标签"><${TagInput} value=${f.tags} onChange=${(v) => set('tags', v)} /><//>
@@ -59,7 +59,7 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
   <//>`;
 }
 
-export function todoPage(t) { const n = linkedPage('todo:' + t.id, { title: t.title, nb: '收件箱', tags: t.tags, body: `# ${t.title}\n\n${t.note ? t.note + '\n\n' : ''}` }); go('notes/' + n.id); }
+export function todoPage(t) { const n = linkedPage('todo:' + t.id, { title: t.title, nb: '收件箱', tags: t.tags, body: `${t.note ? t.note + '\n\n' : ''}` }); go('notes/' + n.id); }
 export function todoMenu(t, onEdit) {
   const today = todayStr();
   return [
