@@ -41,7 +41,7 @@ function migrate(s) {
   out.notebooks = out.notebooks || [];
   out.sessions = out.sessions || [];
   // pomodoro records used to be timeline blocks (pomo: true); move them into sessions
-  const moved = (out.blocks || []).filter((b) => b.pomo);
+  const moved = (out.blocks || []).filter((b) => b.pomo || (b.kind === 'focus' && typeof b.note === 'string' && b.note.startsWith('todo:')));
   if (moved.length) { moved.forEach((b) => { if (!out.sessions.some((x) => x.id === b.id)) out.sessions.push({ id: b.id, date: b.date, start: b.start, end: b.end, mins: Math.max(1, (parseInt(b.end) * 60 + parseInt(b.end.slice(3))) - (parseInt(b.start) * 60 + parseInt(b.start.slice(3)))), title: b.title || '专注', todo: (b.note || '').startsWith('todo:') ? b.note.slice(5) : '', note: '', updated: new Date().toISOString() }); }); out.blocks = out.blocks.filter((b) => !b.pomo); }
   out.canvases = (out.canvases || []).map((c) => ({ nodes: [], edges: [], strokes: [], ...c }));
   const cutoff = Date.now() - 30 * 86400000;

@@ -162,7 +162,7 @@ function DayView({ initial }) {
   const [modal, setModal] = useState(false);
   const [start, setStart] = useState('09:00');
   const [tEdit, setTEdit] = useState(null);
-  const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === date), 'start'), [s.blocks, date]);
+  const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === date && !b.pomo), 'start'), [s.blocks, date]);
   const todos = useMemo(() => sortBy(s.todos.filter((t) => t.due === date), 'done', 'priority', 'time'), [s.todos, date]);
   const sum = useMemo(() => {
     const m = {};

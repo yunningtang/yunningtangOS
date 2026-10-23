@@ -63,7 +63,7 @@ export default function Dashboard() {
   const todos = todosAll.filter((t) => !t.done).slice(0, 10);
   const doneTodos = todosAll.filter((t) => t.done);
   const [showDone, setShowDone] = useState(false);
-  const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today), 'start'), [s.blocks]);
+  const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today && !b.pomo), 'start'), [s.blocks]);
   const goals = s.goals[monthKey()] || [];
   const wk = s.weeks[weekKey()];
   const week = weekDays(weekStart());
