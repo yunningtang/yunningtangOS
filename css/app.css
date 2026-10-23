@@ -389,11 +389,11 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .pri-pick button{width:32px;height:26px;border-radius:var(--r3);font-size:.72rem;font-weight:600;color:var(--pc);background:color-mix(in srgb,var(--pc) 10%,transparent);opacity:.55}
 .pri-pick button.on,.pri-pick button:hover{opacity:1;background:color-mix(in srgb,var(--pc) 18%,transparent)}
 .board-cols{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:stretch}
-.bcol{padding:8px;min-height:120px;background:color-mix(in srgb,var(--pc) 7%,var(--hover));box-shadow:inset 0 3px 0 var(--pc);-webkit-backdrop-filter:none;backdrop-filter:none}.bcol::after{display:none}
+.bcol{padding:8px;min-height:120px;background:var(--hover);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}.bcol::after{display:none}
 .bcol .bh{display:flex;align-items:center;gap:7px;font-size:.8rem;font-weight:600;margin:4px 0 8px;padding:2px 4px;color:var(--pc)}
-.bcol .bh .bh-p{display:inline-grid;place-items:center;height:20px;padding:0 7px;border-radius:6px;background:var(--pc);color:#fff;font-size:.7rem;font-weight:700;letter-spacing:.02em}
+.bcol .bh .bh-p{display:inline-grid;place-items:center;height:20px;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--pc) 14%,transparent);color:var(--pc);font-size:.7rem;font-weight:700;letter-spacing:.02em}
 .bcol .bh span{margin-left:auto;color:var(--text-4);font-size:.74rem}
-.bcard{display:flex;gap:8px;align-items:flex-start;padding:8px 10px 8px 12px;border-radius:var(--r2);background:var(--card-bg);box-shadow:var(--shadow),inset 3px 0 0 var(--pc);margin-bottom:6px;cursor:pointer;font-size:.82rem}
+.bcard{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:var(--r2);background:var(--card-bg);box-shadow:var(--shadow);margin-bottom:6px;cursor:pointer;font-size:.82rem}
 .bcard .cb{border:2px solid var(--pc);background:color-mix(in srgb,var(--pc) 14%,transparent);border-radius:4px}.bcard.done .cb{background:var(--pc);border-color:var(--pc)}
 .bcard:hover{box-shadow:var(--shadow-h)}
 .bcard.done{opacity:.5;text-decoration:line-through}
@@ -1537,7 +1537,5 @@ html[data-skin="win95"] .w-tools{background:#c0c0c0;box-shadow:inset -1px -1px 0
 html[data-skin="win95"] .hero,html[data-skin="win95"] .profile{padding-top:14px!important}
 html[data-skin="win95"] input.page-title,html[data-skin="win95"] .nb-rename,html[data-skin="win95"] .mtag-in,html[data-skin="win95"] .fp-add input{background:transparent;box-shadow:none}
 
-/* list view: priority also shows as a left stripe for P0 / P1 and a text label on hover */
-.todo.p0{box-shadow:inset 3px 0 0 var(--red)}.todo.p1{box-shadow:inset 3px 0 0 var(--amber)}
-.todo.p0,.todo.p1{padding-left:10px}
-.todo .meta .pri{display:inline-flex;align-items:center;height:16px;padding:0 5px;border-radius:4px;font-size:.66rem;font-weight:700;color:#fff;background:var(--pc)}
+/* list view: priority = coloured checkbox + a small tinted label, no stripes */
+.todo .meta .pri{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;font-size:.66rem;font-weight:600;color:var(--pc);background:color-mix(in srgb,var(--pc) 12%,transparent)}
