@@ -1007,19 +1007,6 @@ html[data-theme="dark"] .heat-col i.l1{background:#2a3d66}html[data-theme="dark"
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 /* ===== Now widget: clock / place / weather ===== */
-.now-w.pad{padding:18px 20px 16px;display:flex;flex-direction:column}
-.now-clock{display:flex;align-items:baseline;gap:4px;font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1}
-.now-clock b{font-size:2.6rem;font-weight:700}.now-clock small{font-size:1rem;color:var(--text-4);font-weight:500}
-.now-date{margin-top:6px;font-size:.8rem;color:var(--text-3)}
-.now-loc{display:inline-flex;align-items:center;gap:5px;margin-top:14px;font-size:.8rem;color:var(--text-2);padding:3px 8px 3px 6px;margin-left:-6px;border-radius:8px;max-width:100%}.now-loc:hover{background:var(--hover)}.now-loc .ic{color:var(--text-4);flex-shrink:0}.now-loc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.now-loc small{color:var(--text-4)}
-.now-wx{display:flex;align-items:center;gap:12px;margin-top:10px;padding:12px 14px;border-radius:12px;background:var(--side)}
-.now-wx .wx-ic{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--blue);background:var(--paper);box-shadow:var(--shadow);flex-shrink:0}.now-wx.night .wx-ic{color:var(--violet)}
-.now-wx .wx-t{font-size:1.5rem;font-weight:600;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}.now-wx .wx-t i{font-style:normal;font-size:.9rem;color:var(--text-4);margin-left:1px}
-.now-wx .wx-d{font-size:.74rem;color:var(--text-3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.now-days{display:flex;justify-content:space-between;margin-top:10px;padding:0 4px}
-.now-days div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.68rem;color:var(--text-4)}.now-days .ic{color:var(--text-3)}.now-days b{font-weight:500;color:var(--text-2);font-variant-numeric:tabular-nums}
-.now-msg{margin-top:10px;font-size:.76rem;color:var(--text-4);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.now-msg .btn{height:26px}
 .place-pop{width:260px}.place-pop .time-i small{display:block;font-size:.68rem;color:var(--text-4)}
 
 /* ===== Quick capture ===== */
@@ -1085,7 +1072,7 @@ html[data-theme="dark"] .heat-col i.l1{background:#2a3d66}html[data-theme="dark"
 
 /* ---------- notes: foot links, properties ---------- */
 .nb-foot{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
-.nb-foot .nb-i{flex:none;min-height:30px;padding:2px 4px;font-size:.76rem;gap:5px}
+.nb-foot .nb-i{flex:none;min-height:30px;padding:2px 4px;font-size:.72rem;gap:4px;justify-content:center}
 .li-i small .li-rv{color:var(--amber);font-weight:500}.li-i small .li-rv.late{color:var(--red)}
 .st-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
 .mchip.prop{color:var(--text-2)}.mchip.prop .ic{color:var(--text-4)}
@@ -1313,43 +1300,61 @@ html[data-theme="dark"] .d3-shadow{fill:rgba(0,0,0,.55)}
 .dnav-r{display:flex;align-items:center;gap:6px;justify-self:end;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:720px){.dnav{grid-template-columns:1fr 1fr}.dnav-l{min-width:0}.dstrip{grid-column:1/-1;width:100%;justify-content:space-between}.dchip{width:38px;height:44px}.dnav-r{justify-self:end}}
 
-/* ---------- weather backdrop ---------- */
-.now-w.has-sky{position:relative;overflow:hidden}
-.now-w.has-sky>*:not(.sky){position:relative;z-index:1}
+/* ---------- 此刻: Apple-Weather-like card ---------- */
+.now-w{position:relative;overflow:hidden;color:#fff;--wtx:#fff;--wmute:rgba(255,255,255,.78);--wglass:rgba(255,255,255,.16);--wline:rgba(255,255,255,.25);text-shadow:0 1px 2px rgba(0,0,0,.12)}
+.now-w.no-sky{color:var(--text);--wtx:var(--text);--wmute:var(--text-3);--wglass:var(--hover);--wline:var(--line);text-shadow:none}
+.now-w::after{display:none}
+.now-in{position:relative;z-index:1;padding:18px 20px 16px;display:flex;flex-direction:column;height:100%;min-height:100%}
+.now-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.now-clock{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 6px;font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1}
+.now-clock b{font-size:2.3rem;font-weight:600}.now-clock small{font-size:.95rem;color:var(--wmute);font-weight:500}
+.now-date{flex-basis:100%;margin-top:6px;font-size:.78rem;color:var(--wmute);letter-spacing:0}
+.now-loc{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;color:var(--wtx);padding:5px 10px 5px 8px;border-radius:999px;background:var(--wglass);max-width:60%;flex-shrink:0;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}.now-loc:hover{filter:brightness(1.1)}.now-loc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.now-loc small{color:var(--wmute);white-space:nowrap}
+.now-big{display:flex;align-items:flex-end;gap:12px;margin-top:auto;padding-top:18px}
+.nb-temp{font-size:4.6rem;font-weight:300;line-height:.9;letter-spacing:-.05em;font-variant-numeric:tabular-nums}.nb-temp i{font-style:normal;font-size:2.4rem;font-weight:300;vertical-align:top;margin-left:2px;color:var(--wmute)}
+.nb-side{display:flex;flex-direction:column;gap:3px;padding-bottom:6px;min-width:0}.nb-cond{font-size:1.05rem;font-weight:600}.nb-hl{font-size:.8rem;color:var(--wmute)}
+.now-feel{display:flex;gap:14px;margin-top:10px;font-size:.78rem;color:var(--wmute)}.now-feel b{color:var(--wtx);font-weight:600}
+.now-days{display:flex;flex-direction:column;gap:2px;margin-top:14px;padding:8px 12px;border-radius:14px;background:var(--wglass);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.now-days>div{display:grid;grid-template-columns:38px 20px 30px 1fr 30px;align-items:center;gap:8px;font-size:.78rem;min-height:28px}
+.now-days>div+div{border-top:1px solid var(--wline)}
+.now-days span{color:var(--wtx);font-weight:500}.now-days .ic{color:var(--wtx)}.now-days small{font-size:.76rem;color:var(--wmute);text-align:right;font-variant-numeric:tabular-nums}.now-days small:last-child{color:var(--wtx);font-weight:600}
+.nd-bar{position:relative;height:4px;border-radius:2px;background:rgba(0,0,0,.18)}.nd-bar b{position:absolute;top:0;bottom:0;border-radius:2px;background:linear-gradient(90deg,#5ac8fa,#ffcc00)}
+.now-w.no-sky .nd-bar{background:var(--hover-2)}
+.now-msg{margin-top:12px;font-size:.78rem;color:var(--wmute);display:flex;align-items:center;gap:8px;flex-wrap:wrap}.now-msg .btn{height:26px;color:var(--wtx);background:var(--wglass)}
+.now-search input{flex:1;min-width:0;height:32px;font-size:.82rem;color:var(--text);text-shadow:none}
+.now-search .popmenu{color:var(--text);text-shadow:none}
+/* full-bleed sky */
 .sky{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;border-radius:inherit}
-.sky-sunny .sky{background:linear-gradient(180deg,rgba(255,214,110,.28),rgba(120,180,255,.14) 55%,transparent)}
-.sky-partly .sky{background:linear-gradient(180deg,rgba(150,195,255,.26),rgba(255,230,160,.12) 70%,transparent)}
-.sky-cloudy .sky{background:linear-gradient(180deg,rgba(150,165,190,.28),rgba(190,200,215,.12) 70%,transparent)}
-.sky-rain .sky,.sky-storm .sky{background:linear-gradient(180deg,rgba(90,110,140,.32),rgba(110,130,160,.12) 70%,transparent)}
-.sky-snow .sky{background:linear-gradient(180deg,rgba(200,215,235,.4),rgba(220,230,245,.14) 70%,transparent)}
-.sky-fog .sky{background:linear-gradient(180deg,rgba(190,195,205,.35),rgba(200,205,215,.15) 70%,transparent)}
-.sky-night .sky,.sky-night-cloud .sky{background:linear-gradient(180deg,rgba(20,30,70,.45),rgba(40,55,110,.18) 70%,transparent)}
-html[data-theme="dark"] .sky-sunny .sky{background:linear-gradient(180deg,rgba(255,190,80,.16),rgba(80,140,255,.08) 55%,transparent)}
-html[data-theme="dark"] .sky-night .sky,html[data-theme="dark"] .sky-night-cloud .sky{background:linear-gradient(180deg,rgba(30,45,110,.5),rgba(30,45,110,.12) 70%,transparent)}
-.sky .sun{position:absolute;right:26px;top:18px;width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 40% 40%,#fff5c2,#ffc83d 60%,#ffb020);box-shadow:0 0 30px 10px rgba(255,190,60,.35),0 0 80px 30px rgba(255,200,80,.18);animation:sunpulse 6s ease-in-out infinite}
-.sky-partly .sky .sun{right:46px;top:12px;width:46px;height:46px}
-@keyframes sunpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-.sky .moon{position:absolute;right:34px;top:20px;width:40px;height:40px;border-radius:50%;background:#f6f3e4;box-shadow:inset -10px -6px 0 0 rgba(40,55,110,.9),0 0 24px 6px rgba(246,243,228,.25)}
+.sky-sunny .sky{background:linear-gradient(180deg,#3d8ff0 0%,#7fc0ff 55%,#bfe3ff 100%)}
+.sky-sunny.tod-dawn .sky,.sky-partly.tod-dawn .sky{background:linear-gradient(180deg,#5b7fd8 0%,#f0a070 60%,#ffd59a 100%)}
+.sky-sunny.tod-dusk .sky,.sky-partly.tod-dusk .sky{background:linear-gradient(180deg,#3a4e9e 0%,#d97757 55%,#ffb677 100%)}
+.sky-partly .sky{background:linear-gradient(180deg,#4a90e2 0%,#8cc0f5 60%,#c7dff7 100%)}
+.sky-cloudy .sky{background:linear-gradient(180deg,#6b7f99 0%,#9aabc0 60%,#c3cdd9 100%)}
+.sky-rain .sky,.sky-storm .sky{background:linear-gradient(180deg,#3b4a63 0%,#5d6f8c 60%,#8191a8 100%)}
+.sky-snow .sky{background:linear-gradient(180deg,#7d92ad 0%,#aebdd0 60%,#d7e0ea 100%)}
+.sky-fog .sky{background:linear-gradient(180deg,#8a95a5 0%,#aab3bf 60%,#c9cfd7 100%)}
+.sky-night .sky,.sky-night-cloud .sky{background:linear-gradient(180deg,#0e1738 0%,#1c2a5c 60%,#2f4479 100%)}
+.sky .sun{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:radial-gradient(circle at 40% 40%,#fff8d6,#ffd54a 60%,#ffb82e);box-shadow:0 0 40px 14px rgba(255,210,90,.45),0 0 110px 40px rgba(255,200,80,.22);animation:sunpulse 6s ease-in-out infinite}
+.sky-partly .sky .sun{width:52px;height:52px;margin:-26px 0 0 -26px}
+@keyframes sunpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.sky .moon{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:#f6f3e4;box-shadow:inset -11px -7px 0 0 rgba(20,30,70,.95),0 0 28px 8px rgba(246,243,228,.22)}
 .sky .star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.7;animation:twinkle 3s ease-in-out infinite}
 @keyframes twinkle{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:.95;transform:scale(1.3)}}
-.sky .cloud{position:absolute;left:-40%;width:110px;height:30px;opacity:.55;border-radius:40px;background:rgba(255,255,255,.75);filter:blur(1px);animation:drift linear infinite;box-shadow:0 8px 20px -10px rgba(40,60,100,.3)}
+.sky .cloud{position:absolute;left:-40%;width:110px;height:30px;opacity:.75;border-radius:40px;background:rgba(255,255,255,.85);filter:blur(1px);animation:drift linear infinite;box-shadow:0 10px 24px -10px rgba(20,40,80,.35)}
 .sky .cloud::before,.sky .cloud::after{content:'';position:absolute;background:inherit;border-radius:50%}
 .sky .cloud::before{width:50px;height:50px;left:18px;top:-24px}.sky .cloud::after{width:36px;height:36px;left:60px;top:-14px}
-.sky .cloud.c1{transform:scale(.7);opacity:.5}.sky .cloud.c2{transform:scale(1.1);opacity:.4}.sky .cloud.c3{transform:scale(.55);opacity:.55}
-.sky-cloudy .sky .cloud,.sky-rain .sky .cloud,.sky-storm .sky .cloud{background:rgba(225,230,240,.8)}
-html[data-theme="dark"] .sky .cloud{background:rgba(120,135,165,.45)}
+.sky .cloud.c1{transform:scale(.7);opacity:.6}.sky .cloud.c2{transform:scale(1.1);opacity:.5}.sky .cloud.c3{transform:scale(.55);opacity:.7}
+.sky-cloudy .sky .cloud,.sky-rain .sky .cloud,.sky-storm .sky .cloud{background:rgba(225,230,240,.7)}
+.sky-night-cloud .sky .cloud{background:rgba(120,135,175,.5)}
 @keyframes drift{from{left:-40%}to{left:110%}}
-.sky .drop{position:absolute;top:-12%;width:1.5px;height:14px;border-radius:2px;background:linear-gradient(180deg,transparent,rgba(120,160,230,.8));animation:fall linear infinite}
-@keyframes fall{from{transform:translateY(0)}to{transform:translateY(130%)}}
-.sky .drop{animation-name:raindrop}
+.sky .drop{position:absolute;top:-12%;width:1.5px;height:16px;border-radius:2px;background:linear-gradient(180deg,transparent,rgba(220,235,255,.85));animation:raindrop linear infinite}
 @keyframes raindrop{from{top:-12%}to{top:110%}}
-.sky .flash{position:absolute;inset:0;background:rgba(255,255,255,.6);opacity:0;animation:flash 7s linear infinite}
-@keyframes flash{0%,86%,100%{opacity:0}87%{opacity:.7}88%{opacity:0}90%{opacity:.5}91%{opacity:0}}
-.sky .flake{position:absolute;top:-6%;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 4px rgba(255,255,255,.8);animation:snowfall linear infinite}
+.sky .flash{position:absolute;inset:0;background:rgba(255,255,255,.7);opacity:0;animation:flash 7s linear infinite}
+@keyframes flash{0%,86%,100%{opacity:0}87%{opacity:.8}88%{opacity:0}90%{opacity:.5}91%{opacity:0}}
+.sky .flake{position:absolute;top:-6%;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 0 4px rgba(255,255,255,.8);animation:snowfall linear infinite}
 @keyframes snowfall{0%{top:-6%;margin-left:0}50%{margin-left:10px}100%{top:110%;margin-left:-6px}}
-.sky .fog{position:absolute;left:-20%;width:140%;height:34%;border-radius:50%;background:rgba(255,255,255,.45);filter:blur(14px);animation:fogdrift 18s ease-in-out infinite alternate}
+.sky .fog{position:absolute;left:-20%;width:140%;height:34%;border-radius:50%;background:rgba(255,255,255,.35);filter:blur(14px);animation:fogdrift 18s ease-in-out infinite alternate}
 .sky .fog.f1{top:5%}.sky .fog.f2{top:35%;animation-duration:24s;animation-delay:-8s}.sky .fog.f3{top:65%;animation-duration:30s;animation-delay:-15s}
-html[data-theme="dark"] .sky .fog{background:rgba(180,190,210,.18)}
 @keyframes fogdrift{from{transform:translateX(-6%)}to{transform:translateX(6%)}}
 @media(prefers-reduced-motion:reduce){.sky *{animation:none!important}}
 

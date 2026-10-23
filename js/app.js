@@ -37,7 +37,9 @@ export const ROUTES = [
   { sep: '输入与输出' },
   { path: 'reading', name: '阅读', icon: 'book', view: Reading, count: (s) => s.books.filter((b) => b.status === 'reading').length },
   { path: 'links', name: '收藏', icon: 'link', view: Links },
-  { path: 'notes', name: '笔记', icon: 'note', view: Notes },
+  { path: 'notes', name: '笔记', icon: 'note', view: Notes, match: (r) => r.path === 'notes' && r.sub !== 'cards' && !(r.sub || '').startsWith('canvas') },
+  { path: 'notes', href: 'notes/cards', name: '卡片', icon: 'kanban', match: (r) => r.path === 'notes' && r.sub === 'cards' },
+  { path: 'notes', href: 'notes/canvas', name: '画布', icon: 'frame', match: (r) => r.path === 'notes' && (r.sub || '').startsWith('canvas') },
   { sep: '远方' },
   { path: 'vision', name: '愿景', icon: 'sparkle', view: Vision },
   { path: 'explore', name: '探索', icon: 'globe', view: Explore },
@@ -127,8 +129,8 @@ function App() {
           if (r.hidden) return null;
           if (section && navOpen['s:' + section] === false && !mini) return null;
           const isActive = r.match ? r.match(route) : route.path === r.path;
-          return html`<a href=${'#/' + (r.href || r.path)} class=${isActive ? 'active' : ''} data-tip=${r.name} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
-            ${r.path === 'notes' && navOpen.notes && !mini && html`<div class="nav-tree">
+          return html`<a href=${'#/' + (r.href || r.path)} class=${isActive ? 'active' : ''} data-tip=${r.name} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && r.view && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && r.view && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
+            ${r.path === 'notes' && r.view && navOpen.notes && !mini && html`<div class="nav-tree">
               ${[...s.notebooks].sort((a, b) => a.order - b.order).map((b) => html`<div key=${b.id}>
                 <div class=${'pt-row nb-row ' + (navOpen['nb:' + b.id] === false ? 'closed' : '')} ...${dragProps('notebook', { id: b.id })} ...${dropProps(['page', 'notebook'], (d, { after }) => { if (d.id === b.id) return; if (s.notes.some((n) => n.id === d.id)) movePage(d.id, { nb: b.id, parent: null }); else update((dd) => { const list = dd.notebooks.sort((x, y) => x.order - y.order); const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === b.id); if (after) to++; list.splice(to, 0, mv); list.forEach((x, i) => { x.order = i; }); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, async () => { const v = await askPrompt('本子名称', b.name, { title: '重命名本子' }); if (v && v.trim()) update((d) => { d.notebooks.find((x) => x.id === b.id).name = v.trim(); }); }), b.name)}>
                   <button class="pt-tg" onClick=${() => toggleNav('nb:' + b.id)}><${Icon} name=${navOpen['nb:' + b.id] === false ? 'right' : 'down'} size=${11} /></button>

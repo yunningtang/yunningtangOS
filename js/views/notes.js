@@ -253,7 +253,7 @@ export default function Notes({ route }) {
         <button class="nb-i new" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }}><${Icon} name="plus" size=${13} /><span>新本子</span></button>
       </div>
       <button class=${'nb-i trash-i ' + (nbSel === 'trash' ? 'active' : '')} onClick=${() => pick('trash')} ...${dropProps('page', (d) => { const n = s.notes.find((x) => x.id === d.id); if (n) trashPages(subtreeIds(s.notes, n.id), noteTitle(n)); })}><${Icon} name="trash" size=${14} /><span class="flex1">最近删除</span><small>${(s.trash || []).length}</small></button>
-      <div class="nb-foot" style="position:relative">${[['cards', '卡片', 'kanban'], ['tasks', '行动', 'checksq'], ['canvas', '画布', 'frame'], ['graph', '图谱', 'compass'], ['tags', '标签', 'tag'], ['files', '附件', 'file']].map(([k, l, ic]) => html`<a key=${k} class=${'nb-i ' + (id === k || (k === 'canvas' && (id || '').startsWith('canvas')) ? 'active' : '')} href=${'#/notes/' + k}><${Icon} name=${ic} size=${14} /><span>${l}</span></a>`)}</div>
+      <div class="nb-foot" style="position:relative">${[['graph', '图谱', 'compass'], ['tags', '标签', 'tag'], ['files', '附件', 'file']].map(([k, l, ic]) => html`<a key=${k} class=${'nb-i ' + (id === k ? 'active' : '')} href=${'#/notes/' + k} title=${l}><${Icon} name=${ic} size=${15} /><span>${l}</span></a>`)}</div>
     </aside>`}
     ${panes.nb && html`<${Splitter} varName="nbw" min=${150} max=${360} />`}
     ${panes.list && html`<section class="card list-col">
