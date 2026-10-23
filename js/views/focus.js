@@ -38,7 +38,7 @@ export default function Focus({ route }) {
     <div class="focus-hero">
       <div class="fh-top">
         <div><div class="fh-k">${st.phase === 'idle' ? '准备开始' : st.phase === 'break' ? '休息一下' : st.paused ? '已暂停' : '专注中'}</div><h1 class="fh-title">${st.phase === 'idle' ? '专注' : (st.label || '专注')}</h1></div>
-        <div class="fh-stats"><span><b>${sessions.length}</b>轮</span><span><b>${Math.floor(mins / 60)}<i>h</i>${String(mins % 60).padStart(2, '0')}<i>m</i></b>今天</span><span><b>${streak}</b>天连续</span></div>
+        <div class="fh-stats"><span><b>${Math.floor(mins / 60)}<i>h</i>${String(mins % 60).padStart(2, '0')}<i>m</i></b>今天</span></div>
       </div>
       <div class="fh-body">
         <div class="pomo-ring">
@@ -72,7 +72,6 @@ export default function Focus({ route }) {
           </div>`}
       </div>
     </div>
-    <${FocusStats} blocks=${s.blocks} />
     </div>
     <div class="focus-side">
       <${Card} title="今天的专注" sub=${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m` : '还没有记录'} action=${html`<a class="btn ghost sm" href="#/plan/day">时间线 →</a>`}>
@@ -87,6 +86,7 @@ export default function Focus({ route }) {
         ${todos.length === 0 ? html`<${Empty} icon="checksq" text="今天没有待办。" />` : html`<div class="tlist">${todos.slice(0, 8).map((t) => html`<button class="tl-i" key=${t.id} onClick=${() => { setTodoId(t.id); setLabel(t.title); pomo.start({ label: t.title, todoId: t.id }); }}><${Icon} name="play" size=${12} class="muted" /><span class="flex1">${t.title}</span>${t.time && html`<small>${t.time}</small>`}</button>`)}</div>`}
       <//>
     </div>
+    <${FocusStats} blocks=${s.blocks} />
   </div>`;
 }
 
@@ -133,6 +133,7 @@ function FocusStats({ blocks }) {
   const W = 600, H = 150, padL = 4, padR = 34, padT = 10, padB = 24; const bw = (W - padL - padR) / period.bars.length;
   const yOf = (v) => padT + (H - padT - padB) * (1 - v / yMax);
   return html`<${Card} class="fstats">
+    <div class="fs-left">
     <div class="fs-nums"><div><b>${focus.length}</b><small>次</small></div><div><b>${perDay.size}</b><small>天</small></div><div><b class=${streak ? '' : 'muted'}>${streak} 天</b><small>连续专注</small></div></div>
     <div class="heat">
       <div class="heat-months">${grid.months.map((m) => html`<span key=${m.w} style=${`left:calc(${m.w} * (100% / ${weeks}))`}>${m.label}</span>`)}</div>
@@ -140,6 +141,8 @@ function FocusStats({ blocks }) {
         <div class="heat-grid" style=${`grid-template-columns:repeat(${weeks},1fr)`}>${grid.cols.map((col, w) => html`<div class="heat-col" key=${w}>${col.map((c) => html`<i key=${c.date} class=${'l' + c.lvl + (c.future ? ' fut' : '') + (c.date === cursor && unit === 'day' ? ' sel' : '')} title=${`${c.date} · ${c.m} 分钟`} onClick=${() => { if (!c.future) { setUnit('day'); setCursor(c.date); } }}></i>`)}</div>`)}</div>
       </div>
     </div>
+    </div>
+    <div class="fs-right">
     <div class="fs-seg"><${Seg} options=${[{ v: 'day', label: '天' }, { v: 'week', label: '周' }, { v: 'month', label: '月' }, { v: 'year', label: '年' }]} value=${unit} onChange=${setUnit} /></div>
     <div class="fs-head">
       <button class="fs-nav" onClick=${() => step(-1)}><${Icon} name="left" size=${16} /></button>
@@ -154,6 +157,7 @@ function FocusStats({ blocks }) {
       <text x=${W - padR + 6} y=${yOf(0) + 4} class="ax">0</text>
       ${period.labels.map(([i, l]) => html`<text key=${'t' + i} x=${padL + i * bw + (unit === 'day' ? 0 : bw / 2)} y=${H - 6} class=${'ax ' + (unit === 'day' ? '' : 'mid')}>${l}</text>`)}
     </svg>
+    </div>
   <//>`;
 }
 
