@@ -2,7 +2,7 @@ import { html, useState, useMemo, useEffect, useRef, Component } from '../../ven
 import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field } from '../ui.js';
-import { uid, todayStr, sortBy, debounce, escapeHtml, download } from '../util.js';
+import { uid, todayStr, sortBy, debounce, escapeHtml, download, tagHue } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
 import { askConfirm, askPrompt } from '../confirm.js';
@@ -357,7 +357,7 @@ function MetaLine({ note, notes, notebooks, words, onMove }) {
   const tip = `更新 ${upd.toLocaleString('zh-CN', { hour12: false })}\n创建 ${note.created}`;
   return html`<div class="meta-line">
     <button class="mchip" onClick=${nbMenu} title="放入其他本子"><i class="nb-dot" style=${`background:${nb ? nb.color : '#999'}`}></i>${nb ? nb.name : '收件箱'}<${Icon} name="down" size=${10} /></button>
-    ${note.tags.map((t) => html`<span class="mtag" key=${t}><a href=${'#/notes?tag=' + encodeURIComponent(t)}>${t}</a><button title="移除标签" onClick=${() => upsert('notes', { id: note.id, tags: note.tags.filter((x) => x !== t) })}>×</button></span>`)}
+    ${note.tags.map((t) => html`<span class="mtag" key=${t} style=${`--th:${tagHue(t)}`}><a href=${'#/notes?tag=' + encodeURIComponent(t)}>${t}</a><button title="移除标签" onClick=${() => upsert('notes', { id: note.id, tags: note.tags.filter((x) => x !== t) })}>×</button></span>`)}
     ${adding ? html`<span class="mtag-wrap"><input class="mtag-in" ref=${(el) => el && !el.dataset.f && (el.dataset.f = 1, setTimeout(() => el.focus(), 0))} value=${txt} placeholder="标签" onInput=${(e) => { setTxt(e.target.value); setSugIdx(0); }} onKeyDown=${(e) => { if (e.isComposing) return; if (e.key === 'ArrowDown') { e.preventDefault(); setSugIdx((i) => Math.min(sugs.length - 1, i + 1)); } else if (e.key === 'ArrowUp') { e.preventDefault(); setSugIdx((i) => Math.max(0, i - 1)); } else if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') { e.preventDefault(); const pick = sugs[sugIdx]; addTag(pick ? pick.t : txt.trim()); } else if (e.key === 'Escape') { setTxt(''); setAdding(false); } else if (e.key === 'Backspace' && !txt && note.tags.length) { upsert('notes', { id: note.id, tags: note.tags.slice(0, -1) }); } }} onBlur=${() => { setTimeout(() => { addTag(); setAdding(false); }, 120); }} />
       ${sugs.length > 0 && html`<div class="popmenu tag-sug">${sugs.map((x, i) => html`<div class=${'pm ' + (i === sugIdx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); addTag(x.t); }}><b>${x.create ? `创建「${x.t}」` : x.t}</b></div>`)}</div>`}</span>`
       : html`<button class="mchip ghost" onClick=${() => setAdding(true)} title="添加标签"><${Icon} name="plus" size=${11} />${note.tags.length ? '' : ' 标签'}</button>`}
