@@ -61,9 +61,10 @@ export function useRoute() {
   return r;
 }
 
-export function applyTheme(t) {
+export function applyTheme(t, skin) {
   const real = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
   document.documentElement.dataset.theme = real;
+  if (skin !== undefined) document.documentElement.dataset.skin = skin || 'glass';
 }
 
 function App() {
@@ -82,12 +83,12 @@ function App() {
   const View = active.view;
 
   useEffect(() => {
-    applyTheme(s.settings.theme);
+    applyTheme(s.settings.theme, s.settings.skin || 'glass');
     const mq = matchMedia('(prefers-color-scheme: dark)');
     const h = () => s.settings.theme === 'auto' && applyTheme('auto');
     mq.addEventListener('change', h);
     return () => mq.removeEventListener('change', h);
-  }, [s.settings.theme]);
+  }, [s.settings.theme, s.settings.skin]);
 
   useEffect(() => {
     const h = (e) => {
