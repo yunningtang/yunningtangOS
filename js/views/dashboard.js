@@ -201,12 +201,12 @@ export default function Dashboard() {
     notes: { title: '笔记', span: 1, el: html`<${Card}>
         <div class="card-h"><h3>笔记</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${(nbOf(s, n.nb) || {}).color || 'var(--text-4)'}`} title=${(nbOf(s, n.nb) || {}).name || ''}></i><div><b>${noteTitle(n)}</b><small>${fmtShort(n.updated.slice(0, 10))} ${n.updated.slice(11, 16)}</small></div></a>`)}</div>
-        <a class="small link" href="#/notes">查看全部</a>
+        <a class="more" href="#/notes">查看全部<${Icon} name="right" size=${12} /></a>
       <//>` },
     links: { title: '收藏', span: 1, el: html`<${Card}>
         <div class="card-h"><h3>收藏</h3><div class="card-act"><a class="ibtn" href="#/links" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="dot-list">${recentLinks.map((l) => html`<a class="dl-i" href=${l.url} target="_blank" rel="noopener" key=${l.id}><span class="fav"><img src=${`https://www.google.com/s2/favicons?domain=${l.host}&sz=32`} alt="" /></span><div><b>${l.title}</b><small>${l.host}</small></div></a>`)}</div>
-        <a class="small link" href="#/links">查看全部</a>
+        <a class="more" href="#/links">查看全部<${Icon} name="right" size=${12} /></a>
       <//>` },
     week: { title: '本周', span: 1, el: html`<${Card}>
         <div class="card-h"><h3>本周</h3></div>

@@ -42,7 +42,7 @@ export default function Focus({ route }) {
   return html`<div class="dash3 focus-grid">
     <div class="widget span-1"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
     <div class="widget span-1">
-      <${Card} title="今天的专注" sub=${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m` : '还没有记录'} action=${html`<a class="btn ghost sm" href="#/plan/day">时间线 →</a>`}>
+      <${Card} title="今天的专注" sub=${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m` : '还没有记录'} action=${html`<a class="more" href="#/plan/day">时间线<${Icon} name="right" size=${12} /></a>`}>
         <${GoalRow} mins=${mins} goal=${s.settings.focusGoal || 120} />
         <div class="day-strip">
           ${[6, 9, 12, 15, 18, 21, 24].map((h) => html`<span class="ds-h" key=${h} style=${`left:${posOf(String(h).padStart(2, '0') + ':00')}%`}>${h}</span>`)}
@@ -53,7 +53,7 @@ export default function Focus({ route }) {
       <//>
     </div>
     <div class="widget span-1">
-      <${Card} title="今天的待办" sub="点 ▶ 用右边的时长开始专注" action=${html`<a class="btn ghost sm" href="#/todos">待办 →</a>`}>
+      <${Card} title="今天的待办" sub="点 ▶ 用右边的时长开始专注" action=${html`<a class="more" href="#/todos">全部待办<${Icon} name="right" size=${12} /></a>`}>
         ${todos.length === 0 ? html`<${Empty} icon="checksq" text="今天没有待办。"><${Btn} small onClick=${() => go('todos')}>去添加<//><//>` : html`<div class="tlist">${todos.slice(0, 8).map((t) => { const spent = focusedOn.get(t.id) || 0; const live = st.phase === 'work' && st.todoId === t.id; return html`<div class=${'fp-i ' + (live ? 'live' : '')} key=${t.id} onContextMenu=${(e) => lenMenu(e, t)}>
           <button class="cb" title="标为完成" onClick=${() => toggleTodo(t.id)}><${Icon} name="check" size=${12} /></button>
           <span class="fp-t">${t.title}${spent > 0 && html`<small class="fp-spent">已专注 ${spent} 分</small>`}</span>

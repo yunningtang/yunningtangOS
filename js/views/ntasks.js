@@ -48,7 +48,7 @@ export function NoteTasks({ notes, done = false, limit = 0, notebooks = [] }) {
         <span class="nt-t" onClick=${() => go('notes/' + t.note.id)}>${t.text}</span>
       </div>`)}
     </div>`; })}
-    ${limit && tasks.length > limit ? html`<a class="nt-more" href="#/notes/tasks">查看全部 ${tasks.length} 项 →</a>` : null}
+    ${limit && tasks.length > limit ? html`<a class="more" href="#/notes/tasks">查看全部 ${tasks.length} 项<${Icon} name="right" size=${12} /></a>` : null}
   </div>`;
 }
 

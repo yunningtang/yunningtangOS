@@ -902,7 +902,7 @@ a.ref:hover{border-color:var(--blue)}
 .focus-side{display:flex;flex-direction:column;gap:16px;min-width:0}.focus-side>.card:last-child{flex:1}
 .widget>.card.fstats,.fstats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
 .fs-left,.fs-right{min-width:0;display:flex;flex-direction:column}.fs-right{justify-content:flex-start}.fs-right .fs-chart{flex:1;min-height:150px}
-@media (max-width:1100px){.fstats{grid-template-columns:1fr}}
+@media (max-width:1100px){.widget>.card.fstats,.fstats{grid-template-columns:1fr;gap:16px}.heat{overflow-x:auto}}
 .day-strip{position:relative;height:38px;margin:14px 0 26px;border-radius:8px;background:var(--hover)}
 .sess-list{display:flex;flex-direction:column;gap:2px}
 .sess{display:flex;align-items:center;gap:10px;height:30px;padding:0 6px;border-radius:8px;font-size:.8rem}.sess:hover{background:var(--hover)}
@@ -1398,3 +1398,8 @@ body.focus-mode .notes-main>.page{min-height:100vh}
 @media(max-width:720px){.notes-main>.page{min-height:60vh}}
 .card:has(>.empty){display:flex;flex-direction:column}.card>.empty{flex:1}
 .card:has(>.empty)>.card-h{flex:none}
+
+/* one style for every "go there" link: text + chevron */
+.more{display:inline-flex;align-items:center;gap:2px;font-size:.76rem;color:var(--text-3);text-decoration:none;padding:3px 4px 3px 8px;border-radius:7px;white-space:nowrap;text-transform:none;letter-spacing:0;font-weight:500}
+.more:hover{color:var(--text);background:var(--hover)}.more .ic{opacity:.7}
+.group-h .more{margin-left:auto}.card-h .more{margin-top:2px}
