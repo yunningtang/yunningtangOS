@@ -185,7 +185,7 @@ function DayView({ initial }) {
       <//>
       <${Splitter} varName="dayside" min=${240} max=${520} dir=${-1} class="sp-col" />
       <div class="stack">
-        <${Card} title="当天待办" sub=${`${todos.filter((t) => t.done).length}/${todos.length}`}>
+        <${Card} class="grow" title="当天待办" sub=${`${todos.filter((t) => t.done).length}/${todos.length}`}>
           ${todos.length === 0 ? html`<${Empty} icon="checksq" text="这天没有安排待办。" />` : todos.map((t) => html`<${TodoItem} t=${t} compact onEdit=${(x) => setTEdit(x)} />`)}
         <//>
         <${Card} title="时间分配">
