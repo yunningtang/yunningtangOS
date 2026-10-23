@@ -70,6 +70,8 @@ export default function Settings() {
               { v: 'glass', n: '玻璃', d: '半透明卡片，柔和光晕', bg: 'linear-gradient(135deg,#eef2fb,#f6f3f8)', card: 'rgba(255,255,255,.7)', ac: '#4f7cf5', line: 'rgba(255,255,255,.9)' },
               { v: 'notion', n: 'Notion', d: '纯白、细线、方正', bg: '#ffffff', card: '#ffffff', ac: '#2383e2', line: 'rgba(55,53,47,.16)' },
               { v: 'claude', n: 'Claude', d: '米色暖底，赤陶色点缀，衬线标题', bg: '#f4f1ea', card: '#faf9f5', ac: '#c96442', line: 'rgba(60,50,30,.14)' },
+              { v: 'steam', n: 'Steam', d: '深蓝灰底，青蓝与绿按钮', bg: '#1b2838', card: '#2a475e', ac: '#66c0f4', line: 'rgba(0,0,0,.4)' },
+              { v: 'win95', n: '复古 Windows', d: '青绿桌面，灰色立体按钮', bg: '#008080', card: '#c0c0c0', ac: '#000080', line: '#404040' },
             ].map((k) => html`<button type="button" key=${k.v} class=${'skin-opt ' + ((s.settings.skin || 'glass') === k.v ? 'on' : '')} onClick=${() => update((d) => { d.settings.skin = k.v; })}>
               <span class="skin-prev" style=${`background:${k.bg}`}><i style=${`left:6px;top:6px;width:18px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:6px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:29px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:88px;top:6px;right:6px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:92px;top:12px;width:22px;height:6px;border-radius:3px;background:${k.ac}`}></i></span>
               <b>${k.n}</b><small>${k.d}</small></button>`)}</div><//>

@@ -1438,3 +1438,100 @@ body.focus-mode .notes-main>.page{min-height:100vh}
 .wtl .tl .blk small{display:none}.wtl .tl .blk b{font-weight:500;white-space:normal;line-height:1.25;max-height:2.5em;overflow:hidden}
 .wtl .tl .now{left:0}.wtl .tl .now::before{left:-3px}
 @media(max-width:720px){.wtl-head,.wtl{grid-template-columns:40px repeat(7,minmax(0,1fr))}.wtl-day small{font-size:.6rem}.wtl-day b{font-size:.85rem}.wtl-day i{display:none}.wtl .tl .blk{padding:2px 3px;font-size:.58rem}.wtl-scroll{max-height:60vh}}
+
+/* ---------- skin: Steam (dark slate, blue-green accent) ---------- */
+html[data-skin="steam"],html[data-skin="steam"][data-theme="light"],html[data-skin="steam"][data-theme="dark"]{
+  --font:"Motiva Sans","Segoe UI",Arial,"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --r:4px;--r2:3px;--r3:2px;--blur:0px;
+  --bg:#1b2838;--side:#171d25;--paper:#2a475e;--card-bg:#2a475e;
+  --ink:#ffffff;--text:#e9eef2;--text-2:#c6d4df;--text-3:#8f98a0;--text-4:#67707b;
+  --line:rgba(255,255,255,.07);--line-2:rgba(255,255,255,.14);--hover:rgba(255,255,255,.06);--hover-2:rgba(255,255,255,.11);
+  --input:#1f2f41;--tag-bg:rgba(255,255,255,.1);--sel:rgba(102,192,244,.3);--cal-bg:#1f2f41;--code-bg:#16202d;
+  --blue:#66c0f4;--ac:102,192,244;--liq:rgba(255,255,255,.08);
+  --red:#e76f6f;--amber:#f0b45a;--green:#5bb45f;--teal:#4fc3b0;--violet:#a78bfa;--rose:#f27aa6;--orange:#f59a5a;
+  --shadow:0 0 0 1px rgba(0,0,0,.35);--shadow-h:0 0 0 1px rgba(102,192,244,.35);--pop:0 0 0 1px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.6);
+  --glass:linear-gradient(180deg,#2a475e,#1e3448);--glass-side:#171d25;--glass-line:transparent;--glass-edge:rgba(0,0,0,.35);--glass-edge-h:rgba(102,192,244,.35);--glass-hl:rgba(255,255,255,.06);--glass-shadow:0 2px 8px rgba(0,0,0,.35);--glass-shadow-h:0 4px 14px rgba(0,0,0,.45);
+  --mist-top:#1b2838;--mist-mid:#1b2838;--mist-bot:#1b2838;--blob1:transparent;--blob2:transparent;--blob3:transparent;--blob4:transparent;
+}
+html[data-skin="steam"] body::before{background:linear-gradient(180deg,#1b2838 0%,#1b2838 100%),radial-gradient(60% 40% at 50% -10%,rgba(102,192,244,.14),transparent)}
+html[data-skin="steam"] .card,html[data-skin="steam"] .side,html[data-skin="steam"] .topbar,html[data-skin="steam"] .pop,html[data-skin="steam"] .popmenu,html[data-skin="steam"] .modal,html[data-skin="steam"] .cap{-webkit-backdrop-filter:none;backdrop-filter:none}
+html[data-skin="steam"] .card::after{display:none}
+html[data-skin="steam"] body.scrolled .topbar{background:#171d25}
+html[data-skin="steam"] .side{background:#171d25;border-right:1px solid #000}
+html[data-skin="steam"] .pop,html[data-skin="steam"] .popmenu,html[data-skin="steam"] .modal,html[data-skin="steam"] .cap{background:#1f2f41}
+html[data-skin="steam"] .btn{background:linear-gradient(90deg,#3d4450,#2e3540);border:0;color:#d2e1ef;border-radius:2px}
+html[data-skin="steam"] .btn:hover{background:linear-gradient(90deg,#4b5563,#3a4250);color:#fff}
+html[data-skin="steam"] .btn.primary,html[data-skin="steam"] .fw-go,html[data-skin="steam"] .fp-go,html[data-skin="steam"] .cap-btn{background:linear-gradient(90deg,#75b022 5%,#588a1b 95%);color:#d2efa9;box-shadow:none;border-radius:2px;text-shadow:0 1px 1px rgba(0,0,0,.3)}
+html[data-skin="steam"] .btn.primary:hover,html[data-skin="steam"] .fw-go:hover,html[data-skin="steam"] .cap-btn:hover{background:linear-gradient(90deg,#8ed629 5%,#6fb022 95%);color:#fff;filter:none}
+html[data-skin="steam"] .nav>a.active{background:linear-gradient(90deg,rgba(102,192,244,.22),transparent);color:#fff;border-left:2px solid #66c0f4;border-radius:0 3px 3px 0}
+html[data-skin="steam"] .nav>.liq{display:none}
+html[data-skin="steam"] .seg{background:#1f2f41;border-radius:3px}html[data-skin="steam"] .seg button.on{color:#fff}html[data-skin="steam"] .seg>.liq{background:#3d6a8a;border-radius:2px}
+html[data-skin="steam"] .card-h h3{text-transform:uppercase;letter-spacing:.08em;font-size:.78rem;color:#c6d4df}
+html[data-skin="steam"] input[type=text],html[data-skin="steam"] input[type=url],html[data-skin="steam"] input[type=number],html[data-skin="steam"] input[type=password],html[data-skin="steam"] textarea,html[data-skin="steam"] .searchin,html[data-skin="steam"] .quickadd{background:#1f2f41;border-color:#000;color:#fff;border-radius:3px}
+html[data-skin="steam"] .tag{border-radius:2px}
+html[data-skin="steam"] .nb-dot,html[data-skin="steam"] .dchip.on{box-shadow:none}
+html[data-skin="steam"] .dchip.on{background:#66c0f4;color:#1b2838;border-radius:3px}
+html[data-skin="steam"] .side-user{border-top:1px solid #000}
+html[data-skin="steam"] .now-w.no-sky{color:var(--text)}
+
+/* ---------- skin: Retro Windows (95-style bevels) ---------- */
+html[data-skin="win95"],html[data-skin="win95"][data-theme="light"],html[data-skin="win95"][data-theme="dark"]{
+  --font:Tahoma,"MS Sans Serif",Verdana,"PingFang SC","Microsoft YaHei","SimSun",sans-serif;
+  --r:0px;--r2:0px;--r3:0px;--blur:0px;
+  --bg:#008080;--side:#c0c0c0;--paper:#ffffff;--card-bg:#c0c0c0;
+  --ink:#000000;--text:#000000;--text-2:#000000;--text-3:#404040;--text-4:#808080;
+  --line:#808080;--line-2:#404040;--hover:rgba(0,0,0,.08);--hover-2:rgba(0,0,0,.14);
+  --input:#ffffff;--tag-bg:#dfdfdf;--sel:#000080;--cal-bg:#ffffff;--code-bg:#ffffff;
+  --blue:#000080;--ac:0,0,128;--liq:rgba(0,0,0,.1);
+  --red:#c00000;--amber:#c08000;--green:#008000;--teal:#008080;--violet:#800080;--rose:#c00060;--orange:#c04000;
+  --shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;--shadow-h:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;--pop:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf,4px 4px 0 rgba(0,0,0,.4);
+  --glass:#c0c0c0;--glass-side:#c0c0c0;--glass-line:transparent;--glass-edge:transparent;--glass-edge-h:transparent;--glass-hl:transparent;--glass-shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;--glass-shadow-h:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;
+  --mist-top:#008080;--mist-mid:#008080;--mist-bot:#008080;--blob1:transparent;--blob2:transparent;--blob3:transparent;--blob4:transparent;
+  --serif:"Times New Roman","SimSun",serif;
+}
+html[data-skin="win95"] body{letter-spacing:0}
+html[data-skin="win95"] body::before{background:#008080}
+html[data-skin="win95"] *{border-radius:0!important;transition:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;text-shadow:none!important}
+html[data-skin="win95"] .card::after{display:none}
+html[data-skin="win95"] .card.pad{padding-top:0}
+html[data-skin="win95"] .card>.card-h{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;margin:4px 4px 10px;padding:3px 8px;min-height:22px;align-items:center}
+html[data-skin="win95"] .card.pad>.card-h{margin:-14px -16px 12px}
+html[data-skin="win95"] .card-h h3{color:#fff;font-weight:700;font-size:.8rem}html[data-skin="win95"] .card-h .card-sub,html[data-skin="win95"] .card-h small,html[data-skin="win95"] .card-h .muted{color:#dfe7ff!important}
+html[data-skin="win95"] .card-h .more,html[data-skin="win95"] .card-h .ibtn,html[data-skin="win95"] .card-h .btn{color:#000;background:#c0c0c0;box-shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080;padding:0 6px;height:18px;font-size:.72rem}
+html[data-skin="win95"] .side{background:#c0c0c0;border-right:0;box-shadow:inset -1px 0 0 #808080,inset -2px 0 0 #dfdfdf}
+html[data-skin="win95"] body.scrolled .topbar,html[data-skin="win95"] .topbar{background:#c0c0c0;box-shadow:inset 0 -1px 0 #808080,inset 0 -2px 0 #dfdfdf}
+html[data-skin="win95"] .topbar{margin-bottom:12px}
+html[data-skin="win95"] .btn,html[data-skin="win95"] .ibtn,html[data-skin="win95"] .seg button,html[data-skin="win95"] .pick-btn,html[data-skin="win95"] .chip,html[data-skin="win95"] .fw-go,html[data-skin="win95"] .pf-btn,html[data-skin="win95"] .fp-go,html[data-skin="win95"] .cap-btn,html[data-skin="win95"] .dchip,html[data-skin="win95"] .gbtn,html[data-skin="win95"] .tab-cap{background:#c0c0c0;color:#000;border:0;box-shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;font-weight:400}
+html[data-skin="win95"] .btn:active,html[data-skin="win95"] .ibtn:active,html[data-skin="win95"] .seg button.on,html[data-skin="win95"] .chip.on,html[data-skin="win95"] .dchip.on{box-shadow:inset 1px 1px 0 #000,inset -1px -1px 0 #fff,inset 2px 2px 0 #808080,inset -2px -2px 0 #dfdfdf;background:#dfdfdf;color:#000}
+html[data-skin="win95"] .btn.primary,html[data-skin="win95"] .fw-go,html[data-skin="win95"] .fp-go,html[data-skin="win95"] .cap-btn{background:#c0c0c0;color:#000;outline:1px solid #000;outline-offset:-1px}
+html[data-skin="win95"] .seg{background:transparent;padding:0;gap:0}html[data-skin="win95"] .seg>.liq,html[data-skin="win95"] .nav>.liq,html[data-skin="win95"] .liq{display:none}
+html[data-skin="win95"] .nav>a.active,html[data-skin="win95"] .nb-i.active,html[data-skin="win95"] .li-i.active,html[data-skin="win95"] .pt-row.active{background:#000080;color:#fff}
+html[data-skin="win95"] .nav>a.active .ic,html[data-skin="win95"] .nav>a.active .cnt{color:#fff}
+html[data-skin="win95"] input[type=text],html[data-skin="win95"] input[type=url],html[data-skin="win95"] input[type=number],html[data-skin="win95"] input[type=password],html[data-skin="win95"] input[type=search],html[data-skin="win95"] textarea,html[data-skin="win95"] .searchin,html[data-skin="win95"] .quickadd,html[data-skin="win95"] .fw-start input,html[data-skin="win95"] .cap-in{background:#fff;border:0;box-shadow:inset 1px 1px 0 #000,inset -1px -1px 0 #fff,inset 2px 2px 0 #808080,inset -2px -2px 0 #dfdfdf;color:#000}
+html[data-skin="win95"] .pop,html[data-skin="win95"] .popmenu,html[data-skin="win95"] .modal,html[data-skin="win95"] .cap,html[data-skin="win95"] .ctx{background:#c0c0c0;box-shadow:var(--pop)}
+html[data-skin="win95"] .modal-h{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;margin:3px;padding:4px 8px}html[data-skin="win95"] .modal-h h3{color:#fff;font-size:.8rem}html[data-skin="win95"] .modal-h .ibtn{height:16px;width:16px}
+html[data-skin="win95"] .pm.on,html[data-skin="win95"] .pm:hover,html[data-skin="win95"] .time-i.sel,html[data-skin="win95"] .time-i:hover{background:#000080;color:#fff}
+html[data-skin="win95"] .tag{background:#dfdfdf;color:#000;box-shadow:inset -1px -1px 0 #808080,inset 1px 1px 0 #fff}html[data-skin="win95"] .tag.tc,html[data-skin="win95"] .tag.th{color:#000;background:#dfdfdf}
+html[data-skin="win95"] .todo .cb,html[data-skin="win95"] .fp-i .cb,html[data-skin="win95"] .nt-row .cb{background:#fff;border:0;box-shadow:inset 1px 1px 0 #000,inset -1px -1px 0 #fff,inset 2px 2px 0 #808080;color:#000}html[data-skin="win95"] .todo.done .cb{background:#fff;color:#000}
+html[data-skin="win95"] .prog{background:#fff;box-shadow:inset 1px 1px 0 #808080,inset -1px -1px 0 #fff;height:14px}html[data-skin="win95"] .prog i{background:repeating-linear-gradient(90deg,#000080 0 8px,transparent 8px 10px)}
+html[data-skin="win95"] .tl .blk,html[data-skin="win95"] .mblk{box-shadow:inset -1px -1px 0 #808080,inset 1px 1px 0 #fff;background:#dfdfdf;color:#000}
+html[data-skin="win95"] .now-w,html[data-skin="win95"] .now-w .sky{color:#000;--wtx:#000;--wmute:#404040;--wglass:#dfdfdf;--wline:#808080;text-shadow:none}
+html[data-skin="win95"] .now-w .sky{background:#c0c0c0!important}html[data-skin="win95"] .now-w .sky>*{display:none}
+html[data-skin="win95"] .fw-hero{background:#c0c0c0}html[data-skin="win95"] .dial3 svg{filter:grayscale(.2)}
+html[data-skin="win95"] .side-user{box-shadow:inset 0 1px 0 #808080,inset 0 2px 0 #fff}
+html[data-skin="win95"] .skin-opt.on{outline:1px dotted #000;outline-offset:-4px;border-color:#000}
+html[data-skin="win95"] ::selection{background:#000080;color:#fff}
+html[data-skin="win95"] .heat i,html[data-skin="win95"] .fs-chart rect{rx:0}
+.skin-pick{grid-template-columns:repeat(5,1fr)}
+@media(max-width:720px){.skin-pick{grid-template-columns:repeat(2,1fr)}}
+/* win95 fixes: widget headers as title bars, checkboxes blank until done, widget tools flat */
+html[data-skin="win95"] .card>.card-h,html[data-skin="win95"] .card.pad>.card-h{margin:0 0 10px;padding:3px 8px}
+html[data-skin="win95"] .card.pad{padding-top:0!important}
+html[data-skin="win95"] .card.pad>.card-h{margin:0 -16px 12px -16px}
+html[data-skin="win95"] .widget>.card{padding-top:0}
+html[data-skin="win95"] .card-h h3 .muted,html[data-skin="win95"] .card-h h3 span{color:#dfe7ff!important}
+html[data-skin="win95"] .todo .cb,html[data-skin="win95"] .fp-i .cb,html[data-skin="win95"] .nt-row .cb,html[data-skin="win95"] .bcard .cb{color:transparent}
+html[data-skin="win95"] .todo.done .cb,html[data-skin="win95"] .fp-i.done .cb,html[data-skin="win95"] .nt-row.done .cb,html[data-skin="win95"] .bcard.done .cb{color:#000;background:#fff}
+html[data-skin="win95"] .w-tools{background:#c0c0c0;box-shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff}
+html[data-skin="win95"] .hero,html[data-skin="win95"] .profile{padding-top:14px!important}
+html[data-skin="win95"] input.page-title,html[data-skin="win95"] .nb-rename,html[data-skin="win95"] .mtag-in,html[data-skin="win95"] .fp-add input{background:transparent;box-shadow:none}
