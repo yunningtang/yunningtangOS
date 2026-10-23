@@ -1,6 +1,18 @@
 // Rotating orthographic globe on canvas: land outlines, graticule, glowing trip markers.
 import { geoOrthographic, geoPath, geoGraticule, feature, geoCentroid } from '../vendor/geo.js';
 
+// Satellite imagery (NASA Blue Marble, served from a CDN); falls back to the drawn globe if it cannot load.
+const TEXTURE = 'https://unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg';
+let texPromise;
+function loadTexture() {
+  texPromise = texPromise || new Promise((res) => {
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => { try { const W = 1024, H = 512; const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.drawImage(img, 0, 0, W, H); res({ data: g.getImageData(0, 0, W, H).data, W, H }); } catch { res(null); } };
+    img.onerror = () => res(null);
+    img.src = TEXTURE;
+  });
+  return texPromise;
+}
 let landPromise;
 function loadLand() {
   landPromise = landPromise || fetch(new URL('../vendor/land-110m.json', import.meta.url)).then((r) => r.json()).then((topo) => feature(topo, topo.objects.land));
@@ -12,9 +24,40 @@ export function mountGlobe(canvas, opts = {}) {
   const proj = geoOrthographic().clipAngle(90);
   const path = geoPath(proj, ctx);
   const grat = geoGraticule().step([30, 30])();
-  let land = null, markers = opts.markers || [], selected = null;
+  let land = null, markers = opts.markers || [], selected = null, tex = null;
   let rot = [-105, -30], vel = 0.06, auto = true, raf, w, h, dpr;
   let drag = null, lastInteract = 0;
+  // raster cache: the textured sphere is re-rendered only when rotation / size change
+  let rasterKey = '', raster = null;
+
+  function renderRaster(cx, cy, r) {
+    const key = [rot[0].toFixed(2), rot[1].toFixed(2), r.toFixed(1)].join(',');
+    if (raster && rasterKey === key) return raster;
+    const R = Math.ceil(r); const size = R * 2;
+    if (!raster || raster.width !== size) { raster = document.createElement('canvas'); raster.width = raster.height = size; }
+    const g = raster.getContext('2d'); const out = g.createImageData(size, size); const px = out.data;
+    const { data, W, H } = tex;
+    const toR = Math.PI / 180; const lam0 = rot[0] * toR, phi0 = rot[1] * toR; const cphi = Math.cos(phi0), sphi = Math.sin(phi0);
+    const inv = 1 / R;
+    for (let j = 0; j < size; j++) {
+      const yv = (R - j - 0.5) * inv;
+      for (let i = 0; i < size; i++) {
+        const xv = (i - R + 0.5) * inv; const d2 = xv * xv + yv * yv; if (d2 > 1) continue;
+        const zv = Math.sqrt(1 - d2);
+        // undo the phi tilt (d3 rotationPhiGamma inverse), then the lambda spin
+        const x = zv, y = xv, z = yv; // sphere coords: x toward viewer
+        const k = z * cphi - x * sphi;
+        let lam = Math.atan2(y, x * cphi + z * sphi) - lam0; const phi = Math.asin(Math.max(-1, Math.min(1, k)));
+        let u = (lam / (2 * Math.PI) + 0.5) % 1; if (u < 0) u += 1;
+        const v = 0.5 - phi / Math.PI;
+        const tx = (u * W) | 0, ty = Math.min(H - 1, (v * H) | 0); const ti = (ty * W + tx) * 4; const o = (j * size + i) * 4;
+        // lambert-ish shading from the top-left so the sphere reads as a ball
+        const l = 0.72 + 0.28 * Math.max(0, (-xv * 0.5 + yv * 0.6 + zv * 0.62));
+        px[o] = data[ti] * l; px[o + 1] = data[ti + 1] * l; px[o + 2] = data[ti + 2] * l; px[o + 3] = 255;
+      }
+    }
+    g.putImageData(out, 0, 0); rasterKey = key; return raster;
+  }
 
   function size() {
     dpr = Math.min(devicePixelRatio || 1, 2);
@@ -31,9 +74,17 @@ export function mountGlobe(canvas, opts = {}) {
     const atm = ctx.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.16);
     atm.addColorStop(0, 'rgba(120,180,255,.55)'); atm.addColorStop(0.5, 'rgba(90,150,255,.18)'); atm.addColorStop(1, 'rgba(60,120,255,0)');
     ctx.fillStyle = atm; ctx.beginPath(); ctx.arc(cx, cy, r * 1.16, 0, Math.PI * 2); ctx.fill();
-    // ocean
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+    if (tex) {
+      const ras = renderRaster(cx, cy, r); ctx.drawImage(ras, cx - ras.width / 2, cy - ras.height / 2);
+      const sh = ctx.createRadialGradient(cx - r * 0.5, cy - r * 0.5, r * 0.2, cx, cy, r);
+      sh.addColorStop(0, 'rgba(255,255,255,.08)'); sh.addColorStop(0.6, 'rgba(255,255,255,0)'); sh.addColorStop(0.92, 'rgba(5,12,40,.25)'); sh.addColorStop(1, 'rgba(2,6,24,.7)');
+      ctx.fillStyle = sh; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(160,200,255,.45)'; ctx.lineWidth = 1; ctx.stroke();
+      drawMarkers(cx, cy, r); return;
+    }
     const sea = ctx.createRadialGradient(cx - r * 0.45, cy - r * 0.45, r * 0.05, cx, cy, r * 1.05);
     sea.addColorStop(0, '#4f9ff5'); sea.addColorStop(0.35, '#2c6fd6'); sea.addColorStop(0.75, '#153f9a'); sea.addColorStop(1, '#0a1f5c');
     ctx.fillStyle = sea; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
@@ -58,7 +109,10 @@ export function mountGlobe(canvas, opts = {}) {
     ctx.restore();
     // limb
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(160,200,255,.45)'; ctx.lineWidth = 1; ctx.stroke();
-    // markers
+    drawMarkers(cx, cy, r);
+  }
+
+  function drawMarkers(cx, cy, r) {
     const t = performance.now() / 1000;
     for (const m of markers) {
       const p = proj([m.lng, m.lat]);
@@ -136,6 +190,7 @@ export function mountGlobe(canvas, opts = {}) {
   ro.observe(canvas);
   size();
   loadLand().then((l) => { land = l; });
+  loadTexture().then((t) => { tex = t; });
   loop();
 
   return {

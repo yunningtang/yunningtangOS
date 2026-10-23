@@ -18,6 +18,7 @@ export const TYPES = {
   divider: { label: '分割线', hint: '水平线' },
   image: { label: '图片', hint: '粘贴图片链接' },
   table: { label: '表格', hint: '3 × 3，可增删行列' },
+  file: { label: '文件 / PDF', hint: '附件，PDF 可直接预览' },
   md: { label: 'Markdown', hint: '原始 Markdown' },
 };
 export const LIST_TYPES = ['bullet', 'number', 'todo', 'toggle'];
@@ -224,6 +225,7 @@ export function mdToBlocks(md) {
     if (!line) { i++; continue; }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { out.push(block('divider')); i++; continue; }
     if ((m = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/))) { out.push(block('image', escapeHtml(m[1]), { url: m[2] })); i++; continue; }
+    if ((m = line.match(/^\[([^\]]*)\]\(ytos-file:\/\/([\w-]+)(?:\|([^)]*))?\)$/))) { const [mime, size] = (m[3] || '').split(','); out.push(block('file', '', { fid: m[2], name: m[1], mime: mime || '', size: +size || 0 })); i++; continue; }
     if ((m = line.match(/^(#{1,3})\s+(.*)$/))) { out.push(block('h' + m[1].length, inlineMdToHtml(m[2]), { indent })); i++; continue; }
     if ((m = line.match(/^[-*+]\s+\[([ xX])\]\s*(.*)$/))) { out.push(block('todo', inlineMdToHtml(m[2]), { checked: m[1] !== ' ', indent })); i++; continue; }
     if ((m = line.match(/^[-*+]\s+(.*)$/))) { out.push(block('bullet', inlineMdToHtml(m[1]), { indent })); i++; continue; }
@@ -264,6 +266,7 @@ export function blocksToMd(blocks) {
       case 'image': lines.push(`![${textOf(b.html)}](${b.url || ''})`, ''); break;
       case 'md': lines.push(textOf(b.html), ''); break;
       case 'table': lines.push(tableToMd(b.rows || [], b.header !== false), ''); break;
+      case 'file': lines.push(`[${(b.name || '附件').replace(/[\[\]]/g, '')}](ytos-file://${b.fid}|${b.mime || ''},${b.size || 0})`, ''); break;
       default: lines.push(t, '');
     }
     const next = blocks[idx + 1];
@@ -273,5 +276,5 @@ export function blocksToMd(blocks) {
 }
 
 export function blocksToText(blocks) {
-  return blocks.map((b) => (b.type === 'table' ? (b.rows || []).map((r) => r.map(textOf).join(' ')).join('\n') : textOf(b.html))).join('\n');
+  return blocks.map((b) => (b.type === 'table' ? (b.rows || []).map((r) => r.map(textOf).join(' ')).join('\n') : b.type === 'file' ? (b.name || '') : textOf(b.html))).join('\n');
 }

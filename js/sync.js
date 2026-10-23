@@ -4,6 +4,7 @@
 //    token stays in an encrypted httpOnly cookie, the browser only talks to /api/sync.
 //  - "token": static hosting (GitHub Pages etc.); a fine-grained token pasted in Settings.
 import { get, replace, update, exportJSON } from './store.js';
+import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob } from './files.js';
 import { debounce } from './util.js';
 
 const API = 'https://api.github.com';
@@ -61,6 +62,35 @@ const viaToken = {
 };
 const transport = () => (loggedIn() ? viaApi : viaToken);
 
+/* ---- attachments: assets/<id> next to the data file ---- */
+const assetDir = (path) => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) + '/assets' : 'assets');
+const files = {
+  async put(rec) {
+    const content = await blobToBase64(rec.blob);
+    if (loggedIn()) { const r = await fetch('/api/file', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: rec.id, name: rec.name, type: rec.type, content }) }); if (!r.ok) throw new Error('attachment upload failed'); return; }
+    const c = cfg(); const file = `${API}/repos/${c.repo}/contents/${assetDir(c.path)}/${rec.id}`;
+    const cur = await fetch(`${file}?ref=${c.branch}`, { headers: headers(c.token) }); const sha = cur.ok ? (await cur.json()).sha : undefined;
+    const r = await fetch(file, { method: 'PUT', headers: { ...headers(c.token), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `os: attachment ${rec.name}`, content, branch: c.branch, ...(sha ? { sha } : {}) }) });
+    if (!r.ok) throw new Error('attachment upload failed');
+  },
+  async get(id) {
+    if (loggedIn()) { const r = await fetch('/api/file?id=' + encodeURIComponent(id)); if (!r.ok) return null; return (await r.json()).content; }
+    const c = cfg(); const r = await fetch(`${API}/repos/${c.repo}/contents/${assetDir(c.path)}/${id}?ref=${c.branch}`, { headers: headers(c.token) });
+    if (!r.ok) return null; const j = await r.json(); if (j.content) return j.content; if (j.download_url) { const f = await fetch(j.download_url); return blobToBase64(await f.blob()); } return null;
+  },
+};
+// push every attachment that has not reached the repo yet; failures are reported, not fatal
+export async function pushAttachments() {
+  let n = 0, failed = 0;
+  for (const rec of await listFiles()) { if (rec.synced) continue; try { await files.put(rec); await markSynced(rec.id); n++; } catch (e) { failed++; } }
+  return { n, failed };
+}
+// fetch one attachment that exists on another device (returns the stored record or null)
+export async function fetchAttachment(id, meta = {}) {
+  try { const b64 = await files.get(id); if (!b64) return null; return await putRemote(id, meta.name || id, meta.mime || 'application/octet-stream', base64ToBlob(b64, meta.mime || 'application/octet-stream')); } catch { return null; }
+}
+export const canSyncFiles = () => { try { return loggedIn() || !!(get().settings.sync.repo && get().settings.sync.token); } catch { return false; } };
+
 /* ---- operations ---- */
 let busy = false;
 export const status = { busy: false, error: '', last: null, listeners: new Set() };
@@ -72,6 +102,7 @@ export async function push() {
   const remote = await pullRemote();
   await transport().push(exportJSON(), remote ? remote.sha : undefined);
   update((d) => { d.settings.lastSync = new Date().toISOString(); });
+  pushAttachments().catch(() => {});
 }
 
 export async function pull() {
@@ -91,6 +122,7 @@ export async function smartSync() {
   if (remote && local.updatedAt && remote.data.updatedAt === local.updatedAt) { update((d) => { d.settings.lastSync = new Date().toISOString(); }); return 'same'; }
   await transport().push(exportJSON(), remote ? remote.sha : undefined);
   update((d) => { d.settings.lastSync = new Date().toISOString(); });
+  pushAttachments().catch(() => {});
   return 'pushed';
 }
 

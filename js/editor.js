@@ -7,7 +7,9 @@ import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
 import { get as storeGet } from './store.js';
 import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable } from './blocks.js';
-import { todayStr, escapeHtml, imageToDataUrl } from './util.js';
+import { todayStr, escapeHtml, imageToDataUrl, pickFile } from './util.js';
+import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './files.js';
+import { fetchAttachment } from './sync.js';
 import { toast } from './nav.js';
 
 // Last thing copied from any editor in this tab: lets paste keep block types (lists, headings, todos) intact.
@@ -19,7 +21,7 @@ const SLASH_EXTRA = [
   { k: 'link', label: '链接到页面', hint: '[[ 双链' },
   { k: 'sub', label: '新建子页面', hint: '在这里嵌入' },
 ];
-const SLASH_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'table', 'code', 'divider', 'image'];
+const SLASH_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'table', 'code', 'divider', 'image', 'file'];
 const CONVERT_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout', 'code'];
 
 /* ---------- caret helpers ---------- */
@@ -496,6 +498,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (type === 'image') { askPrompt('图片链接', '', { title: '插入图片', placeholder: 'https://…' }).then((url) => { if (!url) return; if (!el.textContent.trim()) update(b.id, { type: 'image', url, html: '' }); else insertAfter(b.id, block('image', '', { url })); }); return; }
     if (type === 'divider') { if (!el.textContent.trim()) { const list = syncFromDom(bsRef.current).map((x) => (x.id === b.id ? bump(x, { type: 'divider', html: '' }) : x)); const i = list.findIndex((x) => x.id === b.id); const nb = { ...block('p'), v: 0 }; list.splice(i + 1, 0, nb); emit(list); setFocusReq({ id: nb.id, pos: 'start' }); } else insertAfter(b.id, block('divider'), null); return; }
     if (type === 'code') { update(b.id, { type, html: escapeHtml(el.textContent) }, 'end'); return; }
+    if (type === 'file') { pickFile('*/*').then(async (f) => { if (!f) return; const parsed = await filesToBlocks([f]); if (!parsed.length) return; if (!el.textContent.trim()) { const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); list.splice(i, 1, ...parsed.map((x) => ({ ...x, v: 0 }))); emit(list); } else insertAfter(b.id, parsed[0], null); }); return; }
     if (type === 'table') { const rows = emptyTable(); if (!el.textContent.trim()) update(b.id, { type, html: '', rows, header: true }, 'start'); else insertAfter(b.id, block('table', '', { rows, header: true }), 'start'); return; }
     update(b.id, { type, html: el.innerHTML, checked: false }, 'end');
   };
@@ -511,12 +514,29 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
 
   /* --- clipboard --- */
   const parseClipboard = async ({ text, rich, files }, curType) => {
-    if (files.length) { const urls = await Promise.all(files.map((f) => imageToDataUrl(f, 1600).catch(() => null))); return urls.filter(Boolean).map((u) => block('image', '', { url: u })); }
+    if (files.length) return filesToBlocks(files);
     if (lastCopy && text && text === lastCopy.text) return lastCopy.blocks.map(cloneBlock);
     if (rich && /<(p|div|h[1-6]|li|ul|ol|blockquote|pre|table|img|br|span|b|i|u|strong|em|a|mark|s|strike|code)\b/i.test(rich)) { const parsed = htmlToBlocks(rich); if (parsed.length) return parsed; }
     if (!text) return [];
     if (curType === 'code' || curType === 'md') return [block(curType, escapeHtml(text))];
     return mdToBlocks(text);
+  };
+  // images become image blocks; everything else (PDF, docs, …) is stored in IndexedDB and shown as a file block
+  const filesToBlocks = async (files) => {
+    const out = [];
+    for (const f of files) {
+      if (/^image\//.test(f.type)) { const u = await imageToDataUrl(f, 1600).catch(() => null); if (u) out.push(block('image', '', { url: u })); continue; }
+      if (f.size > 40 * 1048576) { toast(`「${f.name}」超过 40 MB，没有导入`); continue; }
+      const rec = await saveFile(f); out.push(block('file', '', { fid: rec.id, name: rec.name, mime: rec.type, size: rec.size }));
+    }
+    return out;
+  };
+  const dropFiles = async (e) => {
+    const fs = [...(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [])]; if (!fs.length) return false;
+    e.preventDefault(); const parsed = await filesToBlocks(fs); if (!parsed.length) return true;
+    const row = e.target.closest && e.target.closest('.b-row'); const list = syncFromDom(bsRef.current);
+    const i = row ? list.findIndex((x) => x.id === row.dataset.id) : list.length - 1;
+    const v0 = parsed.map((x) => ({ ...x, v: 0 })); list.splice(i + 1, 0, ...v0); emit(list); toast(`已添加 ${parsed.length} 个附件`); return true;
   };
   const insertBlocksAt = (b, el, parsed) => {
     if (!parsed.length) return;
@@ -531,7 +551,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   };
   const onPaste = (e) => {
     const cd = e.clipboardData; if (!cd) return;
-    const data = { text: cd.getData('text/plain') || '', rich: cd.getData('text/html') || '', files: [...(cd.files || [])].filter((f) => /^image\//.test(f.type)) };
+    const data = { text: cd.getData('text/plain') || '', rich: cd.getData('text/html') || '', files: [...(cd.files || [])] };
     if (!data.text && !data.rich && !data.files.length) return;
     e.preventDefault();
     const go = async () => {
@@ -604,14 +624,15 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     ], `${rows.length} 个块`);
   };
   // native text drag/drop between rows: the browser moves the text, then we read the rows back
-  const onDrop = () => { if (dragRef.current) return; setTimeout(() => emit(syncFromDom(bsRef.current)), 0); };
+  const onDrop = (e) => { if (dragRef.current) return; if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { dropFiles(e); return; } setTimeout(() => emit(syncFromDom(bsRef.current)), 0); };
+  const onDragOverRoot = (e) => { if (dragRef.current) return; if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } };
 
   Object.assign(api.current, { refs, dragRef, update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert });
   const items = menuItems();
   const tbBtn = (title, fn, child, cls = '') => html`<button title=${title} class=${cls} onMouseDown=${(e) => e.preventDefault()} onClick=${() => { fn(); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); }}>${child}</button>`;
 
   return html`<div class=${'beditor font-' + (pageFont || 'default')} ref=${root} contenteditable="true" spellcheck="false"
-    onKeyDown=${onKey} onInput=${onInput} onPaste=${onPaste} onCopy=${onCopy} onCut=${onCut} onClick=${onClick} onContextMenu=${onCtx} onDrop=${onDrop}
+    onKeyDown=${onKey} onInput=${onInput} onPaste=${onPaste} onCopy=${onCopy} onCut=${onCut} onClick=${onClick} onContextMenu=${onCtx} onDrop=${onDrop} onDragOver=${onDragOverRoot}
     onCompositionStart=${() => { composing.current = true; }} onCompositionEnd=${() => { composing.current = false; scheduleEmit(); }}
     onMouseDown=${(e) => { downAt.current = e.target; if (lpRef.current && !(e.target.closest && e.target.closest('.link-pop'))) setLp(null); }}>
     ${lp && html`<div class="link-pop" contenteditable="false" style=${`left:${lp.x}px;top:${lp.y}px`} onMouseDown=${(e) => e.stopPropagation()}>
@@ -659,6 +680,7 @@ class Row extends Component {
       <div class="b-imgwrap"><img src=${b.url} alt="" draggable="false" onError=${(e) => { e.target.style.opacity = .3; }} /><span class="img-rz l" title="拖动调整大小" onPointerDown=${(e) => api.imgResize(e, b, -1)}></span><span class="img-rz r" title="拖动调整大小" onPointerDown=${(e) => api.imgResize(e, b, 1)}></span></div>
       <figcaption ref=${setEl} class="b-text b-cap" contenteditable="true" data-ph="图片说明"></figcaption></figure>`;
     else if (b.type === 'table') body = html`<div class="b-tablewrap"><table ref=${setEl} class="b-table b-text"></table><button class="tb-add col" contenteditable="false" title="添加一列" onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.tableOp(b, 'colRight', 0, (b.rows && b.rows[0] ? b.rows[0].length : 1) - 1)}>+</button><button class="tb-add row" contenteditable="false" title="添加一行" onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.tableOp(b, 'rowBelow', (b.rows ? b.rows.length : 1) - 1, 0)}>+</button></div>`;
+    else if (b.type === 'file') body = html`<div class="b-filewrap" contenteditable="false"><${FileView} b=${b} onRemove=${() => removeBlock(b.id)} /><div ref=${setEl} class="b-text b-cap" contenteditable="true" data-ph="备注（可选）"></div></div>`;
     else if (b.type === 'code') body = html`<div class="b-code" contenteditable="false"><input class="b-lang" value=${b.lang || ''} placeholder="语言" onInput=${(e) => update(b.id, { lang: e.target.value })} /><pre ref=${setEl} contenteditable="plaintext-only" class="b-text" data-ph="代码"></pre></div>`;
     else if (b.type === 'md') body = md
       ? html`<pre ref=${setEl} contenteditable="plaintext-only" class="b-text b-mdsrc" onBlur=${() => setMdEdit(null)}></pre>`
@@ -674,6 +696,7 @@ class Row extends Component {
     const menu = (e) => {
       if (window.getSelection && !window.getSelection().isCollapsed) return; e.stopPropagation();
       if (b.type === 'table') { const cell = e.target.closest && e.target.closest('td,th'); ctxMenu(e, [...api.tableMenu(b, cell), 'sep', { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) }], '表格'); return; }
+      if (b.type === 'file') { ctxMenu(e, [{ label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) }, 'sep', { label: '移除附件', icon: 'trash', danger: true, onClick: () => removeBlock(b.id) }], b.name || '附件'); return; }
       if (b.type === 'image') { ctxMenu(e, [
         ...[['小', 36], ['中', 60], ['大', 100]].map(([l, w]) => ({ label: l + (w === 100 ? '（原宽）' : ''), icon: (b.width || 100) === w ? 'check' : 'image', onClick: () => update(b.id, { width: w }) })),
         'sep',
@@ -708,6 +731,29 @@ class Row extends Component {
       ${body}
     </div>`;
   }
+}
+
+/* ---------- attachment (PDF preview, open, download) ---------- */
+function FileView({ b, onRemove }) {
+  const [url, setUrl] = useState(null);
+  const [state, setState] = useState('loading'); // loading | ready | missing | fetching
+  const [open, setOpen] = useState(() => isPdf({ type: b.mime, name: b.name }));
+  const pdf = isPdf({ type: b.mime, name: b.name });
+  useEffect(() => { let alive = true; (async () => { let u = await fileUrl(b.fid); if (!u) { setState('fetching'); const rec = await fetchAttachment(b.fid, { name: b.name, mime: b.mime }); if (rec) u = await fileUrl(b.fid); } if (!alive) return; if (u) { setUrl(u); setState('ready'); } else setState('missing'); })(); return () => { alive = false; }; }, [b.fid]);
+  const dl = () => { if (!url) return; const a = document.createElement('a'); a.href = url; a.download = b.name || 'file'; a.click(); };
+  return html`<div class=${'b-file ' + (pdf ? 'pdf' : '')}>
+    <div class="bf-head" onClick=${() => pdf && url && setOpen(!open)}>
+      <span class="bf-ic"><${Icon} name="file" size=${18} /></span>
+      <div class="bf-meta"><b>${b.name || '附件'}</b><small>${pdf ? 'PDF' : (b.mime || '文件').split('/').pop().toUpperCase()}${b.size ? ' · ' + fmtSize(b.size) : ''}${state === 'missing' ? ' · 这台设备上还没有这个文件' : state === 'fetching' ? ' · 正在从云端获取…' : ''}</small></div>
+      <div class="bf-acts" onClick=${(e) => e.stopPropagation()}>
+        ${pdf && url && html`<button class="ibtn" title=${open ? '收起预览' : '展开预览'} onClick=${() => setOpen(!open)}><${Icon} name=${open ? 'up' : 'down'} size=${14} /></button>`}
+        ${url && html`<a class="ibtn" title="新标签页打开" href=${url} target="_blank" rel="noopener"><${Icon} name="external" size=${14} /></a>`}
+        ${url && html`<button class="ibtn" title="下载" onClick=${dl}><${Icon} name="download" size=${14} /></button>`}
+        <button class="ibtn danger" title="移除附件" onClick=${onRemove}><${Icon} name="x" size=${14} /></button>
+      </div>
+    </div>
+    ${pdf && open && url && html`<iframe class="bf-pdf" src=${url + '#toolbar=1&navpanes=0'} title=${b.name}></iframe>`}
+  </div>`;
 }
 
 function phFor(b) {

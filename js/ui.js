@@ -204,7 +204,7 @@ export function DateInput({ value, onChange, placeholder = '选择日期', clear
   const label = value ? `${_fmt(value, true)} ${_WD[new Date(value.replace(/-/g, '/')).getDay()]}` : placeholder;
   const t = _today();
   return html`<div class=${'pick ' + cls}>
-    <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'empty')} onClick=${() => setOpen(!open)}><${Icon} name="calendar" size=${13} /><span>${label}</span></button>
+    <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'is-empty')} onClick=${() => setOpen(!open)}><${Icon} name="calendar" size=${13} /><span>${label}</span></button>
     ${open && pos && html`<div class="pop cal" style=${`top:${pos.top}px;left:${pos.left}px`}>
       <div class="pop-h"><button type="button" class="ibtn" onClick=${() => shift(-1)}><${Icon} name="left" size=${14} /></button><b>${y} 年 ${m} 月</b><button type="button" class="ibtn" onClick=${() => shift(1)}><${Icon} name="right" size=${14} /></button></div>
       <div class="cal-grid">${['日', '一', '二', '三', '四', '五', '六'].map((w) => html`<span class="cal-w">${w}</span>`)}
@@ -223,7 +223,7 @@ export function Select({ value, options = [], onChange, placeholder = '—', cla
   const opts = options.map((o) => (typeof o === 'string' ? { v: o, label: o } : o));
   const cur = opts.find((o) => o.v === value);
   return html`<div class=${'pick ' + cls}>
-    <button type="button" ref=${ref} class=${'pick-btn ' + (cur ? '' : 'empty')} onClick=${() => setOpen(!open)}><span class="flex1">${cur ? cur.label : placeholder}</span><${Icon} name="down" size=${12} class="caret" /></button>
+    <button type="button" ref=${ref} class=${'pick-btn ' + (cur ? '' : 'is-empty')} onClick=${() => setOpen(!open)}><span class="flex1">${cur ? cur.label : placeholder}</span><${Icon} name="down" size=${12} class="caret" /></button>
     ${open && pos && html`<div class="pop sel" style=${`top:${pos.top}px;left:${pos.left}px`}>
       <div class="time-list">${clearable && html`<button type="button" class=${'time-i ' + (!value ? 'sel' : '')} onClick=${() => { onChange(''); setOpen(false); }}>${placeholder}</button>`}${opts.map((o) => html`<button type="button" key=${o.v} class=${'time-i ' + (o.v === value ? 'sel' : '')} onClick=${() => { onChange(o.v); setOpen(false); }}>${o.label}</button>`)}</div>
     </div>`}
@@ -240,7 +240,7 @@ export function TimeInput({ value, onChange, placeholder = '时间', step = 30, 
   useEffect(() => { if (open && listRef.current) { const el = listRef.current.querySelector('.sel') || listRef.current.querySelector(`[data-t="${(value || '09:00').slice(0, 2)}:00"]`); if (el) listRef.current.scrollTop = el.offsetTop - 80; } }, [open, pos]);
   const commit = (v) => { const m = v.trim().match(/^(\d{1,2})[:：.]?(\d{2})?$/); if (!m) return; const h = Math.min(23, +m[1]), mm = Math.min(59, +(m[2] || 0)); onChange(`${_pad(h)}:${_pad(mm)}`); setOpen(false); };
   return html`<div class=${'pick ' + cls}>
-    <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'empty')} onClick=${() => setOpen(!open)}><${Icon} name="clock" size=${13} /><span>${value || placeholder}</span></button>
+    <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'is-empty')} onClick=${() => setOpen(!open)}><${Icon} name="clock" size=${13} /><span>${value || placeholder}</span></button>
     ${open && pos && html`<div class="pop time" style=${`top:${pos.top}px;left:${pos.left}px`}>
       <input type="text" class="time-in" placeholder="输入如 9:30" autofocus onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(e.target.value); } }} />
       <div class="time-list" ref=${listRef}>${slots.map((s) => html`<button type="button" key=${s} data-t=${s} class=${'time-i ' + (s === value ? 'sel' : '')} onClick=${() => { onChange(s); setOpen(false); }}>${s}</button>`)}</div>

@@ -11,6 +11,7 @@ import { Splitter } from '../resize.js';
 import { mountGraph } from '../graph.js';
 import { BlockEditor, focusEditor } from '../editor.js';
 import { blocksToMd, mdToBlocks, textOf } from '../blocks.js';
+import { listFiles, fmtSize, isPdf, fileUrl } from '../files.js';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -244,7 +245,7 @@ export default function Notes({ route }) {
         <button class="nb-i new" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }}><${Icon} name="plus" size=${13} /><span>新本子</span></button>
       </div>
       <button class=${'nb-i trash-i ' + (nbSel === 'trash' ? 'active' : '')} onClick=${() => pick('trash')} ...${dropProps('page', (d) => { const n = s.notes.find((x) => x.id === d.id); if (n) trashPages(subtreeIds(s.notes, n.id), noteTitle(n)); })}><${Icon} name="trash" size=${14} /><span class="flex1">最近删除</span><small>${(s.trash || []).length}</small></button>
-      <div class="nb-foot" style="position:relative"><a class=${'nb-i ' + (id === 'graph' ? 'active' : '')} href="#/notes/graph"><${Icon} name="compass" size=${14} /><span>图谱</span></a><a class=${'nb-i ' + (id === 'tags' ? 'active' : '')} href="#/notes/tags"><${Icon} name="tag" size=${14} /><span>标签</span></a></div>
+      <div class="nb-foot" style="position:relative"><a class=${'nb-i ' + (id === 'graph' ? 'active' : '')} href="#/notes/graph"><${Icon} name="compass" size=${14} /><span>图谱</span></a><a class=${'nb-i ' + (id === 'tags' ? 'active' : '')} href="#/notes/tags"><${Icon} name="tag" size=${14} /><span>标签</span></a><a class=${'nb-i ' + (id === 'files' ? 'active' : '')} href="#/notes/files"><${Icon} name="file" size=${14} /><span>附件</span></a></div>
     </aside>`}
     ${panes.nb && html`<${Splitter} varName="nbw" min=${150} max=${360} />`}
     ${panes.list && html`<section class="card list-col">
@@ -273,6 +274,7 @@ export default function Notes({ route }) {
       ${!panes.list && html`<button class="pane-pill float" title=${'显示页面列表（' + listTitle + '）'} onClick=${() => setPane('list', true)}><${Icon} name="right" size=${12} /> 列表</button>`}
       ${id === 'graph' ? html`<${GraphView} notes=${s.notes} />`
       : id === 'tags' ? html`<${TagsView} notes=${s.notes} />`
+      : id === 'files' ? html`<${FilesView} notes=${s.notes} notebooks=${nbs} />`
       : trashed ? html`<div class="page"><div class="trash-bar"><${Icon} name="trash" size=${14} /><span class="flex1">这一页在「最近删除」里，${daysLeft(trashed)} 天后会自动删除。</span><${Btn} small kind="primary" icon="refresh" onClick=${() => { restorePages([trashed.id]); }}>恢复<//><${Btn} small kind="ghost danger" onClick=${async () => { if (await askConfirm('这一页将无法恢复。', { title: '彻底删除？' })) { purgePages([trashed.id]); go('notes'); } }}>彻底删除<//></div><div class="page-body"><h1 class="trash-title">${noteTitle(trashed)}</h1><div class="md" dangerouslySetInnerHTML=${{ __html: renderMd(trashed.body) }}></div></div></div>`
       : !note ? html`<div class="notes-empty"><${Empty} icon="note" text=${cur ? `「${cur.name}」· 选一页，或新建一页。` : '选一页，或新建一页。'}><div class="row" style="gap:8px"><${Btn} small kind="primary" onClick=${() => create(null)}>新页面<//></div><//></div>`
       : html`<${Page} key=${note.id} note=${note} notes=${s.notes} notebooks=${nbs} onCreateChild=${() => create(note.id)} />`}
@@ -297,6 +299,28 @@ function TagsView({ notes }) {
       ${cur && html`<div class="tag-group"><div class="sec-h"><span>#${cur}</span><span class="muted">${pages.length} 页</span><span class="flex1"></span><button class="btn ghost sm" onClick=${() => go('notes?tag=' + encodeURIComponent(cur))}>在列表里筛选</button></div>
         ${pages.map((n) => html`<a class="sub-row" key=${n.id} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, notes), noteTitle(n))}><${Icon} name="note" size=${14} class="muted" /><span class="flex1">${noteTitle(n)}</span><span class="muted small">${n.tags.filter((x) => x !== cur).map((x) => '#' + x).join(' ')}</span><span class="muted small" style="margin-left:12px">${n.updated.slice(5, 10).replace('-', '/')}</span></a>`)}
       </div>`}`}
+  </div></div>`;
+}
+
+function FilesView({ notes, notebooks }) {
+  const [local, setLocal] = useState(null);
+  useEffect(() => { listFiles().then((l) => setLocal(new Map(l.map((r) => [r.id, r])))); }, []);
+  const [q, setQ] = useState('');
+  const rows = useMemo(() => { const out = []; notes.forEach((n) => (n.blocks || []).forEach((b) => { if (b.type === 'file') out.push({ b, n }); })); return sortBy(out.map((x) => ({ ...x, updated: x.n.updated })), '-updated'); }, [notes]);
+  const vis = rows.filter((r) => !q.trim() || (r.b.name || '').toLowerCase().includes(q.trim().toLowerCase()) || noteTitle(r.n).toLowerCase().includes(q.trim().toLowerCase()));
+  const groups = useMemo(() => { const m = new Map(); vis.forEach((r) => { const k = r.n.nb || 'nb-inbox'; if (!m.has(k)) m.set(k, []); m.get(k).push(r); }); return [...m.entries()]; }, [vis]);
+  const total = rows.reduce((n, r) => n + (r.b.size || 0), 0);
+  const openFile = async (fid) => { const u = await fileUrl(fid); if (u) window.open(u, '_blank', 'noopener'); };
+  return html`<div class="page"><div class="crumbs"><a href="#/notes">笔记</a><span>/</span><b>附件</b><span class="flex1"></span><span class="small muted">${rows.length} 个文件 · ${fmtSize(total)} · 存在这台设备上，登录后随同步上传</span></div><div class="page-body">
+    ${rows.length === 0 ? html`<${Empty} icon="file" text="还没有附件。把 PDF 或文件拖进任何一页，或在页面里输入 /文件。" />` : html`
+      <div class="searchin" style="max-width:360px;margin-bottom:16px"><${Icon} name="search" size=${13} /><input type="text" value=${q} placeholder="搜索文件名或页面…" onInput=${(e) => setQ(e.target.value)} /></div>
+      ${groups.map(([nbId, list]) => { const nb = notebooks.find((x) => x.id === nbId); return html`<div class="tag-group" key=${nbId}><div class="sec-h"><i class="nb-dot" style=${`background:${nb ? nb.color : '#999'}`}></i>${nb ? nb.name : '收件箱'}<span class="muted">${list.length}</span></div>
+        ${list.map(({ b, n }) => html`<div class="file-row" key=${b.id} onClick=${() => go('notes/' + n.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: '打开所在页面', icon: 'note', onClick: () => go('notes/' + n.id) }, { label: '新标签页打开文件', icon: 'external', onClick: () => openFile(b.fid) }], b.name)}>
+          <span class=${'bf-ic ' + (isPdf({ type: b.mime, name: b.name }) ? 'pdf' : '')}><${Icon} name="file" size=${16} /></span>
+          <div class="fr-main"><b>${b.name}</b><small>${isPdf({ type: b.mime, name: b.name }) ? 'PDF' : (b.mime || '文件').split('/').pop().toUpperCase()} · ${fmtSize(b.size || 0)} · 在「${noteTitle(n)}」${local && !local.has(b.fid) ? ' · 这台设备上没有文件' : ''}</small></div>
+          <span class="muted small">${n.updated.slice(5, 10).replace('-', '/')}</span>
+        </div>`)}
+      </div>`; })}`}
   </div></div>`;
 }
 
