@@ -18,7 +18,7 @@ html[data-theme="light"]{
   --ink:#15171a;--text:#1b1d21;--text-2:#2d3036;--text-3:#6b7079;--text-4:#9a9ea6;
   --g1:#15171a;--g2:#3a3d43;--g3:#5c6068;--g4:#8a8f98;--g5:#b4b8bf;--g6:#d4d7dc;--g7:#e8eaee;
   --line:rgba(22,25,31,.08);--line-2:rgba(22,25,31,.15);--hover:rgba(22,25,31,.045);--hover-2:rgba(22,25,31,.085);
-  --input:rgba(22,25,31,.035);--tag-bg:transparent;--tag-line:rgba(22,25,31,.18);
+  --input:rgba(22,25,31,.035);--tag-bg:rgba(22,25,31,.06);--tag-line:transparent;
   --shadow:0 0 0 1px rgba(20,20,20,.07);--shadow-h:0 0 0 1px rgba(20,20,20,.12),0 10px 30px -18px rgba(20,20,20,.25);
   --pop:0 0 0 1px rgba(20,20,20,.08),0 12px 36px -12px rgba(20,20,20,.3);
   --sel:rgba(79,124,245,.16);--cal-bg:#f3f5f9;--code-bg:#f3f5f9;--blue:#4f7cf5;--ac:79,124,245;
@@ -32,7 +32,7 @@ html[data-theme="dark"]{
   --ink:#f2f1ee;--text:#ececea;--text-2:#d6d5d2;--text-3:#9b9b98;--text-4:#6a6a68;
   --g1:#f2f1ee;--g2:#cfcecb;--g3:#a9a8a5;--g4:#858380;--g5:#605f5d;--g6:#454442;--g7:#303030;
   --line:rgba(255,255,255,.09);--line-2:rgba(255,255,255,.18);--hover:rgba(255,255,255,.06);--hover-2:rgba(255,255,255,.11);
-  --input:rgba(255,255,255,.05);--tag-bg:transparent;--tag-line:rgba(255,255,255,.25);
+  --input:rgba(255,255,255,.05);--tag-bg:rgba(255,255,255,.09);--tag-line:transparent;
   --shadow:0 0 0 1px rgba(255,255,255,.05),0 10px 30px -22px rgba(0,0,0,.6);--shadow-h:0 0 0 1px rgba(255,255,255,.08),0 16px 36px -20px rgba(0,0,0,.7);
   --pop:0 0 0 1px rgba(255,255,255,.1),0 12px 36px -12px rgba(0,0,0,.7);
   --sel:rgba(96,165,250,.3);--cal-bg:#262626;--code-bg:#1b1b1b;--blue:#60a5fa;--ac:96,165,250;
@@ -191,12 +191,12 @@ input[type=checkbox]{accent-color:var(--blue);width:15px;height:15px}
 .seg button.on{color:var(--text)}
 .seg.mini button{padding:1px 7px;font-size:.74rem}
 .seg.mini .serif-f{font-family:var(--serif)}.seg.mini .mono-f{font-family:var(--mono)}
-.tag{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;line-height:1.4;padding:2px 8px;border-radius:7px;background:var(--tag-bg);color:var(--text-2);white-space:nowrap;border:1px solid var(--tag-line)}
-.tag.tc{color:var(--tc);border-color:color-mix(in srgb,var(--tc) 45%,transparent);background:color-mix(in srgb,var(--tc) 10%,transparent)}
-.tag.th{--tc:hsl(var(--th) 40% 42%);color:hsl(var(--th) 35% 34%);border-color:hsl(var(--th) 30% 82%);background:hsl(var(--th) 45% 95.5%)}
-html[data-theme="dark"] .tag.th{color:hsl(var(--th) 45% 76%);border-color:hsl(var(--th) 25% 30%);background:hsl(var(--th) 25% 15%)}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;line-height:1.4;padding:3px 9px;border-radius:7px;background:var(--tag-bg);color:var(--text-2);white-space:nowrap;border:0;font-weight:500}
+.tag.tc{color:var(--tc);background:color-mix(in srgb,var(--tc) 14%,transparent)}
+.tag.th{--tc:hsl(var(--th) 40% 42%);color:hsl(var(--th) 38% 34%);background:hsl(var(--th) 55% 91%)}
+html[data-theme="dark"] .tag.th{color:hsl(var(--th) 50% 78%);background:hsl(var(--th) 28% 22%)}
 .tag button{color:inherit;opacity:.5;font-size:.85rem;line-height:1}.tag button:hover{opacity:1}
-.tag.click{cursor:pointer}.tag.click:hover{background:var(--hover-2)}
+.tag.click{cursor:pointer}.tag.click:hover{filter:brightness(.96)}html[data-theme="dark"] .tag.click:hover{filter:brightness(1.15)}
 .taginput{display:flex;flex-wrap:wrap;gap:4px;padding:4px 8px;border-radius:var(--r2);border:1px solid var(--line-2);background:var(--input);min-height:32px;align-items:center}
 .taginput input{flex:1;min-width:100px;border:0;background:none;padding:2px 2px;box-shadow:none}
 .taginput input:focus{box-shadow:none;background:none}
