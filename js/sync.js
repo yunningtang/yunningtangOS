@@ -4,7 +4,8 @@
 //    token stays in an encrypted httpOnly cookie, the browser only talks to /api/sync.
 //  - "token": static hosting (GitHub Pages etc.); a fine-grained token pasted in Settings.
 import { get, replace, update, exportJSON } from './store.js';
-import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob } from './files.js';
+import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob, kvGet, kvSet } from './files.js';
+import { merge3, syncView } from './merge.js';
 import { debounce } from './util.js';
 
 const API = 'https://api.github.com';
@@ -98,32 +99,44 @@ function setStatus(patch) { Object.assign(status, patch); status.listeners.forEa
 
 export async function pullRemote() { return transport().pull(); }
 
+const BASE_KEY = 'sync-base';
+const getBase = () => kvGet(BASE_KEY);
+const setBase = (doc) => kvSet(BASE_KEY, JSON.parse(JSON.stringify(doc)));
+const keepLocal = (doc) => { const l = get(); return { ...doc, settings: { ...(doc.settings || {}), sync: l.settings.sync, theme: l.settings.theme, seeded: l.settings.seeded, lastSync: new Date().toISOString() } }; };
+
+// force: local overwrites remote
 export async function push() {
   const remote = await pullRemote();
   await transport().push(exportJSON(), remote ? remote.sha : undefined);
   update((d) => { d.settings.lastSync = new Date().toISOString(); });
+  await setBase(get());
   pushAttachments().catch(() => {});
 }
 
+// force: remote overwrites local
 export async function pull() {
   const remote = await pullRemote();
   if (!remote) throw new Error('远端还没有数据文件，先推送一次。');
-  const local = get();
-  replace({ ...remote.data, settings: { ...remote.data.settings, sync: local.settings.sync, theme: local.settings.theme, lastSync: new Date().toISOString() } });
+  replace(keepLocal(remote.data));
+  await setBase(get());
 }
 
+// Three-way merge: local and remote changes since the last sync are combined record by record,
+// so two devices can both edit without one overwriting the other.
 export async function smartSync() {
   const remote = await pullRemote();
   const local = get();
-  if (remote && remote.data.updatedAt && (!local.updatedAt || remote.data.updatedAt > local.updatedAt)) {
-    replace({ ...remote.data, settings: { ...remote.data.settings, sync: local.settings.sync, theme: local.settings.theme, lastSync: new Date().toISOString() } });
-    return 'pulled';
-  }
-  if (remote && local.updatedAt && remote.data.updatedAt === local.updatedAt) { update((d) => { d.settings.lastSync = new Date().toISOString(); }); return 'same'; }
-  await transport().push(exportJSON(), remote ? remote.sha : undefined);
+  if (!remote) { await transport().push(exportJSON()); update((d) => { d.settings.lastSync = new Date().toISOString(); }); await setBase(get()); pushAttachments().catch(() => {}); return 'pushed'; }
+  const base = await getBase();
+  const merged = merge3(base || remote.data, local, remote.data);
+  const localChanged = syncView(merged) !== syncView(local);
+  const remoteChanged = syncView(merged) !== syncView(remote.data);
+  if (localChanged) replace(keepLocal(merged));
+  if (remoteChanged) await transport().push(exportJSON(), remote.sha);
   update((d) => { d.settings.lastSync = new Date().toISOString(); });
-  pushAttachments().catch(() => {});
-  return 'pushed';
+  await setBase(get());
+  if (remoteChanged) pushAttachments().catch(() => {});
+  return remoteChanged ? (localChanged ? 'merged' : 'pushed') : (localChanged ? 'pulled' : 'same');
 }
 
 async function guarded(fn) {
@@ -137,9 +150,10 @@ let armed = false;
 export function autoSync(subscribe) {
   if (armed || !loggedIn()) return;
   armed = true;
-  guarded(smartSync).catch(() => {});
   let lastSeen = get().updatedAt;
-  const pushSoon = debounce(() => { if (get().updatedAt !== lastSeen) { lastSeen = get().updatedAt; guarded(push).catch(() => {}); } }, 8000);
-  subscribe(() => { if (get().updatedAt !== lastSeen) pushSoon(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && get().updatedAt !== lastSeen) { lastSeen = get().updatedAt; guarded(push).catch(() => {}); } });
+  const run = () => guarded(smartSync).then(() => { lastSeen = get().updatedAt; }).catch(() => {});
+  run();
+  const soon = debounce(() => { if (get().updatedAt !== lastSeen) run(); }, 8000);
+  subscribe(() => { if (get().updatedAt !== lastSeen) soon(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && get().updatedAt !== lastSeen) run(); else if (document.visibilityState === 'visible') run(); });
 }

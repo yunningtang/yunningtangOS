@@ -4,12 +4,12 @@
 // and fetched from there on another device the first time it is needed.
 import { uid } from './util.js';
 
-const DB = 'ytos-files', STORE = 'files';
+const DB = 'ytos-files', STORE = 'files', KV = 'kv';
 let dbp;
 function db() {
   dbp = dbp || new Promise((res, rej) => {
-    const r = indexedDB.open(DB, 1);
-    r.onupgradeneeded = () => { r.result.createObjectStore(STORE, { keyPath: 'id' }); };
+    const r = indexedDB.open(DB, 2);
+    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: 'id' }); if (!d.objectStoreNames.contains(KV)) d.createObjectStore(KV); };
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
   return dbp;
@@ -17,6 +17,10 @@ function db() {
 function tx(mode, fn) {
   return db().then((d) => new Promise((res, rej) => { const t = d.transaction(STORE, mode); const req = fn(t.objectStore(STORE)); t.oncomplete = () => res(req && req.result); t.onerror = () => rej(t.error); }));
 }
+
+// small key/value store (used for the last-synced snapshot, which is too big for localStorage)
+export function kvGet(key) { return db().then((d) => new Promise((res) => { const t = d.transaction(KV, 'readonly'); const q = t.objectStore(KV).get(key); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); })).catch(() => undefined); }
+export function kvSet(key, val) { return db().then((d) => new Promise((res) => { const t = d.transaction(KV, 'readwrite'); t.objectStore(KV).put(val, key); t.oncomplete = () => res(true); t.onerror = () => res(false); })).catch(() => false); }
 
 export const fmtSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
 export const isPdf = (f) => f && (f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''));

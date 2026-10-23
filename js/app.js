@@ -25,6 +25,8 @@ import { detectLogin, autoSync } from './sync.js';
 import { subscribe } from './store.js';
 export { go, toast };
 
+import { Capture } from './capture.js';
+
 export const ROUTES = [
   { path: 'home', name: '总览', icon: 'home', view: Dashboard },
   { sep: '每一天' },
@@ -68,11 +70,12 @@ function App() {
   const s = useStore();
   const route = useRoute();
   const [menu, setMenu] = useState(false);
+  const [cap, setCap] = useState(false);
   const [search, setSearch] = useState(false);
   const tree = useTreeState();
   const [navOpen, setNavOpen] = useState(() => { try { return { notes: true, ...JSON.parse(localStorage.getItem('ytos.nav') || '{}') }; } catch { return { notes: true }; } });
   const [mini, setMini] = useState(() => { try { return localStorage.getItem('ytos.side') === 'mini'; } catch { return false; } });
-  const toggleMini = () => setMini((m) => { try { localStorage.setItem('ytos.side', m ? 'full' : 'mini'); } catch {} return !m; });
+  const toggleMini = () => { if (matchMedia('(max-width:900px)').matches) { setMenu(false); return; } setMini((m) => { try { localStorage.setItem('ytos.side', m ? 'full' : 'mini'); } catch {} return !m; }); };
   const toggleNav = (k) => setNavOpen((o) => { const n = { ...o, [k]: o[k] === false }; try { localStorage.setItem('ytos.nav', JSON.stringify(n)); } catch {} return n; });
   const curNote = route.path === 'notes' ? s.notes.find((n) => n.id === route.sub) : null;
   const active = ROUTES.find((r) => r.path === route.path && r.view) || ROUTES[0];
@@ -88,6 +91,7 @@ function App() {
 
   useEffect(() => {
     const h = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'k') { e.preventDefault(); setCap((v) => !v); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setSearch((v) => !v);
@@ -146,11 +150,18 @@ function App() {
         <div class="ttl crumb-top">${curNote ? html`<a href="#/notes">笔记</a>${ancestors(s.notes, curNote).map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${noteTitle(curNote)}</b>` : route.path === 'plan' ? html`<a href="#/plan">计划</a><span>/</span><b>${{ week: '周计划', day: '每日时间线', month: '月度目标' }[route.sub] || '周计划'}</b>` : html`<b>${active.name}</b>`}</div>
         <div class="sp"></div>
         <div class="searchbox" onClick=${() => setSearch(true)}><${Icon} name="search" size=${14} /><span>搜索</span><kbd>⌘K</kbd></div>
+        <button class="cap-btn" onClick=${() => setCap(true)} title="快速捕获（⌘⇧K）"><${Icon} name="plus" size=${15} /><span>记一下</span></button>
         <button class="theme-glass" onClick=${toggleTheme} title="切换主题"><${Icon} name="moon" class="is" size=${15} /><${Icon} name="sun" class="im" size=${15} /></button>
       </header>
       <main key=${route.path} class="fi"><${View} route=${route} /></main>
     </div>
     <${SearchPalette} open=${search} onClose=${() => setSearch(false)} />
+    <${Capture} open=${cap} onClose=${() => setCap(false)} />
+    <nav class="tabbar">
+      ${[['home', '总览', 'home', (r) => r.path === 'home'], ['todos', '待办', 'checksq', (r) => r.path === 'todos'], ['plan/day', '今天', 'sun', (r) => r.path === 'plan' && r.sub === 'day'], ['notes', '笔记', 'note', (r) => r.path === 'notes']].map(([h, n, ic, m]) => html`<a key=${h} href=${'#/' + h} class=${m(route) ? 'active' : ''}><${Icon} name=${ic} size=${20} /><span>${n}</span></a>`)}
+      <button class="tab-cap" onClick=${() => setCap(true)} title="记一下"><${Icon} name="plus" size=${22} /></button>
+      <button onClick=${() => setMenu(true)}><${Icon} name="menu" size=${20} /><span>更多</span></button>
+    </nav>
   </div>`;
 }
 

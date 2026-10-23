@@ -45,7 +45,7 @@ export default function Settings() {
   const setSync = (k, v) => update((d) => { d.settings.sync[k] = v; });
   const run = async (fn, okMsg) => {
     setBusy(true); setErr('');
-    try { const r = await fn(); toast(okMsg || (r === 'pulled' ? '已从 GitHub 拉取' : r === 'same' ? '已是最新' : '已推送到 GitHub')); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try { const r = await fn(); toast(okMsg || (r === 'pulled' ? '已从 GitHub 拉取' : r === 'same' ? '已是最新' : r === 'merged' ? '两边的改动已合并并推送' : '已推送到 GitHub')); } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const importFile = async (e) => {
     const f = e.target.files[0]; if (!f) return;
