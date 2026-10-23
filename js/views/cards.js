@@ -5,7 +5,7 @@ import { Icon, Seg, Select, Empty, Btn } from '../ui.js';
 import { todayStr, addDays, sortBy, AREAS, relDay } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
-import { askPrompt } from '../confirm.js';
+import { askPrompt, askDate } from '../confirm.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { snippetOf } from './notes.js';
 
@@ -43,7 +43,7 @@ export function reviewMenu(e, n) {
     n.review && { label: '复习过了 ✓', icon: 'check', hint: `第 ${(n.rep || 0) + 1} 次`, onClick: () => markReviewed(n) }, n.review && 'sep',
     ...[['今天', 0], ['明天', 1], ['3 天后', 3], ['一周后', 7], ['两周后', 14], ['一个月后', 30]].map(([l, d]) => ({ label: l, icon: n.review === addDays(t, d) ? 'check' : 'calendar', onClick: () => setProp(n, 'review', addDays(t, d)) })),
     'sep',
-    { label: '选择日期…', icon: 'edit', onClick: async () => { const v = await askPrompt('日期，格式 2026-01-31', n.review || t, { title: '复习日期' }); if (v && /^\d{4}-\d{2}-\d{2}$/.test(v.trim())) setProp(n, 'review', v.trim()); } },
+    { label: '选择日期…', icon: 'edit', onClick: async () => { const v = await askDate('', n.review || t, { title: '复习日期' }); if (v) setProp(n, 'review', v); } },
     { label: '清除', icon: 'x', disabled: !n.review, onClick: () => setProp(n, 'review', '') },
   ], '复习日期');
 }

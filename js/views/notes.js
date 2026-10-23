@@ -2,7 +2,7 @@ import { html, useState, useMemo, useEffect, useRef, Component } from '../../ven
 import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field } from '../ui.js';
-import { uid, todayStr, sortBy, debounce, escapeHtml, download, tagColor } from '../util.js';
+import { uid, todayStr, sortBy, debounce, escapeHtml, download, tagColor, fmtShort } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
 import { askConfirm, askPrompt } from '../confirm.js';
@@ -306,7 +306,7 @@ function TagsView({ notes }) {
   const pages = cur ? sortBy(notes.filter((n) => n.tags.includes(cur)), '-updated') : [];
   return html`<div class="page"><div class="crumbs"><a href="#/notes">笔记</a><span>/</span><b>标签</b><span class="flex1"></span><span class="small muted">${tags.length} 个标签 · 右键可重命名或移除</span></div><div class="page-body">
     ${tags.length === 0 ? html`<${Empty} icon="tag" text="还没有标签。在页面标题下面点「+ 标签」给页面加标签。" />` : html`
-      <div class="tag-cloud">${tags.map(([t, c]) => html`<button key=${t} class=${'tag-chip ' + (t === cur ? 'on' : '')} onClick=${() => setSel(t)} onContextMenu=${(e) => menu(e, t)}><span>${t}</span><small>${c}</small></button>`)}</div>
+      <div class="tag-cloud">${tags.map(([t, c]) => html`<button key=${t} class=${'tag-chip ' + (t === cur ? 'on' : '')} style=${(([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(t))} onClick=${() => setSel(t)} onContextMenu=${(e) => menu(e, t)}><span>${t}</span><small>${c}</small></button>`)}</div>
       ${cur && html`<div class="tag-group"><div class="sec-h"><span>#${cur}</span><span class="muted">${pages.length} 页</span><span class="flex1"></span><button class="btn ghost sm" onClick=${() => go('notes?tag=' + encodeURIComponent(cur))}>在列表里筛选</button></div>
         ${pages.map((n) => html`<a class="sub-row" key=${n.id} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, notes), noteTitle(n))}><${Icon} name="note" size=${14} class="muted" /><span class="flex1">${noteTitle(n)}</span><span class="muted small">${n.tags.filter((x) => x !== cur).map((x) => '#' + x).join(' ')}</span><span class="muted small" style="margin-left:12px">${n.updated.slice(5, 10).replace('-', '/')}</span></a>`)}
       </div>`}`}
@@ -345,6 +345,9 @@ class Still extends Component {
 // One quiet line under the title: notebook (click to move), tags (click + to add), date and length.
 function MetaLine({ note, notes, notebooks, words, onMove }) {
   const [adding, setAdding] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const first = useRef(true);
+  useEffect(() => { if (first.current) { first.current = false; return; } setSaved(true); const t = setTimeout(() => setSaved(false), 1400); return () => clearTimeout(t); }, [note.updated]);
   const [txt, setTxt] = useState('');
   const [sugIdx, setSugIdx] = useState(0);
   const nb = notebooks.find((x) => x.id === note.nb);
@@ -366,7 +369,7 @@ function MetaLine({ note, notes, notebooks, words, onMove }) {
     ${note.status && statusOf(note.status) && html`<button class="mchip prop" title="状态" onClick=${(e) => statusMenu(e, note)}><i class="st-dot" style=${`background:${statusOf(note.status).color}`}></i>${statusOf(note.status).label}</button>`}
     ${note.review && html`<span class="mrev"><button class=${'mchip prop rv ' + reviewState(note)} title=${'复习日期 ' + note.review + (note.rep ? ` · 已复习 ${note.rep} 次` : '')} onClick=${(e) => reviewMenu(e, note)}><${Icon} name="refresh" size=${11} />${reviewLabel(note)}</button>${(reviewState(note) === 'late' || reviewState(note) === 'today') && html`<button class="mchip ok" title="复习过了" onClick=${() => markReviewed(note)}><${Icon} name="check" size=${11} /></button>`}</span>`}
     <button class="mchip ghost" title="领域 / 主题 / 状态 / 复习日期" onClick=${(e) => propsMenu(e, note, notes)}><${Icon} name="plus" size=${11} />${note.area || note.topic || note.status || note.review ? '' : ' 属性'}</button>
-    <span class="mdate" title=${tip}>${upd.getMonth() + 1}月${upd.getDate()}日 · ${words} 字</span>
+    <span class=${'mdate ' + (saved ? 'saved' : '')} title=${tip}>${saved ? '已保存 ✓' : `${upd.getMonth() + 1}月${upd.getDate()}日 · ${words} 字`}</span>
     ${note.ref && html`<a class="mchip src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}
   </div>`;
 }
@@ -434,7 +437,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
       <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
       <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} />
       <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} /><//>
-      ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${k.updated.slice(0, 10)}</span></a>`)}</div>`}
+      ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${fmtShort(k.updated.slice(0, 10))}</span></a>`)}</div>`}
       <div class="links-sec">
         ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? '' : '＋ '}${t}</a>`)}</div>`}
         <div class="sec-h" style="margin-top:14px">反向链接 <span class="muted">${backlinks.length}</span></div>

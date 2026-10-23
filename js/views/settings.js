@@ -118,7 +118,7 @@ export default function Settings() {
         </div>
       <//>
       <${Card} title="快捷键">
-        <div class="small" style="line-height:2"><kbd class="mono">⌘/Ctrl K</kbd> 全局搜索 · 待办快速添加语法：<code class="mono">@明天</code> <code class="mono">@2026-11-01</code> <code class="mono">14:00</code> <code class="mono">!0</code>–<code class="mono">!3</code> 优先级 <code class="mono">#标签</code></div>
+        <div class="small" style="line-height:2"><kbd class="mono">⌘/Ctrl K</kbd> 全局搜索 · <kbd class="mono">⌘/Ctrl ⇧ K</kbd> 记一下（快速捕获） · 笔记里 <kbd class="mono">/</kbd> 插入块、<kbd class="mono">[[</kbd> 链接页面、<kbd class="mono">@</kbd> 引用 · 画布 <kbd class="mono">V / T / P / E</kbd> 切换工具<br/>待办快速添加语法：<code class="mono">@明天</code> <code class="mono">@2026-11-01</code> <code class="mono">14:00</code> <code class="mono">!0</code>–<code class="mono">!3</code> 优先级 <code class="mono">#标签</code></div>
       <//>
     </div>
   </div>`;

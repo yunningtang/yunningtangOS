@@ -3,7 +3,7 @@ import { useStore, toggleTodo, update, removeUndo } from '../store.js';
 import { usePomo, PomoCard } from './focus.js';
 import * as pomo from '../pomo.js';
 import { Icon, Card, Btn, Tag, Empty, Progress, useClock } from '../ui.js';
-import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS } from '../util.js';
+import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS, fmtShort } from '../util.js';
 import { TodoModal, QuickAdd, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
@@ -183,7 +183,7 @@ export default function Dashboard() {
     pages: { title: '最近页面', span: 2, el: html`<${Card}>
         <div class="card-h"><h3>最近页面</h3><div class="card-act"><button class="ibtn" title="新页面" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><${Icon} name="plus" size=${15} /></button><a class="ibtn" href="#/notes" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
         <div class="thumbs">
-          ${recentNotes.map((n) => html`<a class="thumb" href=${'#/notes/' + n.id} key=${n.id}><div class="th-prev" style=${n.cover ? (/^https?:/.test(n.cover) ? `background-image:url(${n.cover})` : `background:${n.cover}`) : ''}>${!n.cover && html`<div class="th-lines"><i></i><i></i><i></i><i></i></div>`}</div><b>${noteTitle(n)}</b><small>${ancestors(s.notes, n).map(noteTitle).join(' / ') || n.updated.slice(0, 10)}</small></a>`)}
+          ${recentNotes.map((n) => html`<a class="thumb" href=${'#/notes/' + n.id} key=${n.id}><div class="th-prev" style=${n.cover ? (/^https?:/.test(n.cover) ? `background-image:url(${n.cover})` : `background:${n.cover}`) : ''}>${!n.cover && html`<div class="th-lines"><i></i><i></i><i></i><i></i></div>`}</div><b>${noteTitle(n)}</b><small>${ancestors(s.notes, n).map(noteTitle).join(' / ') || fmtShort(n.updated.slice(0, 10))}</small></a>`)}
           ${recentNotes.length === 0 && html`<button class="thumb new" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><div class="th-prev"><${Icon} name="plus" size=${18} /></div><b>新建</b></button>`}
         </div>
       <//>` },
@@ -200,7 +200,7 @@ export default function Dashboard() {
     focus: { title: '专注', span: 1, el: html`<${PomoCard} />` },
     notes: { title: '笔记', span: 1, el: html`<${Card}>
         <div class="card-h"><h3>笔记</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
-        <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${(nbOf(s, n.nb) || {}).color || 'var(--text-4)'}`} title=${(nbOf(s, n.nb) || {}).name || ''}></i><div><b>${noteTitle(n)}</b><small>${n.updated.slice(5, 16).replace('T', ' · ')}</small></div></a>`)}</div>
+        <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${(nbOf(s, n.nb) || {}).color || 'var(--text-4)'}`} title=${(nbOf(s, n.nb) || {}).name || ''}></i><div><b>${noteTitle(n)}</b><small>${fmtShort(n.updated.slice(0, 10))} ${n.updated.slice(11, 16)}</small></div></a>`)}</div>
         <a class="small link" href="#/notes">查看全部</a>
       <//>` },
     links: { title: '收藏', span: 1, el: html`<${Card}>

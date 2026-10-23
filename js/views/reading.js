@@ -102,7 +102,7 @@ export default function Reading({ route }) {
     </div>
     <${Card}>
       <div class="quickadd"><${Icon} name="book" size=${15} class="muted" /><input class="flex1" type="text" value=${quick} placeholder="书名 - 作者，回车快速加入" onInput=${(e) => setQuick(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && quickAdd()} /><input type="search" value=${q} placeholder="搜索…" style="width:160px" onInput=${(e) => setQ(e.target.value)} /></div>
-      <div class="filters">${[{ v: 'all', n: '所有类型' }, ...TYPES.map(([v, n]) => ({ v, n }))].map((t) => html`<${Tag} class="click" color=${type === t.v ? 'var(--blue)' : undefined} plain onClick=${() => setType(t.v)}>${t.n}<//>`)}</div>
+      <div class="filters">${[{ v: 'all', n: '所有类型' }, ...TYPES.map(([v, n]) => ({ v, n }))].map((t) => html`<${Tag} class=${'click ' + (type === t.v ? 'on' : '')} plain onClick=${() => setType(t.v)}>${t.n}<//>`)}</div>
       ${books.length === 0 ? html`<${Empty} icon="book" text="没有匹配的书。" />` : groups.map(([name, list]) => html`
         <div class="group-h">${name}<i></i><span>${list.length}</span></div>
         <div class="links">${list.map((b) => html`<div class="lk bk-row" key=${b.id} ...${dragProps('book', { id: b.id })} onContextMenu=${(e) => ctxMenu(e, menu(b), b.title)}>
