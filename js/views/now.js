@@ -9,6 +9,32 @@ import { getPosition, reverseGeo, searchPlace, fetchWeather, describe } from '..
 
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
 
+// weather code -> animated backdrop
+function sceneOf(code, isDay) {
+  const c = +code;
+  if (c >= 95) return 'storm';
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow';
+  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return 'rain';
+  if (c === 45 || c === 48) return 'fog';
+  if (c === 3) return 'cloudy';
+  if (c === 2) return isDay ? 'partly' : 'night-cloud';
+  return isDay ? 'sunny' : 'night';
+}
+const seeded = (n, f) => Array.from({ length: n }, (_, i) => f(i, ((i * 9301 + 49297) % 233280) / 233280));
+function Sky({ kind }) {
+  const night = kind === 'night' || kind === 'night-cloud';
+  const clouds = kind === 'sunny' || kind === 'night' ? 0 : kind === 'partly' || kind === 'night-cloud' ? 2 : 4;
+  return html`<div class="sky" aria-hidden="true">
+    ${(kind === 'sunny' || kind === 'partly') && html`<i class="sun"></i>`}
+    ${night && html`<i class="moon"></i>${seeded(14, (i, r) => html`<b class="star" key=${i} style=${`left:${(i * 37) % 100}%;top:${(r * 70)}%;animation-delay:${(r * 3).toFixed(2)}s`}></b>`)}`}
+    ${seeded(clouds, (i, r) => html`<i class=${'cloud c' + i} key=${i} style=${`top:${8 + i * 18}%;animation-duration:${(38 + r * 30).toFixed(0)}s;animation-delay:${(-r * 40).toFixed(0)}s`}></i>`)}
+    ${kind === 'rain' && seeded(26, (i, r) => html`<b class="drop" key=${i} style=${`left:${(i * 3.9) % 100}%;animation-duration:${(0.7 + r * 0.6).toFixed(2)}s;animation-delay:${(-r * 2).toFixed(2)}s`}></b>`)}
+    ${kind === 'storm' && html`${seeded(26, (i, r) => html`<b class="drop" key=${i} style=${`left:${(i * 3.9) % 100}%;animation-duration:${(0.5 + r * 0.5).toFixed(2)}s;animation-delay:${(-r * 2).toFixed(2)}s`}></b>`)}<i class="flash"></i>`}
+    ${kind === 'snow' && seeded(22, (i, r) => html`<b class="flake" key=${i} style=${`left:${(i * 4.6) % 100}%;animation-duration:${(5 + r * 5).toFixed(1)}s;animation-delay:${(-r * 9).toFixed(1)}s`}></b>`)}
+    ${kind === 'fog' && html`<i class="fog f1"></i><i class="fog f2"></i><i class="fog f3"></i>`}
+  </div>`;
+}
+
 export function NowWidget() {
   const s = useStore();
   const place = s.settings.place || null; // { name, sub, lat, lng, auto }
@@ -47,7 +73,9 @@ export function NowWidget() {
 
   const d = wx ? describe(wx.code, wx.isDay) : null;
   const hh = pad(now.getHours()), mm = pad(now.getMinutes()), ss = pad(now.getSeconds());
-  return html`<${Card} class="now-w" onContextMenu=${(e) => { if (!e.target.closest('input')) menu(e); }}>
+  const scene = d ? sceneOf(wx.code, wx.isDay) : '';
+  return html`<${Card} class=${'now-w ' + (scene ? 'has-sky sky-' + scene : '')} onContextMenu=${(e) => { if (!e.target.closest('input')) menu(e); }}>
+    ${scene && html`<${Sky} kind=${scene} />`}
     <div class="now-clock"><b>${hh}:${mm}</b><small>${ss}</small></div>
     <div class="now-date">${now.getMonth() + 1}月${now.getDate()}日 周${WD[now.getDay()]} · ${weekKey(todayStr())}</div>
     ${search ? html`<div class="now-msg">

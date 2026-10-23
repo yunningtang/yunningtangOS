@@ -696,7 +696,6 @@ class Row extends Component {
       ${b.type === 'number' && html`<span class="b-mark num" contenteditable="false">${num}.</span>`}
       ${b.type === 'todo' && html`<button class=${'b-check ' + (b.checked ? 'on' : '')} contenteditable="false" onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { checked: !b.checked })}><${Icon} name="check" size=${11} /></button>`}
       ${b.type === 'toggle' && html`<button class=${'b-tg ' + (b.open ? 'open' : '')} contenteditable="false" onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { open: !b.open })}><${Icon} name="right" size=${12} /></button>`}
-      ${b.type === 'callout' && html`<span class="b-ico" contenteditable="false">│</span>`}
       <div ref=${setEl} class=${'b-text ' + (b.type === 'todo' && b.checked ? 'done' : '')} data-ph=${phFor(b)}></div>
     </div>`;
     const menu = (e) => {
