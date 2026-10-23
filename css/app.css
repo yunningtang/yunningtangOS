@@ -191,10 +191,12 @@ input[type=checkbox]{accent-color:var(--blue);width:15px;height:15px}
 .seg button.on{color:var(--text)}
 .seg.mini button{padding:1px 7px;font-size:.74rem}
 .seg.mini .serif-f{font-family:var(--serif)}.seg.mini .mono-f{font-family:var(--mono)}
-.tag{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;line-height:1.4;padding:3px 9px;border-radius:7px;background:var(--tag-bg);color:var(--text-2);white-space:nowrap;border:0;font-weight:500}
-.tag.tc{color:var(--tc);background:color-mix(in srgb,var(--tc) 14%,transparent)}
-.tag.th{--tc:hsl(var(--th) 40% 42%);color:hsl(var(--th) 38% 34%);background:hsl(var(--th) 55% 91%)}
-html[data-theme="dark"] .tag.th{color:hsl(var(--th) 50% 78%);background:hsl(var(--th) 28% 22%)}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;line-height:1.4;padding:3px 9px;border-radius:8px;background:var(--tag-bg);color:var(--text-2);white-space:nowrap;border:0;font-weight:500;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+html[data-theme="dark"] .tag{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.tag.tc{color:var(--tc);background:linear-gradient(180deg,color-mix(in srgb,var(--tc) 9%,var(--card-bg)),color-mix(in srgb,var(--tc) 16%,var(--card-bg)))}
+.tag.th{--tc:hsl(var(--th) 40% 42%);color:hsl(var(--th) 36% 33%);background:linear-gradient(180deg,hsl(var(--th) 60% 95%),hsl(var(--th) 52% 90%))}
+.tag.th::before{content:'';width:5px;height:5px;border-radius:50%;background:hsl(var(--th) 48% 56%);flex-shrink:0}
+html[data-theme="dark"] .tag.th{color:hsl(var(--th) 50% 80%);background:linear-gradient(180deg,hsl(var(--th) 26% 25%),hsl(var(--th) 26% 19%))}html[data-theme="dark"] .tag.th::before{background:hsl(var(--th) 50% 62%)}
 .tag button{color:inherit;opacity:.5;font-size:.85rem;line-height:1}.tag button:hover{opacity:1}
 .tag.click{cursor:pointer}.tag.click:hover{filter:brightness(.96)}html[data-theme="dark"] .tag.click:hover{filter:brightness(1.15)}
 .taginput{display:flex;flex-wrap:wrap;gap:4px;padding:4px 8px;border-radius:var(--r2);border:1px solid var(--line-2);background:var(--input);min-height:32px;align-items:center}
