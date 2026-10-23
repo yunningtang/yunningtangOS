@@ -87,7 +87,7 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   const presets = [[25, 5], [45, 10], [50, 10], [90, 15]];
   return html`<${Card} class=${'focus-w ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '')} pad=${false}>
     <div class="fw-hero">
-      <div class="fw-top"><span class="fh-k">${pst.phase === 'idle' ? '专注' : pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停' : '专注中'}</span>${full ? html`<span class="muted small">${pst.phase === 'idle' ? `${pst.workLen} 分钟 · 休息 ${pst.breakLen} 分钟` : ''}</span>` : html`<a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a>`}</div>
+      <div class="fw-top"><span class="fh-k">${pst.phase === 'idle' ? '专注' : pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停' : '专注中'}</span>${full ? html`${pst.phase === 'idle' && html`<button class="fw-lens" title="点击修改休息时长" onClick=${(e) => ctxMenu(e, [...[3, 5, 10, 15, 20].map((n) => ({ label: `休息 ${n} 分钟`, icon: pst.breakLen === n ? 'check' : 'clock', onClick: () => pomo.setLens(pst.workLen, n) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('休息几分钟？', String(pst.breakLen), { title: '休息时长' }), 10); if (v >= 1 && v <= 60) pomo.setLens(pst.workLen, v); } }], '休息时长')}>${pst.workLen} 分钟 · 休息 ${pst.breakLen} 分钟 <${Icon} name="down" size=${10} /></button>`}` : html`<a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a>`}</div>
       <${Dial} rem=${rem} phase=${pst.phase} full=${full} />
       <div class="pomo-t"><div class="pomo-time">${pomo.fmt(rem)}</div><div class="pomo-sub">${pst.phase === 'idle' ? `${pst.workLen} 分钟` : pst.phase === 'break' ? '休息' : (pst.label || '专注')}</div><${Span} rem=${rem} /></div>
       ${pst.phase === 'idle' ? html`
@@ -158,6 +158,7 @@ function Dial({ rem, phase, full }) {
         <path d=${`M${C - 5},${C + 16} L${C - 3},${C - R + 16} L${C + 3},${C - R + 16} L${C + 5},${C + 16} Z`} class="d3-hand-p" />
         <path d=${`M${C - 1.2},${C} L${C - 1.2},${C - R + 22} L${C + 1.2},${C - R + 22} L${C + 1.2},${C} Z`} class="d3-hand-core" />
       </g>
+      <g class=${'d3-sec ' + (phase !== 'idle' && pomo.get().paused ? 'paused' : '')} style=${`transform-origin:${C}px ${C}px;animation-delay:-${((Date.now() / 1000) % 60).toFixed(2)}s`}><line x1=${C} y1=${C + 18} x2=${C} y2=${C - R + 10} class="d3-sec-l" /><circle cx=${C} cy=${C + 18} r="3" class="d3-sec-t" /></g>
       <circle cx=${C} cy=${C} r="10" class="d3-hub" /><circle cx=${C} cy=${C} r="4" class="d3-hub-in" />
     </svg>
     ${drag != null && html`<div class="d3-bubble">${drag} 分钟</div>`}

@@ -1352,3 +1352,9 @@ html[data-theme="dark"] .sky .cloud{background:rgba(120,135,165,.45)}
 html[data-theme="dark"] .sky .fog{background:rgba(180,190,210,.18)}
 @keyframes fogdrift{from{transform:translateX(-6%)}to{transform:translateX(6%)}}
 @media(prefers-reduced-motion:reduce){.sky *{animation:none!important}}
+
+.d3-sec{animation:sweep 60s linear infinite}.d3-sec.paused{animation-play-state:paused}
+.d3-sec-l{stroke:var(--red);stroke-width:1.4;stroke-linecap:round}.d3-sec-t{fill:var(--red)}
+.dial3.idle .d3-sec{opacity:.55}
+@keyframes sweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.fw-lens{display:inline-flex;align-items:center;gap:3px;font-size:.76rem;color:var(--text-3);padding:2px 6px;border-radius:6px}.fw-lens:hover{background:var(--hover);color:var(--text)}
