@@ -1,5 +1,8 @@
 import { html, useState, useEffect, useMemo } from '../../vendor/preact.js';
-import { useStore } from '../store.js';
+import { useStore, update } from '../store.js';
+import { ctxMenu } from '../ctx.js';
+import { askPrompt } from '../confirm.js';
+import { uid } from '../util.js';
 
 
 import { Icon, Card, Btn, Seg, Empty, Tag, Select } from '../ui.js';
@@ -32,12 +35,14 @@ export default function Focus({ route }) {
     <div class="widget span-1"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
     <div class="widget span-1">
       <${Card} title="今天的专注" sub=${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m` : '还没有记录'} action=${html`<a class="btn ghost sm" href="#/plan/day">时间线 →</a>`}>
+        <${GoalRow} mins=${mins} goal=${s.settings.focusGoal || 120} />
         <div class="day-strip">
           ${[6, 9, 12, 15, 18, 21, 24].map((h) => html`<span class="ds-h" key=${h} style=${`left:${posOf(String(h).padStart(2, '0') + ':00')}%`}>${h}</span>`)}
           ${sessions.map((b) => html`<i key=${b.id} class="ds-b" style=${`left:${posOf(b.start)}%;width:${Math.max(1.2, posOf(b.end) - posOf(b.start))}%`} title=${`${b.title} ${b.start}–${b.end}`}></i>`)}
           ${st.phase === 'work' && html`<i class="ds-b live" style=${`left:${posOf(new Date(st.startedAt).toTimeString().slice(0, 5))}%;width:${Math.max(1.2, ((st.workLen - rem / 60) / ((dayTo - dayFrom) * 60)) * 100)}%`}></i>`}
         </div>
-        ${sessions.length > 0 && html`<div class="sess-list">${[...sessions].reverse().slice(0, 6).map((b) => html`<div class="sess" key=${b.id}><i></i><span class="sess-t">${b.start}–${b.end}</span><span class="sess-n">${b.title || '专注'}</span><span class="sess-m">${timeToMin(b.end) - timeToMin(b.start)} 分</span></div>`)}</div>`}
+        <${FocusPlan} items=${(s.focus || {})[today] || []} today=${today} defaultLen=${st.workLen} running=${st.phase === 'work' ? st.planId : ''} />
+        ${sessions.length > 0 && html`<div class="sec-h" style="margin-top:14px">已完成</div><div class="sess-list">${[...sessions].reverse().slice(0, 4).map((b) => html`<div class="sess" key=${b.id}><i></i><span class="sess-t">${b.start}–${b.end}</span><span class="sess-n">${b.title || '专注'}</span><span class="sess-m">${timeToMin(b.end) - timeToMin(b.start)} 分</span></div>`)}</div>`}
       <//>
     </div>
     <div class="widget span-1">
@@ -46,6 +51,36 @@ export default function Focus({ route }) {
       <//>
     </div>
     <div class="widget span-3"><${FocusStats} blocks=${s.blocks} /></div>
+  </div>`;
+}
+
+/* ---------- daily goal + plan list ---------- */
+const LENS = [15, 25, 45, 50, 90];
+function GoalRow({ mins, goal }) {
+  const edit = async () => { const v = await askPrompt('每天想专注多久？按小时填，比如 2 或 2.5', String(goal / 60), { title: '今日目标' }); const h = parseFloat(v); if (v != null && h > 0 && h <= 16) update((d) => { d.settings.focusGoal = Math.round(h * 60); }); };
+  const pct = Math.min(100, Math.round((mins / goal) * 100));
+  return html`<div class="goal-row">
+    <button class="goal-lbl" title="点击修改目标" onClick=${edit}><small>目标</small><b>${goal % 60 ? (goal / 60).toFixed(1) : goal / 60}h</b><${Icon} name="edit" size=${11} /></button>
+    <div class="prog flex1"><i style=${`width:${pct}%`}></i></div>
+    <span class=${'goal-pct ' + (pct >= 100 ? 'done' : '')}>${pct}%</span>
+  </div>`;
+}
+function FocusPlan({ items, today, defaultLen, running }) {
+  const [txt, setTxt] = useState('');
+  const save = (fn) => update((d) => { d.focus = d.focus || {}; d.focus[today] = d.focus[today] || []; fn(d.focus[today]); });
+  const add = () => { const t = txt.trim(); if (!t) return; save((l) => l.push({ id: uid(), title: t, len: defaultLen, done: false, updated: new Date().toISOString() })); setTxt(''); };
+  const patch = (id, p) => save((l) => { const it = l.find((x) => x.id === id); if (it) Object.assign(it, p, { updated: new Date().toISOString() }); });
+  const lenMenu = (e, it) => ctxMenu(e, [...LENS.map((n) => ({ label: `${n} 分钟`, icon: it.len === n ? 'check' : 'clock', onClick: () => patch(it.id, { len: n }) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('分钟数', String(it.len), { title: '专注时长' }), 10); if (v >= 5 && v <= 180) patch(it.id, { len: v }); } }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => save((l) => { const i = l.findIndex((x) => x.id === it.id); if (i >= 0) l.splice(i, 1); }) }], it.title);
+  const open = items.filter((x) => !x.done), done = items.filter((x) => x.done);
+  return html`<div class="fplan">
+    <div class="sec-h">专注清单 ${items.length > 0 && html`<span class="muted">${done.length}/${items.length}</span>`}</div>
+    ${[...open, ...done].map((it) => html`<div class=${'fp-i ' + (it.done ? 'done ' : '') + (running === it.id ? 'live' : '')} key=${it.id} onContextMenu=${(e) => lenMenu(e, it)}>
+      <button class="cb" onClick=${() => patch(it.id, { done: !it.done })} aria-label="完成"><${Icon} name="check" size=${12} /></button>
+      <span class="fp-t">${it.title}</span>
+      <button class="fp-len" title="专注时长（点击修改）" onClick=${(e) => lenMenu(e, it)}>${it.len}<i>分</i></button>
+      ${!it.done && html`<button class="fp-go" title="开始这一项" disabled=${!!running} onClick=${() => pomo.start({ label: it.title, workLen: it.len, breakLen: Math.max(3, Math.round(it.len / 5)), planId: it.id, todoId: '' })}><${Icon} name="play" size=${12} /></button>`}
+    </div>`)}
+    <div class="fp-add"><${Icon} name="plus" size=${13} class="muted" /><input type="text" value=${txt} placeholder=${items.length ? '再加一项…' : '今天想专注做什么？回车添加'} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.isComposing) add(); }} /><span class="muted small">${defaultLen} 分</span></div>
   </div>`;
 }
 

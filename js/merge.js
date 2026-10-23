@@ -57,13 +57,14 @@ export function merge3(base, local, remote) {
   const out = { ...local };
   for (const c of LISTS) out[c] = mergeList(base[c] || [], local[c] || [], remote[c] || []);
   out.goals = mergeMap(base.goals, local.goals, remote.goals, (b, l, r) => mergeList(b || [], l || [], r || []));
+  out.focus = mergeMap(base.focus, local.focus, remote.focus, (b, l, r) => mergeList(b || [], l || [], r || []));
   out.weeks = mergeMap(base.weeks, local.weeks, remote.weeks, (b, l, r) => ({ ...mergeObj(b || {}, l || {}, r || {}), items: mergeMap((b || {}).items, (l || {}).items, (r || {}).items, (bb, ll, rr) => mergeList(bb || [], ll || [], rr || [])) }));
   const bv = base.vision || {}, lv = local.vision || {}, rv = remote.vision || {};
   out.vision = { ...lv, statements: mergeList(bv.statements, lv.statements, rv.statements), board: mergeList(bv.board, lv.board, rv.board), longterm: mergeList(bv.longterm, lv.longterm, rv.longterm), areas: mergeList(bv.areas, lv.areas, rv.areas) };
   out.profile = mergeObj(base.profile, local.profile, remote.profile);
   // settings stay per device, except the dashboard layout and place which are nice to share
   const ls = local.settings || {}, rs = remote.settings || {}, bs = base.settings || {};
-  out.settings = { ...ls, dash: mergeObj({ dash: bs.dash }, { dash: ls.dash }, { dash: rs.dash }).dash, place: mergeObj({ place: bs.place }, { place: ls.place }, { place: rs.place }).place };
+  out.settings = { ...ls, dash: mergeObj({ dash: bs.dash }, { dash: ls.dash }, { dash: rs.dash }).dash, place: mergeObj({ place: bs.place }, { place: ls.place }, { place: rs.place }).place, focusGoal: ls.focusGoal ?? rs.focusGoal };
   out.updatedAt = [local.updatedAt, remote.updatedAt].filter(Boolean).sort().pop() || null;
   return out;
 }
@@ -71,5 +72,5 @@ export function merge3(base, local, remote) {
 // what the sync compares: everything except per-device settings and the stamp
 export function syncView(doc) {
   const { settings, updatedAt, ...rest } = doc || {};
-  return JSON.stringify({ ...rest, settings: { dash: settings && settings.dash, place: settings && settings.place } });
+  return JSON.stringify({ ...rest, settings: { dash: settings && settings.dash, place: settings && settings.place, focusGoal: settings && settings.focusGoal } });
 }

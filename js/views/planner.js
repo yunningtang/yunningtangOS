@@ -172,12 +172,14 @@ function DayView({ initial }) {
   };
   return html`<div class="stack">
     <div class="page-h" style="margin-bottom:0">
-      <div class="wnav">
-        <${IconBtn} icon="left" title="前一天" onClick=${() => setDate(addDays(date, -1))} />
-        <span class="lbl">${fmtDate(date, true)} · ${relDay(date)}</span>
-        <${IconBtn} icon="right" title="后一天" onClick=${() => setDate(addDays(date, 1))} />
-        <${Btn} kind="ghost" small onClick=${() => setDate(todayStr())}>今天<//>
-        <${DateInput} value=${date} clearable=${false} onChange=${(v) => v && setDate(v)} />
+      <div class="dnav">
+        <div class="dnav-l"><b>${fmtDate(date, true)}</b><span class=${'muted ' + (date === todayStr() ? 'is-today' : '')}>${relDay(date)}</span></div>
+        <div class="dstrip">
+          <${IconBtn} icon="left" title="上一周" onClick=${() => setDate(addDays(date, -7))} />
+          ${weekDays(weekStart(date)).map((d, i) => html`<button key=${d} class=${'dchip ' + (d === date ? 'on ' : '') + (d === todayStr() ? 'today' : '')} onClick=${() => setDate(d)}><small>${WEEKDAY[i].slice(1)}</small><b>${Number(d.slice(8))}</b></button>`)}
+          <${IconBtn} icon="right" title="下一周" onClick=${() => setDate(addDays(date, 7))} />
+        </div>
+        <div class="dnav-r"><${Btn} kind="ghost" small onClick=${() => setDate(todayStr())} disabled=${date === todayStr()}>今天<//><${DateInput} value=${date} clearable=${false} onChange=${(v) => v && setDate(v)} /></div>
       </div>
       <div class="acts">
         ${blocks.length === 0 && html`<${Btn} small kind="ghost" icon="refresh" onClick=${copyYesterday}>复制昨天<//>`}
