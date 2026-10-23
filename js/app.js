@@ -1,7 +1,7 @@
 import { html, render, useEffect, useState, useMemo } from '../vendor/preact.js';
 import { useStore, update, get } from './store.js';
 import { Icon, IconBtn, Modal } from './ui.js';
-import { todayStr, weekKey } from './util.js';
+import { todayStr, weekKey, setExtraKinds } from './util.js';
 import { seedIfEmpty } from './seed.js';
 import Dashboard from './views/dashboard.js';
 import Todos from './views/todos.js';
@@ -169,6 +169,8 @@ function App() {
 }
 
 seedIfEmpty();
+setExtraKinds(get().settings.kinds);
+subscribe(() => setExtraKinds(get().settings.kinds));
 applySizes();
 initLiquid();
 detectLogin().then(() => autoSync(subscribe));

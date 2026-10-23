@@ -1363,3 +1363,10 @@ html[data-theme="dark"] .d3-shadow{fill:rgba(0,0,0,.55)}
 .dial3.idle .d3-sec{opacity:.55}
 @keyframes sweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .fw-lens{display:inline-flex;align-items:center;gap:3px;font-size:.76rem;color:var(--text-3);padding:2px 6px;border-radius:6px}.fw-lens:hover{background:var(--hover);color:var(--text)}
+
+/* wiki link hover preview */
+.wiki-peek{width:280px;padding:10px 12px;z-index:60;cursor:default}
+.wiki-peek .wp-t{display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--text);font-size:.86rem}.wiki-peek .wp-t b{font-weight:600}.wiki-peek a.wp-t:hover b{color:var(--blue)}
+.wiki-peek p{font-size:.76rem;color:var(--text-3);margin-top:5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.wiki-peek small{display:block;margin-top:6px;font-size:.68rem;color:var(--text-4)}
+.kind-add{display:inline-flex;align-items:center;padding:3px 8px;border-radius:var(--r3);font-size:.74rem;border:1px dashed var(--line-2);color:var(--text-4)}.kind-add:hover{color:var(--text);border-color:var(--text-4)}

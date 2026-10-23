@@ -63,7 +63,7 @@ export function merge3(base, local, remote) {
   out.profile = mergeObj(base.profile, local.profile, remote.profile);
   // settings stay per device, except the dashboard layout and place which are nice to share
   const ls = local.settings || {}, rs = remote.settings || {}, bs = base.settings || {};
-  out.settings = { ...ls, dash: mergeObj({ dash: bs.dash }, { dash: ls.dash }, { dash: rs.dash }).dash, place: mergeObj({ place: bs.place }, { place: ls.place }, { place: rs.place }).place, focusGoal: ls.focusGoal ?? rs.focusGoal };
+  out.settings = { ...ls, dash: mergeObj({ dash: bs.dash }, { dash: ls.dash }, { dash: rs.dash }).dash, place: mergeObj({ place: bs.place }, { place: ls.place }, { place: rs.place }).place, focusGoal: ls.focusGoal ?? rs.focusGoal, kinds: mergeList(bs.kinds || [], ls.kinds || [], rs.kinds || []) };
   out.updatedAt = [local.updatedAt, remote.updatedAt].filter(Boolean).sort().pop() || null;
   return out;
 }
@@ -71,5 +71,5 @@ export function merge3(base, local, remote) {
 // what the sync compares: everything except per-device settings and the stamp
 export function syncView(doc) {
   const { settings, updatedAt, ...rest } = doc || {};
-  return JSON.stringify({ ...rest, settings: { dash: settings && settings.dash, place: settings && settings.place, focusGoal: settings && settings.focusGoal } });
+  return JSON.stringify({ ...rest, settings: { dash: settings && settings.dash, place: settings && settings.place, focusGoal: settings && settings.focusGoal, kinds: settings && settings.kinds } });
 }

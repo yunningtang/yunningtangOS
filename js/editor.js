@@ -507,6 +507,14 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   };
 
   /* --- links --- */
+  const wikiFromSelection = () => {
+    const s0 = sel(); if (!s0 || !s0.rangeCount || s0.isCollapsed) { toast('先选中要链接的文字'); return; }
+    const range = s0.getRangeAt(0); const title = range.toString().trim(); if (!title) return;
+    if (rowsInSelection(root.current).length > 1) { toast('一次只能链接一个块里的文字'); return; }
+    range.deleteContents(); insertNodeAt(range, mkAnchor('wiki', { title }, title), false);
+    if (onCreatePage) onCreatePage(title);
+    emit(syncFromDom(bsRef.current)); setTb(null);
+  };
   const linkPrompt = () => {
     const s0 = sel(); const range = s0 && s0.rangeCount ? s0.getRangeAt(0).cloneRange() : null; if (!range || range.collapsed) { toast('先选中要加链接的文字'); return; }
     askPrompt('链接地址', '', { title: '插入链接', placeholder: 'https://' }).then((url) => { if (!url) return; const s2 = sel(); s2.removeAllRanges(); s2.addRange(range); exec('createLink', /^https?:/.test(url) ? url : 'https://' + url); emit(syncFromDom(bsRef.current)); });
@@ -655,6 +663,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       ${tbBtn('代码 ⌘E', () => toggleCode(), '</>', 'mono')}
       <span class="tb-hl">${tbBtn('荧光标记 ⌘⇧H', () => applyMark('y'), 'A', 'hl')}${['y', 'g', 'b', 'p', 'r'].map((c) => tbBtn('标记颜色', () => applyMark(c), '', 'hl-dot hl-' + c))}</span>
       ${tbBtn('链接 ⌘K', () => linkPrompt(), html`<${Icon} name="link" size=${13} />`)}
+      ${tbBtn('链接到页面（选中文字变成 [[页面]]）', () => wikiFromSelection(), '[[ ]]', 'mono')}
       ${tbBtn('清除格式', () => exec('removeFormat'), html`<${Icon} name="x" size=${13} />`)}
     </div>`}
     ${vis.map((b) => html`<${Row} key=${b.id} b=${b} api=${api.current} hm=${hmenu === b.id} drag=${dragId === b.id} dragging=${!!dragId} drop=${dropAt && dropAt.id === b.id ? (dropAt.after ? 'after' : 'before') : ''} md=${mdEdit === b.id} num=${b.type === 'number' ? numberOf(b) : 0} />

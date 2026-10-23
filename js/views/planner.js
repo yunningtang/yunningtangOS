@@ -1,12 +1,23 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select } from '../ui.js';
-import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
+import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
+import { askPrompt } from '../confirm.js';
 import { toast } from '../nav.js';
 import { Splitter } from '../resize.js';
 import { dragProps, dropProps } from '../dnd.js';
+
+function kindMenu(e, k) {
+  const save = (fn) => update((d) => { const it = (d.settings.kinds || []).find((x) => x.v === k.v); if (it) { fn(it); it.updated = new Date().toISOString(); } });
+  ctxMenu(e, [
+    { label: '重命名', icon: 'edit', onClick: async () => { const v = await askPrompt('类型名称', k.name, { title: '重命名类型' }); if (v && v.trim()) save((it) => { it.name = v.trim(); }); } },
+    { label: '换一个颜色', icon: 'refresh', onClick: () => save((it) => { const i = KIND_COLORS.indexOf(it.color); it.color = KIND_COLORS[(i + 1) % KIND_COLORS.length]; }) },
+    'sep',
+    { label: '删除类型', icon: 'trash', danger: true, hint: '已有的时间块会变成「深度专注」', onClick: () => update((d) => { d.settings.kinds = (d.settings.kinds || []).filter((x) => x.v !== k.v); d.blocks.forEach((b) => { if (b.kind === k.v) b.kind = 'focus'; }); }) },
+  ], k.name);
+}
 
 /* ---------- Weekly plan ---------- */
 function WeekBoard() {
@@ -86,7 +97,7 @@ export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
         <${Field} label="开始"><${TimeInput} value=${f.start} clearable=${false} onChange=${(v) => set('start', v)} /><//>
         <${Field} label="结束"><${TimeInput} value=${f.end} clearable=${false} onChange=${(v) => set('end', v)} /><//>
       </div>
-      <${Field} label="类型"><div class="kind-pick">${BLOCK_KINDS.map((k) => html`<button type="button" style=${`--kc:${k.color}`} class=${f.kind === k.v ? 'on' : ''} onClick=${() => set('kind', k.v)}><i></i>${k.name}</button>`)}</div><//>
+      <${Field} label="类型" hint="右键自定义类型可改名、换色或删除"><div class="kind-pick">${allKinds().map((k) => html`<button type="button" key=${k.v} style=${`--kc:${k.color}`} class=${f.kind === k.v ? 'on' : ''} onClick=${() => set('kind', k.v)} onContextMenu=${(e) => k.custom && kindMenu(e, k)}><i></i>${k.name}</button>`)}<button type="button" class="kind-add" title="新建类型" onClick=${async () => { const name = await askPrompt('类型名称', '', { title: '新建类型', placeholder: '比如：阅读 / 会议 / 冥想' }); if (!name || !name.trim()) return; const used = new Set(allKinds().map((k) => k.color)); const color = KIND_COLORS.find((c) => !used.has(c)) || KIND_COLORS[allKinds().length % KIND_COLORS.length]; const k = { v: 'k-' + uid(), name: name.trim(), color, custom: true, updated: new Date().toISOString() }; update((d) => { d.settings.kinds = [...(d.settings.kinds || []), k]; }); set('kind', k.v); }}>＋ 自定义</button></div><//>
       <${Field} label="备注"><textarea rows="2" value=${f.note} onInput=${(e) => set('note', e.target.value)}></textarea><//>
     </div>
   <//>`;
@@ -135,7 +146,7 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
         { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(b.date, 1) }) },
         { label: '复制一份（+1h）', icon: 'layers', onClick: () => upsert('blocks', { ...b, id: uid(), start: minToTime(timeToMin(b.start) + 60), end: minToTime(timeToMin(b.end) + 60) }) },
         'sep',
-        ...BLOCK_KINDS.map((k) => ({ label: k.name, icon: k.v === b.kind ? 'check' : 'tag', onClick: () => upsert('blocks', { id: b.id, kind: k.v }) })),
+        ...allKinds().map((k) => ({ label: k.name, icon: k.v === b.kind ? 'check' : 'tag', onClick: () => upsert('blocks', { id: b.id, kind: k.v }) })),
         'sep',
         { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) },
       ], b.title)}><b>${b.title}</b><small>${b.start}–${b.end}</small><span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
@@ -156,7 +167,7 @@ function DayView({ initial }) {
   const sum = useMemo(() => {
     const m = {};
     blocks.forEach((b) => { m[b.kind] = (m[b.kind] || 0) + Math.max(0, timeToMin(b.end) - timeToMin(b.start)); });
-    return BLOCK_KINDS.filter((k) => m[k.v]).map((k) => ({ ...k, min: m[k.v] }));
+    return allKinds().filter((k) => m[k.v]).map((k) => ({ ...k, min: m[k.v] }));
   }, [blocks]);
   // keep the "now" line (or the first block on other days) about a third of the way down, every time the day changes
   const tlRef = useRef();

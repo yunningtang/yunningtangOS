@@ -215,9 +215,13 @@ export const BLOCK_KINDS = [
   { v: 'rest', name: '休息', color: '#9aa3ad' },
 ];
 
-export function kindColor(v) {
-  return (BLOCK_KINDS.find((k) => k.v === v) || BLOCK_KINDS[0]).color;
-}
+// custom kinds live in settings.kinds ({ v, name, color }); app.js keeps this registry in sync
+let EXTRA_KINDS = [];
+export function setExtraKinds(list) { EXTRA_KINDS = Array.isArray(list) ? list : []; }
+export function allKinds() { return [...BLOCK_KINDS, ...EXTRA_KINDS]; }
+export function kindOf(v) { return allKinds().find((k) => k.v === v) || { v, name: v, color: '#9aa3ad' }; }
+export function kindColor(v) { return kindOf(v).color; }
+export const KIND_COLORS = ['#3b6fd6', '#7461c9', '#1f9d8a', '#c9588a', '#c99a4a', '#4a9a6a', '#d2524f', '#e08a3c', '#2f9fd0', '#8a6d3b', '#5b7cfa', '#b4457a'];
 
 // Stable pastel colour for a label (tags, areas).
 // Each tag gets its own colour from the iOS system palette (light / dark variants), handed out

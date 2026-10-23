@@ -343,7 +343,7 @@ class Still extends Component {
 }
 
 // One quiet line under the title: notebook (click to move), tags (click + to add), date and length.
-function MetaLine({ note, notes, notebooks, words, onMove }) {
+function MetaLine({ note, notes, notebooks, words, onMove, backlinks = 0 }) {
   const [adding, setAdding] = useState(false);
   const [saved, setSaved] = useState(false);
   const first = useRef(true);
@@ -369,6 +369,7 @@ function MetaLine({ note, notes, notebooks, words, onMove }) {
     ${note.status && statusOf(note.status) && html`<button class="mchip prop" title="状态" onClick=${(e) => statusMenu(e, note)}><i class="st-dot" style=${`background:${statusOf(note.status).color}`}></i>${statusOf(note.status).label}</button>`}
     ${note.review && html`<span class="mrev"><button class=${'mchip prop rv ' + reviewState(note)} title=${'复习日期 ' + note.review + (note.rep ? ` · 已复习 ${note.rep} 次` : '')} onClick=${(e) => reviewMenu(e, note)}><${Icon} name="refresh" size=${11} />${reviewLabel(note)}</button>${(reviewState(note) === 'late' || reviewState(note) === 'today') && html`<button class="mchip ok" title="复习过了" onClick=${() => markReviewed(note)}><${Icon} name="check" size=${11} /></button>`}</span>`}
     <button class="mchip ghost" title="领域 / 主题 / 状态 / 复习日期" onClick=${(e) => propsMenu(e, note, notes)}><${Icon} name="plus" size=${11} />${note.area || note.topic || note.status || note.review ? '' : ' 属性'}</button>
+    ${backlinks > 0 && html`<button class="mchip prop" title="有 ${backlinks} 页链接到这里，点击查看" onClick=${() => { const el = document.querySelector('.links-sec'); el && el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><${Icon} name="link" size=${11} />${backlinks} 反向链接</button>`}
     <span class=${'mdate ' + (saved ? 'saved' : '')} title=${tip}>${saved ? '已保存 ✓' : `${upd.getMonth() + 1}月${upd.getDate()}日 · ${words} 字`}</span>
     ${note.ref && html`<a class="mchip src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}
   </div>`;
@@ -376,6 +377,10 @@ function MetaLine({ note, notes, notebooks, words, onMove }) {
 
 function Page({ note, notes, notebooks = [], onCreateChild }) {
   const [moveOpen, setMoveOpen] = useState(false);
+  const [peek, setPeek] = useState(null); // { title, n, x, y } hover preview of a [[link]]
+  const peekTimer = useRef();
+  const onOver = (e) => { const a = e.target.closest && e.target.closest('a.wiki'); clearTimeout(peekTimer.current); if (!a) { if (!(e.target.closest && e.target.closest('.wiki-peek'))) setPeek(null); return; } peekTimer.current = setTimeout(() => { const title = a.dataset.title || a.textContent; const r = a.getBoundingClientRect(); setPeek({ title, n: findByTitle(notesRef.current, title), x: r.left, y: r.bottom + 6 }); }, 350); };
+  const onOut = (e) => { if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.wiki-peek, a.wiki')) return; clearTimeout(peekTimer.current); peekTimer.current = setTimeout(() => setPeek(null), 200); };
   const [focus, setFocus] = useState(() => document.body.classList.contains('focus-mode'));
   useEffect(() => { document.body.classList.toggle('focus-mode', focus); const k = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-bg, .popmenu, .ctx')) setFocus(false); }; window.addEventListener('keydown', k); return () => { window.removeEventListener('keydown', k); document.body.classList.remove('focus-mode'); }; }, [focus]);
   const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: new Date().toISOString() }), 250), []);
@@ -435,8 +440,14 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
       <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
-      <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} />
+      <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} backlinks=${backlinks.length} />
+      <div onMouseOver=${onOver} onMouseOut=${onOut}>
       <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} /><//>
+      </div>
+      ${peek && html`<div class="wiki-peek popmenu" style=${`position:fixed;left:${Math.min(peek.x, innerWidth - 300)}px;top:${peek.y}px`} onMouseEnter=${() => clearTimeout(peekTimer.current)} onMouseLeave=${() => setPeek(null)}>
+        ${peek.n ? html`<a class="wp-t" href=${'#/notes/' + peek.n.id}><${Icon} name="note" size=${13} /><b>${noteTitle(peek.n)}</b></a><p>${snippet(peek.n) || '空白页'}</p><small>${fmtShort(peek.n.updated.slice(0, 10))} · ${(notebooks.find((b) => b.id === peek.n.nb) || {}).name || ''}</small>`
+        : html`<div class="wp-t"><${Icon} name="plus" size=${13} /><b>${peek.title}</b></div><p class="muted">这一页还没创建，点链接会新建。</p>`}
+      </div>`}
       ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${fmtShort(k.updated.slice(0, 10))}</span></a>`)}</div>`}
       <div class="links-sec">
         ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? '' : '＋ '}${t}</a>`)}</div>`}
