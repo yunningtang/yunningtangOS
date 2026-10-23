@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select } from '../ui.js';
-import { uid, todayStr, addDays, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
+import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
@@ -187,7 +187,7 @@ function DayView({ initial }) {
         <div class="dnav-l"><b>${fmtDate(date, true)}</b><span class=${'muted ' + (date === todayStr() ? 'is-today' : '')}>${relDay(date)}</span></div>
         <div class="dstrip">
           <${IconBtn} icon="left" title="上一周" onClick=${() => setDate(addDays(date, -7))} />
-          ${weekDays(weekStart(date)).map((d, i) => html`<button key=${d} class=${'dchip ' + (d === date ? 'on ' : '') + (d === todayStr() ? 'today' : '')} onClick=${() => setDate(d)}><small>${WEEKDAY[i].slice(1)}</small><b>${Number(d.slice(8))}</b></button>`)}
+          ${Array.from({ length: 7 }, (_, i) => addDays(date, i - 3)).map((d) => html`<button key=${d} class=${'dchip ' + (d === date ? 'on ' : '') + (d === todayStr() ? 'today' : '')} onClick=${() => setDate(d)}><small>${WEEKDAY[(parseDate(d).getDay() + 6) % 7].slice(1)}</small><b>${Number(d.slice(8))}</b></button>`)}
           <${IconBtn} icon="right" title="下一周" onClick=${() => setDate(addDays(date, 7))} />
         </div>
         <div class="dnav-r"><${Btn} kind="ghost" small onClick=${() => setDate(todayStr())} disabled=${date === todayStr()}>今天<//><${DateInput} value=${date} clearable=${false} onChange=${(v) => v && setDate(v)} />${blocks.length === 0 && html`<${Btn} small kind="ghost" icon="refresh" title="复制昨天的安排" onClick=${copyYesterday}>复制昨天<//>`}<${Btn} kind="primary" small icon="plus" onClick=${() => { setEditing(null); setStart('09:00'); setModal(true); }}>时间块<//></div>

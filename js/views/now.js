@@ -23,14 +23,16 @@ function sceneOf(code, isDay) {
 const seeded = (n, f) => Array.from({ length: n }, (_, i) => f(i, ((i * 9301 + 49297) % 233280) / 233280));
 function Sky({ kind, sunX, sunY }) {
   const night = kind === 'night' || kind === 'night-cloud';
-  const clouds = kind === 'sunny' || kind === 'night' ? 0 : kind === 'partly' || kind === 'night-cloud' ? 2 : 4;
+  const clouds = kind === 'sunny' || kind === 'night' ? 1 : kind === 'partly' || kind === 'night-cloud' ? 2 : 4;
+  const rain = kind === 'rain' || kind === 'storm';
   return html`<div class="sky" aria-hidden="true">
-    ${(kind === 'sunny' || kind === 'partly') && html`<i class="sun" style=${`left:${sunX}%;top:${sunY}%`}></i>`}
-    ${night && html`<i class="moon" style=${`left:${sunX}%;top:${sunY}%`}></i>${seeded(14, (i, r) => html`<b class="star" key=${i} style=${`left:${(i * 37) % 100}%;top:${(r * 70)}%;animation-delay:${(r * 3).toFixed(2)}s`}></b>`)}`}
-    ${seeded(clouds, (i, r) => html`<i class=${'cloud c' + i} key=${i} style=${`top:${8 + i * 18}%;animation-duration:${(38 + r * 30).toFixed(0)}s;animation-delay:${(-r * 40).toFixed(0)}s`}></i>`)}
-    ${kind === 'rain' && seeded(26, (i, r) => html`<b class="drop" key=${i} style=${`left:${(i * 3.9) % 100}%;animation-duration:${(0.7 + r * 0.6).toFixed(2)}s;animation-delay:${(-r * 2).toFixed(2)}s`}></b>`)}
-    ${kind === 'storm' && html`${seeded(26, (i, r) => html`<b class="drop" key=${i} style=${`left:${(i * 3.9) % 100}%;animation-duration:${(0.5 + r * 0.5).toFixed(2)}s;animation-delay:${(-r * 2).toFixed(2)}s`}></b>`)}<i class="flash"></i>`}
-    ${kind === 'snow' && seeded(22, (i, r) => html`<b class="flake" key=${i} style=${`left:${(i * 4.6) % 100}%;animation-duration:${(5 + r * 5).toFixed(1)}s;animation-delay:${(-r * 9).toFixed(1)}s`}></b>`)}
+    <i class="horizon"></i>
+    ${(kind === 'sunny' || kind === 'partly') && html`<i class="sun" style=${`left:${sunX}%;top:${sunY}%`}><b></b></i>`}
+    ${night && html`${seeded(34, (i, r) => html`<b class=${'star s' + (i % 3)} key=${i} style=${`left:${(i * 29 + r * 11) % 100}%;top:${(r * 62 + (i % 5) * 2)}%;animation-duration:${(2.5 + r * 4).toFixed(1)}s;animation-delay:${(-r * 6).toFixed(2)}s`}></b>`)}<i class="moon" style=${`left:${sunX}%;top:${sunY}%`}></i>`}
+    ${seeded(clouds, (i, r) => html`<i class=${'cloud c' + (i % 3) + (night ? ' dark' : '')} key=${i} style=${`top:${4 + ((i * 19 + r * 14) % 48)}%;animation-duration:${(60 + r * 50 + i * 10).toFixed(0)}s;animation-delay:${(-r * 80 - i * 13).toFixed(0)}s;opacity:${(0.45 + r * 0.4).toFixed(2)}`}></i>`)}
+    ${rain && seeded(40, (i, r) => html`<b class="drop" key=${i} style=${`left:${(i * 2.6 + r * 3) % 104}%;height:${(10 + r * 14).toFixed(0)}px;animation-duration:${(0.55 + r * 0.5).toFixed(2)}s;animation-delay:${(-r * 2).toFixed(2)}s;opacity:${(0.35 + r * 0.5).toFixed(2)}`}></b>`)}
+    ${kind === 'storm' && html`<i class="flash"></i>`}
+    ${kind === 'snow' && seeded(30, (i, r) => html`<b class="flake" key=${i} style=${`left:${(i * 3.4) % 100}%;width:${(2 + r * 4).toFixed(1)}px;height:${(2 + r * 4).toFixed(1)}px;filter:blur(${(r * 1.2).toFixed(1)}px);animation-duration:${(6 + r * 7).toFixed(1)}s;animation-delay:${(-r * 12).toFixed(1)}s`}></b>`)}
     ${kind === 'fog' && html`<i class="fog f1"></i><i class="fog f2"></i><i class="fog f3"></i>`}
   </div>`;
 }
@@ -76,8 +78,10 @@ export function NowWidget() {
   const scene = d ? sceneOf(wx.code, wx.isDay) : (place ? (new Date().getHours() >= 19 || new Date().getHours() < 6 ? 'night' : 'sunny') : '');
   const hour = now.getHours() + now.getMinutes() / 60;
   const tod = hour < 5.5 || hour >= 19.5 ? 'night' : hour < 7.5 ? 'dawn' : hour >= 17 ? 'dusk' : 'day';
-  const sunX = Math.max(8, Math.min(92, ((hour - 6) / 12) * 84 + 8)); // sun / moon travels left→right through the day
-  const sunY = 14 + 30 * Math.pow(Math.abs(hour - 12) / 6, 1.6);
+  // sun travels 6:00→18:00, moon 19:30→5:30; both rise on the left and set on the right
+  const t = tod === 'night' ? (((hour + 24 - 19.5) % 24) / 10) : Math.max(0, Math.min(1, (hour - 6) / 12));
+  const sunX = 10 + t * 80;
+  const sunY = 16 + 34 * Math.pow(Math.abs(t - 0.5) * 2, 1.7);
   const placeBtn = html`<button class="now-loc" title="点击更换位置" onClick=${menu}><${Icon} name="pin" size=${13} /><span>${place ? place.name : busy ? '正在定位…' : '未设置位置'}</span>${place && place.sub && html`<small>· ${place.sub}</small>`}</button>`;
   return html`<${Card} class=${'now-w ' + (scene ? 'has-sky sky-' + scene + ' tod-' + tod : 'no-sky')} pad=${false} onContextMenu=${(e) => { if (!e.target.closest('input')) menu(e); }}>
     ${scene && html`<${Sky} kind=${scene} sunX=${sunX} sunY=${sunY} />`}
