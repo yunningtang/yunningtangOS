@@ -169,6 +169,7 @@ function App() {
 }
 
 seedIfEmpty();
+(() => { const h = () => document.body.classList.toggle('scrolled', window.scrollY > 6); window.addEventListener('scroll', h, { passive: true }); h(); })();
 setExtraKinds(get().settings.kinds);
 subscribe(() => setExtraKinds(get().settings.kinds));
 applySizes();
