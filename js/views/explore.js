@@ -82,8 +82,13 @@ export default function Explore({ route }) {
         <${Card} class="globe-card" pad=${false} style="height:480px">
           <canvas ref=${canvas}></canvas>
           <div class="stat"><span><b>${countries.length}</b><small>国家 / 地区</small></span><span><b>${regions}</b><small>省 / 州</small></span><span><b>${s.trips.filter((t) => t.kind !== 'wish').length}</b><small>足迹</small></span></div>
-          <button class="gbtn" title="自动旋转" onClick=${() => globe.current.toggleAuto()}><${Icon} name="refresh" size=${14} /></button>
-          <div class="ov">拖动旋转 · 点击光点查看 · 琥珀色为想去</div>
+          <div class="gbtns">
+            <button class="gbtn" title="放大（滚轮 / 双击）" onClick=${() => globe.current.zoomBy(1.4)}><${Icon} name="plus" size=${14} /></button>
+            <button class="gbtn" title="缩小" onClick=${() => globe.current.zoomBy(1 / 1.4)}><${Icon} name="minus" size=${14} /></button>
+            <button class="gbtn" title="复位视角" onClick=${() => globe.current.reset()}><${Icon} name="target" size=${14} /></button>
+            <button class="gbtn" title="自动旋转" onClick=${() => globe.current.toggleAuto()}><${Icon} name="refresh" size=${14} /></button>
+          </div>
+          <div class="ov">拖动旋转 · 滚轮或双指缩放 · 点击光点查看 · 琥珀色为想去</div>
         <//>
         ${selTrip && html`<${Card} class="fi" title=${selTrip.place} sub=${`${selTrip.region ? selTrip.region + ' · ' : ''}${selTrip.country} · ${fmtDate(selTrip.date, true)}${selTrip.end ? ' – ' + fmtDate(selTrip.end) : ''}`} action=${html`<${Btn} small kind=${hasPage(selTrip) ? '' : 'ghost'} icon="note" onClick=${() => tripPage(selTrip)}>${hasPage(selTrip) ? '打开游记' : '写游记'}<//><${IconBtn} icon="edit" title="编辑" onClick=${() => { setEditing(selTrip); setModal(true); }} /><${IconBtn} icon="x" title="关闭" onClick=${() => setSel(null)} />`}>
           <div class="row wrap" style="gap:6px;margin-bottom:8px">${selTrip.rating > 0 && html`<${Stars} value=${selTrip.rating} />`}${selTrip.tags.map((t) => html`<${Tag}>${t}<//>`)}<${Tag}>${{ trip: '旅行', live: '居住', wish: '想去' }[selTrip.kind || 'trip']}<//></div>

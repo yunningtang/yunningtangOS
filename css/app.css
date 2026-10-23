@@ -759,7 +759,8 @@ input.page-title::placeholder{color:var(--text-4);opacity:.6}
 .globe-card .ov{position:absolute;left:16px;bottom:12px;font-size:.72rem;color:rgba(200,215,235,.55);pointer-events:none}
 .globe-card .stat{position:absolute;top:12px;left:16px;padding:0;background:none;color:#fff;flex-direction:row;gap:14px;box-shadow:none}
 .globe-card .stat b{font-size:1.2rem;color:#fff}.globe-card .stat small{color:rgba(200,215,235,.6)}
-.globe-card .gbtn{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:var(--r2);border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#e7edf1;display:grid;place-items:center}
+.globe-card .gbtns{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:6px}
+.globe-card .gbtn{position:static;width:30px;height:30px;border-radius:var(--r2);border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#e7edf1;display:grid;place-items:center}
 .globe-card .gbtn:hover{background:rgba(255,255,255,.18)}
 .explore{display:grid;grid-template-columns:minmax(0,1fr) 6px var(--expside);gap:9px;align-items:start}
 .trip-list{display:flex;flex-direction:column;gap:2px;max-height:560px;overflow:auto}

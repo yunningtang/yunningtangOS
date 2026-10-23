@@ -7,7 +7,7 @@ let texPromise;
 function loadTexture() {
   texPromise = texPromise || new Promise((res) => {
     const img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = () => { try { const W = 1024, H = 512; const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.drawImage(img, 0, 0, W, H); res({ data: g.getImageData(0, 0, W, H).data, W, H }); } catch { res(null); } };
+    img.onload = () => { try { const W = 2048, H = 1024; const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.drawImage(img, 0, 0, W, H); res({ data: g.getImageData(0, 0, W, H).data, W, H }); } catch { res(null); } };
     img.onerror = () => res(null);
     img.src = TEXTURE;
   });
@@ -26,32 +26,43 @@ export function mountGlobe(canvas, opts = {}) {
   const grat = geoGraticule().step([30, 30])();
   let land = null, markers = opts.markers || [], selected = null, tex = null;
   let rot = [-105, -30], vel = 0.06, auto = true, raf, w, h, dpr;
+  let zoom = 1, base = 100;
+  const applyScale = () => proj.scale(base * zoom);
+  // zoom; when a screen point is given the place under it stays put (zoom towards the cursor)
+  const setZoom = (z, cx, cy) => {
+    const nz = Math.max(0.7, Math.min(6, z));
+    let a = null;
+    if (cx != null) { proj.rotate(rot); a = proj.invert([cx, cy]); }
+    zoom = nz; applyScale(); lastInteract = performance.now();
+    if (a && isFinite(a[0])) {
+      const b = proj.invert([cx, cy]);
+      if (b && isFinite(b[0])) { let dl = b[0] - a[0]; if (dl > 180) dl -= 360; if (dl < -180) dl += 360; rot = [rot[0] + dl, Math.max(-85, Math.min(85, rot[1] + (b[1] - a[1])))]; proj.rotate(rot); }
+    }
+  };
   let drag = null, lastInteract = 0;
   // raster cache: the textured sphere is re-rendered only when rotation / size change
   let rasterKey = '', raster = null;
 
   function renderRaster(cx, cy, r) {
-    const key = [rot[0].toFixed(2), rot[1].toFixed(2), r.toFixed(1)].join(',');
+    const key = [rot[0].toFixed(2), rot[1].toFixed(2), r.toFixed(1), w, h].join(',');
     if (raster && rasterKey === key) return raster;
-    const R = Math.ceil(r); const size = R * 2;
-    if (!raster || raster.width !== size) { raster = document.createElement('canvas'); raster.width = raster.height = size; }
-    const g = raster.getContext('2d'); const out = g.createImageData(size, size); const px = out.data;
+    if (!raster || raster.width !== w || raster.height !== h) { raster = document.createElement('canvas'); raster.width = w; raster.height = h; }
+    const g = raster.getContext('2d'); const out = g.createImageData(w, h); const px = out.data;
     const { data, W, H } = tex;
     const toR = Math.PI / 180; const lam0 = rot[0] * toR, phi0 = rot[1] * toR; const cphi = Math.cos(phi0), sphi = Math.sin(phi0);
-    const inv = 1 / R;
-    for (let j = 0; j < size; j++) {
-      const yv = (R - j - 0.5) * inv;
-      for (let i = 0; i < size; i++) {
-        const xv = (i - R + 0.5) * inv; const d2 = xv * xv + yv * yv; if (d2 > 1) continue;
+    const inv = 1 / r;
+    const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(w, Math.ceil(cx + r)), y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(h, Math.ceil(cy + r));
+    for (let j = y0; j < y1; j++) {
+      const yv = (cy - j - 0.5) * inv;
+      for (let i = x0; i < x1; i++) {
+        const xv = (i - cx + 0.5) * inv; const d2 = xv * xv + yv * yv; if (d2 > 1) continue;
         const zv = Math.sqrt(1 - d2);
-        // undo the phi tilt (d3 rotationPhiGamma inverse), then the lambda spin
-        const x = zv, y = xv, z = yv; // sphere coords: x toward viewer
+        const x = zv, y = xv, z = yv;
         const k = z * cphi - x * sphi;
-        let lam = Math.atan2(y, x * cphi + z * sphi) - lam0; const phi = Math.asin(Math.max(-1, Math.min(1, k)));
+        const lam = Math.atan2(y, x * cphi + z * sphi) - lam0; const phi = Math.asin(Math.max(-1, Math.min(1, k)));
         let u = (lam / (2 * Math.PI) + 0.5) % 1; if (u < 0) u += 1;
         const v = 0.5 - phi / Math.PI;
-        const tx = (u * W) | 0, ty = Math.min(H - 1, (v * H) | 0); const ti = (ty * W + tx) * 4; const o = (j * size + i) * 4;
-        // lambert-ish shading from the top-left so the sphere reads as a ball
+        const tx = (u * W) | 0, ty = Math.min(H - 1, (v * H) | 0); const ti = (ty * W + tx) * 4; const o = (j * w + i) * 4;
         const l = 0.72 + 0.28 * Math.max(0, (-xv * 0.5 + yv * 0.6 + zv * 0.62));
         px[o] = data[ti] * l; px[o + 1] = data[ti + 1] * l; px[o + 2] = data[ti + 2] * l; px[o + 3] = 255;
       }
@@ -64,7 +75,8 @@ export function mountGlobe(canvas, opts = {}) {
     w = canvas.clientWidth; h = canvas.clientHeight;
     canvas.width = w * dpr; canvas.height = h * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    proj.translate([w / 2, h / 2]).scale(Math.min(w, h) * 0.46);
+    base = Math.min(w, h) * 0.46;
+    proj.translate([w / 2, h / 2]); applyScale();
   }
 
   function draw() {
@@ -77,7 +89,7 @@ export function mountGlobe(canvas, opts = {}) {
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
     if (tex) {
-      const ras = renderRaster(cx, cy, r); ctx.drawImage(ras, cx - ras.width / 2, cy - ras.height / 2);
+      const ras = renderRaster(cx, cy, r); ctx.drawImage(ras, 0, 0, w, h);
       const sh = ctx.createRadialGradient(cx - r * 0.5, cy - r * 0.5, r * 0.2, cx, cy, r);
       sh.addColorStop(0, 'rgba(255,255,255,.08)'); sh.addColorStop(0.6, 'rgba(255,255,255,0)'); sh.addColorStop(0.92, 'rgba(5,12,40,.25)'); sh.addColorStop(1, 'rgba(2,6,24,.7)');
       ctx.fillStyle = sh; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
@@ -171,9 +183,18 @@ export function mountGlobe(canvas, opts = {}) {
     if (!drag) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
-    rot = [drag.r[0] + dx * 0.4, Math.max(-80, Math.min(80, drag.r[1] - dy * 0.4))];
+    if (drag.pinch) { const o = pointers.get(e.pointerId); if (o) { o.x = e.clientX; o.y = e.clientY; } const pts = [...pointers.values()]; if (pts.length === 2) { const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y); setZoom(drag.z0 * d / drag.d0); } return; }
+    const k = 0.4 / zoom;
+    rot = [drag.r[0] + dx * k, Math.max(-85, Math.min(85, drag.r[1] - dy * k))];
     lastInteract = performance.now();
   });
+  const pointers = new Map();
+  canvas.addEventListener('pointerdown', (e) => { pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pointers.size === 2 && drag) { const pts = [...pointers.values()]; drag.pinch = true; drag.d0 = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1; drag.z0 = zoom; } });
+  const forget = (e) => { pointers.delete(e.pointerId); if (drag && drag.pinch && pointers.size < 2) { drag = null; canvas.classList.remove('on'); } };
+  canvas.addEventListener('pointerup', forget); canvas.addEventListener('pointercancel', forget);
+  const local = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); const [x, y] = local(e); setZoom(zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), x, y); }, { passive: false });
+  canvas.addEventListener('dblclick', (e) => { const [x, y] = local(e); if (zoom >= 3) setZoom(1); else setZoom(zoom * 1.8, x, y); });
   const up = (e) => {
     if (!drag) return;
     if (!drag.moved) {
@@ -201,6 +222,9 @@ export function mountGlobe(canvas, opts = {}) {
       if (m && fly) { rot = [-m.lng, -m.lat * 0.9]; lastInteract = performance.now() + 4000; }
     },
     toggleAuto() { auto = !auto; return auto; },
+    zoomBy(f) { setZoom(zoom * f); },
+    reset() { zoom = 1; applyScale(); rot = [-105, -30]; lastInteract = 0; },
+    getZoom() { return zoom; },
     destroy() { cancelAnimationFrame(raf); ro.disconnect(); },
   };
 }
