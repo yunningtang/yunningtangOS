@@ -10,7 +10,7 @@ import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
 import { upsert, remove } from '../store.js';
 import { goalPct } from './planner.js';
-import { ancestors, noteTitle, isBlank, newNote } from './notes.js';
+import { ancestors, noteTitle, isBlank, newNote, nbOf } from './notes.js';
 import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
 
@@ -100,6 +100,7 @@ export default function Dashboard() {
   const [drag, setDrag] = useState(null); // { id }
   const [over, setOver] = useState(null); // { id, after } | { col }
   const [custom, setCustom] = useState(false);
+  const [fwLabel, setFwLabel] = useState('');
   const [wmenu, setWmenu] = useState(null);
   const colOf = (id) => (layout.main.includes(id) ? 'main' : 'side');
   const moveTo = (id, col, index) => {
@@ -175,15 +176,30 @@ export default function Dashboard() {
         ${quote && html`<div class="quote-line"><${Icon} name="sparkle" size=${13} /> ${quote.text}</div>`}
       <//>` },
     calendar: { title: '月历', span: 1, el: html`<${MonthCal} s=${s} today=${today} />` },
-    focus: { title: '专注', span: 1, el: html`<${Card}>
-        <div class="card-h"><h3>专注</h3><div class="card-act"><a class="btn ghost sm" href="#/focus"><${Icon} name="play" size=${13} /> 番茄钟</a></div></div>
-        ${pst.phase !== 'idle' && html`<a class="pomo-inline" href="#/focus"><${Icon} name=${pst.phase === 'break' ? 'moon' : 'play'} size=${13} /><b>${pomo.fmt(pomo.remaining())}</b><span>${pst.phase === 'break' ? '休息中' : pst.label || '专注中'}</span></a>`}
+    focus: { title: '专注', span: 1, el: html`<${Card} class="focus-w">
+        <div class="card-h"><h3>专注</h3><div class="card-act"><a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a></div></div>
+        ${pst.phase === 'idle' ? html`
+          <form class="fw-start" onSubmit=${(e) => { e.preventDefault(); pomo.start({ label: fwLabel.trim() }); setFwLabel(''); }}>
+            <input type="text" value=${fwLabel} placeholder="这一轮要做什么？" onInput=${(e) => setFwLabel(e.target.value)} />
+            <button type="submit" class="fw-go" title="开始专注"><${Icon} name="play" size=${14} /> ${pst.workLen} 分</button>
+          </form>
+          <div class="fw-presets">${[25, 45, 50, 90].map((w) => html`<button key=${w} type="button" class=${pst.workLen === w ? 'on' : ''} onClick=${() => pomo.setLens(w, Math.max(5, Math.round(w / 5)))}>${w}</button>`)}<span class="muted small">分钟</span></div>`
+        : html`<div class=${'fw-run ' + pst.phase + (pst.paused ? ' paused' : '')}>
+            <div class="fw-time">${pomo.fmt(pomo.remaining())}</div>
+            <div class="fw-label">${pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停 · ' + (pst.label || '专注') : pst.label || '专注中'}</div>
+            <div class="fw-bar"><i style=${`width:${Math.round((1 - pomo.remaining() / ((pst.phase === 'break' ? pst.breakLen : pst.workLen) * 60)) * 100)}%`}></i></div>
+            <div class="fw-ctl">
+              <button class="btn sm primary" onClick=${() => (pst.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${pst.paused ? 'play' : 'pause'} size=${13} /> ${pst.paused ? '继续' : '暂停'}</button>
+              ${pst.phase === 'work' ? html`<button class="btn sm ghost" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${13} /> 完成</button>` : html`<button class="btn sm ghost" onClick=${() => pomo.skip()}><${Icon} name="right" size=${13} /> 跳过</button>`}
+              <button class="btn sm ghost danger" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${13} /></button>
+            </div>
+          </div>`}
         <div class="focus-row"><div><div class="small muted">今日目标</div><div class="focus-big">${fmtH(focusToday)} <span class="muted">/ ${GOAL_MIN / 60}h</span></div></div><${Ring} value=${focusToday / GOAL_MIN} /></div>
         <div class="bars">${focusByDay.map((m, i) => html`<div class="bar" key=${i}><i style=${`height:${Math.max(4, Math.min(100, (m / GOAL_MIN) * 100))}%`} class=${week[i] === today ? 'on' : ''}></i><span>${['一', '二', '三', '四', '五', '六', '日'][i]}</span></div>`)}</div>
       <//>` },
     notes: { title: '笔记', span: 1, el: html`<${Card}>
         <div class="card-h"><h3>笔记</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
-        <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${['var(--violet)', 'var(--amber)', 'var(--blue)', 'var(--green)'][n.id.charCodeAt(0) % 4]}`}></i><div><b>${noteTitle(n)}</b><small>${n.updated.slice(5, 16).replace('T', ' · ')}</small></div></a>`)}</div>
+        <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${(nbOf(s, n.nb) || {}).color || 'var(--text-4)'}`} title=${(nbOf(s, n.nb) || {}).name || ''}></i><div><b>${noteTitle(n)}</b><small>${n.updated.slice(5, 16).replace('T', ' · ')}</small></div></a>`)}</div>
         <a class="small link" href="#/notes">查看全部</a>
       <//>` },
     links: { title: '收藏', span: 1, el: html`<${Card}>
