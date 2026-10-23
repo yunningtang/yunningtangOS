@@ -80,8 +80,8 @@ export function NowWidget() {
   const tod = hour < 5.5 || hour >= 19.5 ? 'night' : hour < 7.5 ? 'dawn' : hour >= 17 ? 'dusk' : 'day';
   // sun travels 6:00→18:00, moon 19:30→5:30; both rise on the left and set on the right
   const t = tod === 'night' ? (((hour + 24 - 19.5) % 24) / 10) : Math.max(0, Math.min(1, (hour - 6) / 12));
-  const sunX = 10 + t * 80;
-  const sunY = 16 + 34 * Math.pow(Math.abs(t - 0.5) * 2, 1.7);
+  const sunX = 50 + t * 44; // keeps the sun / moon in the right half, clear of the clock
+  const sunY = 14 + 22 * Math.pow(Math.abs(t - 0.5) * 2, 1.7);
   const placeBtn = html`<button class="now-loc" title="点击更换位置" onClick=${menu}><${Icon} name="pin" size=${13} /><span>${place ? place.name : busy ? '正在定位…' : '未设置位置'}</span>${place && place.sub && html`<small>· ${place.sub}</small>`}</button>`;
   return html`<${Card} class=${'now-w ' + (scene ? 'has-sky sky-' + scene + ' tod-' + tod : 'no-sky')} pad=${false} onContextMenu=${(e) => { if (!e.target.closest('input')) menu(e); }}>
     ${scene && html`<${Sky} kind=${scene} sunX=${sunX} sunY=${sunY} />`}
