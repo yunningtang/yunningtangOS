@@ -37,7 +37,8 @@ function WeekBoard() {
       <div class="row small muted">${done}/${total} 完成<div style="width:120px"><${Progress} value=${total ? (done / total) * 100 : 0} /></div></div>
     </div>
     <${Card} class="focus-box">
-      <${Field} label="本周焦点 · 这一周最重要的三件事"><${AutoTextarea} value=${wk.focus} placeholder="1. …\n2. …\n3. …" onInput=${(e) => setWeek((w) => { w.focus = e.target.value; })} /><//>
+      <div class="fb-h"><b>本周焦点</b><span class="muted small">这一周最重要的三件事</span></div>
+      <ol class="focus3">${[0, 1, 2].map((i) => { const lines = (wk.focus || '').split('\n').map((l) => l.replace(/^\s*\d+[.、)]\s*/, '')); return html`<li key=${i}><span class="n">${i + 1}</span><input type="text" value=${lines[i] || ''} placeholder=${['这周最重要的一件事…', '第二件…', '第三件…'][i]} onInput=${(e) => setWeek((w) => { const ls = (w.focus || '').split('\n').map((l) => l.replace(/^\s*\d+[.、)]\s*/, '')); while (ls.length < 3) ls.push(''); ls[i] = e.target.value; w.focus = ls.slice(0, 3).join('\n').replace(/\n+$/, ''); })} onKeyDown=${(e) => { if (e.key === 'Enter' && i < 2) { e.preventDefault(); const nx = e.target.closest('li').nextElementSibling; nx && nx.querySelector('input').focus(); } }} /></li>`; })}</ol>
     <//>
     <div class="week">
       ${days.map((d, i) => {
@@ -54,7 +55,7 @@ function WeekBoard() {
       })}
     </div>
     <${Card} title="周回顾" sub="周末花十分钟：这周学到了什么、下周要调整什么">
-      <${AutoTextarea} value=${wk.review} placeholder="这周…" onInput=${(e) => setWeek((w) => { w.review = e.target.value; })} />
+      <${AutoTextarea} class="review-ta" rows="3" value=${wk.review} placeholder="这周学到了什么？哪里卡住了？下周想换个什么做法…" onInput=${(e) => setWeek((w) => { w.review = e.target.value; })} />
     <//>
     <${TodoModal} open=${!!editing} todo=${editing} onClose=${() => setEditing(null)} />
   </div>`;

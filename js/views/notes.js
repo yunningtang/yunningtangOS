@@ -367,7 +367,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   }, [notes, note.title, backlinks]);
   const outgoing = useMemo(() => linksOf(note.body).map((t) => ({ t, n: findByTitle(notes, t) })), [notes, note.body]);
   const snippet = (n, key) => { const line = n.body.split('\n').find((l) => l.includes(key)) || ''; return line.replace(/[#>*`]/g, '').trim().slice(0, 120); };
-  const words = note.body.replace(/\s/g, '').length;
+  const words = note.body.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\s/g, '').length;
 
   return html`<div class="page">
     <div class="crumbs" onContextMenu=${(e) => ctxMenu(e, moreMenu(), title)}>

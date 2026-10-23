@@ -97,7 +97,7 @@ function blocksToHtml(blocks) {
     }
   }).join('\n').replace(/<\/ul>\n<ul>/g, '\n').replace(/<\/ol>\n<ol>/g, '\n');
 }
-function cloneBlock(x) { return { ...block(x.type, x.html, { indent: x.indent || 0, checked: !!x.checked, url: x.url, lang: x.lang, icon: x.icon, ...(x.rows ? { rows: x.rows.map((r) => [...r]), header: x.header } : {}) }), v: 0 }; }
+function cloneBlock(x) { return { ...block(x.type, x.html, { indent: x.indent || 0, checked: !!x.checked, url: x.url, lang: x.lang, icon: x.icon, width: x.width, align: x.align, ...(x.rows ? { rows: x.rows.map((r) => [...r]), header: x.header } : {}) }), v: 0 }; }
 /* ---------- tables ---------- */
 const tableRows = (tbl) => [...tbl.rows].map((tr) => [...tr.cells].map((td) => td.innerHTML.replace(/^(<br>)+|(<br>)+$/g, '')));
 function renderTable(tbl, b) {
@@ -265,7 +265,17 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     'sep', { label: b.header === false ? '首行作为表头' : '取消表头', icon: 'grid', onClick: () => tableOp(b, 'header', ri, ci) },
     'sep', { label: '删除这一行', icon: 'x', onClick: () => tableOp(b, 'delRow', ri, ci) }, { label: '删除这一列', icon: 'x', onClick: () => tableOp(b, 'delCol', ri, ci) }, { label: '删除表格', icon: 'trash', danger: true, onClick: () => removeBlock(b.id) },
   ]; };
-  Object.assign(api.current, { tableOp, tableMenu });
+  // drag the side handles of an image to resize it (stored as % of the editor width)
+  const imgResize = (e, b, dir) => {
+    e.preventDefault(); e.stopPropagation();
+    const fig = e.currentTarget.closest('figure'); const row = fig.closest('.b-row'); const full = row.getBoundingClientRect().width - 2;
+    const x0 = e.clientX, w0 = fig.getBoundingClientRect().width; const center = (b.align || 'left') === 'center';
+    document.body.classList.add('resizing');
+    const move = (ev) => { const dx = (ev.clientX - x0) * dir * (center ? 2 : 1); const pct = Math.max(18, Math.min(100, ((w0 + dx) / full) * 100)); fig.style.width = pct + '%'; fig.dataset.pct = pct.toFixed(0); };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); document.body.classList.remove('resizing'); if (fig.dataset.pct) update(b.id, { width: +fig.dataset.pct }); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  };
+  Object.assign(api.current, { tableOp, tableMenu, imgResize });
 
   /* --- undo / redo across block operations --- */
   const restore = (snap) => { const next = snap.map((b) => ({ ...b, v: ++vclock })); hist.current.lock = true; emit(next); hist.current.lock = false; return next; };
@@ -645,7 +655,9 @@ class Row extends Component {
     const dropCls = drop ? ' drop-' + drop : '';
     let body;
     if (b.type === 'divider') body = html`<div class="b-divider" contenteditable="false" tabindex="0" onKeyDown=${(e) => { if (e.key === 'Backspace' || e.key === 'Delete') removeBlock(b.id); }}><hr/></div>`;
-    else if (b.type === 'image') body = html`<figure class="b-image" contenteditable="false"><img src=${b.url} alt="" onError=${(e) => { e.target.style.opacity = .3; }} /><figcaption ref=${setEl} class="b-text b-cap" contenteditable="true" data-ph="图片说明"></figcaption></figure>`;
+    else if (b.type === 'image') body = html`<figure class=${'b-image al-' + (b.align || 'left')} contenteditable="false" style=${`width:${b.width || 100}%`}>
+      <div class="b-imgwrap"><img src=${b.url} alt="" draggable="false" onError=${(e) => { e.target.style.opacity = .3; }} /><span class="img-rz l" title="拖动调整大小" onPointerDown=${(e) => api.imgResize(e, b, -1)}></span><span class="img-rz r" title="拖动调整大小" onPointerDown=${(e) => api.imgResize(e, b, 1)}></span></div>
+      <figcaption ref=${setEl} class="b-text b-cap" contenteditable="true" data-ph="图片说明"></figcaption></figure>`;
     else if (b.type === 'table') body = html`<div class="b-tablewrap"><table ref=${setEl} class="b-table b-text"></table><button class="tb-add col" contenteditable="false" title="添加一列" onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.tableOp(b, 'colRight', 0, (b.rows && b.rows[0] ? b.rows[0].length : 1) - 1)}>+</button><button class="tb-add row" contenteditable="false" title="添加一行" onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.tableOp(b, 'rowBelow', (b.rows ? b.rows.length : 1) - 1, 0)}>+</button></div>`;
     else if (b.type === 'code') body = html`<div class="b-code" contenteditable="false"><input class="b-lang" value=${b.lang || ''} placeholder="语言" onInput=${(e) => update(b.id, { lang: e.target.value })} /><pre ref=${setEl} contenteditable="plaintext-only" class="b-text" data-ph="代码"></pre></div>`;
     else if (b.type === 'md') body = md
@@ -662,6 +674,15 @@ class Row extends Component {
     const menu = (e) => {
       if (window.getSelection && !window.getSelection().isCollapsed) return; e.stopPropagation();
       if (b.type === 'table') { const cell = e.target.closest && e.target.closest('td,th'); ctxMenu(e, [...api.tableMenu(b, cell), 'sep', { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) }], '表格'); return; }
+      if (b.type === 'image') { ctxMenu(e, [
+        ...[['小', 36], ['中', 60], ['大', 100]].map(([l, w]) => ({ label: l + (w === 100 ? '（原宽）' : ''), icon: (b.width || 100) === w ? 'check' : 'image', onClick: () => update(b.id, { width: w }) })),
+        'sep',
+        { label: '靠左', icon: (b.align || 'left') === 'left' ? 'check' : 'left', onClick: () => update(b.id, { align: 'left' }) },
+        { label: '居中', icon: b.align === 'center' ? 'check' : 'menu', onClick: () => update(b.id, { align: 'center' }) },
+        'sep',
+        { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) },
+        { label: '删除图片', icon: 'trash', danger: true, onClick: () => removeBlock(b.id) },
+      ], '图片'); return; }
       ctxMenu(e, [
         ...CONVERT_TYPES.map((t) => ({ label: TYPES[t].label, icon: b.type === t ? 'check' : 'note', onClick: () => convert(b, t) })),
         'sep',

@@ -22,7 +22,7 @@ function LifeWheel({ areas, onChange }) {
       ${areas.map((a, i) => { const [x, y] = pt(i, (a.score / 10) * R); return html`<circle cx=${x} cy=${y} r="3.5" fill="var(--blue)" />`; })}
       ${areas.map((a, i) => { const [x, y] = pt(i, R + 16); return html`<text x=${x} y=${y} text-anchor="middle" dominant-baseline="middle" font-size="9" fill="var(--text-3)">${a.name}</text>`; })}
     </svg></div>
-    <div class="wheel-ctl">${areas.map((a, i) => html`<div class="r"><span>${a.name}</span><input type="range" min="0" max="10" value=${a.score} onInput=${(e) => onChange(i, +e.target.value)} /><b>${a.score}</b></div>`)}</div>
+    <div class="wheel-ctl">${areas.map((a, i) => html`<div class="r"><span>${a.name}</span><input type="range" min="0" max="10" value=${a.score} style=${`--p:${a.score * 10}%`} onInput=${(e) => onChange(i, +e.target.value)} /><b>${a.score}</b></div>`)}</div>
   </div>`;
 }
 
@@ -78,7 +78,7 @@ export default function Vision() {
         <//>
         <${Card} title="愿景板" sub="上传照片、贴图片链接，或只写一句话。" action=${html`<${Btn} small icon="plus" onClick=${() => setBoardModal(true)}>添加<//>`}>
           ${v.board.length === 0 ? html`<${Empty} icon="image" text="把想去的地方、想成为的样子贴上来。" />` : html`<div class="board">${v.board.map((b) => html`<div class=${'bi ' + (b.img ? '' : 'txt')} key=${b.id} ...${dragProps('board', { id: b.id })} ...${dropProps('board', (d, { after }) => { if (d.id === b.id) return; update((dd) => { const l = dd.vision.board; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === b.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [b.img && { label: '打开图片', icon: 'external', onClick: () => window.open(b.img, '_blank', 'noopener') }, { label: '改说明', icon: 'edit', onClick: async () => { const v2 = await askPrompt('说明 / 文字', b.img ? b.caption : b.text, { title: '愿景板' }); if (v2 !== null) update((d) => { const x = d.vision.board.find((y) => y.id === b.id); if (b.img) x.caption = v2; else x.text = v2; }); } }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => update((d) => { d.vision.board = d.vision.board.filter((y) => y.id !== b.id); }) }], '愿景板')}>
-            ${b.img ? html`<img src=${b.img} alt=${b.caption} loading="lazy" />${b.caption && html`<div class="cap">${b.caption}</div>`}` : b.text}
+            ${b.img ? html`<img src=${b.img} alt=${b.caption} loading="lazy" />${b.caption && html`<div class="cap">${b.caption}</div>`}` : html`<span class="q">“</span>${b.text}`}
             <button class="ibtn del" title="更多…" onClick=${(e) => e.currentTarget.parentElement.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: e.clientX, clientY: e.clientY }))}><${Icon} name="dots" size=${13} /></button>
           </div>`)}</div>`}
         <//>
@@ -91,8 +91,8 @@ export default function Vision() {
         <//>
         <${Card} title="长期目标" sub="一到三年内" action=${html`<${Btn} small icon="plus" onClick=${() => setLtModal(true)}>添加<//>`}>
           ${v.longterm.length === 0 ? html`<${Empty} icon="flag" text="三年后的你，在做什么？" />` : html`<div class="lt">${v.longterm.map((g) => html`<div class=${'li ' + (g.done ? 'done' : '')} key=${g.id} ...${dragProps('lt', { id: g.id })} ...${dropProps('lt', (d, { after }) => { if (d.id === g.id) return; update((dd) => { const l = dd.vision.longterm; const from = l.findIndex((x) => x.id === d.id); const [mv] = l.splice(from, 1); let to = l.findIndex((x) => x.id === g.id); if (after) to++; l.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: g.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => update((d) => { const x = d.vision.longterm.find((y) => y.id === g.id); x.done = !x.done; }) }, { label: '改期限', icon: 'calendar', onClick: async () => { const v2 = await askPrompt('期限', g.by, { title: '改期限', placeholder: '2027 / 30 岁前' }); if (v2 !== null) update((d) => { d.vision.longterm.find((y) => y.id === g.id).by = v2; }); } }, { label: '拆成本月目标', icon: 'target', onClick: () => update((d) => { const mk = new Date().toISOString().slice(0, 7); d.goals[mk] = d.goals[mk] || []; d.goals[mk].push({ id: uid(), title: g.title, area: g.area || '', why: '长期目标的一步', progress: 0, krs: [] }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => { update((d) => { d.vision.longterm = d.vision.longterm.filter((y) => y.id !== g.id); }); toast(`已删除「${g.title}」`, { label: '撤销', onClick: () => update((d) => { d.vision.longterm.push(g); }) }); } }], g.title)}>
-            <button class=${'cb ' + (g.done ? 'on' : '')} style=${`width:18px;height:18px;border-radius:6px;border:1.5px solid ${g.done ? 'var(--teal)' : 'var(--text-4)'};background:${g.done ? 'var(--teal)' : 'transparent'};color:#fff;display:grid;place-items:center`} onClick=${() => update((d) => { const x = d.vision.longterm.find((y) => y.id === g.id); x.done = !x.done; })}><${Icon} name="check" size=${11} /></button>
-            <b>${g.title}</b>${g.area && html`<${Tag}>${g.area}<//>`}<span class="by">${g.by}</span>
+            <button class=${'lt-cb ' + (g.done ? 'on' : '')} onClick=${() => update((d) => { const x = d.vision.longterm.find((y) => y.id === g.id); x.done = !x.done; })}><${Icon} name="check" size=${11} /></button>
+            <b>${g.title}</b>${g.area && html`<${Tag}>${g.area}<//>`}${g.by && html`<span class="by">${g.by}</span>`}
             <${IconBtn} class="ibtn lt-more" icon="dots" size=${14} title="更多…" onClick=${(e) => e.currentTarget.parentElement.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: e.clientX, clientY: e.clientY }))} />
           </div>`)}</div>`}
         <//>

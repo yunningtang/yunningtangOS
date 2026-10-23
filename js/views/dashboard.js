@@ -86,12 +86,21 @@ export default function Dashboard() {
   const to = blocks.length ? Math.min(24, Math.max(23, ...blocks.map((b) => Math.ceil(Math.max(timeToMin(b.end), timeToMin(b.start) + 1) / 60)))) : 23;
   const y = (min) => ((min - from * 60) / 60) * hourH;
   const laid = useMemo(() => {
-    // assign lanes to overlapping blocks (calendar-style columns)
-    const items = blocks.map((b) => { const a = timeToMin(b.start); const e = Math.max(timeToMin(b.end), a + 15); return { b, a, e: Math.max(e, a + Math.ceil((minH + 2) / hourH * 60)) }; });
+    // lanes only for blocks that really overlap in time; blocks that would merely paint over each other
+    // (short ones, given the minimum height) are pushed down instead, so nothing sits on top of anything
+    const items = blocks.map((b) => { const a = timeToMin(b.start); return { b, a, e: Math.max(timeToMin(b.end), a + 1) }; });
     let cluster = [], clusterEnd = -1; const out = [];
     const flush = () => { if (!cluster.length) return; const lanes = []; cluster.forEach((it) => { let l = lanes.findIndex((end) => end <= it.a); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); cluster.forEach((it) => { it.lanes = lanes.length; out.push(it); }); cluster = []; clusterEnd = -1; };
     items.forEach((it) => { if (cluster.length && it.a >= clusterEnd) flush(); cluster.push(it); clusterEnd = Math.max(clusterEnd, it.e); });
-    flush(); return out;
+    flush();
+    let bottomAll = -1; const bottoms = [];
+    out.forEach((it) => {
+      const floor = it.lanes === 1 ? Math.max(bottomAll, ...bottoms) : Math.max(bottomAll, bottoms[it.lane] || -1);
+      it.top = Math.max(y(it.a), floor + 2); it.h = Math.max(y(it.e) - y(it.a) - 2, minH);
+      const bottom = it.top + it.h;
+      if (it.lanes === 1) { bottomAll = bottom; bottoms.length = 0; } else bottoms[it.lane] = bottom;
+    });
+    return out;
   }, [blocks]);
 
   const DEFAULT = { main: ['profile', 'timeline', 'todos', 'pages', 'goals', 'focusweek'], side: ['calendar', 'focus', 'notes', 'links', 'week'], hidden: [], sizes: {} };
@@ -145,9 +154,9 @@ export default function Dashboard() {
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl-wrap" ref=${(el) => { if (el && !el.dataset.scrolled) { el.dataset.scrolled = 1; const target = nowMin >= from * 60 && nowMin <= to * 60 ? y(nowMin) : (blocks.length ? y(timeToMin(blocks[0].start)) : 0); el.scrollTop = Math.max(0, target - 140); } }}>
-        <div class="mini-tl" style=${`height:${(to - from) * hourH}px`}>
+        <div class="mini-tl" style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}><span>${pad(from + i)}:00</span></div>`)}
-          ${laid.map(({ b, a, e, lane, lanes }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const h = Math.max(y(e) - y(a) - 2, minH); const w = 100 / lanes; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin ? ' past' : '') + (h < 36 ? ' one' : '')} key=${b.id} style=${`top:${y(a)}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) }], b.title)} title=${`${b.title} ${b.start} – ${b.end}`}><b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small></div>`; })}
+          ${laid.map(({ b, a, e, lane, lanes, top, h }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const w = 100 / lanes; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin ? ' past' : '') + (h < 36 ? ' one' : '')} key=${b.id} style=${`top:${top}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) }], b.title)} title=${`${b.title} ${b.start} – ${b.end}`}><b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small></div>`; })}
           ${nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>`}
         </div>
         </div>
@@ -172,31 +181,37 @@ export default function Dashboard() {
       <//>` },
     focusweek: { title: '本周焦点', span: 2, el: html`<${Card}>
         <div class="card-h"><h3>本周焦点</h3><div class="card-act"><a class="ibtn" href="#/plan/week" title="周计划"><${Icon} name="right" size=${15} /></a></div></div>
-        ${wk && wk.focus ? html`<pre class="focus-pre">${wk.focus}</pre>` : html`<p class="small muted">还没写本周焦点。去周计划里写下这周最重要的三件事。</p>`}
+        ${wk && wk.focus && wk.focus.trim() ? html`<ol class="focus-ol">${wk.focus.split('\n').map((l) => l.replace(/^\s*\d+[.、)]\s*/, '').trim()).filter(Boolean).map((l, i) => html`<li key=${i}><span class="n">${i + 1}</span>${l}</li>`)}</ol>` : html`<p class="small muted">还没写本周焦点。去周计划里写下这周最重要的三件事。</p>`}
         ${quote && html`<div class="quote-line"><${Icon} name="sparkle" size=${13} /> ${quote.text}</div>`}
       <//>` },
     calendar: { title: '月历', span: 1, el: html`<${MonthCal} s=${s} today=${today} />` },
-    focus: { title: '专注', span: 1, el: html`<${Card} class="focus-w">
-        <div class="card-h"><h3>专注</h3><div class="card-act"><a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a></div></div>
-        ${pst.phase === 'idle' ? html`
-          <form class="fw-start" onSubmit=${(e) => { e.preventDefault(); pomo.start({ label: fwLabel.trim() }); setFwLabel(''); }}>
-            <input type="text" value=${fwLabel} placeholder="这一轮要做什么？" onInput=${(e) => setFwLabel(e.target.value)} />
-            <button type="submit" class="fw-go" title="开始专注"><${Icon} name="play" size=${14} /> ${pst.workLen} 分</button>
-          </form>
-          <div class="fw-presets">${[25, 45, 50, 90].map((w) => html`<button key=${w} type="button" class=${pst.workLen === w ? 'on' : ''} onClick=${() => pomo.setLens(w, Math.max(5, Math.round(w / 5)))}>${w}</button>`)}<span class="muted small">分钟</span></div>`
-        : html`<div class=${'fw-run ' + pst.phase + (pst.paused ? ' paused' : '')}>
-            <div class="fw-time">${pomo.fmt(pomo.remaining())}</div>
-            <div class="fw-label">${pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停 · ' + (pst.label || '专注') : pst.label || '专注中'}</div>
-            <div class="fw-bar"><i style=${`width:${Math.round((1 - pomo.remaining() / ((pst.phase === 'break' ? pst.breakLen : pst.workLen) * 60)) * 100)}%`}></i></div>
-            <div class="fw-ctl">
-              <button class="btn sm primary" onClick=${() => (pst.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${pst.paused ? 'play' : 'pause'} size=${13} /> ${pst.paused ? '继续' : '暂停'}</button>
-              ${pst.phase === 'work' ? html`<button class="btn sm ghost" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${13} /> 完成</button>` : html`<button class="btn sm ghost" onClick=${() => pomo.skip()}><${Icon} name="right" size=${13} /> 跳过</button>`}
-              <button class="btn sm ghost danger" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${13} /></button>
-            </div>
-          </div>`}
-        <div class="focus-row"><div><div class="small muted">今日目标</div><div class="focus-big">${fmtH(focusToday)} <span class="muted">/ ${GOAL_MIN / 60}h</span></div></div><${Ring} value=${focusToday / GOAL_MIN} /></div>
-        <div class="bars">${focusByDay.map((m, i) => html`<div class="bar" key=${i}><i style=${`height:${Math.max(4, Math.min(100, (m / GOAL_MIN) * 100))}%`} class=${week[i] === today ? 'on' : ''}></i><span>${['一', '二', '三', '四', '五', '六', '日'][i]}</span></div>`)}</div>
-      <//>` },
+    focus: { title: '专注', span: 1, el: (() => {
+      const rem = pomo.remaining(); const total = (pst.phase === 'break' ? pst.breakLen : pst.workLen) * 60; const pct = pst.phase === 'idle' ? 0 : 1 - rem / total; const R = 118, C = 2 * Math.PI * R;
+      return html`<${Card} class=${'focus-w ' + pst.phase + (pst.paused ? ' paused' : '')} pad=${false}>
+        <div class="fw-hero">
+          <div class="fw-top"><span class="fh-k">${pst.phase === 'idle' ? '专注' : pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停' : '专注中'}</span><a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a></div>
+          <div class="pomo-ring"><svg viewBox="0 0 280 280"><defs><linearGradient id="pgw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--pg1)" /><stop offset="1" stop-color="var(--pg2)" /></linearGradient></defs>
+            <circle cx="140" cy="140" r=${R} class="pr-bg" /><circle cx="140" cy="140" r=${R} class="pr-fg" stroke="url(#pgw)" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - pct)} />
+            ${pst.phase !== 'idle' && html`<circle class="pr-dot" cx=${140 + R * Math.cos((pct * 360 - 90) * Math.PI / 180)} cy=${140 + R * Math.sin((pct * 360 - 90) * Math.PI / 180)} r="6" />`}</svg>
+            <div class="pomo-t"><div class="pomo-time">${pomo.fmt(rem)}</div><div class="pomo-sub">${pst.phase === 'idle' ? `${pst.workLen} 分钟` : pst.phase === 'break' ? '休息' : (pst.label || '专注')}</div></div>
+          </div>
+          ${pst.phase === 'idle' ? html`
+            <form class="fw-start" onSubmit=${(e) => { e.preventDefault(); pomo.start({ label: fwLabel.trim() }); setFwLabel(''); }}>
+              <input type="text" value=${fwLabel} placeholder="这一轮要做什么？" onInput=${(e) => setFwLabel(e.target.value)} />
+              <button type="submit" class="fw-go" title="开始专注"><${Icon} name="play" size=${14} /> 开始</button>
+            </form>
+            <div class="chips fw-chips">${[25, 45, 50, 90].map((w) => html`<button key=${w} type="button" class=${'chip ' + (pst.workLen === w ? 'on' : '')} onClick=${() => pomo.setLens(w, Math.max(5, Math.round(w / 5)))}>${w}<i>分</i></button>`)}</div>`
+          : html`<div class="fw-ctl">
+              <button class="pf-btn main" onClick=${() => (pst.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${pst.paused ? 'play' : 'pause'} size=${13} /> ${pst.paused ? '继续' : '暂停'}</button>
+              ${pst.phase === 'work' ? html`<button class="pf-btn" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${13} /> 完成</button>` : html`<button class="pf-btn" onClick=${() => pomo.skip()}><${Icon} name="right" size=${13} /> 跳过</button>`}
+              <button class="pf-btn danger" title="放弃" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${13} /></button>
+            </div>`}
+        </div>
+        <div class="fw-foot">
+          <div class="fw-today"><small>今天</small><b>${fmtH(focusToday)}</b><span class="muted">/ ${GOAL_MIN / 60}h</span></div>
+          <div class="bars">${focusByDay.map((m, i) => html`<div class="bar" key=${i}><i style=${`height:${Math.max(4, Math.min(100, (m / GOAL_MIN) * 100))}%`} class=${week[i] === today ? 'on' : ''}></i><span>${['一', '二', '三', '四', '五', '六', '日'][i]}</span></div>`)}</div>
+        </div>
+      <//>`; })() },
     notes: { title: '笔记', span: 1, el: html`<${Card}>
         <div class="card-h"><h3>笔记</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${(nbOf(s, n.nb) || {}).color || 'var(--text-4)'}`} title=${(nbOf(s, n.nb) || {}).name || ''}></i><div><b>${noteTitle(n)}</b><small>${n.updated.slice(5, 16).replace('T', ' · ')}</small></div></a>`)}</div>
