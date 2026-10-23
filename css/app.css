@@ -369,9 +369,12 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .todo .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;align-items:center;font-size:.72rem;color:var(--text-4)}
 .todo .meta .due.late{color:var(--red)}.todo .meta .due.today{color:var(--blue)}
 .todo .pr{display:none}
-.todo .pflag{display:inline-flex;vertical-align:-1px;margin-right:5px;color:var(--pc)}
-.todo.p0 .cb{border-color:var(--red)}.todo.p0 .cb:hover{border-color:var(--red)}
-.todo.p3 .tt .ti{color:var(--text-3)}
+/* priority lives in the checkbox: colour + tint, like Todoist */
+.todo .cb{border:2px solid var(--pc);background:color-mix(in srgb,var(--pc) 14%,transparent);border-radius:5px;width:17px;height:17px}
+.todo .cb:hover{background:color-mix(in srgb,var(--pc) 30%,transparent);border-color:var(--pc)}
+.todo.done .cb{background:var(--pc);border-color:var(--pc)}
+.todo.p3 .cb{border-color:var(--text-4);background:transparent}.todo.p3.done .cb{background:var(--text-4);border-color:var(--text-4)}
+.todo.p0 .tt .ti{font-weight:600}.todo.p3 .tt .ti{color:var(--text-3)}
 .todo .acts{opacity:0;transition:opacity .1s;display:flex}
 .todo:hover .acts,.todo:focus-within .acts{opacity:1}
 .quickadd{display:flex;gap:8px;align-items:center;padding:4px 8px 4px 12px;border-radius:12px;background:var(--input);margin-bottom:8px;border:1px solid transparent}
@@ -1415,3 +1418,22 @@ body.focus-mode .notes-main>.page{min-height:100vh}
 .more{display:inline-flex;align-items:center;gap:2px;font-size:.76rem;color:var(--text-3);text-decoration:none;padding:3px 4px 3px 8px;border-radius:7px;white-space:nowrap;text-transform:none;letter-spacing:0;font-weight:500}
 .more:hover{color:var(--text);background:var(--hover)}.more .ic{opacity:.7}
 .group-h .more{margin-left:auto}.card-h .more{margin-top:2px}
+
+/* week timeline */
+.wtl-card{overflow:hidden}
+.wtl-head{display:grid;grid-template-columns:48px repeat(7,minmax(0,1fr));border-bottom:1px solid var(--line);padding:8px 8px 6px 0}
+.wtl-day{display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:var(--text-3);padding:4px 0;border-radius:10px;min-width:0}
+.wtl-day small{font-size:.66rem}.wtl-day b{font-size:1rem;font-weight:600;color:var(--text);line-height:1.1}.wtl-day i{font-style:normal;font-size:.62rem;color:var(--text-4);min-height:12px}
+.wtl-day:hover{background:var(--hover)}.wtl-day.today b{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff}
+.wtl-scroll{max-height:calc(100vh - 290px);min-height:420px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}.wtl-scroll::-webkit-scrollbar{display:none}
+.wtl{display:grid;grid-template-columns:48px repeat(7,minmax(0,1fr));padding:8px 8px 20px 0;position:relative}
+.wtl-gut{position:relative;height:calc(var(--h) * 24)}
+.wtl .wtl-gut span{position:absolute;right:8px;margin-top:-7px;font-size:.64rem;color:var(--text-4);font-variant-numeric:tabular-nums}
+.wtl-col{border-left:1px solid var(--line);min-width:0}
+.wtl-col.today{background:rgba(var(--ac),.035)}
+.wtl .tl{padding-left:0}
+.wtl .tl .hour span{display:none}
+.wtl .tl .blk{left:2px;right:2px;padding:3px 5px;font-size:.66rem;border-radius:7px;min-height:16px}
+.wtl .tl .blk small{display:none}.wtl .tl .blk b{font-weight:500;white-space:normal;line-height:1.25;max-height:2.5em;overflow:hidden}
+.wtl .tl .now{left:0}.wtl .tl .now::before{left:-3px}
+@media(max-width:720px){.wtl-head,.wtl{grid-template-columns:40px repeat(7,minmax(0,1fr))}.wtl-day small{font-size:.6rem}.wtl-day b{font-size:.85rem}.wtl-day i{display:none}.wtl .tl .blk{padding:2px 3px;font-size:.58rem}.wtl-scroll{max-height:60vh}}

@@ -87,9 +87,9 @@ export function TodoItem({ t, onEdit, compact }) {
   const today = todayStr();
   const dueCls = t.due && !t.done ? (t.due < today ? 'late' : t.due === today ? 'today' : '') : '';
   return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })}>
-    <button class="cb" onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
+    <button class="cb" title=${`${p.label} ${p.name}`} onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
     <div class="tt">
-      <div class="ti" onClick=${() => onEdit && onEdit(t)}>${t.priority <= 1 && !t.done && html`<span class="pflag" title=${p.name}><${Icon} name="flag" size=${11} /></span>`}${t.title}</div>
+      <div class="ti" onClick=${() => onEdit && onEdit(t)}>${t.title}</div>
       ${!compact && html`<div class="meta">
         ${t.due && html`<span class=${'due ' + dueCls}><${Icon} name="calendar" size=${10} /> ${relDay(t.due)}${t.time ? ' ' + t.time : ''}</span>`}
         ${t.area && html`<span>${t.area}</span>`}

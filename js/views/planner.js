@@ -289,13 +289,47 @@ function MonthGoals({ openId }) {
   </div>`;
 }
 
+function WeekTimeline() {
+  const s = useStore();
+  const [start, setStart] = useState(() => weekStart(todayStr()));
+  const [editing, setEditing] = useState(null);
+  const [modal, setModal] = useState(false);
+  const [newAt, setNewAt] = useState({ date: todayStr(), start: '09:00' });
+  const days = weekDays(start);
+  const hourH = 44, from = 0, to = 24;
+  const byDay = useMemo(() => { const m = {}; days.forEach((d) => { m[d] = sortBy(s.blocks.filter((b) => b.date === d && !b.pomo), 'start'); }); return m; }, [s.blocks, start]);
+  const ref = useRef();
+  useEffect(() => { const el = ref.current; if (!el) return; const n = new Date(); el.scrollTop = Math.max(0, (n.getHours() + n.getMinutes() / 60) * hourH - el.clientHeight * 0.35); }, [start]);
+  const total = days.reduce((n, d) => n + byDay[d].reduce((m, b) => m + Math.max(0, timeToMin(b.end) - timeToMin(b.start)), 0), 0);
+  return html`<div class="stack">
+    <div class="page-h" style="margin-bottom:0">
+      <div class="dnav">
+        <div class="dnav-l"><b>${weekKey(start)}</b><span class="muted">${fmtDate(days[0])} – ${fmtDate(days[6])} · 共 ${(total / 60).toFixed(1)}h</span></div>
+        <div class="dstrip"><${IconBtn} icon="left" title="上一周" onClick=${() => setStart(addDays(start, -7))} /><${Btn} kind="ghost" small onClick=${() => setStart(weekStart(todayStr()))} disabled=${start === weekStart(todayStr())}>本周<//><${IconBtn} icon="right" title="下一周" onClick=${() => setStart(addDays(start, 7))} /></div>
+        <div class="dnav-r"><${Btn} kind="primary" small icon="plus" onClick=${() => { setEditing(null); setNewAt({ date: todayStr(), start: '09:00' }); setModal(true); }}>时间块<//></div>
+      </div>
+    </div>
+    <${Card} pad=${false} class="wtl-card">
+      <div class="wtl-head"><div class="wtl-gut"></div>${days.map((d, i) => html`<a key=${d} class=${'wtl-day ' + (d === todayStr() ? 'today' : '')} href=${'#/plan/day?d=' + d} title="打开这一天"><small>${WEEKDAY[i]}</small><b>${Number(d.slice(8))}</b><i>${byDay[d].length ? byDay[d].length + ' 块' : ''}</i></a>`)}</div>
+      <div class="wtl-scroll" ref=${ref}>
+        <div class="wtl" style=${`--h:${hourH}px`}>
+          <div class="wtl-gut">${Array.from({ length: to - from }, (_, i) => html`<span key=${i} style=${`top:${i * hourH}px`}>${String(from + i).padStart(2, '0')}:00</span>`)}</div>
+          ${days.map((d) => html`<div key=${d} class=${'wtl-col ' + (d === todayStr() ? 'today' : '')}><${Timeline} date=${d} blocks=${byDay[d]} hourH=${hourH} from=${from} to=${to} onEdit=${(b) => { setEditing(b); setModal(true); }} onCreate=${(t) => { setEditing(null); setNewAt({ date: d, start: t }); setModal(true); }} /></div>`)}
+        </div>
+      </div>
+    <//>
+    <${BlockModal} open=${modal} block=${editing} date=${newAt.date} start=${newAt.start} onClose=${() => setModal(false)} />
+  </div>`;
+}
+
 export default function Planner({ route }) {
   const sub = route.sub || 'week';
-  const tabs = [['week', '周计划'], ['day', '每日时间线'], ['month', '月度目标']];
+  const tabs = [['week', '周计划'], ['day', '每日时间线'], ['weektl', '周时间线'], ['month', '月度目标']];
   return html`<div>
     <nav class="subnav" data-liquid="a"><span class="liq"></span>${tabs.map(([k, n]) => html`<a href=${'#/plan/' + k} class=${sub === k ? 'active' : ''}>${n}</a>`)}</nav>
     ${sub === 'week' && html`<${WeekBoard} />`}
     ${sub === 'day' && html`<${DayView} initial=${route.query && route.query.d} />`}
+    ${sub === 'weektl' && html`<${WeekTimeline} />`}
     ${sub === 'month' && html`<${MonthGoals} openId=${route.query && route.query.open} />`}
   </div>`;
 }
