@@ -1,6 +1,6 @@
 // Shared UI primitives: icons, cards, inputs, modal, tags.
 import { html, useEffect, useRef, useState, createPortal } from '../vendor/preact.js';
-import { tagHue, todayStr as _today, pad as _pad, WEEKDAY_SUN as _WD, fmtDate as _fmt } from './util.js';
+import { tagColor, todayStr as _today, pad as _pad, WEEKDAY_SUN as _WD, fmtDate as _fmt } from './util.js';
 
 const ICONS = {
   home: '<path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/>',
@@ -99,7 +99,7 @@ export function IconBtn({ icon, title, size = 15, ...rest }) {
 
 function flat(c) { return Array.isArray(c) ? c.map(flat).join('') : (c == null || typeof c === 'object') ? '' : String(c); }
 export function Tag({ children, color, plain, class: cls = '', ...rest }) {
-  const style = color ? `--tc:${color}` : plain ? '' : `--th:${tagHue(flat(children).replace(/^#/, '').trim())}`;
+  const style = color ? `--tc:${color}` : plain ? '' : (([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(flat(children).replace(/^#/, '').trim()));
   return html`<span class=${'tag ' + cls + (color ? ' tc' : plain ? '' : ' th')} style=${style} ...${rest}>${children}</span>`;
 }
 

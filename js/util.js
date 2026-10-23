@@ -220,17 +220,21 @@ export function kindColor(v) {
 }
 
 // Stable pastel colour for a label (tags, areas).
-// Each tag gets its own hue: the first time a tag is seen it takes the next free colour from a
-// list ordered so neighbours contrast well; past the list, golden-angle hues keep them distinct.
-export const TAG_HUES = [215, 350, 160, 30, 265, 190, 10, 120, 290, 45, 240, 330, 175, 80, 200, 315, 140, 20];
-const HUE_KEY = 'ytos.taghue';
-let hueMap = null;
-function loadHues() { if (hueMap) return hueMap; try { hueMap = new Map(Object.entries(JSON.parse(localStorage.getItem(HUE_KEY) || '{}'))); } catch { hueMap = new Map(); } return hueMap; }
-export function tagHue(name) {
-  const key = String(name).trim().replace(/^#/, '').toLowerCase(); if (!key) return TAG_HUES[0];
-  const m = loadHues(); if (m.has(key)) return m.get(key);
-  const used = new Set(m.values()); let h = TAG_HUES.find((x) => !used.has(x));
-  if (h == null) { let i = m.size; do { h = Math.round((i * 137.508) % 360); i++; } while (used.has(h)); }
-  m.set(key, h); try { localStorage.setItem(HUE_KEY, JSON.stringify(Object.fromEntries(m))); } catch {}
-  return h;
+// Each tag gets its own colour from the iOS system palette (light / dark variants), handed out
+// in first-seen order so no two tags share one; past the palette, golden-angle hues keep them distinct.
+export const TAG_COLORS = [
+  ['#007AFF', '#0A84FF'], ['#FF3B30', '#FF453A'], ['#34C759', '#30D158'], ['#FF9500', '#FF9F0A'], ['#AF52DE', '#BF5AF2'], ['#30B0C7', '#40CBE0'],
+  ['#FF2D55', '#FF375F'], ['#FFCC00', '#FFD60A'], ['#5856D6', '#5E5CE6'], ['#00C7BE', '#63E6E2'], ['#A2845E', '#AC8E68'], ['#32ADE6', '#64D2FF'],
+];
+const HUE_KEY = 'ytos.tagcolor';
+let colorMap = null;
+function loadColors() { if (colorMap) return colorMap; try { colorMap = new Map(Object.entries(JSON.parse(localStorage.getItem(HUE_KEY) || '{}'))); } catch { colorMap = new Map(); } return colorMap; }
+export function tagColor(name) {
+  const key = String(name).trim().replace(/^#/, '').toLowerCase(); if (!key) return TAG_COLORS[0];
+  const m = loadColors(); if (m.has(key)) return m.get(key);
+  const used = new Set([...m.values()].map((c) => c[0])); let c = TAG_COLORS.find((x) => !used.has(x[0]));
+  if (!c) { let i = m.size; do { const h = Math.round((i * 137.508) % 360); c = [`hsl(${h} 70% 48%)`, `hsl(${h} 75% 62%)`]; i++; } while (used.has(c[0])); }
+  m.set(key, c); try { localStorage.setItem(HUE_KEY, JSON.stringify(Object.fromEntries(m))); } catch {}
+  return c;
 }
+export const tagHue = (name) => tagColor(name)[0];
