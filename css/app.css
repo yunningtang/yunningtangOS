@@ -286,7 +286,7 @@ body.resizing .w-rz{opacity:1}
 .profile{flex-direction:row!important;align-items:center;gap:16px;padding:16px 20px}
 .avatar.big{width:60px;height:60px;border-radius:50%;background:radial-gradient(120% 120% at 30% 20%,#dfe8ff,#c7d6ff 60%,#e9ddff);color:var(--text);font-size:1.3rem;font-weight:600}
 .p-name{font-size:var(--fs-xl);font-weight:600;letter-spacing:-.01em}.p-sub{font-size:var(--fs-sm);color:var(--text-3);margin-top:3px}
-.mini-tl-wrap{flex:1 1 300px;height:300px;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 -6px;padding:10px 6px 4px;scrollbar-width:thin;scrollbar-color:transparent transparent}.mini-tl-wrap:hover{scrollbar-color:rgba(128,128,128,.3) transparent}
+.mini-tl-wrap{flex:1 1 300px;height:300px;min-height:0;overflow-y:auto;overflow-x:hidden;margin:0 -6px;padding:10px 6px 4px;scrollbar-width:none}.mini-tl-wrap::-webkit-scrollbar{display:none}
 .mini-tl{position:relative;margin-left:44px}
 .mt-h{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
 .mt-h span{position:absolute;left:-44px;top:-7px;font-size:.66rem;color:var(--text-4)}
@@ -424,7 +424,7 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .review-ta{border:0;background:transparent;padding:6px 4px;font-size:1rem;line-height:1.8;min-height:72px;box-shadow:none;font-family:var(--serif);border-radius:8px}.review-ta:focus{box-shadow:none;background:var(--hover)}
 .focus-ol{list-style:none;display:flex;flex-direction:column;gap:6px}.focus-ol li{display:flex;align-items:center;gap:10px;font-size:.95rem}.focus-ol .n{width:20px;height:20px;border-radius:6px;background:var(--hover);color:var(--text-3);font-size:.7rem;font-weight:600;display:grid;place-items:center;flex-shrink:0}
 .day-layout{display:grid;grid-template-columns:minmax(0,1fr) 6px var(--dayside);gap:9px;align-items:stretch}
-.tl-scroll{max-height:calc(100vh - 250px);min-height:360px;overflow-y:auto;overflow-x:hidden;margin:0 -8px;padding:6px 8px 0;scrollbar-width:thin;scrollbar-color:transparent transparent}.tl-scroll:hover{scrollbar-color:rgba(128,128,128,.3) transparent}
+.tl-scroll{max-height:calc(100vh - 250px);min-height:360px;overflow-y:auto;overflow-x:hidden;margin:0 -8px;padding:6px 8px 0;scrollbar-width:none}.tl-scroll::-webkit-scrollbar{display:none}
 .tl{position:relative;padding-left:48px;--h:48px}
 .tl .hour{position:relative;height:var(--h);border-top:1px solid var(--line)}
 .tl .hour span{position:absolute;left:-48px;top:-8px;font-size:.68rem;color:var(--text-4);width:38px;text-align:right;font-variant-numeric:tabular-nums}

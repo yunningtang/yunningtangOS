@@ -158,6 +158,13 @@ function DayView({ initial }) {
     blocks.forEach((b) => { m[b.kind] = (m[b.kind] || 0) + Math.max(0, timeToMin(b.end) - timeToMin(b.start)); });
     return BLOCK_KINDS.filter((k) => m[k.v]).map((k) => ({ ...k, min: m[k.v] }));
   }, [blocks]);
+  // keep the "now" line (or the first block on other days) about a third of the way down, every time the day changes
+  const tlRef = useRef();
+  useEffect(() => {
+    const el = tlRef.current; if (!el) return;
+    const go = () => { const now = el.querySelector('.tl .now'); const first = el.querySelector('.tl .blk'); const target = now ? now.offsetTop : first ? first.offsetTop : 8 * 48; el.scrollTo({ top: Math.max(0, target - el.clientHeight * 0.35), behavior: el.dataset.s ? 'smooth' : 'auto' }); el.dataset.s = 1; };
+    go(); const t = setTimeout(go, 60); return () => clearTimeout(t);
+  }, [date]);
   const copyYesterday = () => {
     const prev = s.blocks.filter((b) => b.date === addDays(date, -1));
     if (!prev.length) return;
@@ -179,7 +186,7 @@ function DayView({ initial }) {
     </div>
     <div class="day-layout">
       <${Card} title="时间线" sub="0–24 小时 · 点击空白处在该小时新建">
-        <div class="tl-scroll" ref=${(el) => { if (el && !el.dataset.s) { el.dataset.s = 1; const n = new Date(); const first = blocks[0] ? timeToMin(blocks[0].start) : 8 * 60; const target = date === todayStr() ? n.getHours() * 60 + n.getMinutes() : first; el.scrollTop = Math.max(0, (target / 60) * 52 - 160); } }}>
+        <div class="tl-scroll" ref=${tlRef}>
         <${Timeline} date=${date} blocks=${blocks} onEdit=${(b) => { setEditing(b); setModal(true); }} onCreate=${(t) => { setEditing(null); setStart(t); setModal(true); }} />
         </div>
       <//>
