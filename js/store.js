@@ -46,7 +46,7 @@ function migrate(s) {
     const byId = new Map(out.notes.map((n) => [n.id, n]));
     const hasKids = new Set(out.notes.filter((n) => n.parent).map((n) => n.parent));
     const rootOf = (n) => { let c = n, guard = 0; while (c.parent && byId.has(c.parent) && guard++ < 50) c = byId.get(c.parent); return c; };
-    const colors = ['#4d6bfe', '#7461c9', '#2d8f88', '#c9588a', '#c7873a', '#4a9a6a'];
+    const colors = ['#4f7cf5', '#7461c9', '#2d8f88', '#c9588a', '#c7873a', '#4a9a6a'];
     const inbox = { id: 'nb-inbox', name: '收件箱', color: '#8a8f98', order: 0 };
     out.notebooks.push(inbox);
     let ci = 0;

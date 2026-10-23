@@ -46,7 +46,7 @@ export function ancestors(notes, n) {
   while (cur && cur.parent) { cur = notes.find((x) => x.id === cur.parent); if (!cur || out.includes(cur)) break; out.unshift(cur); }
   return out;
 }
-export const NB_COLORS = ['#4d6bfe', '#7461c9', '#2d8f88', '#c9588a', '#c7873a', '#4a9a6a', '#d2524f', '#8a8f98'];
+export const NB_COLORS = ['#4f7cf5', '#7461c9', '#2d8f88', '#c9588a', '#c7873a', '#4a9a6a', '#d2524f', '#8a8f98'];
 export function nbOf(s, id) { return s.notebooks.find((b) => b.id === id); }
 export function newNotebook(name, color) {
   const nb = { id: uid(), name: name || '新本子', color: color || NB_COLORS[get().notebooks.length % NB_COLORS.length], order: Date.now() };
@@ -405,7 +405,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     { label: '导出 PDF / 打印', icon: 'print', onClick: () => { document.body.classList.add('print-page'); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove('print-page'), 800); }, 60); } },
   ];
   const title = noteTitle(note);
-  const cardOpts = (bl) => { const nb = notebooks.find((x) => x.id === note.nb); const sub = [nb && nb.name, note.area, note.topic, ...note.tags.map((t) => '#' + t)].filter(Boolean).join(' · '); return { title, sub, blocks: bl || (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), foot: `${get().profile.name || ''} · ${todayStr()}`, color: (nb && nb.color) || '#4d6bfe', dark: document.documentElement.dataset.theme === 'dark' }; };
+  const cardOpts = (bl) => { const nb = notebooks.find((x) => x.id === note.nb); const sub = [nb && nb.name, note.area, note.topic, ...note.tags.map((t) => '#' + t)].filter(Boolean).join(' · '); return { title, sub, blocks: bl || (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), foot: `${get().profile.name || ''} · ${todayStr()}`, color: (nb && nb.color) || '#4f7cf5', dark: document.documentElement.dataset.theme === 'dark' }; };
   const exportSel = (bl, how) => (how === 'copy' ? copyCardPng(cardOpts(bl)).then(() => toast('已复制图片')).catch(() => toast('浏览器不允许复制图片，请改用导出')) : exportCardPng(cardOpts(bl), `${title} 摘录.png`).then(() => toast('已导出图片')));
   const onCanvases = canvasesOf(get(), note.id);
   const backlinks = useMemo(() => notes.filter((n) => n.id !== note.id && linksOf(n.body).some((t) => t.toLowerCase() === note.title.trim().toLowerCase()) && note.title.trim()), [notes, note.title]);
