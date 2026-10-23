@@ -1381,3 +1381,7 @@ html[data-theme="dark"] .d3-shadow{fill:rgba(0,0,0,.55)}
 .d3-hour{transition:transform .9s linear}.d3-hour-p{fill:var(--text-2);opacity:.85}html[data-theme="dark"] .d3-hour-p{fill:#d8dbe6}
 /* canvas: snapping guides */
 .cv-guide{position:absolute;background:var(--rose);opacity:.8;pointer-events:none}.cv-guide.v{width:1px;top:-100000px;bottom:-100000px}.cv-guide.h{height:1px;left:-100000px;right:-100000px}
+.nb-layout.standalone .page-body{max-width:none;padding:12px 18px 40px}
+.cv-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;align-items:stretch}
+.cv-card{display:flex;flex-direction:column}
+.cv-card.new{min-height:0;height:100%}
