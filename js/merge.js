@@ -57,7 +57,6 @@ export function merge3(base, local, remote) {
   const out = { ...local };
   for (const c of LISTS) out[c] = mergeList(base[c] || [], local[c] || [], remote[c] || []);
   out.goals = mergeMap(base.goals, local.goals, remote.goals, (b, l, r) => mergeList(b || [], l || [], r || []));
-  out.focus = mergeMap(base.focus, local.focus, remote.focus, (b, l, r) => mergeList(b || [], l || [], r || []));
   out.weeks = mergeMap(base.weeks, local.weeks, remote.weeks, (b, l, r) => ({ ...mergeObj(b || {}, l || {}, r || {}), items: mergeMap((b || {}).items, (l || {}).items, (r || {}).items, (bb, ll, rr) => mergeList(bb || [], ll || [], rr || [])) }));
   const bv = base.vision || {}, lv = local.vision || {}, rv = remote.vision || {};
   out.vision = { ...lv, statements: mergeList(bv.statements, lv.statements, rv.statements), board: mergeList(bv.board, lv.board, rv.board), longterm: mergeList(bv.longterm, lv.longterm, rv.longterm), areas: mergeList(bv.areas, lv.areas, rv.areas) };

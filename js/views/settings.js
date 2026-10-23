@@ -55,7 +55,6 @@ export default function Settings() {
   const counts = [['待办', s.todos.length], ['时间块', s.blocks.length], ['书', s.books.length], ['收藏', s.links.length], ['笔记', s.notes.length], ['足迹', s.trips.length]];
 
   return html`<div>
-    <div class="page-h"><div><div class="kicker">Settings</div><h1>设置</h1><div class="desc">数据存在这台设备的浏览器里，可随时导出，也可以同步到你的 GitHub 仓库。</div></div></div>
     <div class="settings">
       <${Card} title="个人">
         <div class="row" style="gap:16px;align-items:flex-start">

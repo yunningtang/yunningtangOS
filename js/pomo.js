@@ -1,5 +1,5 @@
 // Pomodoro state machine, persisted so it survives reloads. Views subscribe for ticks.
-import { upsert, update } from './store.js';
+import { upsert } from './store.js';
 import { uid, todayStr, minToTime } from './util.js';
 
 const KEY = 'ytos.pomo';
@@ -34,7 +34,6 @@ function finish() {
     const pad = (n) => String(n).padStart(2, '0');
     upsert('blocks', { id: uid(), date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), title: st.label || '专注', kind: 'focus', note: st.todoId ? `todo:${st.todoId}` : '', pomo: true });
     st.count += 1;
-    if (st.planId) { const pid = st.planId; update((d) => { const list = (d.focus || {})[todayStr(start)] || []; const it = list.find((x) => x.id === pid); if (it) { it.done = true; it.updated = new Date().toISOString(); } }); }
     beep(); notify('专注完成', `${st.label || '专注'} · ${mins} 分钟。休息一下。`);
     st = { ...st, phase: 'break', startedAt: Date.now(), endsAt: Date.now() + st.breakLen * 60000, paused: false };
   } else {
@@ -48,9 +47,9 @@ function schedule() {
   if (st.phase === 'idle' || st.paused) return;
   timer = setInterval(() => { if (remaining() <= 0) finish(); else emit(); }, 1000);
 }
-export function start({ label, todoId, workLen, breakLen, planId = '' } = {}) {
+export function start({ label, todoId, workLen, breakLen } = {}) {
   if (workLen) st.workLen = workLen; if (breakLen) st.breakLen = breakLen;
-  st = { ...st, phase: 'work', label: label ?? st.label, todoId: todoId ?? st.todoId, planId, startedAt: Date.now(), endsAt: Date.now() + st.workLen * 60000, paused: false };
+  st = { ...st, phase: 'work', label: label ?? st.label, todoId: todoId ?? st.todoId, startedAt: Date.now(), endsAt: Date.now() + st.workLen * 60000, paused: false };
   try { if (Notification.permission === 'default') Notification.requestPermission(); } catch {}
   save(); emit(); schedule();
 }

@@ -179,11 +179,7 @@ function DayView({ initial }) {
           ${weekDays(weekStart(date)).map((d, i) => html`<button key=${d} class=${'dchip ' + (d === date ? 'on ' : '') + (d === todayStr() ? 'today' : '')} onClick=${() => setDate(d)}><small>${WEEKDAY[i].slice(1)}</small><b>${Number(d.slice(8))}</b></button>`)}
           <${IconBtn} icon="right" title="下一周" onClick=${() => setDate(addDays(date, 7))} />
         </div>
-        <div class="dnav-r"><${Btn} kind="ghost" small onClick=${() => setDate(todayStr())} disabled=${date === todayStr()}>今天<//><${DateInput} value=${date} clearable=${false} onChange=${(v) => v && setDate(v)} /></div>
-      </div>
-      <div class="acts">
-        ${blocks.length === 0 && html`<${Btn} small kind="ghost" icon="refresh" onClick=${copyYesterday}>复制昨天<//>`}
-        <${Btn} kind="primary" icon="plus" onClick=${() => { setEditing(null); setStart('09:00'); setModal(true); }}>时间块<//>
+        <div class="dnav-r"><${Btn} kind="ghost" small onClick=${() => setDate(todayStr())} disabled=${date === todayStr()}>今天<//><${DateInput} value=${date} clearable=${false} onChange=${(v) => v && setDate(v)} />${blocks.length === 0 && html`<${Btn} small kind="ghost" icon="refresh" title="复制昨天的安排" onClick=${copyYesterday}>复制昨天<//>`}<${Btn} kind="primary" small icon="plus" onClick=${() => { setEditing(null); setStart('09:00'); setModal(true); }}>时间块<//></div>
       </div>
     </div>
     <div class="day-layout">
@@ -286,7 +282,6 @@ export default function Planner({ route }) {
   const sub = route.sub || 'week';
   const tabs = [['week', '周计划'], ['day', '每日时间线'], ['month', '月度目标']];
   return html`<div>
-    <div class="page-h"><div><div class="kicker">Planner</div><h1>计划</h1><div class="desc">月定方向，周定节奏，日定时间。</div></div></div>
     <nav class="subnav" data-liquid="a"><span class="liq"></span>${tabs.map(([k, n]) => html`<a href=${'#/plan/' + k} class=${sub === k ? 'active' : ''}>${n}</a>`)}</nav>
     ${sub === 'week' && html`<${WeekBoard} />`}
     ${sub === 'day' && html`<${DayView} initial=${route.query && route.query.d} />`}

@@ -74,7 +74,6 @@ export default function Explore({ route }) {
 
   return html`<div>
     <div class="page-h">
-      <div><div class="kicker">Explore</div><h1>探索</h1><div class="desc">从一颗星球，看见走过的地方。</div></div>
       <div class="acts"><${Btn} kind="primary" icon="plus" onClick=${() => { setEditing(null); setModal(true); }}>记录足迹<//></div>
     </div>
     <div class="explore">

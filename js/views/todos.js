@@ -160,7 +160,7 @@ export default function Todos({ route }) {
 
   return html`<div>
     <div class="page-h">
-      <div><div class="kicker">To-do</div><h1>待办</h1><div class="desc">${openCount} 项未完成 · 今天完成 ${doneToday} 项</div></div>
+      <div><div class="desc">${openCount} 项未完成 · 今天完成 ${doneToday} 项</div></div>
       <div class="acts">
         <${Seg} options=${[{ v: 'open', label: '未完成' }, { v: 'all', label: '全部' }, { v: 'done', label: '已完成' }]} value=${view} onChange=${setView} />
         <${Seg} options=${[{ v: 'list', label: '列表' }, { v: 'board', label: '看板' }]} value=${layout} onChange=${setLayout} />

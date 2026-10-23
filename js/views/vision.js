@@ -60,9 +60,6 @@ export default function Vision() {
   const uploadBoard = async () => { try { const f = await pickFile('image/*'); if (!f) return; const img = await imageToDataUrl(f, 1200); setBf((x) => ({ ...x, img })); } catch (x) { toast(x.message || '上传失败'); } };
 
   return html`<div>
-    <div class="page-h">
-      <div><div class="kicker">Vision</div><h1>愿景</h1><div class="desc">写下来，看见它，然后成为它。</div></div>
-    </div>
     <div class="vision-grid">
       <div class="stack">
         <${Card} title="显化 · 肯定句" sub="用现在时写，像已经发生一样。总览页每天会轮换显示一条。">

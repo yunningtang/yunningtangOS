@@ -64,7 +64,7 @@ export default function Links({ route }) {
 
   return html`<div>
     <div class="page-h">
-      <div><div class="kicker">Links</div><h1>收藏</h1><div class="desc">${s.links.length} 条 · ${s.links.filter((l) => !l.read).length} 条待读</div></div>
+      <div><div class="desc">${s.links.length} 条 · ${s.links.filter((l) => !l.read).length} 条待读</div></div>
       <div class="acts">
         <${Seg} options=${[{ v: 'all', label: '全部' }, { v: 'unread', label: '待读' }, { v: 'fav', label: '最爱' }]} value=${view} onChange=${setView} />
         <${Btn} kind="primary" icon="plus" onClick=${() => { setEditing(null); setModal(true); }}>收藏<//>
