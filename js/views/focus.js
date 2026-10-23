@@ -67,11 +67,8 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   return html`<${Card} class=${'focus-w ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '')} pad=${false}>
     <div class="fw-hero">
       <div class="fw-top"><span class="fh-k">${pst.phase === 'idle' ? '专注' : pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停' : '专注中'}</span>${full ? html`<span class="muted small">${pst.phase === 'idle' ? `${pst.workLen} 分钟 · 休息 ${pst.breakLen} 分钟` : ''}</span>` : html`<a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a>`}</div>
-      <div class="pomo-ring"><svg viewBox="0 0 280 280"><defs><linearGradient id=${full ? 'pgf' : 'pgw'} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--pg1)" /><stop offset="1" stop-color="var(--pg2)" /></linearGradient></defs>
-        <circle cx="140" cy="140" r=${R} class="pr-bg" /><circle cx="140" cy="140" r=${R} class="pr-fg" stroke=${full ? 'url(#pgf)' : 'url(#pgw)'} stroke-dasharray=${C} stroke-dashoffset=${C * (1 - pct)} />
-        ${pst.phase !== 'idle' && html`<circle class="pr-dot" cx=${140 + R * Math.cos((pct * 360 - 90) * Math.PI / 180)} cy=${140 + R * Math.sin((pct * 360 - 90) * Math.PI / 180)} r="6" />`}</svg>
-        <div class="pomo-t"><div class="pomo-time">${pomo.fmt(rem)}</div><div class="pomo-sub">${pst.phase === 'idle' ? `${pst.workLen} 分钟` : pst.phase === 'break' ? '休息' : (pst.label || '专注')}</div></div>
-      </div>
+      <${Dial} rem=${rem} phase=${pst.phase} full=${full} />
+      <div class="pomo-t"><div class="pomo-time">${pomo.fmt(rem)}</div><div class="pomo-sub">${pst.phase === 'idle' ? `${pst.workLen} 分钟` : pst.phase === 'break' ? '休息' : (pst.label || '专注')}</div><${Span} rem=${rem} /></div>
       ${pst.phase === 'idle' ? html`
         <form class="fw-start" onSubmit=${(e) => { e.preventDefault(); begin(); }}>
           <input type="text" value=${label} placeholder="这一轮要做什么？" onInput=${(e) => setLabel(e.target.value)} />
@@ -90,6 +87,27 @@ export function PomoCard({ full = false, initialTodo = '' }) {
       <div class="prog"><i style=${`width:${Math.min(100, (focusToday / GOAL_MIN) * 100)}%`}></i></div>
     </div>
   <//>`;
+}
+
+/* ---------- clock-face dial: the session is a sector on a 60-minute face, a hand marks "now" ---------- */
+const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+function useTick(ms) { const [, f] = useState(0); useEffect(() => { const t = setInterval(() => f((x) => x + 1), ms); return () => clearInterval(t); }, [ms]); }
+function Span({ rem }) { useTick(15000); const now = new Date(); return html`<div class="pomo-span">${hhmm(now)} → ${hhmm(new Date(now.getTime() + rem * 1000))}</div>`; }
+function Dial({ rem, phase, full }) {
+  useTick(1000);
+  const now = Date.now(); const C = 140, R = 112;
+  const a0 = ((now / 60000) % 60) * 6; const span = Math.min(360, (rem / 60) * 6); const a1 = a0 + span;
+  const pt = (a, r) => [C + r * Math.sin(a * Math.PI / 180), C - r * Math.cos(a * Math.PI / 180)];
+  const [sx, sy] = pt(a0, R), [ex, ey] = pt(a1, R);
+  const sector = span >= 360 ? `M${C - R},${C} a${R},${R} 0 1,0 ${R * 2},0 a${R},${R} 0 1,0 ${-R * 2},0` : `M${C},${C} L${sx},${sy} A${R},${R} 0 ${span > 180 ? 1 : 0},1 ${ex},${ey} Z`;
+  const [hx, hy] = pt(a0, R * 0.8);
+  return html`<div class=${'dial ' + phase}><svg viewBox="0 0 280 280">
+    <circle cx=${C} cy=${C} r=${R + 14} class="dl-face" />
+    <path d=${sector} class="dl-sector" />
+    ${Array.from({ length: 60 }, (_, i) => { const big = i % 5 === 0; const [x1, y1] = pt(i * 6, R + 3), [x2, y2] = pt(i * 6, R + (big ? 11 : 7)); return html`<line key=${i} x1=${x1} y1=${y1} x2=${x2} y2=${y2} class=${'dl-tick ' + (big ? 'big' : '')} />`; })}
+    <line x1=${C} y1=${C} x2=${hx} y2=${hy} class="dl-hand" />
+    <circle cx=${C} cy=${C} r="7" class="dl-hub" />
+  </svg></div>`;
 }
 
 /* ---------- statistics: heatmap + day/week/month/year chart ---------- */
