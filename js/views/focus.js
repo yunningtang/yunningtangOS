@@ -6,7 +6,7 @@ import { uid } from '../util.js';
 
 
 import { Icon, Card, Btn, Seg, Empty, Tag, Select } from '../ui.js';
-import { todayStr, sortBy, timeToMin, kindColor, addDays, pad } from '../util.js';
+import { todayStr, sortBy, timeToMin, kindColor, addDays, pad, PRIORITY } from '../util.js';
 import * as pomo from '../pomo.js';
 import { go } from '../nav.js';
 
@@ -54,7 +54,7 @@ export default function Focus({ route }) {
     </div>
     <div class="widget span-1">
       <${Card} title="今天的待办" sub="点 ▶ 用右边的时长开始专注" action=${html`<a class="more" href="#/todos">全部待办<${Icon} name="right" size=${12} /></a>`}>
-        ${todos.length === 0 ? html`<${Empty} icon="checksq" text="今天没有待办。"><${Btn} small onClick=${() => go('todos')}>去添加<//><//>` : html`<div class="tlist">${todos.slice(0, 8).map((t) => { const spent = focusedOn.get(t.id) || 0; const live = st.phase === 'work' && st.todoId === t.id; return html`<div class=${'fp-i ' + (live ? 'live' : '')} key=${t.id} onContextMenu=${(e) => lenMenu(e, t)}>
+        ${todos.length === 0 ? html`<${Empty} icon="checksq" text="今天没有待办。"><${Btn} small onClick=${() => go('todos')}>去添加<//><//>` : html`<div class="tlist">${todos.slice(0, 8).map((t) => { const spent = focusedOn.get(t.id) || 0; const live = st.phase === 'work' && st.todoId === t.id; return html`<div class=${'fp-i p' + t.priority + ' ' + (live ? 'live' : '')} key=${t.id} style=${`--pc:${(PRIORITY[t.priority] || PRIORITY[2]).color}`} onContextMenu=${(e) => lenMenu(e, t)}>
           <button class="cb" title="标为完成" onClick=${() => toggleTodo(t.id)}><${Icon} name="check" size=${12} /></button>
           <span class="fp-t">${t.title}${spent > 0 && html`<small class="fp-spent">已专注 ${spent} 分</small>`}</span>
           ${t.time && html`<small class="muted">${t.time}</small>`}

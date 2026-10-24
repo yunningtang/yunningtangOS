@@ -1543,3 +1543,8 @@ html[data-skin="xp"] ::selection{background:#316ac5;color:#fff}
 
 /* list view: priority = coloured checkbox + a small tinted label, no stripes */
 .todo .meta .pri{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;font-size:.66rem;font-weight:600;color:var(--pc);background:color-mix(in srgb,var(--pc) 12%,transparent)}
+
+/* same priority checkbox everywhere */
+.fp-i .cb{border:2px solid var(--pc,var(--text-4));background:color-mix(in srgb,var(--pc,var(--text-4)) 14%,transparent);border-radius:5px}
+.fp-i.p3 .cb{border-color:var(--text-4);background:transparent}
+.tlist .todo{padding:5px 4px}.tlist .todo .tt .ti{font-size:.84rem}

@@ -4,7 +4,7 @@ import { usePomo, PomoCard } from './focus.js';
 import * as pomo from '../pomo.js';
 import { Icon, Card, Btn, Tag, Empty, Progress, useClock } from '../ui.js';
 import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS, fmtShort } from '../util.js';
-import { TodoModal, QuickAdd, todoMenu } from './todos.js';
+import { TodoModal, QuickAdd, todoMenu, TodoItem } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
@@ -59,7 +59,7 @@ export default function Dashboard() {
   const [editing, setEditing] = useState(null);
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
-  const todosAll = useMemo(() => sortBy(s.todos.filter((t) => t.due === today || (!t.done && t.due && t.due < today) || (t.done && t.completedAt === today)), 'priority', 'time'), [s.todos]);
+  const todosAll = useMemo(() => sortBy(s.todos.filter((t) => (!t.done && (!t.due || t.due <= today)) || (t.done && t.completedAt === today)), 'priority', 'due', 'time'), [s.todos]);
   const todos = todosAll.filter((t) => !t.done).slice(0, 10);
   const doneTodos = todosAll.filter((t) => t.done);
   const [showDone, setShowDone] = useState(false);
@@ -175,10 +175,10 @@ export default function Dashboard() {
       <//>` },
     todos: { title: '待办', span: 1, el: html`<${Card} class="todo-card" ...${dropProps('todo', (d) => upsert('todos', { id: d.id, due: today }))}>
         <div class="card-h"><h3>待办 ${todos.length > 0 && html`<span class="muted small">${todos.length}</span>`}</h3><div class="card-act"><a class="ibtn" href="#/todos" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
-        ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '今天的都做完了。' : '今天没有待办。'} />` : html`<div class="tlist">${todos.map((t) => html`<label class="tl-i" key=${t.id} ...${dragProps('todo', { id: t.id })} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, setEditing), t.title)}><input type="checkbox" checked=${false} onChange=${() => toggleTodo(t.id)} /><span class="flex1" onClick=${(e) => { e.preventDefault(); setEditing(t); }}>${t.title}</span>${t.time && html`<small>${t.time}</small>`}</label>`)}</div>`}
+        ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '今天的都做完了。' : '今天没有待办。'} />` : html`<div class="tlist">${todos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}
         <${QuickAdd} defaults=${{ due: today }} placeholder="添加待办…" />
         ${doneTodos.length > 0 && html`<button class="done-tg" onClick=${() => setShowDone(!showDone)}><${Icon} name=${showDone ? 'down' : 'right'} size=${12} /> 已完成 ${doneTodos.length}</button>
-          ${showDone && html`<div class="tlist">${doneTodos.map((t) => html`<label class="tl-i done" key=${t.id} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, setEditing), t.title)}><input type="checkbox" checked=${true} onChange=${() => toggleTodo(t.id)} /><span class="flex1" onClick=${(e) => { e.preventDefault(); setEditing(t); }}>${t.title}</span>${t.time && html`<small>${t.time}</small>`}</label>`)}</div>`}`}
+          ${showDone && html`<div class="tlist">${doneTodos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}`}
       <//>` },
     pages: { title: '最近页面', span: 2, el: html`<${Card}>
         <div class="card-h"><h3>最近页面</h3><div class="card-act"><button class="ibtn" title="新页面" onClick=${() => { const n = newNote(); go('notes/' + n.id); }}><${Icon} name="plus" size=${15} /></button><a class="ibtn" href="#/notes" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
