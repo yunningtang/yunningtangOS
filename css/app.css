@@ -260,7 +260,7 @@ html[data-theme="dark"] .card::after{box-shadow:inset 0 0 0 1px var(--glass-line
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:200;padding:8px 14px;border-radius:var(--r2);background:var(--ink);color:var(--bg);font-size:.8rem;box-shadow:var(--pop);animation:pop .15s}
 
 /* ===== Dashboard ===== */
-.dash3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch;grid-auto-flow:row dense}
+.dash3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start;grid-auto-flow:row dense}
 .widget{position:relative;min-width:0;display:flex;flex-direction:column}
 .widget>.card{min-height:var(--wh,auto);flex:1;display:flex;flex-direction:column}
 .widget[data-span-preview="1"]{grid-column:span 1!important}.widget[data-span-preview="2"]{grid-column:span 2!important}.widget[data-span-preview="3"]{grid-column:1 / -1!important}
@@ -1639,12 +1639,12 @@ html[data-theme="dark"] .lbtn.gh{background:#f6f8fa;color:#24292f}
 
 
 /* ---------- 汤圆面板：Linear 的克制 × Claude 的对话 × Things 的任务行 ---------- */
-.seal-panel{--sp:#287FCD;--ss:#23947E;--sw-:#D29338;--s2:#9298A0;position:fixed;left:0;top:0;width:min(var(--sw,400px),calc(100vw - 32px));height:min(var(--sh,560px),calc(100vh - 40px));display:flex;flex-direction:column;z-index:139;border-radius:18px;background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);box-shadow:0 0 0 1px color-mix(in srgb,var(--line-2) 80%,transparent),0 24px 60px -24px rgba(20,30,50,.35),0 2px 8px -2px rgba(20,30,50,.08);transform-origin:var(--ox,100%) var(--oy,100%);transition:opacity .18s,transform .22s cubic-bezier(.3,1.4,.5,1)}
+.seal-panel{--sp:#287FCD;--ss:#23947E;--sw-:#D29338;--s2:#9298A0;position:fixed;left:0;top:0;width:min(var(--sw,400px),calc(100vw - 32px));height:auto;min-height:200px;max-height:min(var(--sh,620px),calc(100vh - 40px));display:flex;flex-direction:column;z-index:139;border-radius:18px;background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);box-shadow:0 0 0 1px color-mix(in srgb,var(--line-2) 80%,transparent),0 24px 60px -24px rgba(20,30,50,.35),0 2px 8px -2px rgba(20,30,50,.08);transform-origin:var(--ox,100%) var(--oy,100%);transition:opacity .18s,transform .22s cubic-bezier(.3,1.4,.5,1)}
 html[data-theme="dark"] .seal-panel{box-shadow:0 0 0 1px rgba(255,255,255,.08),0 24px 60px -24px rgba(0,0,0,.7)}
 .seal-panel.closed{opacity:0;transform:scale(.6);pointer-events:none}
 /* 三种窗口：浮窗 400 / 展开 860 / 全屏；展开和全屏里内容列最宽 720，不让每张卡铺满 */
-.seal-panel.big{left:50%!important;top:50%!important;width:min(860px,calc(100vw - 32px));height:min(800px,calc(100vh - 40px));transform:translate(-50%,-50%);transform-origin:50% 50%}
-.seal-panel.full{width:calc(100vw - 24px);height:calc(100vh - 24px);border-radius:16px}
+.seal-panel.big{left:50%!important;top:50%!important;width:min(860px,calc(100vw - 32px));height:auto;max-height:min(800px,calc(100vh - 40px));transform:translate(-50%,-50%);transform-origin:50% 50%}
+.seal-panel.full{width:calc(100vw - 24px);height:calc(100vh - 24px);max-height:none;border-radius:16px}
 .seal-panel.big.closed{transform:translate(-50%,-50%) scale(.94)}
 .seal-col{width:100%;margin:0 auto}.seal-panel.big .seal-col{max-width:720px}
 .seal-panel.big .seal-msgs{padding:12px 28px 16px}.seal-panel.big .seal-cw{padding:0 24px 20px}.seal-panel.big .seal-h{padding:14px 18px 6px 26px}
@@ -1761,3 +1761,16 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .seal-h.pinned .seal-id b::after{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--s2);margin-left:6px;vertical-align:middle;opacity:.6}
 .sm-retry{display:inline-flex;align-items:center;gap:4px;margin-left:8px;height:22px;padding:0 8px;border-radius:999px;font-size:.72rem;color:var(--text-2);background:var(--hover)}.sm-retry:hover{background:var(--hover-2);color:var(--text)}
 .seal-form.multi{align-items:flex-end}.seal-form.multi .seal-send{margin-bottom:0}
+
+.seal-panel.sized{height:min(var(--sh,620px),calc(100vh - 40px))}
+.seal-msgs{flex:0 1 auto}.seal-panel.sized .seal-msgs,.seal-panel.full .seal-msgs{flex:1 1 auto}
+.seal-avw{position:relative;width:26px;height:26px;flex:none}.seal-ava{width:26px;height:26px;display:block}
+.seal-avw .dot{position:absolute;right:-1px;bottom:0;width:8px;height:8px;border-radius:50%;background:var(--s2);box-shadow:0 0 0 2px var(--paper)}.seal-avw .dot.on{background:var(--ss)}.seal-avw .dot.busy{background:var(--sp);animation:seal-pulse 1.2s ease-in-out infinite}
+.seal-hints button{display:flex;align-items:center;gap:10px;width:100%}.seal-hints .sh-q{flex:1;min-width:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.seal-hints .sh-k{flex:none;display:flex;gap:4px}.seal-hints .sh-k i{font-style:normal;font-size:.66rem;color:var(--s2);padding:1px 6px;border-radius:999px;background:var(--hover)}
+.goal .gt{cursor:text}.goal .gt:hover{text-decoration:underline dotted;text-underline-offset:4px}.goal .gt-in{font-size:.95rem;font-weight:600;height:30px;width:100%}
+.goal .krs li{align-items:center}.goal .krs .cb{margin-top:0}.goal .krs .kr-t{flex:1;min-width:0;cursor:text}.goal .krs .kr-t:hover{text-decoration:underline dotted;text-underline-offset:3px}.goal .krs li.done .kr-t{text-decoration:line-through}
+.goal .krs .kr-in{flex:1;min-width:0;height:26px;font-size:.8rem;padding:0 6px}
+.goal .krs .kr-x{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--text-4);opacity:0;transition:opacity .18s ease .06s}.goal .krs li:hover .kr-x{opacity:.8}.goal .krs .kr-x:hover{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.goal .krs li.dragging{opacity:.4}.goal .krs li.drop-before{box-shadow:inset 0 2px 0 var(--blue)}.goal .krs li.drop-after{box-shadow:inset 0 -2px 0 var(--blue)}
+.goal .krs .kr-new{padding:2px 4px;cursor:default}.goal .krs .kr-new:hover{background:transparent}.goal .krs .kr-new button{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;color:var(--text-4);padding:2px 4px;border-radius:6px}.goal .krs .kr-new button:hover{color:var(--text-2);background:var(--hover)}
+.goal .krs li:not(.done) .cb{color:transparent}

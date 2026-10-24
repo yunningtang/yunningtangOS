@@ -240,7 +240,8 @@ function GoalModal({ open, goal, onClose, month }) {
     update((d) => {
       d.goals[month] = d.goals[month] || [];
       const i = d.goals[month].findIndex((g) => g.id === f.id);
-      if (i >= 0) d.goals[month][i] = f; else d.goals[month].push(f);
+      const clean = { ...f, krs: f.krs.filter((k) => k.text && k.text.trim()).map((k) => ({ ...k, text: k.text.trim() })) };
+      if (i >= 0) d.goals[month][i] = clean; else d.goals[month].push(clean);
     });
     onClose();
   };
@@ -254,10 +255,16 @@ function GoalModal({ open, goal, onClose, month }) {
         <${Field} label=${`手动进度 ${f.progress}%`} hint="有关键结果时按勾选自动计算"><input type="range" min="0" max="100" step="5" value=${f.progress} onInput=${(e) => set('progress', +e.target.value)} /><//>
       </div>
       <${Field} label="为什么重要"><textarea rows="2" value=${f.why} onInput=${(e) => set('why', e.target.value)}></textarea><//>
-      <${Field} label="关键结果 · 每行一个"><textarea rows="4" value=${f.krs.map((k) => k.text).join('\n')} placeholder="读完两本书\n每周跑步三次" onInput=${(e) => {
-        const lines = e.target.value.split('\n');
-        set('krs', lines.map((text, i) => ({ id: f.krs[i]?.id || uid(), text, done: f.krs[i]?.done || false })));
-      }}></textarea><//>
+      <${Field} label="关键结果" hint="具体、能判断完成的那种。保存后在卡片上也能直接勾选、改字、拖动排序。">
+        <div class="steps-f">
+          ${f.krs.map((k, i) => html`<div class=${'sf-row ' + (k.done ? 'done' : '')} key=${k.id}>
+            <input type="checkbox" checked=${!!k.done} onChange=${() => set('krs', f.krs.map((x, j) => (j === i ? { ...x, done: !x.done } : x)))} />
+            <input class="flex1" type="text" value=${k.text} placeholder="比如：读完两本书" onInput=${(e) => set('krs', f.krs.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); set('krs', [...f.krs, { id: uid(), text: '', done: false }]); } }} />
+            <button type="button" class="ibtn" title="删除" onClick=${() => set('krs', f.krs.filter((_, j) => j !== i))}><${Icon} name="x" size=${12} /></button>
+          </div>`)}
+          <button type="button" class="pt-row flat new" onClick=${() => set('krs', [...f.krs, { id: uid(), text: '', done: false }])}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">加一条</span></button>
+        </div>
+      <//>
     </div>
   <//>`;
 }
@@ -266,6 +273,36 @@ export function goalPct(g) {
   const krs = (g.krs || []).filter((k) => k.text.trim());
   if (!krs.length) return g.progress || 0;
   return Math.round((krs.filter((k) => k.done).length / krs.length) * 100);
+}
+
+// 目标标题：点一下直接改
+function GoalTitle({ g, month }) {
+  const [v, setV] = useState(null);
+  const commit = () => { if (v != null && v.trim() && v.trim() !== g.title) update((d) => { const gg = d.goals[month].find((x) => x.id === g.id); if (gg) gg.title = v.trim(); }); setV(null); };
+  if (v != null) return html`<input class="gt-in" autofocus value=${v} onInput=${(e) => setV(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setV(null); }} onBlur=${commit} onClick=${(e) => e.stopPropagation()} />`;
+  return html`<h4 class="gt" title="点击改名" onClick=${() => setV(g.title)}>${g.title}</h4>`;
+}
+// 关键结果：勾选、点文字改、拖动排序、底部直接加一条
+function KrList({ g, month }) {
+  const [edit, setEdit] = useState(null); // { id, text }
+  const [adding, setAdding] = useState(false); const [nv, setNv] = useState('');
+  const krs = g.krs.filter((k) => k.text.trim());
+  const patch = (fn) => update((d) => { const gg = d.goals[month].find((x) => x.id === g.id); if (gg) fn(gg); });
+  const toggle = (kid) => patch((gg) => { const k = gg.krs.find((x) => x.id === kid); if (k) k.done = !k.done; });
+  const commit = () => { if (edit && edit.text.trim()) patch((gg) => { const k = gg.krs.find((x) => x.id === edit.id); if (k) k.text = edit.text.trim(); }); setEdit(null); };
+  const add = () => { const t = nv.trim(); if (t) patch((gg) => { gg.krs.push({ id: uid(), text: t, done: false }); }); setNv(''); if (!t) setAdding(false); };
+  const move = (id, targetId, after) => patch((gg) => { const from = gg.krs.findIndex((x) => x.id === id); if (from < 0) return; const [k] = gg.krs.splice(from, 1); let to = gg.krs.findIndex((x) => x.id === targetId); if (to < 0) { gg.krs.push(k); return; } if (after) to++; gg.krs.splice(to, 0, k); });
+  return html`<ul class="krs">
+    ${krs.map((k) => html`<li key=${k.id} class=${k.done ? 'done' : ''} ...${dragProps('kr', { id: k.id, g: g.id }, { onStart: (e) => e.stopPropagation(), onEnd: (e) => e.stopPropagation() })} ...${dropProps('kr', (d, { after }) => { if (d.g === g.id && d.id !== k.id) move(d.id, k.id, !!after); }, { position: true })} onContextMenu=${(e) => { e.stopPropagation(); ctxMenu(e, [{ label: k.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggle(k.id) }, { label: '改一下…', icon: 'edit', onClick: () => setEdit({ id: k.id, text: k.text }) }, { label: '转为待办', icon: 'checksq', onClick: () => upsert('todos', { id: uid(), title: k.text, done: false, priority: 1, due: '', time: '', tags: [], area: g.area || '', note: `来自目标「${g.title}」`, created: todayStr() }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => patch((gg) => { gg.krs = gg.krs.filter((x) => x.id !== k.id); }) }], k.text); }}>
+      <span class="cb" onClick=${() => toggle(k.id)}><${Icon} name="check" size=${10} /></span>
+      ${edit && edit.id === k.id
+        ? html`<input class="kr-in" autofocus value=${edit.text} onInput=${(e) => setEdit({ ...edit, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEdit(null); }} onBlur=${commit} />`
+        : html`<span class="kr-t" title="点击修改，拖动排序" onClick=${() => setEdit({ id: k.id, text: k.text })}>${k.text}</span>`}
+      <button class="kr-x" title="删除" onClick=${(e) => { e.stopPropagation(); patch((gg) => { gg.krs = gg.krs.filter((x) => x.id !== k.id); }); }}><${Icon} name="x" size=${10} /></button>
+    </li>`)}
+    ${adding ? html`<li class="kr-new"><input class="kr-in" autofocus value=${nv} placeholder="再加一条关键结果，回车保存" onInput=${(e) => setNv(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setNv(''); setAdding(false); } }} onBlur=${() => { if (nv.trim()) add(); else setAdding(false); }} /></li>`
+      : html`<li class="kr-new"><button onClick=${() => setAdding(true)}><${Icon} name="plus" size=${10} /> 关键结果</button></li>`}
+  </ul>`;
 }
 
 function MonthGoals({ openId }) {
@@ -295,10 +332,10 @@ function MonthGoals({ openId }) {
     ${goals.length === 0 ? html`<${Card}><${Empty} icon="target" text="这个月还没有目标。定三个就好，少即是多。" /><//>` : html`<div class="goals">${goals.map((g) => {
       const pct = goalPct(g);
       return html`<${Card} class=${'goal ' + (pct >= 100 ? 'done-all' : '')} key=${g.id} ...${dragProps('goal', { id: g.id })} ...${dropProps('goal', (d, { after }) => { if (d.id === g.id) return; update((dd) => { const list = dd.goals[month]; const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === g.id); if (after) to++; list.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => { setEditing(g); setModal(true); } }, { label: '复制到下个月', icon: 'calendar', onClick: () => update((d) => { const nm = shiftMonth(month, 1); d.goals[nm] = d.goals[nm] || []; d.goals[nm].push({ ...g, id: uid(), progress: 0, krs: g.krs.map((k) => ({ ...k, id: uid(), done: false })) }); }) }, { label: '全部关键结果标为完成', icon: 'check', disabled: !g.krs.length, onClick: () => update((d) => { d.goals[month].find((x) => x.id === g.id).krs.forEach((k) => { k.done = true; }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => { update((d) => { d.goals[month] = d.goals[month].filter((x) => x.id !== g.id); }); toast(`已删除「${g.title}」`, { label: '撤销', onClick: () => update((d) => { d.goals[month] = [...(d.goals[month] || []), g]; }) }); } }], g.title)}>
-        <div class="gh"><div class="flex1"><h4>${g.title}</h4>${g.area && html`<${Tag}>${g.area}<//>`}</div><span class="pct">${pct}%</span><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => { setEditing(g); setModal(true); }} /></div>
+        <div class="gh"><div class="flex1"><${GoalTitle} g=${g} month=${month} />${g.area && html`<${Tag}>${g.area}<//>`}</div><span class="pct">${pct}%</span><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => { setEditing(g); setModal(true); }} /></div>
         <div style="margin-top:10px"><${Progress} value=${pct} /></div>
         ${g.why && html`<p class="small muted" style="margin-top:8px">${g.why}</p>`}
-        ${g.krs.filter((k) => k.text.trim()).length > 0 && html`<ul class="krs">${g.krs.filter((k) => k.text.trim()).map((k) => html`<li class=${k.done ? 'done' : ''} onClick=${() => toggleKr(g.id, k.id)} onContextMenu=${(e) => ctxMenu(e, [{ label: k.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleKr(g.id, k.id) }, { label: '转为待办', icon: 'checksq', onClick: () => upsert('todos', { id: uid(), title: k.text, done: false, priority: 1, due: '', time: '', tags: [], area: g.area || '', note: `来自目标「${g.title}」`, created: todayStr() }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => update((d) => { const gg = d.goals[month].find((x) => x.id === g.id); gg.krs = gg.krs.filter((x) => x.id !== k.id); }) }], k.text)}><span class="cb"><${Icon} name="check" size=${10} /></span><span>${k.text}</span></li>`)}</ul>`}
+        <${KrList} g=${g} month=${month} />
       <//>`;
     })}</div>`}
     <${GoalModal} open=${modal} goal=${editing} month=${month} onClose=${() => setModal(false)} />

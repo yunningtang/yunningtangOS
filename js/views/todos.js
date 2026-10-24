@@ -182,7 +182,7 @@ export function TodoItem({ t, onEdit, compact }) {
   const dueCls = t.due && !t.done ? (ls === 'late' ? 'late' : ls === 'passed' ? 'passed' : t.due === today ? 'today' : '') : '';
   const lateTxt = ls === 'late' ? `逾期 ${Math.max(1, Math.round((new Date(today) - new Date(t.due)) / 864e5))} 天` : ls === 'passed' ? '已过' : '';
   const sp = stepsProgress(t);
-  const [showSteps, setShowSteps] = useState(() => sp.total > 0 && sp.done < sp.total && !t.done); // 还没做完的默认展开
+  const [showSteps, setShowSteps] = useState(() => !compact && sp.total > 0 && sp.done < sp.total && !t.done); // 待办页里没做完的默认展开；总览 / 计划里的紧凑行默认收起，点 chip 展开
   const [forceAdd, setForceAdd] = useState(false); // 右键「添加步骤」：展开并直接给输入框
   useEffect(() => { const h = (e) => { if (e.detail === t.id) { setShowSteps(true); setForceAdd(true); } }; window.addEventListener('todo:addstep', h); return () => window.removeEventListener('todo:addstep', h); }, [t.id]);
   const chip = sp.total > 0 && html`<button class=${'steps ' + (sp.done === sp.total ? 'all ' : '') + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}><${Icon} name="list" size=${10} /> ${sp.done}/${sp.total} 步 <${Icon} name=${showSteps ? 'up' : 'down'} size=${9} /></button>`;

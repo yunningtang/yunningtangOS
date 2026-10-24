@@ -271,7 +271,16 @@ function scheduleSteps(steps, todo) {
   return made;
 }
 
-const HINTS = ['明天下午两点开组会，会后把纪要整理到研究本子', '这个月的目标：考完雅思 G 类，每周两套真题', '想读《纳瓦尔宝典》，还有把这篇文章收藏 https://example.com', '我想成为一个每天都在创造的人'];
+// 示例句子，右边标出会落到哪些模块
+const HINTS = [
+  { t: '明天下午两点开组会，会后把纪要整理到研究本子', k: ['时间块', '待办'] },
+  { t: '这个月的目标：考完雅思 G 类，每周两套真题', k: ['月度目标'] },
+  { t: '想读《纳瓦尔宝典》，还有把这篇文章收藏 https://example.com', k: ['书架', '收藏'] },
+  { t: '我想成为一个每天都在创造的人', k: ['愿景'] },
+  { t: '拆解：准备年终汇报', k: ['子任务'] },
+];
+// 头部的小头像：一只简笔海豹
+const AVATAR = html`<svg class="seal-ava" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="18" rx="12" ry="10" fill="#e9edf3"/><ellipse cx="16" cy="17" rx="9.5" ry="7.5" fill="#f7f8fa"/><circle cx="12" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="20" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="12.5" cy="15" r=".5" fill="#fff"/><circle cx="20.5" cy="15" r=".5" fill="#fff"/><ellipse cx="16" cy="19.2" rx="1.6" ry="1.1" fill="#3a3f47"/><path d="M14.6 20.6q1.4 1.2 2.8 0" stroke="#3a3f47" stroke-width=".9" fill="none" stroke-linecap="round"/><path d="M6 18.5l5 .6M6 21l5-.4M26 18.5l-5 .6M26 21l-5-.4" stroke="#9aa1ab" stroke-width=".8" stroke-linecap="round"/></svg>`;
 
 /* ---------------- 组件 ---------------- */
 export function Seal() {
@@ -622,11 +631,11 @@ export function Seal() {
       <canvas ref=${cvRef} width="300" height="300"></canvas>
       ${badge > 0 && !open && html`<span class="seal-badge">${badge}</span>`}
     </button>
-    <div class=${'seal-panel ' + (open ? '' : 'closed ') + (mode ? 'big ' + mode : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size && !big ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
+    <div class=${'seal-panel ' + (open ? '' : 'closed ') + (mode ? 'big ' + mode : '') + (size && !big ? ' sized' : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size && !big ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
       <div class="seal-rz" title="拖动调整大小" onPointerDown=${resizeStart}></div>
       <div class=${'seal-h ' + (pinnedPos && !big ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && !big && { label: '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, !pinnedPos && !big && { label: '拖动顶部可以把对话窗放到任意位置', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${big ? '' : pinnedPos ? '拖动移动 · 双击吸回汤圆旁边' : '拖动可以把对话窗放到别处'}>
         ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
-          : html`<span class="seal-id"><i class=${'dot ' + status.cls}></i><b>汤圆</b><small>${status.text}</small></span>`}
+          : html`<span class="seal-id"><span class="seal-avw">${AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b><small>${status.text}</small></span>`}
         <span class="flex1"></span>
         ${view === 'chat' && html`<button class=${'ibtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
         ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
@@ -643,7 +652,7 @@ export function Seal() {
       </div></div>` : html`<div class="seal-msgs" ref=${msgsRef}><div class="seal-col">
         ${msgs.length === 0 && html`<div class="seal-intro">
             <p>说一句话，我整理成待办、时间块、笔记或目标。你确认了才会写进去。</p>
-            <div class="seal-hints">${HINTS.map((h) => html`<button key=${h} type="button" onClick=${() => ask(h)}>${h}</button>`)}</div>
+            <div class="seal-hints">${HINTS.map((h) => html`<button key=${h.t} type="button" onClick=${() => ask(h.t)}><span class="sh-q">${h.t}</span><span class="sh-k">${h.k.map((k) => html`<i key=${k}>${k}</i>`)}</span></button>`)}</div>
           </div>`}
         ${msgs.map((m) => html`<div key=${m.id} class=${'sm ' + m.who}>
           <div class="sm-t">${m.text}</div>
