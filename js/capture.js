@@ -20,7 +20,7 @@ export function detect(text) {
   return 'todo';
 }
 
-function plan(text, kind, notebooks) {
+export function plan(text, kind, notebooks) {
   const t = text.trim();
   if (kind === 'block') {
     const day = /@明天/.test(t) ? addDays(todayStr(), 1) : /@后天/.test(t) ? addDays(todayStr(), 2) : todayStr();
@@ -67,6 +67,7 @@ export function Capture({ open, onClose }) {
       <div class="cap-f">
         <div class="seg mini cap-seg">${[['todo', '待办'], ['note', '笔记'], ['block', '时间块']].map(([v, l]) => html`<button type="button" key=${v} class=${k === v ? 'on' : ''} onClick=${() => setKind(v)}>${l}</button>`)}${kind && html`<button type="button" class="cap-auto" onClick=${() => setKind(null)}>自动</button>`}</div>
         <span class=${'cap-sum ' + (p.invalid ? 'bad' : '')}>${text.trim() ? p.summary : 'Enter 保存 · Shift+Enter 换行 · Esc 关闭'}</span>
+        <button class="cap-ai" type="button" disabled=${!text.trim()} title="让汤圆把这句话拆成几条，预览后再保存" onClick=${() => { const t = text; onClose(); window.dispatchEvent(new CustomEvent('seal:ask', { detail: t })); }}><${Icon} name="sparkle" size=${13} /> 问汤圆</button>
         <button class="btn primary sm" disabled=${!text.trim() || p.invalid} onClick=${save}><${Icon} name="check" size=${13} /> 保存</button>
       </div>
     </div>

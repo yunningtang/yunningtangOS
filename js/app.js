@@ -26,6 +26,7 @@ import { subscribe } from './store.js';
 export { go, toast };
 
 import { Capture } from './capture.js';
+import { Seal } from './seal.js';
 
 export const ROUTES = [
   { path: 'home', name: '总览', icon: 'home', view: Dashboard },
@@ -160,6 +161,7 @@ function App() {
     </div>
     <${SearchPalette} open=${search} onClose=${() => setSearch(false)} />
     <${Capture} open=${cap} onClose=${() => setCap(false)} />
+    ${s.settings.seal !== false && html`<${Seal} />`}
     <nav class="tabbar">
       ${[['home', '总览', 'home', (r) => r.path === 'home'], ['todos', '待办', 'checksq', (r) => r.path === 'todos'], ['plan/day', '今天', 'sun', (r) => r.path === 'plan' && r.sub === 'day'], ['notes', '笔记', 'note', (r) => r.path === 'notes']].map(([h, n, ic, m]) => html`<a key=${h} href=${'#/' + h} class=${m(route) ? 'active' : ''}><${Icon} name=${ic} size=${20} /><span>${n}</span></a>`)}
       <button class="tab-cap" onClick=${() => setCap(true)} title="记一下"><${Icon} name="plus" size=${22} /></button>

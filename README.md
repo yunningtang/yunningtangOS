@@ -23,6 +23,8 @@
 
 `⌘K` / `Ctrl K` 全局搜索。左侧栏会展开笔记的页面树，顶栏显示面包屑。
 
+**汤圆（海豹助手）**：角落里有一只可以拖动的 3D 小海豹（松手吸到最近的屏幕边，会转头看鼠标）。点开说一句话，比如「明天下午两点开组会，会后把纪要整理到研究本子」，汤圆会拆成一条时间块、一条待办和一页笔记，先给预览，勾选确认后才写入。随手记（`⌘⇧K`）里也有「问汤圆」按钮。接入 AI 需要在 Vercel 配置 `ANTHROPIC_API_KEY` 并登录；没有 AI 时按随手记的本地语法理解。可在设置里隐藏。
+
 ## 数据在哪里
 
 - 默认存在浏览器 `localStorage`（key `ytos.v1`），一份 JSON 文档，随时在设置里导出。
@@ -56,6 +58,8 @@
    | `DATA_BRANCH` | 可选，默认 `main`（本仓库是 `master`） |
    | `DATA_PATH` | 可选，默认 `data/os.json` |
    | `ALLOWED_USER` | 你的 GitHub 用户名，只有这个账号能登录同步 |
+   | `ANTHROPIC_API_KEY` | 可选。配置后汤圆助手用 Claude 拆解自然语言；只有登录用户能调用 `/api/agent`。密钥只放这里，不要写进代码或对话 |
+   | `AGENT_MODEL` | 可选，默认 `claude-opus-5-5`；每次拆解约几百 token，个人使用一个月不到一美元 |
 
 3. 部署后打开站点 → 设置 → 「用 GitHub 登录」。
 
@@ -85,9 +89,11 @@ js/views/ntasks.js  页面待办汇总
 js/views/canvas.js  画布（节点、连线、笔迹）
 js/globe.js         Canvas 星球（d3-geo 正射投影）
 js/sync.js          同步（登录模式走 /api，静态模式直连 GitHub API）
-api/                Vercel serverless：GitHub OAuth 登录、加密会话、读写数据文件
+api/                Vercel serverless：GitHub OAuth 登录、加密会话、读写数据文件、/api/agent 调 Claude 拆解（结构化输出）
+js/seal.js          汤圆：three.js 3D 海豹、拖动吸边、对话面板、拆解预览与写入
+js/capture.js       随手记（本地语法解析，也供汤圆兜底）
 js/seed.js          示例数据
-vendor/             preact + htm、marked、d3-geo + topojson、world-atlas 陆地数据（已打包，无 CDN 依赖）
+vendor/             preact + htm、marked、d3-geo + topojson、world-atlas 陆地数据、three.js r128（已打包，无 CDN 依赖）
 ```
 
 唯一外部依赖是 Google Fonts 的 Noto Serif SC（页面「衬线」字体选项用）；断网时回退到系统宋体。笔记同时保存块结构和一份 Markdown 镜像，导出的 JSON 里两者都有。
