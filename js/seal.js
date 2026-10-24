@@ -298,9 +298,12 @@ export function Seal() {
   const [mode, setMode] = useState(() => { try { return localStorage.getItem('ytos.seal.mode') || ''; } catch { return ''; } }); // '' 浮窗 | big 展开 | full 最大化
   const big = !!mode;
   const setModeKeep = (m) => { setMode(m); try { localStorage.setItem('ytos.seal.mode', m); } catch {} };
-  const [size, setSize] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.size') || 'null'); } catch { return null; } });
+  // 尺寸按模式各记一份：浮窗一份、展开一份
+  const [sizes, setSizes] = useState(() => { try { const v = JSON.parse(localStorage.getItem('ytos.seal.size2') || 'null'); if (v) return v; const old = JSON.parse(localStorage.getItem('ytos.seal.size') || 'null'); return old ? { float: old } : {}; } catch { return {}; } });
+  const modeKey = mode === 'big' ? 'big' : 'float';
+  const size = mode === 'full' ? null : sizes[modeKey] || null;
   const openRef = useRef(false); openRef.current = open;
-  const bigRef = useRef(false); bigRef.current = big;
+  const bigRef = useRef(false); bigRef.current = big; api.current.mode = mode;
   const undoRef = useRef({}); // 每条已保存消息的撤销函数
   const [ava, setAva] = useState(() => { try { return sessionStorage.getItem('ytos.seal.ava') || ''; } catch { return ''; } });
   api.current.setAvatar = (u) => { setAva(u); try { sessionStorage.setItem('ytos.seal.ava', u); } catch {} };
@@ -309,7 +312,7 @@ export function Seal() {
   const savePos = (v) => { setPinnedPos(v); api.current.pinnedPos = v; try { v ? localStorage.setItem('ytos.seal.panelpos', JSON.stringify(v)) : localStorage.removeItem('ytos.seal.panelpos'); } catch {} api.current.posPanel && api.current.posPanel(); };
   // 拖头部移动对话窗
   const moveStart = (e) => {
-    if (bigRef.current || e.button !== 0 || e.target.closest('button,a,input')) return;
+    if (api.current.mode === 'full' || e.button !== 0 || e.target.closest('button,a,input')) return;
     const panel = panelRef.current; const r = panel.getBoundingClientRect(); const dx = e.clientX - r.left, dy = e.clientY - r.top; let moved = false;
     const mv = (ev) => { if (!moved && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) return; moved = true; api.current.moving = true; panel.classList.add('moving'); const px = Math.min(Math.max(M, ev.clientX - dx), innerWidth - r.width - M), py = Math.min(Math.max(M, ev.clientY - dy), innerHeight - r.height - M); panel.style.left = px + 'px'; panel.style.top = py + 'px'; };
     const up = (ev) => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); panel.classList.remove('moving'); api.current.moving = false; if (moved) { const rr = panel.getBoundingClientRect(); savePos({ x: rr.left / innerWidth, y: rr.top / innerHeight }); } };
@@ -350,7 +353,7 @@ export function Seal() {
     api.current.reset = () => { try { localStorage.removeItem('ytos.seal'); } catch {} perch = null; savePerch(); tx = innerWidth - S - M; ty = innerHeight - S - M - bottomPad(); tucked = false; sqv += .1; };
     place();
     const posPanel = () => {
-      const panel = panelRef.current; if (!panel || !openRef.current || bigRef.current || api.current.moving) return;
+      const panel = panelRef.current; if (!panel || !openRef.current || api.current.moving || api.current.mode === 'full' || (bigRef.current && !api.current.pinnedPos)) return;
       const pw = panel.offsetWidth, ph = panel.offsetHeight;
       // 对话窗被拖到过别处：就待在那儿，不跟着汤圆跑（位置按窗口比例记，换分辨率也不会跑出屏幕）
       const pinned = api.current.pinnedPos;
@@ -506,15 +509,33 @@ export function Seal() {
   const openThread = (t) => { setTid(t.id); setMsgs(t.msgs); setView('chat'); };
   const delThread = (id) => setThreads((list) => { const next = list.filter((x) => x.id !== id); try { localStorage.setItem('ytos.seal.threads', JSON.stringify(next)); } catch {} if (id === tid) { setMsgs([]); setTid(uid()); } return next; });
   const relTime = (ts) => { const d = Date.now() - ts; if (d < 36e5) return Math.max(1, Math.round(d / 6e4)) + ' 分钟前'; if (d < 864e5) return Math.round(d / 36e5) + ' 小时前'; const dt = new Date(ts); return `${dt.getMonth() + 1}/${dt.getDate()}`; };
-  // ---- 尺寸：左上角拖动改大小，记住 ----
-  const resizeStart = (e) => {
-    if (bigRef.current) return; e.preventDefault();
-    const panel = panelRef.current, sx = e.clientX, sy = e.clientY, w0 = panel.offsetWidth, h0 = panel.offsetHeight;
-    let cur = { w: w0, h: h0 };
-    const mv = (ev) => { cur = { w: Math.max(300, Math.min(innerWidth - 32, w0 + (sx - ev.clientX))), h: Math.max(320, Math.min(innerHeight - 40, h0 + (sy - ev.clientY))) }; panel.style.setProperty('--sw', cur.w + 'px'); panel.style.setProperty('--sh', cur.h + 'px'); api.current.posPanel && api.current.posPanel(); };
-    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); setSize(cur); try { localStorage.setItem('ytos.seal.size', JSON.stringify(cur)); } catch {} };
+  // ---- 尺寸：四条边和四个角都能拖，浮窗和展开模式各记一份；一拖就把窗口钉在原地，往拖的方向长 ----
+  const resizeStart = (e, dir) => {
+    if (api.current.mode === 'full' || e.button !== 0) return; e.preventDefault(); e.stopPropagation();
+    const panel = panelRef.current, r = panel.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
+    let cur = { w: r.width, h: r.height }, left = r.left, top = r.top;
+    if (!api.current.pinnedPos) { api.current.pinnedPos = { x: r.left / innerWidth, y: r.top / innerHeight }; setPinnedPos(api.current.pinnedPos); }
+    panel.classList.add('moving', 'sized'); api.current.moving = true; panel.style.transform = 'none';
+    const mv = (ev) => {
+      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      let w = r.width, h = r.height, l = r.left, t = r.top;
+      if (dir.includes('e')) w = r.width + dx; if (dir.includes('s')) h = r.height + dy;
+      if (dir.includes('w')) { w = r.width - dx; l = r.left + dx; } if (dir.includes('n')) { h = r.height - dy; t = r.top + dy; }
+      w = Math.max(320, Math.min(innerWidth - 2 * M, w)); h = Math.max(240, Math.min(innerHeight - 2 * M, h));
+      if (dir.includes('w')) l = r.right - w; if (dir.includes('n')) t = r.bottom - h;
+      l = Math.max(M, Math.min(innerWidth - w - M, l)); t = Math.max(M, Math.min(innerHeight - h - M, t));
+      cur = { w: Math.round(w), h: Math.round(h) }; left = l; top = t;
+      panel.style.setProperty('--sw', cur.w + 'px'); panel.style.setProperty('--sh', cur.h + 'px'); panel.style.left = l + 'px'; panel.style.top = t + 'px';
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+      panel.classList.remove('moving'); panel.style.transform = ''; api.current.moving = false;
+      const next = { ...sizes, [modeKey]: cur }; setSizes(next); try { localStorage.setItem('ytos.seal.size2', JSON.stringify(next)); } catch {}
+      savePos({ x: left / innerWidth, y: top / innerHeight });
+    };
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   };
+  const RZ = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
   const push = (m) => setMsgs((list) => [...list, { id: uid(), ...m }]);
   // 前额叶：把一条大待办拆成步骤。拆出来的步骤写进这条待办的关联页面，作为可勾选的待办块
   const breakdown = async (t) => {
@@ -647,9 +668,9 @@ export function Seal() {
       <canvas ref=${cvRef} width="300" height="300"></canvas>
       ${badge > 0 && !open && html`<span class="seal-badge">${badge}</span>`}
     </button>
-    <div class=${'seal-panel ' + (open ? '' : 'closed ') + (mode ? 'big ' + mode : '') + (size && !big ? ' sized' : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size && !big ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
-      <div class="seal-rz" title="拖动调整大小" onPointerDown=${resizeStart}></div>
-      <div class=${'seal-h ' + (pinnedPos && !big ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && !big && { label: '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, !pinnedPos && !big && { label: '拖动顶部可以把对话窗放到任意位置', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${big ? '' : pinnedPos ? '拖动移动 · 双击吸回汤圆旁边' : '拖动可以把对话窗放到别处'}>
+    <div class=${'seal-panel ' + (open ? '' : 'closed ') + (mode ? 'big ' + mode : '') + (size ? ' sized' : '') + (pinnedPos && mode !== 'full' ? ' pinned' : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
+      ${mode !== 'full' && RZ.map((d) => html`<div key=${d} class=${'seal-rz rz-' + d} onPointerDown=${(e) => resizeStart(e, d)}></div>`)}
+      <div class=${'seal-h ' + (pinnedPos && mode !== 'full' ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && mode !== 'full' && { label: big ? '回到屏幕中央' : '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, size && { label: '恢复默认大小', icon: 'maximize', onClick: () => { const next = { ...sizes }; delete next[modeKey]; setSizes(next); try { localStorage.setItem('ytos.seal.size2', JSON.stringify(next)); } catch {} } }, !pinnedPos && mode !== 'full' && { label: '拖动顶部可以移动，拖边缘可以改大小', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${mode === 'full' ? '' : pinnedPos ? '拖动移动 · 双击回到默认位置' : '拖动可以把对话窗放到别处'}>
         <div class="seal-col seal-hc">
         ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
           : html`<span class="seal-id"><span class="seal-avw">${ava ? html`<img class="seal-ava" src=${ava} alt="" />` : AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b><small>${status.text}</small></span>`}
