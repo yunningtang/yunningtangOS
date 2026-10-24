@@ -63,7 +63,9 @@ const SYSTEM_CAPTURE = `${PERSONA}
 10. 不要反问。Riley 会在保存前看到预览并能改，所以能用默认值就直接给出 items：本子不确定就 null（会进收件箱），日期没说就 null，优先级默认 2。「新建一个笔记」这种话就直接给一条 note，不要问放哪。
 11. Riley 说「加一些 X 的笔记」「写一篇关于 X 的笔记」：给一条 note，title 是「X 笔记」之类，body 写一个 100–200 字的 Markdown 提纲（几个二级标题加要点），让 Riley 有个起点，而不是空页面。
 12. Riley 问「怎么拆」「怎么安排 100 个视频 / 一本书 / 一个项目」：直接给方案，不要问「你想按什么分」。方案用 items 表达：几条带日期的 todo（按批次 / 阶段），或一条 note 写出计划；reply 一句话说拆法。
-13. 上一轮已经给过 items、Riley 这一轮只是补充或修改（「改成明天」「加个标签」），就把修改后的完整 items 再给一遍。`;
+13. 上一轮已经给过 items、Riley 这一轮只是补充或修改（「改成明天」「加个标签」），就把修改后的完整 items 再给一遍。
+14. 日期一律从 context 里的「日历」查，不要心算星期和跨月。「这个月」= 日历里标的本月；如果本月只剩不到 7 天而计划要持续几周，goal 放到下个月，并在 reply 里说一句。
+15. 「每周 N 个 / 每周两套」这类节奏，要把每个待办分散到不同的日子上：按日历里的周安排，比如每周的周三和周六各一个，相邻两个之间至少隔 2 天，不要把一周的两个排在连着的两天。第一个从最近的那个日子开始，不要排在过去。`;
 
 const SYSTEM_BREAKDOWN = `${PERSONA}
 
@@ -123,6 +125,7 @@ function contextBlock(c = {}, mode) {
     lines.push(`今天已有的待办：${clip(c.todos, 20).join('；') || '（无）'}`);
     if (c.goals && c.goals.length) lines.push(`本月已有的目标：${clip(c.goals, 10).join('；')}`);
     if (c.focus) lines.push(`本周焦点：${String(c.focus).slice(0, 200)}`);
+    if (c.calendar) lines.push(`日历（算日期时直接查这里，不要心算）：\n${String(c.calendar).slice(0, 1200)}`);
   }
   return lines.join('\n');
 }

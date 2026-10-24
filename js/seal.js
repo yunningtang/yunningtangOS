@@ -4,8 +4,9 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact.js';
 import { useStore, upsert, get, update } from './store.js';
 import { ctxMenu } from './ctx.js';
-import { Icon } from './ui.js';
-import { uid, todayStr, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, escapeHtml, weekKey, monthKey, hostOf } from './util.js';
+import { Icon, DateInput, TimeInput } from './ui.js';
+import * as pomo from './pomo.js';
+import { uid, todayStr, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, escapeHtml, weekKey, monthKey, hostOf, addDays, parseDate } from './util.js';
 import { typesOf, autoCover } from './views/reading.js';
 import { loginState } from './sync.js';
 import { detect, plan } from './capture.js';
@@ -231,7 +232,37 @@ function buildContext(s) {
     todos: s.todos.filter((t) => !t.done && (!t.due || t.due <= today)).slice(0, 20).map((t) => t.title),
     goals: (s.goals[monthKey()] || []).map((g) => g.title),
     focus: (s.weeks[weekKey()] || {}).focus || '',
+    calendar: calendarText(),
   };
+}
+
+// 给模型一张算好的日历：今天起 35 天每天的日期和星期、本月最后一天、下月第一天。模型查表比心算准得多
+function calendarText() {
+  const today = todayStr(); const d0 = parseDate(today);
+  const lines = [];
+  for (let i = 0; i < 35; i++) { const d = addDays(today, i); const dt = parseDate(d); const tag = i === 0 ? '今天' : i === 1 ? '明天' : i === 2 ? '后天' : ''; lines.push(`${d} ${WEEKDAY_SUN[dt.getDay()]}${tag ? ' ' + tag : ''}`); }
+  const mEnd = new Date(d0.getFullYear(), d0.getMonth() + 1, 0); const nStart = new Date(d0.getFullYear(), d0.getMonth() + 1, 1);
+  return `本月：${monthKey(d0)}，本月最后一天 ${todayStr(mEnd)}；下月第一天 ${todayStr(nStart)}\n` + lines.join('\n');
+}
+// Tiimo 式：把拆出来的步骤从现在起依次排进时间线，避开已有的时间块，排不下就顺延到明天
+function scheduleSteps(steps, title) {
+  const st = get(); let date = todayStr(); const now = new Date();
+  let cur = Math.ceil((now.getHours() * 60 + now.getMinutes() + 5) / 15) * 15;
+  const DAY_END = 23 * 60;
+  const busy = (d) => st.blocks.filter((b) => b.date === d && !b.pomo).map((b) => [timeToMin(b.start), timeToMin(b.end)]).sort((a, b) => a[0] - b[0]);
+  const made = [];
+  for (const sp of steps) {
+    const len = Math.max(15, Math.round((sp.minutes || 25) / 15) * 15);
+    for (let guard = 0; guard < 60; guard++) {
+      if (cur + len > DAY_END) { date = addDays(date, 1); cur = 9 * 60; continue; }
+      const hit = busy(date).find(([a, b]) => cur < b && cur + len > a);
+      if (hit) { cur = Math.ceil(hit[1] / 15) * 15; continue; }
+      break;
+    }
+    const b = { id: uid(), date, start: minToTime(cur), end: minToTime(cur + len), title: sp.title, kind: 'focus', note: `来自「${title}」的步骤` };
+    upsert('blocks', b); made.push(b); cur += len + 10; // 步骤之间留 10 分钟
+  }
+  return made;
 }
 
 const HINTS = ['明天下午两点开组会，会后把纪要整理到研究本子', '这个月的目标：考完雅思 G 类，每周两套真题', '想读《纳瓦尔宝典》，还有把这篇文章收藏 https://example.com', '我想成为一个每天都在创造的人'];
@@ -503,6 +534,10 @@ export function Seal() {
   }, []);
 
   const toggleItem = (mid, iid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, on: !it.on } : it) }));
+  const editItem = (mid, iid, patch) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, ...patch } : it) }));
+  // 步骤：排进时间线 / 开始第一步（番茄钟）
+  const scheduleMsg = (m) => { const steps = m.steps.filter((x) => x.on); if (!steps.length) return; const made = scheduleSteps(steps, m.todo.title); setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: steps.length, scheduled: made.length } : x)); toast(`排进了 ${made.length} 段，从 ${made[0].start} 开始`, { label: '看时间线', onClick: () => go('plan/day?d=' + made[0].date) }); api.current.happy && api.current.happy(1.6); };
+  const startStep = (m, x) => { pomo.start({ label: x.title, todoId: m.todo.id, workLen: Math.max(5, Math.min(180, x.minutes || 25)) }); toast(`开始：${x.title} · ${x.minutes || 25} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
   const save = (m) => { const n = saveItems(m.items); setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: n } : x)); api.current.happy && api.current.happy(1.6); api.current.flap && api.current.flap(); };
 
   const login = loginState();
@@ -538,6 +573,11 @@ export function Seal() {
               <input type="checkbox" checked=${it.on} disabled=${m.saved != null} onChange=${() => toggleItem(m.id, it.id)} />
               <span class=${'si-k k-' + it.kind}>${KIND_LABEL[it.kind]}</span>
               <span class="si-b"><b>${it.title}</b><small>${metaOf(it, s)}</small></span>
+              ${m.saved == null && ['todo', 'block', 'goal'].includes(it.kind) && html`<span class="si-edit" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                <${DateInput} value=${it.date} placeholder=${it.kind === 'goal' ? '月份' : '日期'} clearable=${it.kind !== 'block'} onChange=${(v) => editItem(m.id, it.id, { date: v })} />
+                ${it.kind === 'todo' && html`<${TimeInput} value=${it.time} placeholder="时间" onChange=${(v) => editItem(m.id, it.id, { time: v })} />`}
+                ${it.kind === 'block' && html`<${TimeInput} value=${it.start} placeholder="开始" clearable=${false} onChange=${(v) => editItem(m.id, it.id, { start: v, end: minToTime(timeToMin(v) + Math.max(15, timeToMin(it.end) - timeToMin(it.start))) })} />`}
+              </span>`}
             </label>`)}
             ${m.saved != null ? html`<div class="si-saved"><${Icon} name="check" size=${12} /> 已保存 ${m.saved} 项</div>`
               : html`<button class="btn primary sm si-save" disabled=${!m.items.some((it) => it.on)} onClick=${() => save(m)}><${Icon} name="check" size=${13} /> 保存 ${m.items.filter((it) => it.on).length} 项</button>`}
@@ -548,9 +588,11 @@ export function Seal() {
               <input type="checkbox" checked=${x.on} disabled=${m.saved != null} onChange=${() => toggleStep(m.id, x.id)} />
               <span class="si-n">${i + 1}</span>
               <span class="si-b"><b>${x.title}</b><small>${[x.kind, x.minutes ? `${x.minutes} 分` : '', x.hint].filter(Boolean).join(' · ')}</small></span>
+              <button class="si-go" title=${`开始这一步 · ${x.minutes || 25} 分钟番茄钟`} onClick=${(e) => { e.preventDefault(); e.stopPropagation(); startStep(m, x); }}><${Icon} name="play" size=${11} /></button>
             </label>`)}
-            ${m.saved != null ? html`<div class="si-saved"><${Icon} name="check" size=${12} /> 已写进页面 ${m.saved} 步</div>`
-              : html`<button class="btn primary sm si-save" disabled=${!m.steps.some((x) => x.on)} onClick=${() => saveSteps(m)}><${Icon} name="check" size=${13} /> 写进页面 ${m.steps.filter((x) => x.on).length} 步</button>`}
+            <div class="st-sum">共 ${m.steps.filter((x) => x.on).length} 步 · 约 ${(() => { const t = m.steps.filter((x) => x.on).reduce((a, x) => a + (x.minutes || 25), 0); return t >= 60 ? `${Math.floor(t / 60)} 小时${t % 60 ? ' ' + (t % 60) + ' 分' : ''}` : `${t} 分钟`; })()}</div>
+            ${m.saved != null ? html`<div class="si-saved"><${Icon} name="check" size=${12} /> ${m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已写进页面 ${m.saved} 步`}</div>`
+              : html`<div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn primary sm si-save" disabled=${!m.steps.some((x) => x.on)} onClick=${() => saveSteps(m)}><${Icon} name="check" size=${13} /> 写进页面</button><button class="btn sm si-save" disabled=${!m.steps.some((x) => x.on)} title="从现在起依次排进今天的时间线，避开已有安排" onClick=${() => scheduleMsg(m)}><${Icon} name="calendar" size=${13} /> 排进时间线</button></div>`}
           </div>`}
         </div>`)}
         ${busy && html`<div class="sm bot typing"><i></i><i></i><i></i></div>`}

@@ -1667,3 +1667,8 @@ html[data-theme="dark"] .lbtn.gh{background:#f6f8fa;color:#24292f}
 
 .nt-card .card-h .more{font-size:.76rem}
 .bcard .meta{display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px;font-size:.72rem}
+
+/* 汤圆预览里的可改日期 / 时间 */
+.si-edit{display:flex;gap:4px;flex:none;align-items:center}.si-edit .pick{display:inline-flex}.si-edit .pick-btn{height:24px;width:auto;padding:0 8px;font-size:.7rem;border-radius:7px;background:transparent;border-color:transparent;color:var(--text-3);gap:4px}.si-edit .pick-btn:hover{background:var(--hover);border-color:transparent}.si-edit .pick-btn.is-empty span{color:var(--text-4)}
+.si-go{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:var(--text-4);opacity:0;transition:opacity .18s ease .06s,background .15s}.si:hover .si-go{opacity:1}.si-go:hover{background:var(--blue);color:#fff}.si.done .si-go{display:none}
+.st-sum{font-size:.72rem;color:var(--text-4);margin:2px 0 2px 2px}
