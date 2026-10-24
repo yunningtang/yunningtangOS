@@ -439,6 +439,8 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   const openLink = useMemo(() => (t) => go('notes/t:' + encodeURIComponent(t)), []);
   const createRef = useRef(); createRef.current = (title) => { if (!findByTitle(get().notes, title)) newNote({ title, parent: note.id }); };
   const createLinkedStable = useMemo(() => (t) => createRef.current(t), []);
+  const fmtHost = useRef(); // 顶部格式栏挂在这里（编辑器通过 portal 渲染进来）
+  const [fmtOn, setFmtOn] = useState(() => { try { return localStorage.getItem('ytos.fmtbar') !== 'off'; } catch { return true; } });
   const importTitleRef = useRef(); importTitleRef.current = (t) => { if (titleTxt.trim() || !t) return false; setTitleTxt(t); upsert('notes', { id: note.id, title: t, updated: new Date().toISOString() }); return true; };
   const importTitleStable = useMemo(() => (t) => importTitleRef.current(t), []);
   const crumbs = ancestors(notes, note);
@@ -454,6 +456,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     'sep',
     { label: '整页字号', icon: 'type', sub: [['s', '小'], ['', '标准'], ['l', '大'], ['xl', '特大']].map(([v, n]) => ({ label: n, icon: (note.size || '') === v ? 'check' : '', onClick: () => upsert('notes', { id: note.id, size: v }) })) },
     'sep',
+    { label: fmtOn ? '隐藏顶部格式栏' : '显示顶部格式栏', icon: 'type', onClick: () => { const v = !fmtOn; setFmtOn(v); try { localStorage.setItem('ytos.fmtbar', v ? 'on' : 'off'); } catch {} } },
     { label: '历史版本', icon: 'history', hint: '本机', onClick: () => setHistOpen(true) },
     'sep',
     { label: '导出 Markdown', icon: 'download', onClick: () => download(`${title}.md`, `# ${title}\n\n${note.body}`, 'text/markdown') },
@@ -488,6 +491,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
         <${IconBtn} icon="dots" title="更多…" onClick=${(e) => ctxMenu(e, moreMenu(), title)} />
       </div>
     </div>
+    <div class=${'fmt-host ' + (fmtOn ? '' : 'off')} ref=${fmtHost}></div>
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
       ${isDue(note) && html`<div class="rv-bar"><${Icon} name="refresh" size=${14} /><span class="flex1">${reviewLabel(note)} · 看完了，还记得吗？</span><button class="btn sm primary" onClick=${() => reviewDone(note, true)}><${Icon} name="check" size=${13} /> 记得</button><button class="btn sm" onClick=${() => reviewDone(note, false)}>忘了</button></div>`}
@@ -495,7 +499,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
       <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
       <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} backlinks=${backlinks.length} />
       <div onMouseOver=${onOver} onMouseOut=${onOut}>
-      <${Still} k=${note.id + ':' + (note.font || '') + ':' + (note.size || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} pageSize=${note.size} onExitTop=${backToTitle} onExport=${exportSel} onComment=${onCommentStable} onImportTitle=${importTitleStable} /><//>
+      <${Still} k=${note.id + ':' + (note.font || '') + ':' + (note.size || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} pageSize=${note.size} onExitTop=${backToTitle} onExport=${exportSel} onComment=${onCommentStable} onImportTitle=${importTitleStable} fmtHost=${fmtHost} /><//>
       </div>
       ${peek && html`<div class="wiki-peek popmenu" style=${`position:fixed;left:${Math.min(peek.x, innerWidth - 300)}px;top:${peek.y}px`} onMouseEnter=${() => clearTimeout(peekTimer.current)} onMouseLeave=${() => setPeek(null)}>
         ${peek.n ? html`<a class="wp-t" href=${'#/notes/' + peek.n.id}><${Icon} name="note" size=${13} /><b>${noteTitle(peek.n)}</b></a><p>${snippet(peek.n) || '空白页'}</p><small>${fmtShort(peek.n.updated.slice(0, 10))} · ${(notebooks.find((b) => b.id === peek.n.nb) || {}).name || ''}</small>`

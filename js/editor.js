@@ -148,21 +148,24 @@ export function applyInline(prefix, value) {
   const s = sel(); if (!s || !s.rangeCount) return;
   const r = s.getRangeAt(0);
   const up = (n) => { while (n && n.nodeType !== 1) n = n.parentNode; return n; };
+  const tStart = up(r.startContainer), tEnd = up(r.endContainer);
+  const bt = tStart && tStart.closest && tStart.closest('.b-text'); if (!bt || !tEnd || tEnd.closest('.b-text') !== bt) return false; // 跨了块（或根本不在正文里）
   const host = up(r.commonAncestorContainer); const span = host && host.closest && host.closest('span[class]');
   const inB = span && span.closest('.b-text') && span.textContent === r.toString();
   const re = new RegExp('^' + prefix + '-');
   if (inB) {
     const keep = [...span.classList].filter((k) => !re.test(k)); if (value) keep.push(prefix + '-' + value);
     if (keep.length) span.className = keep.join(' '); else { const frag = document.createDocumentFragment(); while (span.firstChild) frag.appendChild(span.firstChild); span.replaceWith(frag); }
-    return;
+    return true;
   }
-  if (r.collapsed) return;
+  if (r.collapsed) return false;
   const el = document.createElement('span');
   // 先把选区里已有的同类 class 去掉，免得嵌套两层
   const frag = r.extractContents(); frag.querySelectorAll('span[class]').forEach((x) => { [...x.classList].forEach((k) => { if (re.test(k)) x.classList.remove(k); }); if (!x.classList.length) { const f = document.createDocumentFragment(); while (x.firstChild) f.appendChild(x.firstChild); x.replaceWith(f); } });
-  if (!value) { r.insertNode(frag); return; }
+  if (!value) { r.insertNode(frag); return true; }
   el.className = prefix + '-' + value; el.appendChild(frag); r.insertNode(el);
   s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(el); s.addRange(nr);
+  return true;
 }
 export function refTargets(q) {
   const st = storeGet(); const k = (q || '').toLowerCase(); const out = [];
@@ -198,7 +201,9 @@ export function focusEditor(root, where = 'start') {
 }
 
 /* ---------- editor ---------- */
-export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop, onExport, onComment, onImportTitle, pageSize }) {
+export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop, onExport, onComment, onImportTitle, pageSize, fmtHost }) {
+  const [fmt, setFmt] = useState(null); // 顶部格式栏显示的当前状态（块类型、字号、粗斜下划线、缩进）
+  const [, tick] = useState(0); useEffect(() => tick(1), []); // 挂载后再渲染一次，格式栏的宿主 div 这时才有
   const allNotes = () => (notesRef ? notesRef.current : notes);
   const [bs, setBs] = useState(() => (initial && initial.length ? initial.map((b) => ({ ...b, v: 0 })) : [block('p', '', { v: 0 })]));
   const [focusReq, setFocusReq] = useState(null);
@@ -218,7 +223,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const curSize = () => { const s0 = sel(); if (!s0 || !s0.rangeCount) return 16; let n = s0.anchorNode; if (n && n.nodeType !== 1) n = n.parentElement; const sp = n && n.closest && n.closest('span[class*="fs-"]'); const m = sp && sp.className.match(/\bfs-(\d{1,2})\b/); if (m) return +m[1]; return Math.round(parseFloat(getComputedStyle(n || root.current).fontSize)) || 16; };
   const savedSel = useRef(null); // 点进字号输入框时编辑器的选区会丢，先记下来，应用时再放回去
   const inText = (s0) => { if (!s0 || !s0.rangeCount || !s0.anchorNode) return false; const n = s0.anchorNode.nodeType === 1 ? s0.anchorNode : s0.anchorNode.parentElement; return !!(n && n.closest && n.closest('.b-text')); };
-  const setSize = (n) => { n = Math.max(8, Math.min(72, Math.round(n))); let s0 = sel(); if (savedSel.current && !inText(s0)) { s0.removeAllRanges(); s0.addRange(savedSel.current); s0 = sel(); } if (s0 && !s0.isCollapsed) { applyInline('fs', String(n)); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } else { const c = curBlock(); if (c) update(c.b.id, { size: String(n) }); } };
+  const setSize = (n) => { n = Math.max(8, Math.min(72, Math.round(n))); let s0 = sel(); if (savedSel.current && !inText(s0)) { s0.removeAllRanges(); s0.addRange(savedSel.current); s0 = sel(); } if (s0 && !s0.isCollapsed && applyInline('fs', String(n))) { setTimeout(() => emit(syncFromDom(bsRef.current)), 0); return; } const rows = rowsInSelection(root.current).map((r) => r.dataset.id); const ids = new Set(rows.length ? rows : [(curBlock() || { b: {} }).b.id]); emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { size: String(n) }) : b))); };
   const stepSize = (d) => setSize(curSize() + d);
   const [lp, setLp] = useState(null); // link popover: { x, y, href, el }
   const lpRef = useRef(null); lpRef.current = lp;
@@ -524,6 +529,12 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
         const a = s && s.rangeCount ? s.getRangeAt(0).commonAncestorContainer : null; const el = a ? (a.nodeType === 1 ? a : a.parentElement) : null;
         const inside = !!(el && r0.contains(el));
         const prevCur = r0.querySelector('.b-row.cur'); const row = inside && s.isCollapsed ? el.closest('.b-row') : null;
+        if (fmtHost) {
+          const rowAny = inside ? el.closest('.b-row') : null; const b = rowAny && bsRef.current.find((x) => x.id === rowAny.dataset.id);
+          const q = (c) => { try { return document.queryCommandState(c); } catch { return false; } };
+          const nf = b ? { type: b.type, indent: b.indent || 0, size: curSize(), bold: q('bold'), italic: q('italic'), underline: q('underline'), strike: q('strikeThrough'), sel: !s.isCollapsed } : null;
+          setFmt((o) => (JSON.stringify(o) === JSON.stringify(nf) ? o : nf));
+        }
         if (prevCur && prevCur !== row) prevCur.classList.remove('cur'); if (row && row !== prevCur) row.classList.add('cur');
         if (!inside || s.isCollapsed || el.closest('pre')) { if (!(document.activeElement && document.activeElement.classList.contains('tp-num'))) { setTb((x) => (x ? null : x)); setTbPop(false); } return; }
         savedSel.current = s.getRangeAt(0).cloneRange();
@@ -736,7 +747,38 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const items = menuItems();
   const tbBtn = (title, fn, child, cls = '') => html`<button title=${title} class=${cls} onMouseDown=${(e) => e.preventDefault()} onClick=${() => { fn(); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); }}>${child}</button>`;
 
-  return html`<div class=${'beditor font-' + (pageFont || 'default') + (pageSize ? ' ps-' + pageSize : '')} ref=${root} contenteditable="true" spellcheck="false"
+  /* --- 顶部固定格式栏（像 Word / Google Docs）：作用于光标所在块或选中的文字 --- */
+  const refreshFmt = () => document.dispatchEvent(new Event('selectionchange'));
+  const fb = (title, fn, child, cls = '') => html`<button type="button" title=${title} class=${'fb ' + cls} onMouseDown=${(e) => { e.preventDefault(); const s0 = sel(); if (inText(s0)) savedSel.current = s0.getRangeAt(0).cloneRange(); }} onClick=${(e) => { fn(e); setTimeout(() => { emit(syncFromDom(bsRef.current)); refreshFmt(); }, 0); }}>${child}</button>`;
+  const restoreSel = () => { const s0 = sel(); if (!inText(s0) && savedSel.current) { s0.removeAllRanges(); s0.addRange(savedSel.current); } };
+  const curB = () => { restoreSel(); const c = curBlock(); return c ? c.b : null; };
+  const selRows = () => { const rows = rowsInSelection(root.current); if (rows.length) return rows.map((r) => r.dataset.id); const b = curB(); return b ? [b.id] : []; };
+  const setTypeFor = (t) => { restoreSel(); const ids = new Set(selRows()); if (!ids.size) return; const list = syncFromDom(bsRef.current); emit(list.map((b) => (ids.has(b.id) && (TEXT_TYPES.includes(b.type) || t === 'p') ? bump(b, { type: b.type === t && LIST_TYPES.includes(t) ? 'p' : t, checked: false }) : b))); if (ids.size === 1) setFocusReq({ id: [...ids][0], pos: 'end' }); setTimeout(refreshFmt, 30); };
+  const indentBy = (d) => { restoreSel(); const ids = new Set(selRows()); if (!ids.size) return; emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { indent: Math.max(0, Math.min(3, (b.indent || 0) + d)) }) : b))); };
+  const inlineOrBlock = (prefix, key, v) => { restoreSel(); const s0 = sel(); if (!(s0 && !s0.isCollapsed && applyInline(prefix, v))) { const ids = new Set(selRows()); emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { [key]: v || undefined }) : b))); } setTimeout(() => { emit(syncFromDom(bsRef.current)); refreshFmt(); }, 0); };
+  const typeLabel = fmt && TYPES[fmt.type] ? TYPES[fmt.type].label : '文本';
+  const bar = fmtHost && fmtHost.current && createPortal(html`<div class="fmt-bar" onMouseDown=${(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}>
+    ${fb('撤销 ⌘Z', () => undo(), html`<${Icon} name="left" size=${14} />`)}${fb('重做 ⌘⇧Z', () => redo(), html`<${Icon} name="right" size=${14} />`)}
+    <span class="fb-sep"></span>
+    ${fb('块类型', (e) => ctxMenu(e, CONVERT_TYPES.map((t) => ({ label: TYPES[t].label, icon: fmt && fmt.type === t ? 'check' : '', onClick: () => setTypeFor(t) })), '块类型'), html`${typeLabel}<${Icon} name="down" size=${11} />`, 'fb-dd')}
+    ${fb('字体', (e) => ctxMenu(e, TEXT_FONTS.map(([v, n]) => ({ label: n, onClick: () => inlineOrBlock('ff', 'font', v) })), '字体'), html`字体<${Icon} name="down" size=${11} />`, 'fb-dd')}
+    <span class="fb-sep"></span>
+    ${fb('减小字号 ⌘⇧,', () => stepSize(-1), '−', 'fb-step')}<input class="fb-num" type="number" min="8" max="72" value=${fmt ? fmt.size : 16} onMouseDown=${(e) => e.stopPropagation()} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); setSize(+e.target.value); e.target.blur(); } }} onChange=${(e) => setSize(+e.target.value)} />${fb('增大字号 ⌘⇧.', () => stepSize(1), '+', 'fb-step')}
+    <span class="fb-sep"></span>
+    ${fb('粗体 ⌘B', () => exec('bold'), html`<b>B</b>`, fmt && fmt.bold ? 'on' : '')}${fb('斜体 ⌘I', () => exec('italic'), html`<i>I</i>`, fmt && fmt.italic ? 'on' : '')}${fb('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`, fmt && fmt.underline ? 'on' : '')}${fb('删除线', () => exec('strikeThrough'), html`<s>S</s>`, 'fb-opt ' + (fmt && fmt.strike ? 'on' : ''))}
+    ${fb('文字颜色', (e) => ctxMenu(e, [{ label: '默认', onClick: () => inlineOrBlock('tc', 'color', '') }, ...TEXT_COLORS.map((c) => ({ label: TEXT_COLOR_NAMES[c], color: `var(--tc-${c})`, onClick: () => inlineOrBlock('tc', 'color', c) }))], '文字颜色'), html`<span class="fb-a">A</span>`, 'fb-color')}
+    ${fb('荧光标记', (e) => ctxMenu(e, [['y', '黄'], ['g', '绿'], ['b', '蓝'], ['p', '紫'], ['r', '红']].map(([c, n]) => ({ label: n, color: { y: '#f7d774', g: '#8fd6a5', b: '#9cc0ff', p: '#d4b8ff', r: '#ffb3b3' }[c], onClick: () => { restoreSel(); applyMark(c); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } })).concat([{ label: '去掉标记', onClick: () => { restoreSel(); applyMark(null); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } }]), '荧光标记'), html`<${Icon} name="pen" size=${14} />`)}
+    <span class="fb-sep"></span>
+    ${fb('链接 ⌘K', () => linkPrompt(), html`<${Icon} name="link" size=${14} />`)}
+    ${onComment && fb('评论', () => { const s0 = sel(); const q = s0 ? s0.toString().trim().slice(0, 160) : ''; const b = curB(); if (b) onComment(b.id, q); }, html`<${Icon} name="chat" size=${14} />`)}
+    ${fb('插入图片', () => { const b = curB(); if (!b) return; askPrompt('图片链接', '', { title: '插入图片', placeholder: 'https://…' }).then((url) => { if (url) insertAfter(b.id, block('image', '', { url }), null); }); }, html`<${Icon} name="image" size=${14} />`, 'fb-opt')}
+    <span class="fb-sep"></span>
+    ${fb('待办列表', () => setTypeFor('todo'), html`<${Icon} name="checksq" size=${14} />`, fmt && fmt.type === 'todo' ? 'on' : '')}${fb('无序列表', () => setTypeFor('bullet'), html`<${Icon} name="list" size=${14} />`, fmt && fmt.type === 'bullet' ? 'on' : '')}${fb('有序列表', () => setTypeFor('number'), html`<span class="fb-ol">1.</span>`, fmt && fmt.type === 'number' ? 'on' : '')}
+    ${fb('减少缩进 ⇧Tab', () => indentBy(-1), html`<${Icon} name="left" size=${13} />`, 'fb-ind fb-opt')}${fb('增加缩进 Tab', () => indentBy(1), html`<${Icon} name="right" size=${13} />`, 'fb-ind fb-opt')}
+    <span class="fb-sep"></span>
+    ${fb('清除格式', () => { exec('removeFormat'); applyInline('tc', ''); applyInline('fs', ''); applyInline('ff', ''); const b = curB(); if (b) update(b.id, { color: undefined, size: undefined, font: undefined }); }, html`<${Icon} name="x" size=${14} />`)}
+  </div>`, fmtHost.current);
+  return html`${bar}<div class=${'beditor font-' + (pageFont || 'default') + (pageSize ? ' ps-' + pageSize : '')} ref=${root} contenteditable="true" spellcheck="false"
     onKeyDown=${onKey} onInput=${onInput} onPaste=${onPaste} onCopy=${onCopy} onCut=${onCut} onClick=${onClick} onContextMenu=${onCtx} onDrop=${onDrop} onDragOver=${onDragOverRoot}
     onCompositionStart=${() => { composing.current = true; }} onCompositionEnd=${() => { composing.current = false; scheduleEmit(); }}
     onMouseDown=${(e) => { downAt.current = e.target; if (lpRef.current && !(e.target.closest && e.target.closest('.link-pop'))) setLp(null); }}>
