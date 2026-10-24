@@ -374,7 +374,8 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .todo .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;align-items:center;font-size:.72rem;color:var(--text-4)}
 .todo .meta .due.late{color:var(--red)}.todo .meta .due.today{color:var(--blue)}.todo .meta .due.passed{color:var(--amber)}
 .todo .defer{display:inline-flex;align-items:center;gap:2px;font-size:.68rem;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber);font-weight:500;white-space:nowrap}.todo .defer.late{background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}.todo .defer:hover{filter:brightness(.94)}
-.bcard .meta .bl{font-weight:600;margin-right:5px;color:var(--amber)}.bcard .meta .bl.late{color:var(--red)}
+.bcard .meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bcard .meta .bl{display:inline-flex;align-items:center;font-size:.66rem;font-weight:500;line-height:1;padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber);white-space:nowrap}.bcard .meta .bl.late{background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}.bcard .meta .bl:hover{filter:brightness(.94)}
 .todo .pr{display:none}
 /* priority lives in the checkbox: colour + tint, like Todoist */
 .todo .cb{border:2px solid var(--pc);background:color-mix(in srgb,var(--pc) 14%,transparent);border-radius:5px;width:17px;height:17px}
