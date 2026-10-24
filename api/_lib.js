@@ -79,3 +79,17 @@ export function readBody(req) {
 export function dataTarget() {
   return { repo: env('DATA_REPO'), branch: env('DATA_BRANCH', 'main'), path: env('DATA_PATH', 'data/os.json') };
 }
+// 配置的分支在仓库里不存在（比如填了 master 但仓库是 main）时，改用仓库的默认分支；结果按函数实例缓存
+const branchCache = new Map();
+export async function resolveBranch(token, repo, want) {
+  const key = repo + '#' + want;
+  if (branchCache.has(key)) return branchCache.get(key);
+  let out = want;
+  const b = await gh(token, `/repos/${repo}/branches/${encodeURIComponent(want)}`);
+  if (b.status === 404) {
+    const r = await gh(token, `/repos/${repo}`);
+    if (r.ok && r.body && r.body.default_branch) out = r.body.default_branch;
+  }
+  branchCache.set(key, out);
+  return out;
+}

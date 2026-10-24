@@ -1,12 +1,13 @@
 // GET  -> { sha, data } of the data file (data null if it does not exist yet)
 // PUT  -> body { content: string, sha?: string } writes the file as a commit
-import { session, json, gh, dataTarget, readBody } from './_lib.js';
+import { session, json, gh, dataTarget, readBody, resolveBranch } from './_lib.js';
 
 export default async function handler(req, res) {
   const s = await session(req);
   if (!s) return json(res, 401, { error: 'not logged in' });
-  const { repo, branch, path } = dataTarget();
+  const { repo, branch: wanted, path } = dataTarget();
   if (!repo) return json(res, 500, { error: 'DATA_REPO is not set' });
+  const branch = await resolveBranch(s.t, repo, wanted);
   const file = `/repos/${repo}/contents/${path}`;
   if (req.method === 'GET') {
     const r = await gh(s.t, `${file}?ref=${encodeURIComponent(branch)}`);

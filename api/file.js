@@ -1,13 +1,14 @@
 // Attachments in the data repo: assets/<id> next to the data file.
 // GET  ?id=...            -> { name, type, content (base64) }
 // PUT  { id, name, type, content (base64) }  -> writes / updates the file as a commit
-import { session, json, gh, dataTarget, readBody } from './_lib.js';
+import { session, json, gh, dataTarget, readBody, resolveBranch } from './_lib.js';
 
 export default async function handler(req, res) {
   const s = await session(req);
   if (!s) return json(res, 401, { error: 'not logged in' });
-  const { repo, branch, path } = dataTarget();
+  const { repo, branch: wanted, path } = dataTarget();
   if (!repo) return json(res, 500, { error: 'DATA_REPO is not set' });
+  const branch = await resolveBranch(s.t, repo, wanted);
   const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) + '/assets' : 'assets';
   const url = new URL(req.url, 'http://x');
   if (req.method === 'GET') {
