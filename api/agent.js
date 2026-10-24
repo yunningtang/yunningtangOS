@@ -225,9 +225,10 @@ function repairJSON(t) {
 }
 const fail = (msg, status = 502) => Object.assign(new Error(msg), { status });
 
-async function askDeepSeek(cfg, system, messages, mode, retry = false) {
-  const sys = system + '\n\n' + JSON_HINT[mode] + (retry ? '\n\n注意：上一次的输出不是合法 JSON 或没写完。这次只输出一个完整、紧凑的 JSON 对象，字符串里的换行写成 \\n，不要 Markdown 代码块，不要多余文字。' : '');
-  const body = { model: cfg.model, max_tokens: 6000, temperature: retry ? 0 : 0.3, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: sys }, ...messages] };
+async function askDeepSeek(cfg, system, messages, mode, retry = 0) {
+  // retry 1：提醒上次 JSON 不合法；retry 2：DeepSeek 的 json_object 模式偶尔会回空内容，这次不开它，靠提示词 + parseLoose
+  const sys = system + '\n\n' + JSON_HINT[mode] + (retry ? '\n\n注意：上一次的输出是空的或不是合法 JSON。这次只输出一个完整、紧凑的 JSON 对象，字符串里的换行写成 \\n，不要 Markdown 代码块，不要多余文字。' : '');
+  const body = { model: cfg.model, max_tokens: 6000, temperature: retry ? 0 : 0.3, ...(retry >= 2 ? {} : { response_format: { type: 'json_object' } }), messages: [{ role: 'system', content: sys }, ...messages] };
   const r = await fetch(`${DS_BASE}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.key}` }, body: JSON.stringify(body) });
   const text = await r.text();
   let j = null; try { j = JSON.parse(text); } catch {}
@@ -241,7 +242,7 @@ async function askDeepSeek(cfg, system, messages, mode, retry = false) {
   }
   const choice = j && j.choices && j.choices[0];
   const content = choice && choice.message && choice.message.content;
-  if (!content) throw fail('DeepSeek 没有返回内容');
+  if (!content || !String(content).trim()) return { out: null, empty: true, raw: '', model: j.model || cfg.model, usage: { in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0, cached: j.usage?.prompt_cache_hit_tokens || 0 }, truncated: false };
   return { out: parseLoose(content), raw: String(content).slice(0, 120), model: j.model || cfg.model, usage: { in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0, cached: j.usage?.prompt_cache_hit_tokens || 0 }, truncated: choice.finish_reason === 'length' };
 }
 
@@ -313,10 +314,15 @@ export async function runAgent(body, cfg) {
   let got;
   try {
     got = cfg.provider === 'deepseek' ? await askDeepSeek(cfg, system, messages, mode) : await askClaude(cfg, system, schema, messages);
-    if ((!got.out || got.truncated) && cfg.provider === 'deepseek') { const again = await askDeepSeek(cfg, system, messages, mode, true); if (again.out && !again.truncated) got = { ...again, usage: { in: got.usage.in + again.usage.in, out: got.usage.out + again.usage.out, cached: got.usage.cached + again.usage.cached } }; } // 坏 JSON 或被截断：换个说法重试一次
+    // DeepSeek：空内容 / 坏 JSON / 被截断 → 最多再试两次（第二次不开 json 模式），用量累加
+    for (let k = 1; k <= 2 && cfg.provider === 'deepseek' && (!got.out || got.truncated); k++) {
+      const again = await askDeepSeek(cfg, system, messages, mode, k);
+      const usage = { in: got.usage.in + again.usage.in, out: got.usage.out + again.usage.out, cached: got.usage.cached + again.usage.cached };
+      got = again.out && !again.truncated ? { ...again, usage } : { ...got, usage, empty: got.empty && again.empty };
+    }
   } catch (e) { return { status: e.status || 502, body: { error: e.message || 'network error' } }; }
   // 结构化操作宁可报错重来，也不把补齐的半截 JSON 当成可靠结果
-  if (!got.out || got.truncated) return { status: 502, body: { error: got.truncated ? '回答太长被截断了，试试拆成几句说' : `汤圆的回答没法解析（${cfg.provider} 返回的不是 JSON：${(got.raw || '').replace(/\s+/g, ' ').slice(0, 60)}…），再试一次？` } };
+  if (!got.out || got.truncated) return { status: 502, body: { error: got.truncated ? '回答太长被截断了，试试拆成几句说' : got.empty ? 'DeepSeek 这次返回了空内容（它的 JSON 模式偶发问题），再发一次就好' : `汤圆的回答没法解析（${cfg.provider} 返回的不是 JSON：${(got.raw || '').replace(/\s+/g, ' ').slice(0, 60)}…），再试一次？`, retryable: true } };
 
   const base = { reply: String(got.out.reply || ''), model: got.model, provider: cfg.provider, usage: got.usage, mode };
   if (mode === 'breakdown') {

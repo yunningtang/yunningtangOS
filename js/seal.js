@@ -293,6 +293,17 @@ export function Seal() {
   const openRef = useRef(false); openRef.current = open;
   const bigRef = useRef(false); bigRef.current = big;
   const undoRef = useRef({}); // 每条已保存消息的撤销函数
+  const [pinnedPos, setPinnedPos] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.panelpos') || 'null'); } catch { return null; } });
+  api.current.pinnedPos = pinnedPos;
+  const savePos = (v) => { setPinnedPos(v); api.current.pinnedPos = v; try { v ? localStorage.setItem('ytos.seal.panelpos', JSON.stringify(v)) : localStorage.removeItem('ytos.seal.panelpos'); } catch {} api.current.posPanel && api.current.posPanel(); };
+  // 拖头部移动对话窗
+  const moveStart = (e) => {
+    if (bigRef.current || e.button !== 0 || e.target.closest('button,a,input')) return;
+    const panel = panelRef.current; const r = panel.getBoundingClientRect(); const dx = e.clientX - r.left, dy = e.clientY - r.top; let moved = false;
+    const mv = (ev) => { if (!moved && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) return; moved = true; api.current.moving = true; panel.classList.add('moving'); const px = Math.min(Math.max(M, ev.clientX - dx), innerWidth - r.width - M), py = Math.min(Math.max(M, ev.clientY - dy), innerHeight - r.height - M); panel.style.left = px + 'px'; panel.style.top = py + 'px'; };
+    const up = (ev) => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); panel.classList.remove('moving'); api.current.moving = false; if (moved) { const rr = panel.getBoundingClientRect(); savePos({ x: rr.left / innerWidth, y: rr.top / innerHeight }); } };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
   const [editing, setEditing] = useState(null); // 手机上点元信息才展开日期 / 时间编辑
   const sRef = useRef(s); sRef.current = s;
   const msgsR = useRef(msgs); msgsR.current = msgs;
@@ -328,8 +339,11 @@ export function Seal() {
     api.current.reset = () => { try { localStorage.removeItem('ytos.seal'); } catch {} perch = null; savePerch(); tx = innerWidth - S - M; ty = innerHeight - S - M - bottomPad(); tucked = false; sqv += .1; };
     place();
     const posPanel = () => {
-      const panel = panelRef.current; if (!panel || !openRef.current || bigRef.current) return;
+      const panel = panelRef.current; if (!panel || !openRef.current || bigRef.current || api.current.moving) return;
       const pw = panel.offsetWidth, ph = panel.offsetHeight;
+      // 对话窗被拖到过别处：就待在那儿，不跟着汤圆跑（位置按窗口比例记，换分辨率也不会跑出屏幕）
+      const pinned = api.current.pinnedPos;
+      if (pinned) { const px = Math.min(Math.max(M, pinned.x * innerWidth), innerWidth - pw - M), py = Math.min(Math.max(M, pinned.y * innerHeight), innerHeight - ph - M); panel.style.left = px + 'px'; panel.style.top = py + 'px'; panel.style.setProperty('--ox', '50%'); panel.style.setProperty('--oy', '50%'); return; }
       let px = x + S / 2 < innerWidth / 2 ? x : x + S - pw; px = Math.min(Math.max(M, px), innerWidth - pw - M);
       let py = y - ph - 16, up = true; if (py < M) { py = y + S + 16; up = false; } py = Math.min(Math.max(M, py), innerHeight - ph - M);
       panel.style.left = px + 'px'; panel.style.top = py + 'px';
@@ -544,13 +558,19 @@ export function Seal() {
           setMsgs((list) => list.map((m) => m.id === pending.id ? { ...m, superseded: true } : m));
           intent = 'modify';
         }
-      } catch (e) { via = 'fallback'; items = fromLocal(text, st); reply = `连不上 AI（${e.message}），我先按本地规则理解：`; }
+      } catch (e) {
+        via = 'fallback';
+        // 像是在聊天 / 提问的句子不要硬按本地规则变成待办
+        const chatty = /[？?]$|^(你|汤圆|谁|为什么|怎么|什么|哪|是不是|有没有)|是谁|吗$|呢$|^(谢谢|哈哈|嗯|好的|哦)/.test(text) || text.length <= 3;
+        items = chatty ? [] : fromLocal(text, st);
+        reply = items.length ? `AI 这次没答上来（${e.message}），我先按本地规则理解：` : `AI 这次没答上来：${e.message}`;
+      }
     } else {
       via = 'local'; items = fromLocal(text, st);
       reply = items.length ? (login && login.user ? '还没接上 AI，我按本地语法理解的：' : '登录后我才能用 AI 拆解，现在先按本地语法：') : '我没听懂要记什么。试试「明天 14:00 开会」这样说？';
     }
     setBusy(false);
-    push({ who: 'bot', text: reply || (items.length ? '拆好了，确认一下？' : '收到。'), items, via, intent });
+    push({ who: 'bot', text: reply || (items.length ? '拆好了，确认一下？' : '收到。'), items, via, intent, ask: via === 'fallback' ? text : '' });
     if (!openRef.current) setBadge((b) => b + 1);
     api.current.happy && api.current.happy(1.2);
   };
@@ -604,7 +624,7 @@ export function Seal() {
     </button>
     <div class=${'seal-panel ' + (open ? '' : 'closed ') + (mode ? 'big ' + mode : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size && !big ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
       <div class="seal-rz" title="拖动调整大小" onPointerDown=${resizeStart}></div>
-      <div class="seal-h">
+      <div class=${'seal-h ' + (pinnedPos && !big ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && !big && { label: '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, !pinnedPos && !big && { label: '拖动顶部可以把对话窗放到任意位置', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${big ? '' : pinnedPos ? '拖动移动 · 双击吸回汤圆旁边' : '拖动可以把对话窗放到别处'}>
         ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
           : html`<span class="seal-id"><i class=${'dot ' + status.cls}></i><b>汤圆</b><small>${status.text}</small></span>`}
         <span class="flex1"></span>
@@ -627,7 +647,7 @@ export function Seal() {
           </div>`}
         ${msgs.map((m) => html`<div key=${m.id} class=${'sm ' + m.who}>
           <div class="sm-t">${m.text}</div>
-          ${m.via === 'fallback' && html`<div class="sm-warn">AI 没有响应，下面是按本地规则识别的，请仔细检查。</div>`}
+          ${m.via === 'fallback' && html`<div class="sm-warn">${m.items && m.items.length ? '下面是按本地规则识别的，请仔细检查。' : ''}<button class="sm-retry" onClick=${() => { setMsgs((list) => list.filter((x) => x.id !== m.id && !(x.who === 'me' && x.text === m.ask && list.indexOf(x) === list.indexOf(m) - 1))); ask(m.ask); }}><${Icon} name="refresh" size=${11} /> 重试</button></div>`}
           ${m.items && m.items.length > 0 && (() => {
             const on = m.items.filter((it) => it.on).length, saved = m.saved != null;
             const needCheck = !saved && m.items.some((it) => it.on && (it.inferred || []).length);
@@ -670,12 +690,8 @@ export function Seal() {
         ${busy && html`<div class="sm bot typing"><i></i><i></i><i></i></div>`}
       </div></div>`}
       <div class="seal-col seal-cw"><form class=${'seal-form ' + (busy ? 'busy' : '')} onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
-        <textarea ref=${inRef} rows="1" value=${txt} placeholder="描述你的安排，比如「周三下午三点和导师开会」" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
-        <div class="seal-fb">
-          <small>${txt.includes('\n') || txt.length > 40 ? 'Enter 发送 · Shift+Enter 换行' : ''}</small>
-          <span class="flex1"></span>
-          <button class="seal-send" type="submit" title="发送（Enter）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${15} />`}</button>
-        </div>
+        <textarea ref=${inRef} rows="1" value=${txt} placeholder="说一句话，比如「周三下午三点和导师开会」" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
+        <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${15} />`}</button>
       </form></div>
     </div>`;
 }
