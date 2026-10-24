@@ -20,6 +20,7 @@ export const TYPES = {
   table: { label: '表格', hint: '3 × 3，可增删行列' },
   file: { label: '文件 / PDF', hint: '附件，PDF 可直接预览' },
   md: { label: 'Markdown', hint: '原始 Markdown' },
+  pending: { label: '让汤圆写', hint: '先占个位，汤圆写好了再替换' },
 };
 export const LIST_TYPES = ['bullet', 'number', 'todo', 'toggle'];
 export const TEXT_TYPES = ['p', 'h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'toggle', 'quote', 'callout'];
@@ -134,10 +135,11 @@ export function sanitizeBlocks(blocks) {
   if (!Array.isArray(blocks)) return [];
   return blocks.filter((b) => b && typeof b === 'object').map((b) => {
     const x = { ...b };
-    if (x.type === 'table') { x.rows = Array.isArray(x.rows) ? x.rows.map((r) => (Array.isArray(r) ? r.map((c) => sanitize(String(c ?? ''))) : [])) : []; x.html = ''; }
+    if (x.type === 'table') { x.rows = Array.isArray(x.rows) ? x.rows.map((r) => (Array.isArray(r) ? r.map((c) => sanitize(String(c ?? ''))) : [])) : []; x.html = ''; if (x.bg && typeof x.bg === 'object') { const ok = {}; Object.entries(x.bg).forEach(([k, v]) => { if (/^\d+,\d+$/.test(k) && ['gray', 'red', 'orange', 'yellow', 'green', 'blue', 'purple'].includes(v)) ok[k] = v; }); x.bg = ok; } else delete x.bg; }
     else if (x.type === 'code') { x.html = escapeHtml(textOf(String(x.html ?? ''))).replace(/\n/g, '<br>'); }
     else if (typeof x.html === 'string' && x.html && /[<&]/.test(x.html)) x.html = sanitize(x.html);
     if (typeof x.url === 'string' && x.url && !/^(https?:|data:image\/)/i.test(x.url.trim())) x.url = '';
+    if (x.type === 'pending') { x.intent = textOf(String(x.intent ?? '')).slice(0, 500); x.error = textOf(String(x.error ?? '')).slice(0, 300); x.html = ''; if (x.status === 'writing') x.status = 'idle'; }
     return x;
   });
 }
@@ -269,6 +271,7 @@ export function mdToBlocks(md) {
     if ((m = line.match(/^[-*+]\s+\[([ xX])\]\s*(.*)$/))) { out.push(block('todo', inlineMdToHtml(m[2]), { checked: m[1] !== ' ', indent })); i++; continue; }
     if ((m = line.match(/^[-*+]\s+(.*)$/))) { out.push(block('bullet', inlineMdToHtml(m[1]), { indent })); i++; continue; }
     if ((m = line.match(/^\d+[.)]\s+(.*)$/))) { out.push(block('number', inlineMdToHtml(m[1]), { indent })); i++; continue; }
+    if ((m = line.match(/^>\s?⏳\s*汤圆待写：(.*)$/))) { out.push(block('pending', '', { intent: m[1].trim(), status: 'idle' })); i++; continue; }
     if ((m = line.match(/^>\s?(💡|⚠️|✅|📌|❗|🔥|📝)\s*(.*)$/))) { out.push(block('callout', inlineMdToHtml(m[2]), { icon: m[1] })); i++; continue; }
     if ((m = line.match(/^>\s?(.*)$/))) {
       const buf = [m[1]]; i++;
@@ -306,6 +309,7 @@ export function blocksToMd(blocks) {
       case 'md': lines.push(textOf(b.html), ''); break;
       case 'table': lines.push(tableToMd(b.rows || [], b.header !== false), ''); break;
       case 'file': lines.push(`[${(b.name || '附件').replace(/[\[\]]/g, '')}](ytos-file://${b.fid}|${b.mime || ''},${b.size || 0})`, ''); break;
+      case 'pending': lines.push(`> ⏳ 汤圆待写：${String(b.intent || '').replace(/\n/g, ' ')}`, ''); break;
       default: lines.push(t, '');
     }
     const next = blocks[idx + 1];
@@ -315,5 +319,5 @@ export function blocksToMd(blocks) {
 }
 
 export function blocksToText(blocks) {
-  return blocks.map((b) => (b.type === 'table' ? (b.rows || []).map((r) => r.map(textOf).join(' ')).join('\n') : b.type === 'file' ? (b.name || '') : textOf(b.html))).join('\n');
+  return blocks.map((b) => (b.type === 'table' ? (b.rows || []).map((r) => r.map(textOf).join(' ')).join('\n') : b.type === 'file' ? (b.name || '') : b.type === 'pending' ? ('汤圆待写：' + (b.intent || '')) : textOf(b.html))).join('\n');
 }

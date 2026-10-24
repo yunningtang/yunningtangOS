@@ -11,6 +11,7 @@ import { todayStr, escapeHtml, imageToDataUrl, pickFile } from './util.js';
 import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './files.js';
 import { fetchAttachment } from './sync.js';
 import { toast } from './nav.js';
+import { fillPending, isRunning } from './docai.js';
 import { TEMPLATES, templateBlocks } from './templates.js';
 
 // Last thing copied from any editor in this tab: lets paste keep block types (lists, headings, todos) intact.
@@ -18,6 +19,7 @@ let lastCopy = null;
 let vclock = 1;
 
 const SLASH_EXTRA = [
+  { k: 'ai', label: '让汤圆写…', hint: '先占位，写好后替换' },
   { k: 'date', label: '今天的日期', hint: todayStr() },
   { k: 'link', label: '链接到页面', hint: '[[ 双链' },
   { k: 'sub', label: '新建子页面', hint: '在这里嵌入' },
@@ -107,8 +109,9 @@ const tableRows = (tbl) => [...tbl.rows].map((tr) => [...tr.cells].map((td) => t
 function renderTable(tbl, b) {
   const rows = b.rows || emptyTable(); const header = b.header !== false;
   // an empty cell gets a <br> so the caret can sit in it (Chrome does the same while editing)
-  tbl.innerHTML = rows.map((r, i) => '<tr>' + r.map((c) => `<${header && i === 0 ? 'th' : 'td'} class="b-cell">${c || '<br>'}</${header && i === 0 ? 'th' : 'td'}>`).join('') + '</tr>').join('');
-  tbl.dataset.json = JSON.stringify([rows, header]);
+  const bg = b.bg || {};
+  tbl.innerHTML = rows.map((r, i) => '<tr>' + r.map((c, j) => `<${header && i === 0 ? 'th' : 'td'} class="b-cell${bg[i + ',' + j] ? ' bg-' + bg[i + ',' + j] : ''}">${c || '<br>'}</${header && i === 0 ? 'th' : 'td'}>`).join('') + '</tr>').join('');
+  tbl.dataset.json = JSON.stringify([rows, header, bg]);
 }
 function cellOf(node) { const el = node && (node.nodeType === 1 ? node : node.parentElement); return el && el.closest ? el.closest('td,th') : null; }
 function onEdgeLine(el, which) {
@@ -168,7 +171,7 @@ export function focusEditor(root, where = 'start') {
 }
 
 /* ---------- editor ---------- */
-export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop, onExport }) {
+export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop, onExport, onComment }) {
   const allNotes = () => (notesRef ? notesRef.current : notes);
   const [bs, setBs] = useState(() => (initial && initial.length ? initial.map((b) => ({ ...b, v: 0 })) : [block('p', '', { v: 0 })]));
   const [focusReq, setFocusReq] = useState(null);
@@ -207,8 +210,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     onChange(out);
   }, [onChange]);
   const syncFromDom = (list = bsRef.current) => list.map((b) => {
-    const el = refs.current.get(b.id); if (!el || !el.isConnected || b.type === 'divider') return b;
-    if (b.type === 'table') { const rows = tableRows(el); const json = JSON.stringify([rows, b.header !== false]); if (json === el.dataset.json) return b; el.dataset.json = json; return { ...b, rows }; }
+    const el = refs.current.get(b.id); if (!el || !el.isConnected || b.type === 'divider' || b.type === 'pending') return b;
+    if (b.type === 'table') { const rows = tableRows(el); const json = JSON.stringify([rows, b.header !== false, b.bg || {}]); if (json === el.dataset.json) return b; el.dataset.json = json; return { ...b, rows }; }
     return el.innerHTML !== b.html ? { ...b, html: el.innerHTML } : b;
   });
   const bump = (b, patch) => ({ ...b, ...patch, v: (b.v || 0) + 1 });
@@ -222,6 +225,16 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     const then = focusReq.then; setFocusReq(null);
     if (then) then();
   }, [focusReq, bs]);
+  useEffect(() => {
+    const h = (e) => { const d = e.detail; if (!d || d.noteId !== noteId || d.handled) return; if (api.current.applyDoc && api.current.applyDoc(d)) d.handled = true; };
+    window.addEventListener('doc:apply', h); return () => window.removeEventListener('doc:apply', h);
+  }, [noteId]);
+  // 每块的未解决评论数：页面在评论变化时广播，这里只更新角标
+  const [cm, setCm] = useState({});
+  useEffect(() => {
+    const h = (e) => { const d = e.detail; if (d && d.noteId === noteId) setCm(d.counts || {}); };
+    window.addEventListener('doc:cm', h); window.dispatchEvent(new CustomEvent('doc:cm-ask', { detail: { noteId } })); return () => window.removeEventListener('doc:cm', h);
+  }, [noteId]);
 
   /* --- where is the caret --- */
   const curBlock = (node) => {
@@ -248,10 +261,17 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   };
 
   /* --- table operations (row / column indices from the DOM cell) --- */
-  const tableOp = (b, op, ri = 0, ci = 0) => {
+  const tableOp = (b, op, ri = 0, ci = 0, val = '') => {
     const cur = syncFromDom(bsRef.current).find((x) => x.id === b.id); if (!cur) return;
     let rows = (cur.rows || emptyTable()).map((r) => [...r]); let header = cur.header !== false;
     const w = rows[0] ? rows[0].length : 1;
+    // 单元格底色跟着行列走：插入 / 删除后把 "行,列" 的键挪到新位置
+    const shift = (fn) => { const out = {}; Object.entries(cur.bg || {}).forEach(([k, v]) => { const [r, c] = k.split(',').map(Number); const n = fn(r, c); if (n) out[n.join(',')] = v; }); return out; };
+    let bg = cur.bg || {};
+    if (op === 'rowBelow') bg = shift((r, c) => [r > ri ? r + 1 : r, c]); else if (op === 'rowAbove') bg = shift((r, c) => [r >= ri ? r + 1 : r, c]);
+    else if (op === 'colRight') bg = shift((r, c) => [r, c > ci ? c + 1 : c]); else if (op === 'colLeft') bg = shift((r, c) => [r, c >= ci ? c + 1 : c]);
+    else if (op === 'delRow') bg = shift((r, c) => (r === ri ? null : [r > ri ? r - 1 : r, c])); else if (op === 'delCol') bg = shift((r, c) => (c === ci ? null : [r, c > ci ? c - 1 : c]));
+    else if (op === 'bg') { bg = { ...bg }; if (val) bg[ri + ',' + ci] = val; else delete bg[ri + ',' + ci]; }
     if (op === 'rowBelow') rows.splice(ri + 1, 0, Array(w).fill(''));
     else if (op === 'rowAbove') rows.splice(ri, 0, Array(w).fill(''));
     else if (op === 'colRight') rows.forEach((r) => r.splice(ci + 1, 0, ''));
@@ -259,11 +279,14 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     else if (op === 'delRow') { if (rows.length > 1) rows.splice(ri, 1); else { removeBlock(b.id); return; } }
     else if (op === 'delCol') { if (w > 1) rows.forEach((r) => r.splice(ci, 1)); else { removeBlock(b.id); return; } }
     else if (op === 'header') header = !header;
-    const list = syncFromDom(bsRef.current).map((x) => (x.id === b.id ? bump(x, { rows, header }) : x)); emit(list);
+    const list = syncFromDom(bsRef.current).map((x) => (x.id === b.id ? bump(x, { rows, header, bg }) : x)); emit(list);
     const fr = op === 'rowBelow' ? ri + 1 : op === 'rowAbove' ? ri : Math.min(ri, rows.length - 1), fc = op === 'colRight' ? ci + 1 : op === 'colLeft' ? ci : Math.min(ci, rows[0].length - 1);
     setFocusReq({ id: b.id, pos: 'start', then: () => { const tbl = refs.current.get(b.id); const cell = tbl && tbl.rows[fr] && tbl.rows[fr].cells[fc]; if (cell) setCaret(cell, 'end'); } });
   };
-  const tableMenu = (b, cell) => { const ri = cell ? cell.parentElement.rowIndex : 0, ci = cell ? cell.cellIndex : 0; return [
+  const CELL_BG = [['gray', '灰'], ['red', '红'], ['orange', '橙'], ['yellow', '黄'], ['green', '绿'], ['blue', '蓝'], ['purple', '紫']];
+  const tableMenu = (b, cell) => { const ri = cell ? cell.parentElement.rowIndex : 0, ci = cell ? cell.cellIndex : 0; const curBg = (b.bg || {})[ri + ',' + ci] || ''; return [
+    { label: '单元格底色', icon: 'tag', sub: [{ label: '无', icon: curBg ? '' : 'check', onClick: () => tableOp(b, 'bg', ri, ci, '') }, ...CELL_BG.map(([k, n]) => ({ label: n, icon: curBg === k ? 'check' : '', color: `var(--cbg-${k}-dot)`, onClick: () => tableOp(b, 'bg', ri, ci, k) }))] },
+    'sep',
     { label: '上方插入行', icon: 'up', onClick: () => tableOp(b, 'rowAbove', ri, ci) }, { label: '下方插入行', icon: 'down', onClick: () => tableOp(b, 'rowBelow', ri, ci) },
     { label: '左侧插入列', icon: 'left', onClick: () => tableOp(b, 'colLeft', ri, ci) }, { label: '右侧插入列', icon: 'right', onClick: () => tableOp(b, 'colRight', ri, ci) },
     'sep', { label: b.header === false ? '首行作为表头' : '取消表头', icon: 'grid', onClick: () => tableOp(b, 'header', ri, ci) },
@@ -346,6 +369,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     }
     const c = curBlock(); if (!c) return;
     const { b, el } = c;
+    if (!el) return; // 分割线 / 占位块自己处理按键
     const m = menuRef.current;
     if (m && m.id === b.id) {
       const items = menuItems(m);
@@ -494,6 +518,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     deleteBeforeCaret(el, m.q.length + 1);
     setMenu(null);
     if (it.k === 'date') { exec('insertText', todayStr() + ' '); emit(syncFromDom(bsRef.current)); return; }
+    if (it.k === 'ai') { askPrompt('要汤圆写什么', '', { title: '让汤圆写一段', ok: '开始写', placeholder: '比如：总结上面三点 / 写一段这个方案的风险 / 列一个对比表' }).then((intent) => { if (!intent || !intent.trim()) return; const nb = { ...block('pending', '', { intent: intent.trim(), status: 'idle' }), v: 0 }; const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); if (i < 0) return; if (!el.textContent.trim()) list[i] = { ...nb, id: b.id }; else list.splice(i + 1, 0, nb); emit(list); setTimeout(() => startPending(el.textContent.trim() ? nb.id : b.id), 0); }); return; }
     if (it.k && it.k.startsWith('tpl:')) { const tpl = templateBlocks(it.k.slice(4)).map((x) => ({ ...x, v: 0 })); const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); const empty = !el.textContent.trim(); list.splice(empty ? i : i + 1, empty ? 1 : 0, ...tpl); emit(list); const first = tpl.find((x) => TEXT_TYPES.includes(x.type) && !textOf(x.html)) || tpl[0]; setFocusReq({ id: first.id, pos: 'end' }); return; }
     if (it.k === 'link') { exec('insertText', '[['); setMenu({ kind: 'link', id: b.id, q: '', idx: 0 }); return; }
     if (it.k === 'sub') { askPrompt('子页面标题', '', { title: '新建子页面', placeholder: '标题' }).then((title) => { if (!title) return; if (onCreatePage) onCreatePage(title); setCaret(el, 'end'); insertNodeAt(sel().getRangeAt(0), mkAnchor('wiki', { title }, title)); emit(syncFromDom(bsRef.current)); }); return; }
@@ -641,7 +666,16 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const onDrop = (e) => { if (dragRef.current) return; if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { dropFiles(e); return; } setTimeout(() => emit(syncFromDom(bsRef.current)), 0); };
   const onDragOverRoot = (e) => { if (dragRef.current) return; if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } };
 
-  Object.assign(api.current, { refs, dragRef, update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert });
+  /* --- 汤圆写入：占位块开始 / 改要求；结果通过 doc:apply 事件回到这里 --- */
+  const startPending = (id) => { const list = syncFromDom(bsRef.current); const b = list.find((x) => x.id === id); if (!b || b.type !== 'pending' || isRunning(id)) return; fillPending(noteId, b, list.map(({ v, ...x }) => x)); };
+  const editPending = (b) => askPrompt('要汤圆写什么', b.intent || '', { title: '改要求', ok: '重新写', placeholder: '写得具体一点，汤圆更好发挥' }).then((intent) => { if (!intent || !intent.trim()) return; update(b.id, { intent: intent.trim(), status: 'idle', error: '' }); setTimeout(() => startPending(b.id), 0); });
+  api.current.applyDoc = (d) => {
+    const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === d.blockId); if (i < 0) return false;
+    const v = (list[i].v || 0) + 1; // 同 id 的块要换版本号，行组件才会重画 DOM
+    if (d.replacement) list.splice(i, 1, ...d.replacement.map((x) => ({ ...x, v }))); else list[i] = bump(list[i], d.patch || {});
+    emit(list); return true;
+  };
+  Object.assign(api.current, { refs, dragRef, update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert, startPending, editPending, onComment: (bid, quote, view) => onComment && onComment(bid, quote, view) });
   const items = menuItems();
   const tbBtn = (title, fn, child, cls = '') => html`<button title=${title} class=${cls} onMouseDown=${(e) => e.preventDefault()} onClick=${() => { fn(); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); }}>${child}</button>`;
 
@@ -665,8 +699,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       ${tbBtn('链接 ⌘K', () => linkPrompt(), html`<${Icon} name="link" size=${13} />`)}
       ${tbBtn('链接到页面（选中文字变成 [[页面]]）', () => wikiFromSelection(), '[[ ]]', 'mono')}
       ${tbBtn('清除格式', () => exec('removeFormat'), html`<${Icon} name="x" size=${13} />`)}
+      ${onComment && tbBtn('评论选中的文字', () => { const s0 = sel(); const q = s0 ? s0.toString().trim().slice(0, 160) : ''; const c = curBlock(); if (c) onComment(c.b.id, q); setTb(null); }, html`<${Icon} name="chat" size=${13} />`)}
     </div>`}
-    ${vis.map((b) => html`<${Row} key=${b.id} b=${b} api=${api.current} hm=${hmenu === b.id} drag=${dragId === b.id} dragging=${!!dragId} drop=${dropAt && dropAt.id === b.id ? (dropAt.after ? 'after' : 'before') : ''} md=${mdEdit === b.id} num=${b.type === 'number' ? numberOf(b) : 0} />
+    ${vis.map((b) => html`<${Row} key=${b.id} b=${b} api=${api.current} cmn=${cm[b.id] || 0} hm=${hmenu === b.id} drag=${dragId === b.id} dragging=${!!dragId} drop=${dropAt && dropAt.id === b.id ? (dropAt.after ? 'after' : 'before') : ''} md=${mdEdit === b.id} num=${b.type === 'number' ? numberOf(b) : 0} />
       ${menu && menu.id === b.id && items.length > 0 && html`<div class="popmenu bmenu" contenteditable="false">${items.map((it, i) => html`<div class=${'pm ' + (i === menu.idx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); applyMenu(it, b); }}><b>${it.label}</b>${it.hint && html`<small>${it.hint}</small>`}</div>`)}</div>`}`)}
     <div class="b-tail" contenteditable="false"></div>
   </div>`;
@@ -676,7 +711,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
 class Row extends Component {
   shouldComponentUpdate(np) {
     const p = this.props;
-    return np.b !== p.b || np.hm !== p.hm || np.drag !== p.drag || np.dragging !== p.dragging || np.drop !== p.drop || np.md !== p.md || np.num !== p.num;
+    return np.b !== p.b || np.hm !== p.hm || np.drag !== p.drag || np.dragging !== p.dragging || np.drop !== p.drop || np.md !== p.md || np.num !== p.num || np.cmn !== p.cmn;
   }
   componentDidMount() { this.sync(); }
   componentDidUpdate(prev) {
@@ -684,13 +719,18 @@ class Row extends Component {
     if (this.props.md && !prev.md && this.el) this.el.focus();
   }
   componentWillUnmount() { const { api, b } = this.props; if (api.refs.current.get(b.id) === this.el) api.refs.current.delete(b.id); }
-  sync() { const el = this.el, b = this.props.b; if (!el) return; this.props.api.refs.current.set(b.id, el); if (b.type === 'table') { if (el.dataset.json !== JSON.stringify([b.rows || emptyTable(), b.header !== false])) renderTable(el, b); return; } if (el.innerHTML !== b.html) el.innerHTML = b.html; }
-  render({ b, api, hm, drag, dragging, drop, md, num }) {
+  sync() { const el = this.el, b = this.props.b; if (!el) return; this.props.api.refs.current.set(b.id, el); if (b.type === 'table') { if (el.dataset.json !== JSON.stringify([b.rows || emptyTable(), b.header !== false, b.bg || {}])) renderTable(el, b); return; } if (el.innerHTML !== b.html) el.innerHTML = b.html; }
+  render({ b, api, hm, drag, dragging, drop, md, num, cmn }) {
     const { update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert } = api;
     const setEl = (el) => { this.el = el; if (el) { api.refs.current.set(b.id, el); if (b.type === 'table' && !el.dataset.json) renderTable(el, b); } };
     const dropCls = drop ? ' drop-' + drop : '';
     let body;
     if (b.type === 'divider') body = html`<div class="b-divider" contenteditable="false" tabindex="0" onKeyDown=${(e) => { if (e.key === 'Backspace' || e.key === 'Delete') removeBlock(b.id); }}><hr/></div>`;
+    else if (b.type === 'pending') body = html`<div class=${'b-pending st-' + (b.status || 'idle')} contenteditable="false" tabindex="0" onKeyDown=${(e) => { if ((e.key === 'Backspace' || e.key === 'Delete') && b.status !== 'writing') { e.preventDefault(); removeBlock(b.id); } if (e.key === 'Enter') { e.preventDefault(); addBelow(b.id); } }}>
+      <span class="bp-ico">${b.status === 'writing' ? html`<span class="bp-spin"></span>` : html`<${Icon} name="sparkle" size=${14} />`}</span>
+      <div class="bp-body"><b>${b.status === 'writing' ? '汤圆正在写…' : b.status === 'error' ? '没写成' : '等汤圆写'}</b><div class="bp-intent">${b.intent || ''}</div>${b.status === 'error' && b.error ? html`<div class="bp-err">${b.error}</div>` : ''}</div>
+      <div class="bp-acts">${b.status !== 'writing' && html`<button class="btn sm primary" onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.startPending(b.id)}>${b.status === 'error' ? '重试' : '开始写'}</button>`}<button class="btn sm ghost" onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.editPending(b)}>改要求</button><button class="ibtn" title="删除" onMouseDown=${(e) => e.preventDefault()} onClick=${() => removeBlock(b.id)}><${Icon} name="x" size=${13} /></button></div>
+    </div>`;
     else if (b.type === 'image') body = html`<figure class=${'b-image al-' + (b.align || 'left')} contenteditable="false" style=${`width:${b.width || 100}%`}>
       <div class="b-imgwrap"><img src=${b.url} alt="" draggable="false" onError=${(e) => { e.target.style.opacity = .3; }} /><span class="img-rz l" title="拖动调整大小" onPointerDown=${(e) => api.imgResize(e, b, -1)}></span><span class="img-rz r" title="拖动调整大小" onPointerDown=${(e) => api.imgResize(e, b, 1)}></span></div>
       <figcaption ref=${setEl} class="b-text b-cap" contenteditable="true" data-ph="图片说明"></figcaption></figure>`;
@@ -709,7 +749,8 @@ class Row extends Component {
     </div>`;
     const menu = (e) => {
       if (window.getSelection && !window.getSelection().isCollapsed) return; e.stopPropagation();
-      if (b.type === 'table') { const cell = e.target.closest && e.target.closest('td,th'); ctxMenu(e, [...api.tableMenu(b, cell), 'sep', { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) }], '表格'); return; }
+      if (b.type === 'table') { const cell = e.target.closest && e.target.closest('td,th'); ctxMenu(e, [...api.tableMenu(b, cell), 'sep', { label: '评论这个表格…', icon: 'chat', onClick: () => api.onComment(b.id, '表格') }, { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) }], '表格'); return; }
+      if (b.type === 'pending') { ctxMenu(e, [b.status !== 'writing' && { label: b.status === 'error' ? '重试' : '开始写', icon: 'sparkle', onClick: () => api.startPending(b.id) }, { label: '改要求', icon: 'edit', onClick: () => api.editPending(b) }, 'sep', { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) }, { label: '删除', icon: 'trash', danger: true, onClick: () => removeBlock(b.id) }].filter(Boolean), '汤圆待写'); return; }
       if (b.type === 'file') { ctxMenu(e, [{ label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) }, 'sep', { label: '移除附件', icon: 'trash', danger: true, onClick: () => removeBlock(b.id) }], b.name || '附件'); return; }
       if (b.type === 'image') { ctxMenu(e, [
         ...[['小', 36], ['中', 60], ['大', 100]].map(([l, w]) => ({ label: l + (w === 100 ? '（原宽）' : ''), icon: (b.width || 100) === w ? 'check' : 'image', onClick: () => update(b.id, { width: w }) })),
@@ -723,6 +764,7 @@ class Row extends Component {
       ctxMenu(e, [
         ...CONVERT_TYPES.map((t) => ({ label: TYPES[t].label, icon: b.type === t ? 'check' : 'note', onClick: () => convert(b, t) })),
         'sep',
+        { label: '评论这一块…', icon: 'chat', onClick: () => api.onComment(b.id, '') },
         { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) },
         { label: '复制一份', icon: 'layers', hint: '⌘D', onClick: () => insertAfter(b.id, cloneBlock(b)) },
         { label: '删除块', icon: 'trash', danger: true, onClick: () => removeBlock(b.id) },
@@ -743,6 +785,7 @@ class Row extends Component {
         </div>`}
       </div>
       ${body}
+      ${cmn > 0 && html`<button class="b-cm" contenteditable="false" title=${`${cmn} 条评论`} onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.onComment(b.id, '', true)}><${Icon} name="chat" size=${12} />${cmn}</button>`}
     </div>`;
   }
 }

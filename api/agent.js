@@ -1,5 +1,5 @@
 // 汤圆（海豹助手）的后端。
-//   POST /api/agent            { mode?: 'capture'|'breakdown', text, history?, context }
+//   POST /api/agent            { mode?: 'capture'|'breakdown'|'doc', text, history?, context }
 //       capture   -> { reply, items: [...] }   一句话拆成 待办 / 时间块 / 笔记
 //       breakdown -> { reply, steps: [...] }   一件大事拆成 3–7 个可执行的步骤（前额叶）
 //   GET  /api/agent?balance=1  -> { provider, model, balance }   DeepSeek 账户余额（Claude 没有这个接口）
@@ -88,6 +88,25 @@ const MODIFY = `modify 的规则：
 - 对方在草稿之外又说了新事情，就是 capture：输出新 items（ref 为 null），草稿不动。`;
 
 const SYSTEM_CAPTURE = [PERSONA, INTENT, CAPTURE, MODIFY].join('\n\n');
+/* 文档模式：汤圆直接往笔记里写。参考 Claude Docs 的写法——第一句就是结论，短句，并列的事用列表，多维比较用表格，不写「本文档」「综上所述」这类话。 */
+const SYSTEM_DOC = `${PERSONA}
+
+现在你在帮妈妈写笔记里的一段内容（task 会说明是哪一种）：
+- write：按「要写什么」在笔记的指定位置写一段新内容。
+- rewrite：按要求改写「这一段」。只改被要求的地方，其余字句、顺序、格式原样保留；对方让删就删，让缩短就缩短。
+- answer：回答评论里的问题，不改正文（markdown 为 null）。如果评论其实是在要求改正文（「改成」「删掉」「补一句」「换个说法」），就当 rewrite 处理：markdown 给改好的整段。
+
+写作要求（像一份好文档，不像聊天）：
+- 第一句就是要点或结论，不写「本文档」「下面」「综上所述」这类开场和收尾。
+- 短句，一句一个意思；并列的事用列表；几个对象按同几个维度比较用表格（| 表头 | ... |）；步骤用有序列表；要勾选的事用 - [ ]。
+- 具体不空泛：数字带单位、日期写清楚；不知道的事写成一句「待确认：…」，不要编造。
+- 用对方的语言（通常是中文），不用 emoji，不加称呼和寒暄。
+- 篇幅跟要求走：没说长度就 80–300 字；对方要「一句话」就一句话。
+- 只用这些 Markdown：# ## ### 标题、- 列表、1. 有序、- [ ] 待办、> 引用、\`\`\` 代码、| 表格 |、**粗体**、*斜体*、[文字](链接)。不要 HTML，不要图片。
+- 标题层级：这段放在正文里，用 ## 或 ###，不用 #。
+
+输出 JSON：{"reply": "...", "markdown": "..."}。reply 是给妈妈看的一句话（20 字以内，说做了什么或答什么；answer 时 reply 就是回答本身，可以到 120 字）。write / rewrite 时 markdown 是写好的内容；answer 且不需要改正文时 markdown 为 null。`;
+
 
 const SYSTEM_BREAKDOWN = `${PERSONA}
 
@@ -123,10 +142,12 @@ const STEP = {
   required: ['title', 'minutes', 'kind', 'hint'],
   properties: { title: { type: 'string' }, minutes: { type: 'integer' }, kind: { type: 'string', enum: ['语言', '思考', '记忆', '动手'] }, hint: S_OR_NULL },
 };
+const SCHEMA_DOC = { type: 'object', additionalProperties: false, required: ['reply', 'markdown'], properties: { reply: { type: 'string' }, markdown: S_OR_NULL } };
 const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'steps'], properties: { reply: { type: 'string' }, steps: { type: 'array', items: STEP } } };
 
 const JSON_HINT = {
   capture: '只输出一个 JSON 对象：{"intent": "chat|capture|plan|modify", "reply": "...", "items": [...]}，每个 item 含 ref,kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
+  doc: '只输出一个 JSON 对象：{"reply": "...", "markdown": "..."}（不需要改正文时 markdown 为 null）。markdown 字符串里的换行写成 \\n。不要输出 JSON 之外的任何文字。',
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
 };
 
@@ -140,6 +161,16 @@ function contextBlock(c, mode) {
   c = c && typeof c === 'object' ? c : {};
   const lines = [`今天：${c.today || ''}（${c.weekday || ''}），现在 ${c.now || ''}`];
   if (c.who) lines.push(`现在登录的名字：${String(c.who).slice(0, 30)}`);
+  if (mode === 'doc') {
+    lines.push(`任务：${['write', 'rewrite', 'answer'].includes(c.task) ? c.task : 'write'}`);
+    if (c.title) lines.push(`笔记标题：${String(c.title).slice(0, 120)}`);
+    if (c.notebook) lines.push(`所在本子：${String(c.notebook).slice(0, 40)}`);
+    if (c.before) lines.push(`这个位置前面的内容（节选）：\n${String(c.before).slice(-1500)}`);
+    if (c.section) lines.push(`这一段（rewrite / answer 的对象）：\n${String(c.section).slice(0, 4000)}`);
+    if (c.after) lines.push(`这个位置后面的内容（节选）：\n${String(c.after).slice(0, 800)}`);
+    if (Array.isArray(c.thread) && c.thread.length) lines.push(`评论线程（旧在前）：\n${c.thread.slice(-8).map((m) => `${String(m.by || '').slice(0, 20)}：${String(m.body || '').slice(0, 600)}`).join('\n')}`);
+    return lines.join('\n');
+  }
   if (mode === 'breakdown') {
     if (c.due) lines.push(`截止日期：${c.due}`);
     if (c.note) lines.push(`对方的备注：${String(c.note).slice(0, 400)}`);
@@ -305,13 +336,13 @@ export default async function handler(req, res) {
 
 // 真正干活的部分，和 HTTP 分开，方便 tools/eval-agent.mjs 直接调用做评测
 export async function runAgent(body, cfg) {
-  const mode = body.mode === 'breakdown' ? 'breakdown' : 'capture';
+  const mode = body.mode === 'breakdown' ? 'breakdown' : body.mode === 'doc' ? 'doc' : 'capture';
   const text = String(body.text || '').trim().slice(0, 4000);
   if (!text) return { status: 400, body: { error: 'text required' } };
   const history = mode === 'capture' ? (Array.isArray(body.history) ? body.history : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-8).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })) : [];
-  const system = mode === 'breakdown' ? SYSTEM_BREAKDOWN : SYSTEM_CAPTURE;
-  const schema = mode === 'breakdown' ? SCHEMA_BREAKDOWN : SCHEMA_CAPTURE;
-  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${mode === 'breakdown' ? '要拆的事' : '说的话'}：${text}` };
+  const system = mode === 'breakdown' ? SYSTEM_BREAKDOWN : mode === 'doc' ? SYSTEM_DOC : SYSTEM_CAPTURE;
+  const schema = mode === 'breakdown' ? SCHEMA_BREAKDOWN : mode === 'doc' ? SCHEMA_DOC : SCHEMA_CAPTURE;
+  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${mode === 'breakdown' ? '要拆的事' : mode === 'doc' ? '要求' : '说的话'}：${text}` };
   const messages = [...history, userMsg];
 
   let got;
@@ -328,6 +359,10 @@ export async function runAgent(body, cfg) {
   if (!got.out || got.truncated) return { status: 502, body: { error: got.truncated ? '回答太长被截断了，试试拆成几句说' : got.empty ? 'DeepSeek 这次返回了空内容（它的 JSON 模式偶发问题），再发一次就好' : `汤圆的回答没法解析（${cfg.provider} 返回的不是 JSON：${(got.raw || '').replace(/\s+/g, ' ').slice(0, 60)}…），再试一次？`, retryable: true } };
 
   const base = { reply: String(got.out.reply || ''), model: got.model, provider: cfg.provider, usage: got.usage, mode };
+  if (mode === 'doc') {
+    const md = typeof got.out.markdown === 'string' && got.out.markdown.trim() ? got.out.markdown.replace(/<[^>]+>/g, '').trim().slice(0, 12000) : null;
+    return { status: 200, body: { ...base, markdown: md } };
+  }
   if (mode === 'breakdown') {
     const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).map(validateStep).filter(Boolean).slice(0, 7);
     return { status: 200, body: { ...base, steps } };

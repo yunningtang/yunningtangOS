@@ -1966,3 +1966,67 @@ html[data-skin="mac"] .subnav a{border-radius:999px}html[data-skin="mac"] .subna
 html[data-skin="mac"] .modal,html[data-skin="mac"] .pop,html[data-skin="mac"] .popmenu,html[data-skin="mac"] .cap,html[data-skin="mac"] .seal-panel,html[data-skin="mac"] .ctx{border-radius:18px;background:var(--paper);box-shadow:var(--pop)}
 html[data-skin="mac"][data-theme="dark"] .modal,html[data-skin="mac"][data-theme="dark"] .pop,html[data-skin="mac"][data-theme="dark"] .popmenu,html[data-skin="mac"][data-theme="dark"] .cap,html[data-skin="mac"][data-theme="dark"] .seal-panel,html[data-skin="mac"][data-theme="dark"] .ctx{background:#2a2a2c}
 html[data-skin="mac"] .seal-form,html[data-skin="mac"] .ac{border-radius:14px}html[data-skin="mac"] .seal-send,html[data-skin="mac"] .quickadd{border-radius:999px}html[data-skin="mac"] .popmenu,html[data-skin="mac"] .ctx{border-radius:12px}
+
+/* ============ 笔记：汤圆写入的占位块 ============ */
+.b-pending{flex:1;min-width:0;display:flex;align-items:flex-start;gap:10px;margin:4px 0;padding:10px 12px;border-radius:var(--r2);border:1.5px dashed rgba(var(--ac),.45);background:rgba(var(--ac),.05);outline:none}
+.b-pending:focus{border-style:solid}
+.b-pending.st-writing{border-style:solid;border-color:rgba(var(--ac),.35);background:rgba(var(--ac),.07)}
+.b-pending.st-error{border-color:rgba(210,82,79,.5);background:rgba(210,82,79,.06)}
+.bp-ico{color:var(--blue);display:grid;place-items:center;width:20px;height:22px;flex-shrink:0}
+.bp-spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(var(--ac),.25);border-top-color:var(--blue);animation:bpspin .8s linear infinite}
+@keyframes bpspin{to{transform:rotate(360deg)}}
+.bp-body{flex:1;min-width:0;font-size:.85rem}.bp-body b{display:block;font-weight:500;color:var(--text);line-height:1.5}
+.bp-intent{color:var(--text-3);white-space:pre-wrap;word-break:break-word}
+.bp-err{color:var(--red);font-size:.78rem;margin-top:4px}
+.bp-acts{display:flex;gap:4px;align-items:center;flex-shrink:0}
+.b-row[data-type="pending"]:hover>.b-gutter{opacity:1}
+
+/* ============ 笔记：块评论 ============ */
+.b-cm{position:absolute;right:-44px;top:4px;display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 7px;border-radius:999px;font-size:.7rem;font-weight:500;color:var(--blue);background:rgba(var(--ac),.1);opacity:.85;transition:opacity .15s,background .15s;user-select:none;-webkit-user-select:none}
+.b-cm:hover{opacity:1;background:rgba(var(--ac),.18)}
+.b-row.cm-flash{background:rgba(var(--ac),.12);transition:background .3s}
+.cmt-panel{position:fixed;right:16px;top:64px;bottom:16px;width:330px;z-index:120;display:flex;flex-direction:column;background:var(--paper);border-radius:14px;box-shadow:var(--pop);animation:pop .15s var(--ease)}
+.cmt-top{display:flex;align-items:center;gap:8px;padding:12px 10px 10px 14px;border-bottom:1px solid var(--line)}
+.cmt-top b{font-size:.9rem;font-weight:600}
+.cmt-body{flex:1;overflow:auto;padding:10px 10px 16px;display:flex;flex-direction:column;gap:10px}
+.cmt-th{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:var(--card-bg)}
+.cmt-th.focus{border-color:rgba(var(--ac),.5);box-shadow:0 0 0 2px rgba(var(--ac),.12)}
+.cmt-th.resolved{opacity:.7}
+.cmt-th.draft{border-style:dashed;border-color:rgba(var(--ac),.5)}
+.cmt-q{text-align:left;font-size:.74rem;color:var(--text-3);padding:4px 8px;border-left:2px solid var(--line-2);background:var(--hover);border-radius:0 6px 6px 0;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cmt-q:hover{color:var(--text);border-left-color:var(--blue)}
+.cmt-m{font-size:.84rem;line-height:1.5}.cmt-m p{white-space:pre-wrap;word-break:break-word}
+.cmt-m.reply{padding-left:10px;border-left:2px solid var(--line)}
+.cmt-m.ai{border-left-color:rgba(var(--ac),.5)}.cmt-m.ai .cmt-h .ic{color:var(--blue)}
+.cmt-h{display:flex;align-items:center;gap:6px;margin-bottom:2px}.cmt-h b{font-weight:600;font-size:.8rem}.cmt-h small{color:var(--text-4);font-size:.68rem}
+.cmt-reply input{width:100%;height:30px;font-size:.82rem}
+.cmt-th textarea{width:100%;font-size:.84rem;resize:vertical;min-height:64px}
+.cmt-foot{display:flex;align-items:center;gap:4px}
+.cmt-empty{text-align:center;color:var(--text-3);padding:40px 16px;font-size:.84rem;line-height:1.6}.cmt-empty .ic{color:var(--text-4);margin-bottom:8px}.cmt-empty p+p{margin-top:6px;font-size:.78rem}
+.page-acts .cm-n{font-size:.68rem;margin-left:-4px;color:var(--blue)}
+@media (max-width:900px){.cmt-panel{left:8px;right:8px;width:auto;top:auto;bottom:8px;height:70vh}.b-cm{right:-6px;top:-10px}}
+
+/* ============ 笔记：页签条 + 历史版本 ============ */
+.tabs-wrap{display:flex;flex-direction:column;gap:4px;margin:0 0 14px}
+.tabs-strip{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:3px;border-radius:10px;background:var(--hover)}
+.tabs-strip .tab{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px;border-radius:8px;font-size:.8rem;color:var(--text-3);text-decoration:none;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s}
+.tabs-strip .tab:hover{color:var(--text);background:var(--hover-2)}
+.tabs-strip .tab.on{color:var(--text);background:var(--paper);font-weight:500;box-shadow:0 1px 2px rgba(20,20,20,.1),0 0 0 1px var(--line)}
+.tabs-strip .tab.main .ic{color:var(--text-4)}.tabs-strip .tab.main.on .ic{color:var(--blue)}
+.tabs-strip .tab.add{padding:0 8px;color:var(--text-4)}.tabs-strip .tab.add:hover{color:var(--text)}
+.tabs-strip .tab.drop-before{box-shadow:inset 2px 0 0 var(--blue)}.tabs-strip .tab.drop-after{box-shadow:inset -2px 0 0 var(--blue)}.tabs-strip .tab.dragging{opacity:.4}
+.tab-ico{font-size:.9em}
+.hist{display:grid;grid-template-columns:200px minmax(0,1fr);gap:14px;min-height:360px}
+.hist-l{display:flex;flex-direction:column;gap:2px;max-height:60vh;overflow:auto;padding-right:4px}
+.hist-i{text-align:left;padding:7px 10px;border-radius:var(--r2);display:flex;flex-direction:column;gap:1px}.hist-i b{font-weight:500;font-size:.82rem}.hist-i small{color:var(--text-4);font-size:.7rem}
+.hist-i:hover{background:var(--hover)}.hist-i.on{background:var(--hover-2)}
+.hist-r{display:flex;flex-direction:column;gap:8px;min-width:0}
+.hist-h{display:flex;align-items:center;gap:8px;font-size:.84rem}
+.hist-prev{max-height:60vh;overflow:auto;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r2);font-size:.88rem;line-height:1.6}
+@media (max-width:720px){.hist{grid-template-columns:1fr}.hist-l{flex-direction:row;flex-wrap:wrap;max-height:120px}}
+
+/* ============ 笔记：表格单元格底色（Claude Docs 的七色） ============ */
+:root{--cbg-gray:#f0efec;--cbg-red:#fbebeb;--cbg-orange:#f9ece7;--cbg-yellow:#f9eeda;--cbg-green:#e5f4e4;--cbg-blue:#e7f1fb;--cbg-purple:#efedff;
+  --cbg-gray-dot:#c9c6c0;--cbg-red-dot:#e8a3a3;--cbg-orange-dot:#e8b899;--cbg-yellow-dot:#e6cf8a;--cbg-green-dot:#9fd3a0;--cbg-blue-dot:#9ec5ec;--cbg-purple-dot:#b9b4f0}
+html[data-theme="dark"]{--cbg-gray:rgba(255,255,255,.07);--cbg-red:rgba(255,99,99,.16);--cbg-orange:rgba(255,150,90,.16);--cbg-yellow:rgba(255,210,90,.16);--cbg-green:rgba(90,210,120,.16);--cbg-blue:rgba(90,160,255,.18);--cbg-purple:rgba(170,150,255,.18)}
+.b-table .b-cell.bg-gray{background:var(--cbg-gray)}.b-table .b-cell.bg-red{background:var(--cbg-red)}.b-table .b-cell.bg-orange{background:var(--cbg-orange)}.b-table .b-cell.bg-yellow{background:var(--cbg-yellow)}.b-table .b-cell.bg-green{background:var(--cbg-green)}.b-table .b-cell.bg-blue{background:var(--cbg-blue)}.b-table .b-cell.bg-purple{background:var(--cbg-purple)}

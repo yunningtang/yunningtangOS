@@ -17,6 +17,8 @@ import { exportCardPng, copyCardPng } from '../card.js';
 import { reviewState, reviewLabel, reviewMenu, reviewDone, isDue } from '../review.js';
 import { NoteTasksView } from './ntasks.js';
 import { CanvasView, canvasesOf, newCanvas } from './canvas.js';
+import { CommentsPanel, openCounts } from '../comments.js';
+import { snapshot, listHistory, restoreSnapshot, fmtSnapTime } from '../history.js';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -383,6 +385,21 @@ export function NotesBack() { const href = notesBackHref(); return html`<a class
 function Page({ note, notes, notebooks = [], onCreateChild }) {
   useEffect(() => { try { localStorage.setItem('ytos.notes.last', note.id); } catch {} }, [note.id]);
   const [moveOpen, setMoveOpen] = useState(false);
+  // 评论：面板开关、新评论草稿（哪一块、引用的文字）、要定位的线程
+  const [cmOpen, setCmOpen] = useState(false); const [cmDraft, setCmDraft] = useState(null); const [cmFocus, setCmFocus] = useState(null);
+  const onCommentRef = useRef(); onCommentRef.current = (bid, quote, view) => {
+    setCmOpen(true);
+    if (view) { setCmFocus(bid); setCmDraft(null); return; }
+    const b = (note.blocks || []).find((x) => x.id === bid); const q = quote || (b ? (b.type === 'table' ? '表格' : b.type === 'image' ? '图片' : b.type === 'file' ? (b.name || '附件') : textOf(b.html).slice(0, 120)) : '');
+    setCmFocus(null); setCmDraft({ bid, quote: q });
+  };
+  const onCommentStable = useMemo(() => (bid, q, v) => onCommentRef.current(bid, q, v), []);
+  useEffect(() => { const send = () => window.dispatchEvent(new CustomEvent('doc:cm', { detail: { noteId: note.id, counts: openCounts(note) } })); send(); const h = (e) => { if (e.detail && e.detail.noteId === note.id) send(); }; window.addEventListener('doc:cm-ask', h); return () => window.removeEventListener('doc:cm-ask', h); }, [note.id, note.comments]);
+  const cmOpenN = (note.comments || []).filter((c) => !c.resolved).length;
+  // 历史版本：编辑停下 3 秒后存一份到本机；换页时也存一份
+  const [histOpen, setHistOpen] = useState(false);
+  const snapTimer = useRef(); const noteRef = useRef(note); noteRef.current = note;
+  useEffect(() => () => { clearTimeout(snapTimer.current); snapshot(noteRef.current); }, [note.id]);
   const [peek, setPeek] = useState(null); // { title, n, x, y } hover preview of a [[link]]
   const peekTimer = useRef();
   const onOver = (e) => { const a = e.target.closest && e.target.closest('a.wiki'); clearTimeout(peekTimer.current); if (!a) { if (!(e.target.closest && e.target.closest('.wiki-peek'))) setPeek(null); return; } peekTimer.current = setTimeout(() => { const title = a.dataset.title || a.textContent; const r = a.getBoundingClientRect(); setPeek({ title, n: findByTitle(notesRef.current, title), x: r.left, y: r.bottom + 6 }); }, 350); };
@@ -398,7 +415,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   const backToTitle = useMemo(() => () => { const t = titleRef.current; if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, []);
   // 同步从别的设备拉回这一页的新版本时，编辑器没在输入就换成新版本；在输入就先不动，免得打断（本机改动会在下一次合并时按时间戳处理）
   const seededAt = useRef(note.updated); const [extVer, setExtVer] = useState(0);
-  const onBlocks = useMemo(() => (blocks) => { const updated = new Date().toISOString(); seededAt.current = updated; upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated }); }, [note.id]);
+  const onBlocks = useMemo(() => (blocks) => { const updated = new Date().toISOString(); seededAt.current = updated; const body = blocksToMd(blocks); upsert('notes', { id: note.id, blocks, body, updated }); clearTimeout(snapTimer.current); snapTimer.current = setTimeout(() => snapshot({ ...noteRef.current, blocks, body }), 3000); }, [note.id]);
   useEffect(() => { if (note.updated === seededAt.current) return; const ed = document.querySelector('.beditor'); const typing = ed && ed.contains(document.activeElement); if (!typing) { seededAt.current = note.updated; setExtVer((v) => v + 1); } }, [note.updated]);
   const blocks = useMemo(() => (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), [note.id, extVer]);
   const notesRef = useRef(notes); notesRef.current = notes;
@@ -414,6 +431,8 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     { label: '字体：默认', icon: !note.font || note.font === 'default' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'default' }) },
     { label: '字体：衬线', icon: note.font === 'serif' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'serif' }) },
     { label: '字体：等宽', icon: note.font === 'mono' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'mono' }) },
+    'sep',
+    { label: '历史版本', icon: 'history', hint: '本机', onClick: () => setHistOpen(true) },
     'sep',
     { label: '导出 Markdown', icon: 'download', onClick: () => download(`${title}.md`, `# ${title}\n\n${note.body}`, 'text/markdown') },
     { label: '复制 Markdown', icon: 'layers', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(`# ${title}\n\n${note.body}`); toast('已复制 Markdown'); } },
@@ -442,6 +461,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
       <span class="flex1"></span>
       <div class="page-acts">
         <button class=${'btn ghost sm ' + (focus ? 'on' : '')} title=${focus ? '退出专注（Esc）' : '全屏专注写作'} onClick=${() => setFocus(!focus)}><${Icon} name=${focus ? 'x' : 'eye'} size=${14} /> ${focus ? '退出' : '专注'}</button>
+        <${IconBtn} icon="chat" title=${cmOpenN ? `${cmOpenN} 条未解决的评论` : '评论'} class=${'ibtn ' + (cmOpen || cmOpenN ? 'on' : '')} onClick=${() => { setCmFocus(null); setCmOpen(!cmOpen); }} />${cmOpenN > 0 && html`<span class="cm-n">${cmOpenN}</span>`}
         <${IconBtn} icon="star" title=${note.pinned ? '取消收藏' : '收藏'} class=${'ibtn ' + (note.pinned ? 'on' : '')} onClick=${() => upsert('notes', { id: note.id, pinned: !note.pinned })} />
         <${IconBtn} icon="dots" title="更多…" onClick=${(e) => ctxMenu(e, moreMenu(), title)} />
       </div>
@@ -449,16 +469,17 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
       ${isDue(note) && html`<div class="rv-bar"><${Icon} name="refresh" size=${14} /><span class="flex1">${reviewLabel(note)} · 看完了，还记得吗？</span><button class="btn sm primary" onClick=${() => reviewDone(note, true)}><${Icon} name="check" size=${13} /> 记得</button><button class="btn sm" onClick=${() => reviewDone(note, false)}>忘了</button></div>`}
+      <${TabStrip} note=${note} notes=${notes} onCreateChild=${onCreateChild} />
       <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
       <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} backlinks=${backlinks.length} />
       <div onMouseOver=${onOver} onMouseOut=${onOut}>
-      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} /><//>
+      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} onComment=${onCommentStable} /><//>
       </div>
       ${peek && html`<div class="wiki-peek popmenu" style=${`position:fixed;left:${Math.min(peek.x, innerWidth - 300)}px;top:${peek.y}px`} onMouseEnter=${() => clearTimeout(peekTimer.current)} onMouseLeave=${() => setPeek(null)}>
         ${peek.n ? html`<a class="wp-t" href=${'#/notes/' + peek.n.id}><${Icon} name="note" size=${13} /><b>${noteTitle(peek.n)}</b></a><p>${snippet(peek.n) || '空白页'}</p><small>${fmtShort(peek.n.updated.slice(0, 10))} · ${(notebooks.find((b) => b.id === peek.n.nb) || {}).name || ''}</small>`
         : html`<div class="wp-t"><${Icon} name="plus" size=${13} /><b>${peek.title}</b></div><p class="muted">这一页还没创建，点链接会新建。</p>`}
       </div>`}
-      ${kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${fmtShort(k.updated.slice(0, 10))}</span></a>`)}</div>`}
+      ${false && kids.length > 0 && html`<div class="subpages"><div class="sec-h">子页面</div>${kids.map((k) => html`<a class="sub-row" href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))}><${Icon} name="note" size=${14} class="muted" />${noteTitle(k)}<span class="muted small" style="margin-left:auto">${fmtShort(k.updated.slice(0, 10))}</span></a>`)}</div>`}
       <div class="links-sec">
         ${outgoing.length > 0 && html`<div class="sec-h">链接到 <span class="muted">${outgoing.length}</span></div><div class="row wrap" style="gap:6px">${outgoing.map(({ t, n }) => html`<a class=${'tag click ' + (n ? '' : 'ghost')} href=${'#/notes/t:' + encodeURIComponent(t)}>${n ? '' : '＋ '}${t}</a>`)}</div>`}
         <div class="sec-h" style="margin-top:14px">反向链接 <span class="muted">${backlinks.length}</span></div>
@@ -468,7 +489,44 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
       </div>
     </div>
     <${MoveModal} open=${moveOpen} note=${note} notes=${notes} onClose=${() => setMoveOpen(false)} />
+    <${HistoryModal} note=${note} open=${histOpen} onClose=${() => setHistOpen(false)} />
+    <${CommentsPanel} note=${note} open=${cmOpen} draft=${cmDraft} focusBid=${cmFocus} onClose=${() => { setCmOpen(false); setCmDraft(null); }} onDraftDone=${() => setCmDraft(null)} />
   </div>`;
+}
+
+// 页签条（参考 Claude Docs 的 tab）：有父页时，父页是第一个页签，兄弟页排在后面；自己有子页时再来一行。右键页签有页面菜单，+ 新建一个页签。
+function TabStrip({ note, notes, onCreateChild }) {
+  const parent = note.parent ? notes.find((x) => x.id === note.parent) : null;
+  const kids = childrenOf(notes, note.id);
+  const rows = [];
+  if (parent) rows.push({ root: parent, items: childrenOf(notes, parent.id) });
+  if (kids.length) rows.push({ root: note, items: kids });
+  if (!rows.length) return null;
+  const add = (root) => { const n = newNote({ parent: root.id, title: '' }); go('notes/' + n.id); };
+  return html`<div class="tabs-wrap">${rows.map(({ root, items }) => html`<div class="tabs-strip" key=${root.id}>
+    <a class=${'tab main ' + (root.id === note.id ? 'on' : '')} href=${'#/notes/' + root.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(root, notes), noteTitle(root))} title=${root.id === note.id ? '本页' : '上一级：' + noteTitle(root)}><${Icon} name="note" size=${12} />${root.id === note.id ? '本页' : noteTitle(root)}</a>
+    ${items.map((k) => html`<a key=${k.id} class=${'tab ' + (k.id === note.id ? 'on' : '')} href=${'#/notes/' + k.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(k, notes), noteTitle(k))} ...${dragProps('page', { id: k.id })} ...${dropProps('page', (d, { after }) => { if (d.id !== k.id) movePage(d.id, { parent: root.id, [after ? 'after' : 'before']: k.id }); }, { position: true, horizontal: true })}>${k.icon ? html`<span class="tab-ico">${k.icon}</span>` : ''}${noteTitle(k)}</a>`)}
+    <button class="tab add" title="新建页签（作为子页面）" onClick=${() => add(root)}><${Icon} name="plus" size=${12} /></button>
+  </div>`)}</div>`;
+}
+
+// 历史版本（本机）：左边是快照列表，右边预览；恢复会先把现在的内容存一份
+function HistoryModal({ note, open, onClose }) {
+  const [list, setList] = useState(null); const [sel, setSel] = useState(0);
+  useEffect(() => { if (!open) return; setList(null); listHistory(note.id).then((l) => { setList([...l].reverse()); setSel(0); }); }, [open, note.id]);
+  if (!open) return null;
+  const cur = list && list[sel];
+  return html`<${Modal} open=${open} onClose=${onClose} title="历史版本" wide=${true}>
+    ${!list ? html`<p class="muted small">读取中…</p>` : !list.length ? html`<div class="empty small">还没有快照。编辑停下来几秒后会自动存一份（只存在这台设备上）。</div>`
+    : html`<div class="hist">
+      <div class="hist-l">${list.map((h, i) => html`<button key=${h.at} class=${'hist-i ' + (i === sel ? 'on' : '')} onClick=${() => setSel(i)}><b>${fmtSnapTime(h.at)}</b><small>${(h.body || '').replace(/\s/g, '').length} 字${i === 0 ? ' · 最近' : ''}</small></button>`)}</div>
+      <div class="hist-r">
+        <div class="hist-h"><b>${cur && fmtSnapTime(cur.at)}</b><span class="flex1"></span>
+          <button class="btn sm primary" disabled=${!cur || cur.body === note.body} onClick=${async () => { await restoreSnapshot(note, cur); toast('已恢复到那个版本（现在的内容也存了一份）'); onClose(); }}>${cur && cur.body === note.body ? '就是现在这版' : '恢复到这个版本'}</button></div>
+        <div class="md hist-prev" dangerouslySetInnerHTML=${{ __html: cur ? renderMd(cur.body) : '' }}></div>
+      </div>
+    </div>`}
+  <//>`;
 }
 
 function MoveModal({ open, note, notes, onClose }) {
