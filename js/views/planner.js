@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select } from '../ui.js';
-import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet } from '../util.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select, colorSub } from '../ui.js';
+import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet, KIND_COLOR_NAMES } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
@@ -14,7 +14,7 @@ function kindMenu(e, k) {
   const save = (fn) => update((d) => { const it = (d.settings.kinds || []).find((x) => x.v === k.v); if (it) { fn(it); it.updated = new Date().toISOString(); } });
   ctxMenu(e, [
     { label: '重命名', icon: 'edit', onClick: async () => { const v = await askPrompt('类型名称', k.name, { title: '重命名类型' }); if (v && v.trim()) save((it) => { it.name = v.trim(); }); } },
-    { label: '换一个颜色', icon: 'refresh', onClick: () => save((it) => { const i = KIND_COLORS.indexOf(it.color); it.color = KIND_COLORS[(i + 1) % KIND_COLORS.length]; }) },
+    { label: '换颜色', icon: 'tag', sub: colorSub(k.color, KIND_COLORS, KIND_COLOR_NAMES, (c) => save((it) => { it.color = c; })) },
     'sep',
     { label: '删除类型', icon: 'trash', danger: true, hint: '已有的时间块会变成「深度专注」', onClick: () => update((d) => { d.settings.kinds = (d.settings.kinds || []).filter((x) => x.v !== k.v); d.blocks.forEach((b) => { if (b.kind === k.v) b.kind = 'focus'; }); }) },
   ], k.name);

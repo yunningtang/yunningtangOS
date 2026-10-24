@@ -102,6 +102,26 @@ export function IconBtn({ icon, title, size = 15, ...rest }) {
 }
 
 function flat(c) { return Array.isArray(c) ? c.map(flat).join('') : (c == null || typeof c === 'object') ? '' : String(c); }
+
+// 系统取色器：返回 #rrggbb，取消返回 null
+export function pickColor(initial) {
+  return new Promise((resolve) => {
+    const inp = document.createElement('input'); inp.type = 'color'; inp.value = /^#[0-9a-f]{6}$/i.test(initial || '') ? initial : '#4f7cf5';
+    inp.style.cssText = 'position:fixed;left:-20px;top:-20px;width:1px;height:1px;opacity:0;pointer-events:none';
+    let done = false; const fin = (v) => { if (done) return; done = true; resolve(v); setTimeout(() => inp.remove(), 0); };
+    inp.addEventListener('change', () => fin(inp.value)); inp.addEventListener('cancel', () => fin(null));
+    document.body.appendChild(inp); inp.click(); setTimeout(() => fin(null), 120000);
+  });
+}
+// 「换颜色」子菜单：预设色打勾 + 自定义…（系统取色器）
+export function colorSub(current, palette, names, onPick) {
+  const cur = (current || '').toLowerCase(); const inPal = palette.some((c) => c.toLowerCase() === cur);
+  return [
+    ...palette.map((c, i) => ({ label: names[i] || String(i + 1), icon: c.toLowerCase() === cur ? 'check' : '', color: c, onClick: () => onPick(c) })),
+    'sep',
+    { label: inPal || !cur ? '自定义…' : '自定义（当前）', icon: inPal || !cur ? 'edit' : '', color: inPal || !cur ? undefined : cur, onClick: async () => { const v = await pickColor(inPal ? cur : (cur.startsWith('#') ? cur : '')); if (v) onPick(v); } },
+  ];
+}
 // 右键任何标签：换颜色 / 重命名（所有地方一起改）/ 从所有条目移除 / 去筛选
 export function tagMenu(e, name) {
   const key = tagKey(name); if (!key) return;
@@ -110,7 +130,7 @@ export function tagMenu(e, name) {
     { label: '在笔记里筛选', icon: 'note', onClick: () => go('notes?tag=' + encodeURIComponent(name)) },
     { label: '在待办里筛选', icon: 'checksq', onClick: () => go('todos?tag=' + encodeURIComponent(name)) },
     'sep',
-    { label: '换颜色', icon: 'tag', sub: TAG_COLORS.map((c, i) => ({ label: TAG_COLOR_NAMES[i] || String(i), icon: tagColor(name)[0] === c[0] ? 'check' : '', hint: '●', color: c[0], onClick: () => update((d) => { d.settings.tagColors = { ...(d.settings.tagColors || {}), [key]: i }; }) })) },
+    { label: '换颜色', icon: 'tag', sub: colorSub(tagColor(name)[0], TAG_COLORS.map((c) => c[0]), TAG_COLOR_NAMES, (c) => update((d) => { const i = TAG_COLORS.findIndex((x) => x[0].toLowerCase() === c.toLowerCase()); d.settings.tagColors = { ...(d.settings.tagColors || {}), [key]: i >= 0 ? i : [c, c] }; })) },
     { label: '重命名…', icon: 'edit', hint: cnt ? `${cnt} 处` : '', onClick: async () => { const v = await askPrompt('新名字', name, { title: `重命名标签 #${name}`, placeholder: '所有用到的地方一起改' }); if (v && v.trim() && v.trim() !== name) { const n = renameTag(name, v.trim()); toast(`已改名，${n} 处更新`); } } },
     'sep',
     { label: '从所有条目移除', icon: 'trash', danger: true, hint: cnt ? `${cnt} 处` : '', disabled: !cnt, onClick: async () => { if (await askConfirm(`${cnt} 个条目上的 #${name} 会被去掉，条目本身保留。`, { title: `移除标签 #${name}？`, ok: '移除' })) { removeTag(name); toast('已移除'); } } },

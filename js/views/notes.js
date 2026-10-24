@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect, useRef, Component } from '../../vendor/preact.js';
 import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field , tagMenu } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field , tagMenu, colorSub } from '../ui.js';
 import { uid, todayStr, addDays, sortBy, debounce, escapeHtml, download, tagColor, fmtShort } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
@@ -47,6 +47,7 @@ export function ancestors(notes, n) {
   return out;
 }
 export const NB_COLORS = ['#4f7cf5', '#7461c9', '#2d8f88', '#c9588a', '#c7873a', '#4a9a6a', '#d2524f', '#8a8f98'];
+export const NB_COLOR_NAMES = ['蓝', '紫', '青', '粉', '橙', '绿', '红', '灰'];
 export function nbOf(s, id) { return s.notebooks.find((b) => b.id === id); }
 export function newNotebook(name, color) {
   const nb = { id: uid(), name: name || '新本子', color: color || NB_COLORS[get().notebooks.length % NB_COLORS.length], order: Date.now() };
@@ -58,7 +59,7 @@ export function notebookMenu(nb, s, onRename) {
   return [
     { label: '新建页面', icon: 'plus', onClick: () => { const n = newNote({ nb: nb.id }); go('notes/' + n.id); } },
     { label: '重命名', icon: 'edit', onClick: onRename },
-    { label: '换颜色', icon: 'tag', onClick: () => update((d) => { const b = d.notebooks.find((x) => x.id === nb.id); b.color = NB_COLORS[(NB_COLORS.indexOf(b.color) + 1) % NB_COLORS.length]; }) },
+    { label: '换颜色', icon: 'tag', sub: colorSub(nb.color, NB_COLORS, NB_COLOR_NAMES, (c) => update((d) => { const b = d.notebooks.find((x) => x.id === nb.id); if (b) b.color = c; })) },
     'sep',
     { label: '删除本子', icon: 'trash', danger: true, hint: count ? `${count} 页进最近删除` : '', disabled: nb.id === 'nb-inbox', onClick: async () => { if (count && !(await askConfirm(`里面的 ${count} 页会进入「最近删除」，30 天内可恢复。`, { title: `删除本子「${nb.name}」？`, ok: '删除本子' }))) return; const ids = s.notes.filter((n) => n.nb === nb.id).map((n) => n.id); update((d) => { d.notebooks = d.notebooks.filter((x) => x.id !== nb.id); }); if (ids.length) trashPages(ids, nb.name); } },
   ];

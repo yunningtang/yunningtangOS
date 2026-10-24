@@ -224,6 +224,7 @@ export function allKinds() { return [...BLOCK_KINDS, ...EXTRA_KINDS]; }
 export function kindOf(v) { return allKinds().find((k) => k.v === v) || { v, name: v, color: '#9aa3ad' }; }
 export function kindColor(v) { return kindOf(v).color; }
 export const KIND_COLORS = ['#3b6fd6', '#7461c9', '#1f9d8a', '#c9588a', '#c99a4a', '#4a9a6a', '#d2524f', '#e08a3c', '#2f9fd0', '#8a6d3b', '#5b7cfa', '#b4457a'];
+export const KIND_COLOR_NAMES = ['蓝', '紫', '青', '粉', '黄', '绿', '红', '橙', '天蓝', '棕', '靛', '玫红'];
 
 // Stable pastel colour for a label (tags, areas).
 // Each tag gets its own colour from the iOS system palette (light / dark variants), handed out
