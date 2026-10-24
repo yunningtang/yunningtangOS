@@ -97,6 +97,7 @@ export default function Settings() {
       <${Card} title="外观" id="set-look" sub="主题选「跟随系统」时会随操作系统的深浅色切换；风格决定卡片、边线和配色的整体质感。">
         <div class="form">
             <${Field} label="主题"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
+            <${Field} label="质感" hint="「毛玻璃」给每张卡片加实时模糊，鼠标一动整页都要重算，老一点的电脑会卡；「轻快」用半透明底色代替，看起来差不多，交互顺滑。"><${Seg} options=${[{ v: 'lite', label: '轻快（推荐）' }, { v: 'full', label: '毛玻璃' }]} value=${s.settings.fx === 'full' ? 'full' : 'lite'} onChange=${(v) => update((d) => { d.settings.fx = v; })} /><//>
             <${Field} label="风格"><div class="skin-pick">${[
               { v: 'glass', n: '玻璃', d: '半透明卡片，柔和光晕', bg: 'linear-gradient(135deg,#eef2fb,#f6f3f8)', card: 'rgba(255,255,255,.7)', ac: '#4f7cf5', line: 'rgba(255,255,255,.9)' },
               { v: 'liquid', hidden: true, n: '液态玻璃', d: 'iOS 26 风：透亮折射、胶囊控件、流动色彩', bg: 'linear-gradient(135deg,#dfe9ff,#ffe3ef 45%,#dcf5ee)', card: 'rgba(255,255,255,.38)', ac: '#2f7cf6', line: 'rgba(255,255,255,.95)' },

@@ -2030,3 +2030,13 @@ html[data-skin="mac"] .seal-form,html[data-skin="mac"] .ac{border-radius:14px}ht
   --cbg-gray-dot:#c9c6c0;--cbg-red-dot:#e8a3a3;--cbg-orange-dot:#e8b899;--cbg-yellow-dot:#e6cf8a;--cbg-green-dot:#9fd3a0;--cbg-blue-dot:#9ec5ec;--cbg-purple-dot:#b9b4f0}
 html[data-theme="dark"]{--cbg-gray:rgba(255,255,255,.07);--cbg-red:rgba(255,99,99,.16);--cbg-orange:rgba(255,150,90,.16);--cbg-yellow:rgba(255,210,90,.16);--cbg-green:rgba(90,210,120,.16);--cbg-blue:rgba(90,160,255,.18);--cbg-purple:rgba(170,150,255,.18)}
 .b-table .b-cell.bg-gray{background:var(--cbg-gray)}.b-table .b-cell.bg-red{background:var(--cbg-red)}.b-table .b-cell.bg-orange{background:var(--cbg-orange)}.b-table .b-cell.bg-yellow{background:var(--cbg-yellow)}.b-table .b-cell.bg-green{background:var(--cbg-green)}.b-table .b-cell.bg-blue{background:var(--cbg-blue)}.b-table .b-cell.bg-purple{background:var(--cbg-purple)}
+
+/* ============ 质感：lite（默认）不用实时模糊 ============
+   backdrop-filter 让每张卡片在底下内容变化时都重新模糊一遍；鼠标悬停、海豹动一下都会触发，整页就卡。
+   lite 用更实一点的半透明底色代替，样子接近，交互顺滑；选「毛玻璃」才恢复模糊。 */
+html[data-fx="lite"] .card,html[data-fx="lite"] .side,html[data-fx="lite"] body.scrolled .topbar,html[data-fx="lite"] .now-days,html[data-fx="lite"] .seal-panel{-webkit-backdrop-filter:none;backdrop-filter:none}
+html[data-fx="lite"][data-skin="glass"][data-theme="light"]{--glass:rgba(255,255,255,.84);--glass-side:rgba(246,247,250,.9)}
+html[data-fx="lite"][data-skin="glass"][data-theme="dark"]{--glass:rgba(28,31,38,.86);--glass-side:rgba(18,20,25,.92)}
+html[data-fx="lite"] .topbar{--tb-bg:color-mix(in srgb,var(--bg) 94%,transparent)}
+html[data-fx="lite"] .seal-panel{background:color-mix(in srgb,var(--paper) 97%,transparent)}
+html[data-fx="lite"] .modal,html[data-fx="lite"] .pop,html[data-fx="lite"] .popmenu,html[data-fx="lite"] .cap{-webkit-backdrop-filter:none;backdrop-filter:none;background:color-mix(in srgb,var(--paper) 97%,transparent)}

@@ -344,7 +344,8 @@ export function Seal() {
     const tuckOn = () => sRef.current.settings.sealTuck === true;
     let lookX = 0, lookY = 0, squash = 0, sqv = 0, hop = 0, hopV = 0, flap = 0, happy = 0;
     let tuckK = 0; // 0 露出 → 1 贴边，缓动
-    const place = () => { const want = tucked && !dragging && !openRef.current ? 1 : 0; tuckK += (want - tuckK) * .12; if (Math.abs(want - tuckK) < .005) tuckK = want; const off = (tx === M ? -(S - 34) : (S - 34)) * tuckK; fab.style.transform = `translate(${x + off}px,${y}px)`; fab.style.opacity = String(1 - tuckK * .25); };
+    let lastTf = '';
+    const place = () => { const want = tucked && !dragging && !openRef.current ? 1 : 0; tuckK += (want - tuckK) * .12; if (Math.abs(want - tuckK) < .005) tuckK = want; const off = (tx === M ? -(S - 34) : (S - 34)) * tuckK; const tf = `translate(${x + off}px,${y}px)`; if (tf !== lastTf) { lastTf = tf; fab.style.transform = tf; } fab.style.opacity = String(1 - tuckK * .25); };
     api.current.reset = () => { try { localStorage.removeItem('ytos.seal'); } catch {} perch = null; savePerch(); tx = innerWidth - S - M; ty = innerHeight - S - M - bottomPad(); tucked = false; sqv += .1; };
     place();
     const posPanel = () => {
@@ -428,7 +429,7 @@ export function Seal() {
       // idle → render at half rate to save battery; anything moving → every frame
       frameN++;
       const calm = !dragging && Math.hypot(vx, vy) < .2 && hop === 0 && flap === 0 && happy === 0 && Math.abs(sqv) < .001;
-      if (model && (!calm || frameN % 2 === 0)) {
+      if (model && (!calm || frameN % 3 === 0)) {
         const { seal, eyes, flips, tailPiv, headPiv, shadowMesh, renderer, scene, camera } = model;
         sqv = (sqv - squash * .22) * .82; squash += sqv;
         hopV -= .012; hop += hopV; if (hop < 0) { hop = 0; hopV = Math.abs(hopV) > .02 ? -hopV * .35 : 0; }

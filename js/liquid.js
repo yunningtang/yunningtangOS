@@ -40,13 +40,20 @@ export function initLiquid() {
     if (e.relatedTarget && c.contains(e.relatedTarget)) return;
     hovered.delete(c); settle(c);
   });
+  const dirty = new Set();
   const mo = new MutationObserver((muts) => {
     // Typing inside contenteditable mutates the DOM constantly; the pills do not care about that.
+    // 只重算受影响的容器：变化发生在某个容器里就只动它，变化的节点下面有容器（比如换页）才全量；别的（hover 态、待办行的 class）一概不管
+    let all = false;
     for (const m of muts) {
       const t = m.target.nodeType === 1 ? m.target : m.target.parentElement;
-      if (t && t.closest && t.closest('[contenteditable], .b-text, input, textarea')) continue;
-      schedule(); return;
+      if (!t || !t.closest) continue;
+      if (t.closest('[contenteditable], .b-text, input, textarea')) continue;
+      const c = t.closest('[data-liquid]');
+      if (c) dirty.add(c); else if (m.type === 'childList' && t.querySelector('[data-liquid]')) { all = true; break; }
     }
+    if (all) { dirty.clear(); schedule(); return; }
+    if (dirty.size) { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { dirty.forEach((c) => settle(c, false)); dirty.clear(); }); }
   });
   mo.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
   window.addEventListener('resize', schedule);
