@@ -5,6 +5,7 @@
 //  - "token": static hosting (GitHub Pages etc.); a fine-grained token pasted in Settings.
 import { get, replace, update, exportJSON } from './store.js';
 import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob, kvGet, kvSet } from './files.js';
+import { seedDoc } from './seed.js';
 import { merge3, syncView } from './merge.js';
 import { debounce } from './util.js';
 
@@ -100,6 +101,13 @@ function setStatus(patch) { Object.assign(status, patch); status.listeners.forEa
 export async function pullRemote() { return transport().pull(); }
 
 const BASE_KEY = 'sync-base';
+// 没同步过、而且内容和示例数据长得一样（标题集合一致）→ 当作空白设备
+function isUntouchedSeed(doc) {
+  if (!doc || !doc.settings || !doc.settings.seeded || doc.settings.lastSync) return false;
+  const titles = (l) => (l || []).map((x) => x.title || x.place || x.url || '').sort().join('\u0001');
+  const sd = seedDoc();
+  return ['notes', 'todos', 'books', 'links', 'trips'].every((k) => titles(doc[k]) === titles(sd[k]));
+}
 const getBase = () => kvGet(BASE_KEY);
 const setBase = (doc) => kvSet(BASE_KEY, JSON.parse(JSON.stringify(doc)));
 const keepLocal = (doc) => { const l = get(); return { ...doc, settings: { ...(doc.settings || {}), sync: l.settings.sync, theme: l.settings.theme, seeded: l.settings.seeded, lastSync: new Date().toISOString() } }; };
@@ -128,7 +136,9 @@ export async function smartSync() {
   const local = get();
   if (!remote) { await transport().push(exportJSON()); update((d) => { d.settings.lastSync = new Date().toISOString(); }); await setBase(get()); pushAttachments().catch(() => {}); return 'pushed'; }
   const base = await getBase();
-  const merged = merge3(base || remote.data, local, remote.data);
+  // 这台设备第一次同步（没有 base）：不能拿远端当 base，否则本地没有的东西全被当成「本地删除」，会把远端清掉。
+  // 本地只是一份没动过的示例数据 → 直接以远端为准；本地有自己的内容 → 以空 base 合并（只加不删）。
+  const merged = base ? merge3(base, local, remote.data) : (isUntouchedSeed(local) ? remote.data : merge3({}, local, remote.data));
   const localChanged = syncView(merged) !== syncView(local);
   const remoteChanged = syncView(merged) !== syncView(remote.data);
   if (localChanged) replace(keepLocal(merged));

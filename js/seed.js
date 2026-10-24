@@ -2,8 +2,9 @@
 import { get, replace } from './store.js';
 import { uid, todayStr, addDays, monthKey, weekKey, weekStart, weekDays } from './util.js';
 
-export function seed() {
-  const s = structuredClone(get());
+// 只生成示例文档，不写入（同步时用来判断「这台设备是不是只有一份没动过的示例数据」）
+export function seedDoc(base) {
+  const s = structuredClone(base || get());
   const t = todayStr();
   const ws = weekStart(t), wd = weekDays(ws), wk = weekKey(t), mk = monthKey();
   const now = new Date().toISOString();
@@ -94,8 +95,9 @@ export function seed() {
   ];
 
   s.settings.seeded = true;
-  replace(s);
+  return s;
 }
+export function seed() { replace(seedDoc()); }
 
 export function seedIfEmpty() {
   const s = get();
