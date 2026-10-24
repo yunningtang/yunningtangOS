@@ -171,7 +171,7 @@ export function focusEditor(root, where = 'start') {
 }
 
 /* ---------- editor ---------- */
-export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop, onExport, onComment }) {
+export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, noteId, onCreatePage, onOpenLink, pageFont, onExitTop, onExport, onComment, onImportTitle }) {
   const allNotes = () => (notesRef ? notesRef.current : notes);
   const [bs, setBs] = useState(() => (initial && initial.length ? initial.map((b) => ({ ...b, v: 0 })) : [block('p', '', { v: 0 })]));
   const [focusReq, setFocusReq] = useState(null);
@@ -572,6 +572,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     const out = [];
     for (const f of files) {
       if (/^image\//.test(f.type)) { const u = await imageToDataUrl(f, 1600).catch(() => null); if (u) out.push(block('image', '', { url: u })); continue; }
+      // Markdown / 纯文本文件：直接解析成块，不当附件
+      if (/\.(md|markdown|txt)$/i.test(f.name) || f.type === 'text/markdown' || f.type === 'text/plain') { const t = await f.text().catch(() => ''); if (t.trim()) out.push(...mdToBlocks(t)); continue; }
       if (f.size > 4 * 1048576) { toast(`「${f.name}」超过 4 MB，没有导入（同步接口的上限）`); continue; }
       const rec = await saveFile(f); out.push(block('file', '', { fid: rec.id, name: rec.name, mime: rec.type, size: rec.size }));
     }
@@ -585,6 +587,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     const v0 = parsed.map((x) => ({ ...x, v: 0 })); list.splice(i + 1, 0, ...v0); emit(list); toast(`已添加 ${parsed.length} 个附件`); return true;
   };
   const insertBlocksAt = (b, el, parsed) => {
+    if (!parsed.length) return;
+    // 空页面里贴进一整份文档：第一个一级标题升为页面标题（像导入一样）
+    if (parsed[0].type === 'h1' && onImportTitle && bsRef.current.length === 1 && !textOf(bsRef.current[0].html) && TEXT_TYPES.includes(bsRef.current[0].type) && onImportTitle(textOf(parsed[0].html))) parsed = parsed.slice(1);
     if (!parsed.length) return;
     const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); if (i < 0) return;
     const empty = TEXT_TYPES.includes(b.type) && (!el || !el.textContent.trim());

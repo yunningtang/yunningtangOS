@@ -422,6 +422,8 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   const openLink = useMemo(() => (t) => go('notes/t:' + encodeURIComponent(t)), []);
   const createRef = useRef(); createRef.current = (title) => { if (!findByTitle(get().notes, title)) newNote({ title, parent: note.id }); };
   const createLinkedStable = useMemo(() => (t) => createRef.current(t), []);
+  const importTitleRef = useRef(); importTitleRef.current = (t) => { if (titleTxt.trim() || !t) return false; setTitleTxt(t); upsert('notes', { id: note.id, title: t, updated: new Date().toISOString() }); return true; };
+  const importTitleStable = useMemo(() => (t) => importTitleRef.current(t), []);
   const crumbs = ancestors(notes, note);
   const kids = childrenOf(notes, note.id);
   const moreMenu = () => [
@@ -473,7 +475,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
       <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
       <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} backlinks=${backlinks.length} />
       <div onMouseOver=${onOver} onMouseOut=${onOut}>
-      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} onComment=${onCommentStable} /><//>
+      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} onComment=${onCommentStable} onImportTitle=${importTitleStable} /><//>
       </div>
       ${peek && html`<div class="wiki-peek popmenu" style=${`position:fixed;left:${Math.min(peek.x, innerWidth - 300)}px;top:${peek.y}px`} onMouseEnter=${() => clearTimeout(peekTimer.current)} onMouseLeave=${() => setPeek(null)}>
         ${peek.n ? html`<a class="wp-t" href=${'#/notes/' + peek.n.id}><${Icon} name="note" size=${13} /><b>${noteTitle(peek.n)}</b></a><p>${snippet(peek.n) || '空白页'}</p><small>${fmtShort(peek.n.updated.slice(0, 10))} · ${(notebooks.find((b) => b.id === peek.n.nb) || {}).name || ''}</small>`

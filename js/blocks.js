@@ -243,15 +243,18 @@ export function textOf(html) {
 
 /* ---------- inline conversions ---------- */
 export function inlineMdToHtml(md) {
+  // 反斜杠转义的字符先藏起来（\* \_ \` \[ \# \\），最后原样放回
+  const esc = []; md = String(md).replace(/\\([\\`*_{}\[\]()#+\-.!~=|>])/g, (_, c) => { esc.push(c); return `\u0000${esc.length - 1}\u0000`; });
   let s = escapeHtml(md);
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
   s = s.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g, '<u>$1</u>');
   s = s.replace(/\[\[([^\[\]|\n]+)(?:\|([^\[\]\n]+))?\]\]/g, (_, t, a) => `<a class="wiki" data-title="${t.trim()}" contenteditable="false">${a || t.trim()}</a>`);
   s = s.replace(/@\[(todo|book|trip|goal|link):([\w-]+)\|([^\]]+)\]/g, (_, k, id, t) => `<a class="ref" data-kind="${k}" data-id="${id}" contenteditable="false">${t}</a>`);
   s = s.replace(/==(?:\{([ygbpr])\})?([^=\n]+)==/g, (_, c, t) => `<mark${c ? ` class="hl-${c}"` : ''}>${t}</mark>`);
-  s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>').replace(/~~([^~]+)~~/g, '<s>$1</s>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|[^\w*])__([^_\n]+)__(?!\w)/g, '$1<b>$2</b>').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>').replace(/(^|[^\w_])_([^_\n]+)_(?!\w)/g, '$1<i>$2</i>').replace(/~~([^~]+)~~/g, '<s>$1</s>');
   s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   s = s.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => escapeHtml(esc[+i]));
   return s;
 }
 
@@ -283,8 +286,9 @@ export function inlineHtmlToMd(html) {
 }
 
 /* ---------- blocks <-> markdown ---------- */
+const CALLOUT_ICON = { NOTE: '📝', TIP: '💡', IMPORTANT: '📌', WARNING: '⚠️', CAUTION: '❗' };
 export function mdToBlocks(md) {
-  const lines = (md || '').replace(/\r/g, '').split('\n');
+  const lines = (md || '').replace(/\r/g, '').replace(/^\s*<br\s*\/?>\s*$/gim, '').split('\n');
   const out = [];
   let i = 0;
   while (i < lines.length) {
@@ -292,25 +296,40 @@ export function mdToBlocks(md) {
     const indent = Math.min(3, Math.floor((raw.match(/^\s*/)[0].length) / 2));
     const line = raw.trim();
     let m;
-    if (line.startsWith('```')) {
-      const lang = line.slice(3).trim(); const buf = []; i++;
-      while (i < lines.length && !lines[i].trim().startsWith('```')) buf.push(lines[i++]);
+    if (line.startsWith('```') || line.startsWith('~~~')) {
+      const fence = line.slice(0, 3); const lang = line.slice(3).trim().replace(/[{}].*$/, ''); const buf = []; i++;
+      while (i < lines.length && !lines[i].trim().startsWith(fence)) buf.push(lines[i++]);
       i++; out.push(block('code', escapeHtml(buf.join('\n')), { lang })); continue;
     }
     if (line.startsWith('|')) {
       const buf = []; while (i < lines.length && lines[i].trim().startsWith('|')) buf.push(lines[i++].trim());
       out.push(mdTable(buf)); continue;
     }
+    // 没有首尾竖线的表格：第二行是 --- | --- 这种分隔
+    if (line.includes('|') && i + 1 < lines.length && /^\s*:?-{2,}:?(\s*\|\s*:?-{2,}:?)+\s*\|?\s*$/.test(lines[i + 1])) {
+      const buf = []; while (i < lines.length && lines[i].includes('|')) { const t = lines[i++].trim(); buf.push('| ' + t.replace(/^\|/, '').replace(/\|$/, '') + ' |'); }
+      out.push(mdTable(buf)); continue;
+    }
     if (!line) { i++; continue; }
+    // Setext 标题：下一行是 === 或 ---
+    if (i + 1 < lines.length && !/^(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|```|~~~|\|)/.test(line) && /^(=+|-{3,})\s*$/.test(lines[i + 1].trim())) {
+      out.push(block(lines[i + 1].trim().startsWith('=') ? 'h1' : 'h2', inlineMdToHtml(line))); i += 2; continue;
+    }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { out.push(block('divider')); i++; continue; }
-    if ((m = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/))) { out.push(block('image', escapeHtml(m[1]), { url: /^(https?:|data:image\/)/i.test(m[2]) ? m[2] : '' })); i++; continue; }
+    if ((m = line.match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+["'][^)]*["'])?\)$/))) { out.push(block('image', escapeHtml(m[1]), { url: /^(https?:|data:image\/)/i.test(m[2]) ? m[2] : '' })); i++; continue; }
     if ((m = line.match(/^\[([^\]]*)\]\(ytos-file:\/\/([\w-]+)(?:\|([^)]*))?\)$/))) { const [mime, size] = (m[3] || '').split(','); out.push(block('file', '', { fid: m[2], name: m[1], mime: mime || '', size: +size || 0 })); i++; continue; }
-    if ((m = line.match(/^(#{1,3})\s+(.*)$/))) { out.push(block('h' + m[1].length, inlineMdToHtml(m[2]), { indent })); i++; continue; }
+    if ((m = line.match(/^(#{1,6})\s+(.*?)\s*#*$/))) { out.push(block('h' + Math.min(3, m[1].length), inlineMdToHtml(m[2]), { indent })); i++; continue; }
     if ((m = line.match(/^[-*+]\s+\[([ xX])\]\s*(.*)$/))) { out.push(block('todo', inlineMdToHtml(m[2]), { checked: m[1] !== ' ', indent })); i++; continue; }
     if ((m = line.match(/^[-*+]\s+(.*)$/))) { out.push(block('bullet', inlineMdToHtml(m[1]), { indent })); i++; continue; }
     if ((m = line.match(/^\d+[.)]\s+(.*)$/))) { out.push(block('number', inlineMdToHtml(m[1]), { indent })); i++; continue; }
     if ((m = line.match(/^>\s?⏳\s*汤圆待写：(.*)$/))) { out.push(block('pending', '', { intent: m[1].trim(), status: 'idle' })); i++; continue; }
     if ((m = line.match(/^>\s?(💡|⚠️|✅|📌|❗|🔥|📝)\s*(.*)$/))) { out.push(block('callout', inlineMdToHtml(m[2]), { icon: m[1] })); i++; continue; }
+    // GitHub 式提示框 > [!NOTE] → 标注块
+    if ((m = line.match(/^>\s?\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$/i))) {
+      const buf = m[2] ? [m[2]] : []; i++;
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) buf.push(lines[i++].trim().replace(/^>\s?/, ''));
+      out.push(block('callout', buf.map(inlineMdToHtml).join('<br>'), { icon: CALLOUT_ICON[m[1].toUpperCase()] || '💡' })); continue;
+    }
     if ((m = line.match(/^>\s?(.*)$/))) {
       const buf = [m[1]]; i++;
       while (i < lines.length && /^\s*>\s?/.test(lines[i])) buf.push(lines[i++].trim().replace(/^>\s?/, ''));
@@ -318,7 +337,7 @@ export function mdToBlocks(md) {
     }
     // paragraph: merge following plain lines until blank / structural
     const buf = [line]; i++;
-    while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|[-*+]\s|\d+[.)]\s|>|```|\||!\[|-{3,}$)/.test(lines[i].trim())) buf.push(lines[i++].trim());
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|```|~~~|\||!\[|-{3,}$|={3,}$)/.test(lines[i].trim()) && !(lines[i].includes('|') && i + 1 < lines.length && /^\s*:?-{2,}:?(\s*\|\s*:?-{2,}:?)+/.test(lines[i + 1]))) buf.push(lines[i++].trim());
     out.push(block('p', buf.map(inlineMdToHtml).join('<br>')));
   }
   return out.length ? out : [block('p')];
