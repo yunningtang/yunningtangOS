@@ -2041,3 +2041,23 @@ html[data-fx="lite"] .topbar{--tb-bg:color-mix(in srgb,var(--bg) 94%,transparent
 html[data-fx="lite"] .seal-panel{background:color-mix(in srgb,var(--paper) 97%,transparent)}
 html[data-fx="lite"] .modal,html[data-fx="lite"] .pop,html[data-fx="lite"] .popmenu,html[data-fx="lite"] .cap{-webkit-backdrop-filter:none;backdrop-filter:none;background:color-mix(in srgb,var(--paper) 97%,transparent)}
 .splitter-guide{position:fixed;left:0;width:2px;border-radius:2px;background:rgba(var(--ac),.7);z-index:200;pointer-events:none}
+
+/* ============ 笔记：文字颜色 / 字号 / 字体（行内 span 和块级属性） ============ */
+:root{--hand:"Yuanti SC","Hannotate SC","Kaiti SC","KaiTi","STKaiti","楷体",cursive;
+  --tc-gray:#8e8e93;--tc-red:#e5484d;--tc-orange:#e8842b;--tc-yellow:#c9a227;--tc-green:#2f9e5d;--tc-blue:#2f7cf6;--tc-purple:#8a5cf6;--tc-pink:#e5457e}
+html[data-theme="dark"]{--tc-gray:#9a9a9f;--tc-red:#ff6369;--tc-orange:#ffa04d;--tc-yellow:#e6c84a;--tc-green:#4ad07a;--tc-blue:#6aa6ff;--tc-purple:#b18cff;--tc-pink:#ff6fa3}
+.b-text .tc-gray,.cv-text .tc-gray{color:var(--tc-gray)}.b-text .tc-red,.cv-text .tc-red{color:var(--tc-red)}.b-text .tc-orange{color:var(--tc-orange)}.b-text .tc-yellow{color:var(--tc-yellow)}.b-text .tc-green{color:var(--tc-green)}.b-text .tc-blue{color:var(--tc-blue)}.b-text .tc-purple{color:var(--tc-purple)}.b-text .tc-pink{color:var(--tc-pink)}
+.b-text .fs-s{font-size:.85em}.b-text .fs-l{font-size:1.25em}.b-text .fs-xl{font-size:1.55em;line-height:1.3}
+.b-text .ff-serif{font-family:var(--serif)}.b-text .ff-mono{font-family:var(--mono);font-size:.92em}.b-text .ff-hand{font-family:var(--hand)}
+.b-text.bs-s{font-size:.88em}.b-text.bs-l{font-size:1.22em}.b-text.bs-xl{font-size:1.5em;line-height:1.3}
+.b-text.bc-gray{color:var(--tc-gray)}.b-text.bc-red{color:var(--tc-red)}.b-text.bc-orange{color:var(--tc-orange)}.b-text.bc-yellow{color:var(--tc-yellow)}.b-text.bc-green{color:var(--tc-green)}.b-text.bc-blue{color:var(--tc-blue)}.b-text.bc-purple{color:var(--tc-purple)}.b-text.bc-pink{color:var(--tc-pink)}
+.b-text.bf-serif{font-family:var(--serif)}.b-text.bf-mono{font-family:var(--mono);font-size:.92em}.b-text.bf-hand{font-family:var(--hand)}
+.beditor.font-hand{font-family:var(--hand)}
+.beditor.ps-s{font-size:.9rem}.beditor.ps-l{font-size:1.12rem}.beditor.ps-xl{font-size:1.28rem}
+/* 工具栏里的样式面板 */
+.sel-tb{position:absolute}
+.sel-tb .tb-style{font-weight:600;letter-spacing:-.02em}.sel-tb .tb-style small{font-size:.7em;font-weight:400;margin-left:1px}.sel-tb .tb-style.on{background:rgba(255,255,255,.2)}
+.tb-pop{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:6px;padding:8px 10px;border-radius:10px;background:var(--ink);color:var(--bg);display:flex;flex-direction:column;gap:6px;white-space:nowrap;box-shadow:0 10px 30px -10px rgba(0,0,0,.5)}
+.tp-row{display:flex;align-items:center;gap:3px}.tp-row>span{font-size:.7rem;opacity:.6;width:30px}
+.sel-tb .tp-b{min-width:22px;height:22px;padding:0}.tp-dot{display:block;width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(255,255,255,.35)}.tp-dot.none{background:transparent;border-style:dashed}
+.sel-tb .tp-t{min-width:0;padding:0 7px;height:24px;font-size:.78rem}.sel-tb .tp-t.fs-s{font-size:.68rem}.sel-tb .tp-t.fs-l{font-size:.9rem}.sel-tb .tp-t.fs-xl{font-size:1rem}.sel-tb .tp-t.ff-serif{font-family:var(--serif)}.sel-tb .tp-t.ff-mono{font-family:var(--mono)}.sel-tb .tp-t.ff-hand{font-family:var(--hand)}

@@ -450,6 +450,9 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     { label: '字体：默认', icon: !note.font || note.font === 'default' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'default' }) },
     { label: '字体：衬线', icon: note.font === 'serif' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'serif' }) },
     { label: '字体：等宽', icon: note.font === 'mono' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'mono' }) },
+    { label: '字体：手写', icon: note.font === 'hand' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'hand' }) },
+    'sep',
+    { label: '整页字号', icon: 'type', sub: [['s', '小'], ['', '标准'], ['l', '大'], ['xl', '特大']].map(([v, n]) => ({ label: n, icon: (note.size || '') === v ? 'check' : '', onClick: () => upsert('notes', { id: note.id, size: v }) })) },
     'sep',
     { label: '历史版本', icon: 'history', hint: '本机', onClick: () => setHistOpen(true) },
     'sep',
@@ -492,7 +495,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
       <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
       <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} backlinks=${backlinks.length} />
       <div onMouseOver=${onOver} onMouseOut=${onOut}>
-      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} onComment=${onCommentStable} onImportTitle=${importTitleStable} /><//>
+      <${Still} k=${note.id + ':' + (note.font || '') + ':' + (note.size || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} pageSize=${note.size} onExitTop=${backToTitle} onExport=${exportSel} onComment=${onCommentStable} onImportTitle=${importTitleStable} /><//>
       </div>
       ${peek && html`<div class="wiki-peek popmenu" style=${`position:fixed;left:${Math.min(peek.x, innerWidth - 300)}px;top:${peek.y}px`} onMouseEnter=${() => clearTimeout(peekTimer.current)} onMouseLeave=${() => setPeek(null)}>
         ${peek.n ? html`<a class="wp-t" href=${'#/notes/' + peek.n.id}><${Icon} name="note" size=${13} /><b>${noteTitle(peek.n)}</b></a><p>${snippet(peek.n) || '空白页'}</p><small>${fmtShort(peek.n.updated.slice(0, 10))} · ${(notebooks.find((b) => b.id === peek.n.nb) || {}).name || ''}</small>`
