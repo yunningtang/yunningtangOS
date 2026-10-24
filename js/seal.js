@@ -472,7 +472,7 @@ export function Seal() {
         const src = document.createElement('canvas'); src.width = cv.width; src.height = cv.height; const g = src.getContext('2d'); g.drawImage(cv, 0, 0);
         const d = g.getImageData(0, 0, src.width, src.height).data; let minX = src.width, maxX = 0, minY = src.height;
         for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) { if (d[(y * src.width + x) * 4 + 3] > 200) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; } }
-        if (maxX > minX) { const w = (maxX - minX) * .62, cx = (minX + maxX) / 2; const out = document.createElement('canvas'); out.width = out.height = 96; out.getContext('2d').drawImage(src, cx - w / 2, minY - w * .14, w, w, 0, 0, 96, 96); api.current.setAvatar && api.current.setAvatar(out.toDataURL('image/png')); }
+        if (maxX > minX) { const w = (maxX - minX) * .86, cx = (minX + maxX) / 2; const out = document.createElement('canvas'); out.width = out.height = 192; out.getContext('2d').drawImage(src, cx - w / 2, minY - w * .08, w, w, 0, 0, 192, 192); api.current.setAvatar && api.current.setAvatar(out.toDataURL('image/png')); }
       } catch {}
       seal.rotation.set(keep.rx, keep.ry, keep.rz); headPiv.rotation.set(keep.hx, keep.hy, 0); seal.scale.copy(keep.sc); seal.position.y = keep.py; eyes.forEach((g, i) => { g.scale.y = keep.ey[i]; });
     };
