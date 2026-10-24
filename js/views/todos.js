@@ -73,7 +73,8 @@ export function lateState(t, now = new Date()) {
 }
 export function postponeItems(t) {
   const today = todayStr(); const now = new Date();
-  const move = (patch, msg) => { const undo = { id: t.id, due: t.due, time: t.time }; upsert('todos', { id: t.id, ...patch }); toast(msg, { label: '撤销', onClick: () => upsert('todos', undo) }); };
+  // 推迟会记次数：推了好几次的事会在行上标出来，提醒你是不是该拆开或者放弃
+  const move = (patch, msg) => { const undo = { id: t.id, due: t.due, time: t.time, deferred: t.deferred || 0 }; upsert('todos', { id: t.id, ...patch, deferred: (t.deferred || 0) + 1, deferredAt: todayStr() }); toast(msg, { label: '撤销', onClick: () => upsert('todos', undo) }); };
   const plus1h = minToTime(Math.min(23 * 60 + 55, Math.ceil((now.getHours() * 60 + now.getMinutes() + 60) / 5) * 5));
   const nextMon = addDays(weekStart(today), 7);
   return [
@@ -131,6 +132,7 @@ export function TodoItem({ t, onEdit, compact }) {
         ${t.priority <= 1 && !t.done && html`<span class="pri">${p.label} ${p.name}</span>`}
         ${t.due && html`<span class=${'due ' + dueCls}><${Icon} name="calendar" size=${10} /> ${relDay(t.due)}${t.time ? ' ' + t.time : ''}</span>`}
         ${ls && html`<button class=${'defer ' + ls} title="推迟到…" onClick=${(e) => postponeMenu(e, t)}>${lateTxt} · 推迟 <${Icon} name="down" size=${9} /></button>`}
+        ${!ls && !t.done && t.deferred > 0 && html`<span class=${'deferred ' + (t.deferred >= 3 ? 'many' : '')} title=${`推迟过 ${t.deferred} 次` + (t.deferred >= 3 ? '，要不要拆开或者放弃？' : '')}><${Icon} name="right" size=${9} /> 推迟 ×${t.deferred}</span>`}
         ${steps.length > 0 && html`<a class=${'steps ' + (stepsDone === steps.length ? 'all' : '')} href=${'#/notes/' + page.id} title="步骤在关联页面里，点开勾选"><${Icon} name="list" size=${10} /> ${stepsDone}/${steps.length} 步</a>`}
         ${t.area && html`<span>${t.area}</span>`}
         ${t.tags.map((x) => html`<${Tag}>#${x}<//>`)}

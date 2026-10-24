@@ -1625,3 +1625,7 @@ html[data-theme="dark"] .cv-text mark{color:#111}
 .si-n{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:.66rem;font-weight:600;background:var(--hover-2);color:var(--text-3)}
 .todo .steps{display:inline-flex;align-items:center;gap:3px;font-size:.68rem;padding:1px 7px;border-radius:999px;background:var(--hover);color:var(--text-3);text-decoration:none}.todo .steps.all{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent)}.todo .steps:hover{background:var(--hover-2);color:var(--text)}
 .beditor .dim,.cv-text .dim{color:var(--text-4);font-size:.85em}
+
+.board .bi .q.end{display:inline;position:static;font-size:1.4em;line-height:0;margin-left:2px;vertical-align:-.2em;opacity:.5}
+.todo .deferred{display:inline-flex;align-items:center;gap:2px;font-size:.68rem;padding:1px 7px;border-radius:999px;background:var(--hover);color:var(--text-4)}.todo .deferred.many{color:var(--amber);background:color-mix(in srgb,var(--amber) 12%,transparent)}
+html[data-theme="dark"] .todo .defer{background:color-mix(in srgb,var(--amber) 22%,transparent)}html[data-theme="dark"] .todo .defer.late{background:color-mix(in srgb,var(--red) 22%,transparent)}
