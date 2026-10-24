@@ -21,7 +21,7 @@ const KIND_LABEL = { todo: '待办', block: '时间块', note: '笔记', goal: '
 
 /* ---------------- three.js (vendored) ---------------- */
 let threeP;
-function loadThree() {
+export function loadThree() {
   if (window.THREE) return Promise.resolve(window.THREE);
   threeP = threeP || new Promise((res, rej) => {
     const sc = document.createElement('script');
@@ -33,7 +33,7 @@ function loadThree() {
 }
 
 /* ---------------- 3D 海豹模型（软胶公仔风） ---------------- */
-function buildSeal(THREE, cv) {
+export function buildSeal(THREE, cv) {
   const renderer = new THREE.WebGLRenderer({ canvas: cv, alpha: true, antialias: true, premultipliedAlpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2.5)); renderer.setSize(150, 150, false);
   renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .98;
