@@ -899,14 +899,7 @@ class Row extends Component {
       onDrop=${(e) => { if (api.dragRef.current) onDropRow(e, b.id); }}>
       <div class="b-gutter" contenteditable="false">
         <button class="b-plus" title="在下方添加块" onMouseDown=${(e) => e.preventDefault()} onClick=${() => addBelow(b.id)}><${Icon} name="plus" size=${14} /></button>
-        <button class="b-handle" title="拖动 · 点击打开菜单" draggable="true" onDragStart=${(e) => { setDragId(b.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.id); }} onDragEnd=${() => { setDragId(null); setDropAt(null); }} onMouseDown=${(e) => e.preventDefault()} onClick=${() => setHmenu(hm ? null : b.id)}>⋮⋮</button>
-        ${hm && html`<div class="popmenu hmenu" onMouseDown=${(e) => e.preventDefault()}>
-          <div class="pm-sec">转换为</div>
-          ${CONVERT_TYPES.map((t) => html`<div class=${'pm ' + (b.type === t ? 'on' : '')} onClick=${() => { convert(b, t); setHmenu(null); }}><b>${TYPES[t].label}</b></div>`)}
-          <div class="pm-sec">操作</div>
-          <div class="pm" onClick=${() => { insertAfter(b.id, cloneBlock(b)); setHmenu(null); }}><b>复制一份</b><small>⌘D</small></div>
-          <div class="pm danger" onClick=${() => { removeBlock(b.id); setHmenu(null); }}><b>删除</b><small>⌫</small></div>
-        </div>`}
+        <button class="b-handle" title="拖动 · 点击打开菜单" draggable="true" onDragStart=${(e) => { setDragId(b.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.id); }} onDragEnd=${() => { setDragId(null); setDropAt(null); }} onMouseDown=${(e) => e.preventDefault()} onClick=${(e) => { const r = e.currentTarget.getBoundingClientRect(); menu({ clientX: r.left, clientY: r.bottom + 2, target: e.currentTarget, preventDefault() {}, stopPropagation() {} }); }}>⋮⋮</button>
       </div>
       ${body}
       ${cmn > 0 && html`<button class="b-cm" contenteditable="false" title=${`${cmn} 条评论`} onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.onComment(b.id, '', true)}><${Icon} name="chat" size=${12} />${cmn}</button>`}

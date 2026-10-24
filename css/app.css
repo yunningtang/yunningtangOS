@@ -670,7 +670,6 @@ input.page-title::placeholder{color:var(--text-4);opacity:.6}
 .b-plus{font-size:1rem;letter-spacing:0}
 .b-plus:hover,.b-handle:hover{background:var(--hover-2);color:var(--text)}
 .b-handle{cursor:grab}
-.hmenu{left:0;top:26px;width:220px;z-index:50}
 .bmenu{position:relative;left:0;top:0;margin:2px 0 6px;width:300px}
 .b-text{flex:1;min-width:0;outline:none;padding:3px 2px;white-space:pre-wrap;word-break:break-word;caret-color:var(--text);min-height:1.6em}
 .b-text:empty::before{content:attr(data-ph);color:var(--text-4);opacity:0;pointer-events:none}
