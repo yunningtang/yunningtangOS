@@ -1809,3 +1809,75 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .sf-sum{font-size:.72rem;color:var(--text-4);padding:4px 6px 0 42px}
 .todo-card .tg-h{display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--text-4);padding:8px 4px 2px;font-weight:500}.todo-card .tg-h:first-child{padding-top:2px}.todo-card .tg-h span{color:var(--text-4);opacity:.7}.todo-card .tg-h.late{color:var(--red)}.todo-card .tg-h.today{color:var(--blue)}
 .tl-card{position:relative}.mt-back{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;font-size:.72rem;color:#fff;background:var(--blue);box-shadow:0 6px 16px -6px rgba(40,80,200,.5);animation:fade .15s}
+
+/* ============ 液态玻璃（iOS 26 Liquid Glass）============
+   更透、更圆、带折射感：卡片是薄薄一层玻璃，边缘有一圈高光，底下是流动的彩色光斑；按钮和分段控件都是胶囊。 */
+html[data-skin="liquid"]{
+  --r:26px;--r2:16px;--r3:12px;--blur:34px;
+  --bg:#eef2fa;--side:transparent;--paper:#ffffff;--card-bg:#ffffff;
+  --line:rgba(30,40,70,.08);--line-2:rgba(30,40,70,.14);--hover:rgba(255,255,255,.45);--hover-2:rgba(255,255,255,.7);
+  --input:rgba(255,255,255,.45);--tag-bg:rgba(255,255,255,.55);--sel:rgba(47,124,246,.18);--cal-bg:rgba(255,255,255,.5);--code-bg:rgba(255,255,255,.55);
+  --blue:#2f7cf6;--ac:47,124,246;--liq:rgba(255,255,255,.6);
+  --glass:rgba(255,255,255,.34);--glass-side:rgba(255,255,255,.22);--glass-line:rgba(255,255,255,.75);--glass-edge:rgba(255,255,255,.55);--glass-edge-h:rgba(255,255,255,.8);--glass-hl:rgba(255,255,255,.95);
+  --glass-shadow:0 1px 1px rgba(255,255,255,.6) inset,0 10px 30px -12px rgba(40,60,120,.18),0 30px 60px -40px rgba(40,60,120,.25);--glass-shadow-h:0 1px 1px rgba(255,255,255,.7) inset,0 16px 40px -14px rgba(40,60,120,.25),0 40px 80px -40px rgba(40,60,120,.3);
+  --shadow:0 0 0 1px rgba(255,255,255,.6);--shadow-h:0 0 0 1px rgba(255,255,255,.9),0 10px 30px -18px rgba(40,60,120,.3);--pop:0 0 0 1px rgba(255,255,255,.7),0 1px 0 rgba(255,255,255,.9) inset,0 24px 60px -20px rgba(40,60,120,.35);
+  --blob1:rgba(80,140,255,.42);--blob2:rgba(255,120,170,.34);--blob3:rgba(70,210,180,.36);--blob4:rgba(255,190,90,.3);
+}
+html[data-skin="liquid"][data-theme="dark"]{
+  --bg:#0c1020;--side:transparent;--paper:#171b2c;--card-bg:#171b2c;
+  --line:rgba(255,255,255,.09);--line-2:rgba(255,255,255,.16);--hover:rgba(255,255,255,.08);--hover-2:rgba(255,255,255,.14);
+  --input:rgba(255,255,255,.08);--tag-bg:rgba(255,255,255,.1);--sel:rgba(96,165,250,.28);--cal-bg:rgba(255,255,255,.06);--code-bg:rgba(0,0,0,.3);
+  --blue:#6aa6ff;--ac:106,166,255;--liq:rgba(255,255,255,.12);
+  --glass:rgba(30,36,60,.42);--glass-side:rgba(20,24,44,.35);--glass-line:rgba(255,255,255,.22);--glass-edge:rgba(255,255,255,.14);--glass-edge-h:rgba(255,255,255,.26);--glass-hl:rgba(255,255,255,.35);
+  --glass-shadow:0 1px 0 rgba(255,255,255,.18) inset,0 20px 50px -20px rgba(0,0,0,.6);--glass-shadow-h:0 1px 0 rgba(255,255,255,.25) inset,0 30px 70px -24px rgba(0,0,0,.7);
+  --shadow:0 0 0 1px rgba(255,255,255,.12);--shadow-h:0 0 0 1px rgba(255,255,255,.2),0 10px 30px -18px rgba(0,0,0,.6);--pop:0 0 0 1px rgba(255,255,255,.16),0 1px 0 rgba(255,255,255,.2) inset,0 24px 60px -20px rgba(0,0,0,.7);
+  --blob1:rgba(80,140,255,.38);--blob2:rgba(255,100,160,.3);--blob3:rgba(60,200,170,.3);--blob4:rgba(255,170,70,.22);
+}
+/* 流动的底色：四团光斑慢慢漂 */
+html[data-skin="liquid"] body::before{background:
+  radial-gradient(42% 38% at 12% 8%,var(--blob1),transparent 70%),
+  radial-gradient(38% 36% at 88% 16%,var(--blob2),transparent 70%),
+  radial-gradient(44% 40% at 22% 92%,var(--blob3),transparent 70%),
+  radial-gradient(36% 34% at 86% 86%,var(--blob4),transparent 70%),var(--bg);
+  animation:lq-drift 28s ease-in-out infinite alternate;background-size:160% 160%}
+@keyframes lq-drift{0%{background-position:0% 0%}100%{background-position:100% 100%}}
+@media (prefers-reduced-motion:reduce){html[data-skin="liquid"] body::before{animation:none}}
+/* 卡片：薄玻璃 + 边缘折射高光（左上亮、右下暗一点） */
+html[data-skin="liquid"] .card{background:linear-gradient(135deg,rgba(255,255,255,.5),rgba(255,255,255,.18) 60%,rgba(255,255,255,.3));-webkit-backdrop-filter:blur(var(--blur)) saturate(1.9) brightness(1.04);backdrop-filter:blur(var(--blur)) saturate(1.9) brightness(1.04)}
+html[data-skin="liquid"][data-theme="dark"] .card{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.04) 60%,rgba(255,255,255,.07))}
+html[data-skin="liquid"] .card::after{box-shadow:inset 1.5px 1.5px 0 rgba(255,255,255,.85),inset -1px -1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.35)}
+html[data-skin="liquid"][data-theme="dark"] .card::after{box-shadow:inset 1px 1px 0 rgba(255,255,255,.3),inset -1px -1px 0 rgba(255,255,255,.08),inset 0 0 0 1px rgba(255,255,255,.1)}
+/* 侧栏和顶栏：和卡片同一层玻璃，侧栏不要分割线 */
+html[data-skin="liquid"] .side{border-right:0;background:var(--glass-side);-webkit-backdrop-filter:blur(var(--blur)) saturate(1.8);backdrop-filter:blur(var(--blur)) saturate(1.8);box-shadow:inset -1px 0 0 rgba(255,255,255,.35)}
+html[data-skin="liquid"][data-theme="dark"] .side{box-shadow:inset -1px 0 0 rgba(255,255,255,.08)}
+html[data-skin="liquid"] .topbar{--tb-bg:color-mix(in srgb,var(--bg) 40%,transparent)}
+/* 导航：选中态是一枚胶囊玻璃，带高光 */
+html[data-skin="liquid"] .nav a{border-radius:999px}
+html[data-skin="liquid"] .nav>.liq,html[data-skin="liquid"] .subnav>.liq,html[data-skin="liquid"] .seg>.liq{border-radius:999px;background:var(--liq);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 1px 2px rgba(40,60,120,.08),0 0 0 1px rgba(255,255,255,.5)}
+html[data-skin="liquid"][data-theme="dark"] .nav>.liq,html[data-skin="liquid"][data-theme="dark"] .subnav>.liq,html[data-skin="liquid"][data-theme="dark"] .seg>.liq{box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 0 0 1px rgba(255,255,255,.12)}
+/* 控件：全部胶囊；按钮是小块玻璃，主按钮是有色玻璃 */
+html[data-skin="liquid"] .btn,html[data-skin="liquid"] .seg,html[data-skin="liquid"] .seg button,html[data-skin="liquid"] .quickadd,html[data-skin="liquid"] .tag,html[data-skin="liquid"] .chip,html[data-skin="liquid"] .searchin,html[data-skin="liquid"] .theme-glass,html[data-skin="liquid"] .ibtn,html[data-skin="liquid"] .subnav a,html[data-skin="liquid"] .pick-btn,html[data-skin="liquid"] input[type=text],html[data-skin="liquid"] input[type=url],html[data-skin="liquid"] input[type=number],html[data-skin="liquid"] input[type=search],html[data-skin="liquid"] select{border-radius:999px}
+html[data-skin="liquid"] textarea{border-radius:18px}
+html[data-skin="liquid"] .btn{background:rgba(255,255,255,.45);border-color:rgba(255,255,255,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 2px 8px -4px rgba(40,60,120,.25);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+html[data-skin="liquid"] .btn:hover{background:rgba(255,255,255,.7)}
+html[data-skin="liquid"][data-theme="dark"] .btn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+html[data-skin="liquid"][data-theme="dark"] .btn:hover{background:rgba(255,255,255,.16)}
+html[data-skin="liquid"] .btn.primary{color:#fff;background:linear-gradient(135deg,rgba(var(--ac),.95),rgba(var(--ac),.75));border-color:rgba(255,255,255,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(0,0,0,.08),0 10px 24px -10px rgba(var(--ac),.7)}
+html[data-skin="liquid"] .btn.ghost{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+html[data-skin="liquid"] .seg{background:rgba(255,255,255,.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),inset 0 1px 2px rgba(40,60,120,.08)}
+html[data-skin="liquid"][data-theme="dark"] .seg{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+html[data-skin="liquid"] input[type=text],html[data-skin="liquid"] input[type=url],html[data-skin="liquid"] input[type=number],html[data-skin="liquid"] input[type=search],html[data-skin="liquid"] select,html[data-skin="liquid"] textarea,html[data-skin="liquid"] .quickadd,html[data-skin="liquid"] .searchin{background:rgba(255,255,255,.4);border-color:rgba(255,255,255,.7);box-shadow:inset 0 1px 2px rgba(40,60,120,.06)}
+html[data-skin="liquid"][data-theme="dark"] input[type=text],html[data-skin="liquid"][data-theme="dark"] input[type=url],html[data-skin="liquid"][data-theme="dark"] input[type=number],html[data-skin="liquid"][data-theme="dark"] input[type=search],html[data-skin="liquid"][data-theme="dark"] select,html[data-skin="liquid"][data-theme="dark"] textarea,html[data-skin="liquid"][data-theme="dark"] .quickadd,html[data-skin="liquid"][data-theme="dark"] .searchin{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14)}
+html[data-skin="liquid"] .tag{box-shadow:inset 0 0 0 1px rgba(255,255,255,.6)}
+/* 浮层：弹窗、菜单、汤圆窗口也是同一块玻璃 */
+html[data-skin="liquid"] .modal,html[data-skin="liquid"] .pop,html[data-skin="liquid"] .popmenu,html[data-skin="liquid"] .cap,html[data-skin="liquid"] .seal-panel,html[data-skin="liquid"] .ctx{border-radius:24px;background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(255,255,255,.5));-webkit-backdrop-filter:blur(40px) saturate(1.9);backdrop-filter:blur(40px) saturate(1.9);box-shadow:var(--pop)}
+html[data-skin="liquid"][data-theme="dark"] .modal,html[data-skin="liquid"][data-theme="dark"] .pop,html[data-skin="liquid"][data-theme="dark"] .popmenu,html[data-skin="liquid"][data-theme="dark"] .cap,html[data-skin="liquid"][data-theme="dark"] .seal-panel,html[data-skin="liquid"][data-theme="dark"] .ctx{background:linear-gradient(135deg,rgba(40,46,72,.78),rgba(28,32,52,.7))}
+html[data-skin="liquid"] .seal-form,html[data-skin="liquid"] .ac{border-radius:20px}
+html[data-skin="liquid"] .seal-send{border-radius:999px}
+/* 看板列、时间块、待办行跟着圆一点 */
+html[data-skin="liquid"] .bcol{border-radius:22px;background:rgba(255,255,255,.22);box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}
+html[data-skin="liquid"][data-theme="dark"] .bcol{background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+html[data-skin="liquid"] .bcard,html[data-skin="liquid"] .tl .blk,html[data-skin="liquid"] .mt-b{border-radius:16px}
+html[data-skin="liquid"] .todo,html[data-skin="liquid"] .lk{border-radius:14px}
+/* 标题稍微紧一点、黑一点，和玻璃的轻形成对比 */
+html[data-skin="liquid"] .page-h h1,html[data-skin="liquid"] .hero .greet h1{letter-spacing:-.02em;font-weight:700}
