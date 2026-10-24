@@ -104,12 +104,12 @@ function buildSeal(THREE, cv) {
   const onHead = (x, y, z, lift = 0) => { const n = new THREE.Vector3(x, y, z).normalize(); return { p: hc.clone().add(new THREE.Vector3(n.x * 1.04, n.y * .97, n.z).multiplyScalar(HR + lift)), n }; };
   const stick = (o, s) => { o.position.copy(s.p); o.lookAt(s.p.clone().add(s.n)); headPiv.add(o); return o; };
 
-  // 脸（照着毛绒玩偶）：奶白色鼓起的嘴部 + 深棕鼻子 + 绣线的 ω 嘴 + 灰色眉毛 + 胡须 + 纽扣眼
+  // 脸（照着汤圆本尊）：奶白色鼓起的嘴部 + 黑鼻子 + 黑色绣线的 ω 嘴 + 纽扣眼；没有眉毛和胡子
   const FL = .075;
   const cream = new THREE.MeshPhysicalMaterial({ color: 0xeef0f3, roughness: .95, envMapIntensity: .3 });
   const patch = new THREE.Mesh(new THREE.SphereGeometry(.27, 64, 48), cream); patch.scale.set(1.18, .92, .4); stick(patch, onHead(0, -.3, .95, FL * .55)); addFur(patch, [14, 8], .025, 8, 0xd8dbe0, 0xffffff);
-  const brown = new THREE.MeshPhysicalMaterial({ color: 0x3a2117, roughness: .55, clearcoat: .4, clearcoatRoughness: .3, envMapIntensity: .4 });
-  const stitch = new THREE.MeshStandardMaterial({ color: 0x24130d, roughness: .9 });
+  const brown = new THREE.MeshPhysicalMaterial({ color: 0x0b0b0d, roughness: .5, clearcoat: .5, clearcoatRoughness: .3, envMapIntensity: .4 });
+  const stitch = new THREE.MeshStandardMaterial({ color: 0x0b0b0d, roughness: .85 });
   const nose = new THREE.Mesh(new THREE.SphereGeometry(.07, 32, 24), brown); nose.scale.set(1.3, .9, .6); stick(nose, onHead(0, -.17, .98, FL * .55 + .11));
   const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const line = (pts, r = .016) => new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, r, 8, false), stitch);
@@ -117,11 +117,6 @@ function buildSeal(THREE, cv) {
   const mouth = new THREE.Group(); stick(mouth, onHead(0, -.36, .96, FL * .55 + .12));
   mouth.add(line([v3(0, .13, 0), v3(0, .0, 0)]));
   [-1, 1].forEach((sx) => mouth.add(line([v3(0, .0, 0), v3(sx * .07, -.055, -.004), v3(sx * .14, -.045, -.012), v3(sx * .19, .01, -.024)])));
-  // 眉毛：两块小灰椭圆
-  const grey = new THREE.MeshStandardMaterial({ color: 0x565c66, roughness: .95 });
-  [-1, 1].forEach((sx) => { const b = new THREE.Mesh(new THREE.SphereGeometry(.07, 24, 16), grey); b.scale.set(1.35, .8, .35); stick(b, onHead(sx * .38, .33, .86, FL * 1.15)); });
-  // 胡须：两边各两道短绣线
-  [-1, 1].forEach((sx) => [-1, 1].forEach((sy) => { const w = line([v3(-.06, 0, 0), v3(.06, 0, 0)], .01); w.rotation.z = sx * .18 + sy * .1; const g = new THREE.Group(); g.add(w); stick(g, onHead(sx * .66, -.22 + sy * .055, .72, FL * .75)); }));
   const eyes = [];
   [-1, 1].forEach((sx) => {
     const g = new THREE.Group(); stick(g, onHead(sx * .46, .0, .88, FL * .75));
@@ -280,7 +275,7 @@ const HINTS = [
   { t: '拆解：准备年终汇报', k: ['子任务'] },
 ];
 // 头部的小头像：一只简笔海豹
-const AVATAR = html`<svg class="seal-ava" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="18" rx="12" ry="10" fill="#e9edf3"/><ellipse cx="16" cy="17" rx="9.5" ry="7.5" fill="#f7f8fa"/><circle cx="12" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="20" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="12.5" cy="15" r=".5" fill="#fff"/><circle cx="20.5" cy="15" r=".5" fill="#fff"/><ellipse cx="16" cy="19.2" rx="1.6" ry="1.1" fill="#3a3f47"/><path d="M14.6 20.6q1.4 1.2 2.8 0" stroke="#3a3f47" stroke-width=".9" fill="none" stroke-linecap="round"/><path d="M6 18.5l5 .6M6 21l5-.4M26 18.5l-5 .6M26 21l-5-.4" stroke="#9aa1ab" stroke-width=".8" stroke-linecap="round"/></svg>`;
+const AVATAR = html`<svg class="seal-ava" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="18" rx="12" ry="10" fill="#e9edf3"/><ellipse cx="16" cy="17" rx="9.5" ry="7.5" fill="#f7f8fa"/><circle cx="12" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="20" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="12.5" cy="15" r=".5" fill="#fff"/><circle cx="20.5" cy="15" r=".5" fill="#fff"/><ellipse cx="16" cy="19.2" rx="1.6" ry="1.1" fill="#0b0b0d"/><path d="M14.6 20.6q1.4 1.2 2.8 0" stroke="#0b0b0d" stroke-width=".9" fill="none" stroke-linecap="round"/></svg>`;
 
 /* ---------------- 组件 ---------------- */
 export function Seal() {
