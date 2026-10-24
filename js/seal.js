@@ -214,7 +214,13 @@ export function Seal() {
   const [busy, setBusy] = useState(false);
   const [txt, setTxt] = useState('');
   const [badge, setBadge] = useState(0);
+  const [threads, setThreads] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.threads') || '[]'); } catch { return []; } });
+  const [tid, setTid] = useState(() => uid());
+  const [view, setView] = useState('chat');      // chat | history
+  const [big, setBig] = useState(false);
+  const [size, setSize] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.size') || 'null'); } catch { return null; } });
   const openRef = useRef(false); openRef.current = open;
+  const bigRef = useRef(false); bigRef.current = big;
   const sRef = useRef(s); sRef.current = s;
   const msgsR = useRef(msgs); msgsR.current = msgs;
 
@@ -230,7 +236,7 @@ export function Seal() {
     const place = () => { fab.style.transform = `translate(${x}px,${y}px)`; };
     place();
     const posPanel = () => {
-      const panel = panelRef.current; if (!panel || !openRef.current) return;
+      const panel = panelRef.current; if (!panel || !openRef.current || bigRef.current) return;
       const pw = panel.offsetWidth, ph = panel.offsetHeight;
       let px = x + S / 2 < innerWidth / 2 ? x : x + S - pw; px = Math.min(Math.max(M, px), innerWidth - pw - M);
       let py = y - ph - 16, up = true; if (py < M) { py = y + S + 16; up = false; } py = Math.min(Math.max(M, py), innerHeight - ph - M);
@@ -325,8 +331,28 @@ export function Seal() {
     window.addEventListener('keydown', h);
     return () => { clearTimeout(t); window.removeEventListener('keydown', h); };
   }, [open]);
-  useEffect(() => { if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight; if (open) api.current.posPanel && api.current.posPanel(); }, [msgs, busy, open]);
+  useEffect(() => { if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight; if (open) api.current.posPanel && api.current.posPanel(); }, [msgs, busy, open, big, view]);
 
+  // ---- 历史：每段对话存成一个 thread（只存文字和预览条目，最多 30 段） ----
+  useEffect(() => {
+    if (!msgs.length) return;
+    const first = msgs.find((m) => m.who === 'me');
+    const t = { id: tid, title: (first ? first.text : msgs[0].text).slice(0, 30), updated: Date.now(), msgs };
+    setThreads((list) => { const next = [t, ...list.filter((x) => x.id !== tid)].slice(0, 30); try { localStorage.setItem('ytos.seal.threads', JSON.stringify(next)); } catch {} return next; });
+  }, [msgs]);
+  const newThread = () => { setMsgs([]); setTid(uid()); setTxt(''); setView('chat'); setTimeout(() => inRef.current && inRef.current.focus(), 50); };
+  const openThread = (t) => { setTid(t.id); setMsgs(t.msgs); setView('chat'); };
+  const delThread = (id) => setThreads((list) => { const next = list.filter((x) => x.id !== id); try { localStorage.setItem('ytos.seal.threads', JSON.stringify(next)); } catch {} if (id === tid) { setMsgs([]); setTid(uid()); } return next; });
+  const relTime = (ts) => { const d = Date.now() - ts; if (d < 36e5) return Math.max(1, Math.round(d / 6e4)) + ' 分钟前'; if (d < 864e5) return Math.round(d / 36e5) + ' 小时前'; const dt = new Date(ts); return `${dt.getMonth() + 1}/${dt.getDate()}`; };
+  // ---- 尺寸：左上角拖动改大小，记住 ----
+  const resizeStart = (e) => {
+    if (bigRef.current) return; e.preventDefault();
+    const panel = panelRef.current, sx = e.clientX, sy = e.clientY, w0 = panel.offsetWidth, h0 = panel.offsetHeight;
+    let cur = { w: w0, h: h0 };
+    const mv = (ev) => { cur = { w: Math.max(300, Math.min(innerWidth - 32, w0 + (sx - ev.clientX))), h: Math.max(320, Math.min(innerHeight - 40, h0 + (sy - ev.clientY))) }; panel.style.setProperty('--sw', cur.w + 'px'); panel.style.setProperty('--sh', cur.h + 'px'); api.current.posPanel && api.current.posPanel(); };
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); setSize(cur); try { localStorage.setItem('ytos.seal.size', JSON.stringify(cur)); } catch {} };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
   const push = (m) => setMsgs((list) => [...list, { id: uid(), ...m }]);
   const ask = async (text) => {
     text = (text || '').trim(); if (!text || busy) return;
@@ -365,9 +391,23 @@ export function Seal() {
       <canvas ref=${cvRef} width="300" height="300"></canvas>
       ${badge > 0 && !open && html`<span class="seal-badge">${badge}</span>`}
     </button>
-    <div class=${'seal-panel ' + (open ? '' : 'closed')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话">
-      <div class="seal-h"><b>汤圆</b><small>${aiOn ? 'AI 已接入' : login && login.user ? '本地语法' : '未登录 · 本地语法'}</small><span class="flex1"></span>${msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${() => { setMsgs([]); setTxt(''); inRef.current && inRef.current.focus(); }}><${Icon} name="plus" size=${15} /></button>`}<button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button></div>
-      <div class="seal-msgs" ref=${msgsRef}>
+    <div class=${'seal-panel ' + (open ? '' : 'closed ') + (big ? 'big' : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size && !big ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
+      <div class="seal-rz" title="拖动调整大小" onPointerDown=${resizeStart}></div>
+      <div class="seal-h">
+        ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>` : html`<b>汤圆</b><small>${aiOn ? 'AI 已接入' : login && login.user ? '本地语法' : '未登录 · 本地语法'}</small>`}
+        <span class="flex1"></span>
+        ${view === 'chat' && html`<button class=${'ibtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
+        ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
+        <button class="ibtn seal-big" title=${big ? '恢复小窗' : '展开'} onClick=${() => setBig((b) => !b)}><${Icon} name=${big ? 'minus' : 'maximize'} size=${15} /></button>
+        <button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button>
+      </div>
+      ${view === 'history' ? html`<div class="seal-msgs seal-hist">
+        ${threads.length === 0 && html`<div class="seal-empty">还没有历史对话</div>`}
+        ${threads.map((t) => html`<div key=${t.id} class=${'sh-row ' + (t.id === tid ? 'cur' : '')} onClick=${() => openThread(t)}>
+          <span class="sh-t">${t.title}</span><small>${relTime(t.updated)} · ${t.msgs.filter((m) => m.who === 'me').length} 句</small>
+          <button class="ibtn sh-del" title="删除" onClick=${(e) => { e.stopPropagation(); delThread(t.id); }}><${Icon} name="x" size=${13} /></button>
+        </div>`)}
+      </div>` : html`<div class="seal-msgs" ref=${msgsRef}>
         ${msgs.length === 0 && html`<div class="sm bot">嗨，我是汤圆。随便说一句，我帮你拆成待办、时间块或笔记，你确认了我才记。</div>
           <div class="seal-hints">${HINTS.map((h) => html`<button key=${h} type="button" onClick=${() => ask(h)}>${h}</button>`)}</div>`}
         ${msgs.map((m) => html`<div key=${m.id} class=${'sm ' + m.who}>
@@ -383,7 +423,7 @@ export function Seal() {
           </div>`}
         </div>`)}
         ${busy && html`<div class="sm bot typing"><i></i><i></i><i></i></div>`}
-      </div>
+      </div>`}
       <form class="seal-form" onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
         <input ref=${inRef} value=${txt} placeholder="和汤圆说点什么…" autocomplete="off" onInput=${(e) => setTxt(e.target.value)} />
         <button class="seal-send" type="submit" title="发送" disabled=${!txt.trim() || busy}><${Icon} name="up" size=${15} /></button>
