@@ -165,13 +165,14 @@ export function Modal({ open, onClose, title, children, wide, foot }) {
     };
   }, [open]);
   if (!open) return null;
-  return html`<div class="modal-bg" onMouseDown=${(e) => e.target === e.currentTarget && onClose()}>
+  // 挂到 body 上：玻璃卡片的 backdrop-filter 会把 fixed 定位关在卡片里，弹窗就只能盖住那张卡
+  return createPortal(html`<div class="modal-bg" onMouseDown=${(e) => e.target === e.currentTarget && onClose()}>
     <div class=${'modal ' + (wide ? 'wide' : '')} role="dialog" aria-modal="true">
       <header class="modal-h"><h3>${title}</h3><${IconBtn} icon="x" title="关闭" onClick=${onClose} /></header>
       <div class="modal-b">${children}</div>
       ${foot && html`<footer class="modal-f">${foot}</footer>`}
     </div>
-  </div>`;
+  </div>`, document.body);
 }
 
 export function Progress({ value = 0, color }) {
