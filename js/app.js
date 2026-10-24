@@ -189,5 +189,9 @@ setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors);
 subscribe(() => { setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors); });
 applySizes();
 initLiquid();
-detectLogin().then(() => autoSync(subscribe));
+detectLogin().then((login) => {
+  // 第一次登录、还没设过头像：直接用 GitHub 头像
+  if (login && login.user && login.user.avatar && !get().profile.avatar) update((d) => { d.profile.avatar = login.user.avatar; });
+  autoSync(subscribe);
+});
 render(html`<${App} />`, document.getElementById('app'));

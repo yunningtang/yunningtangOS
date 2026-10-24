@@ -77,7 +77,7 @@ export default function Settings() {
           <div class="form flex1">
             <div class="grid2">
               <${Field} label="名字"><input type="text" value=${s.profile.name} onInput=${(e) => setP('name', e.target.value)} /><//>
-              <${Field} label="头像"><div class="row" style="gap:6px;flex-wrap:wrap"><${Btn} small icon="image" onClick=${() => uploadAvatar()}>上传照片<//><${Btn} small kind="ghost" onClick=${avatarFromUrl}>用链接<//>${s.profile.avatar && html`<${Btn} small kind="ghost" onClick=${() => setP('avatar', '')}>移除<//>`}</div><//>
+              <${Field} label="头像"><div class="row" style="gap:6px;flex-wrap:wrap"><${Btn} small icon="image" onClick=${() => uploadAvatar()}>上传照片<//><${Btn} small kind="ghost" onClick=${avatarFromUrl}>用链接<//>${login && login.user && login.user.avatar && s.profile.avatar !== login.user.avatar && html`<${Btn} small kind="ghost" icon="github" onClick=${() => setP('avatar', login.user.avatar)}>用 GitHub 头像<//>`}${s.profile.avatar && html`<${Btn} small kind="ghost" onClick=${() => setP('avatar', '')}>移除<//>`}</div><//>
             </div>
             <${Field} label="座右铭"><input type="text" value=${s.profile.motto} onInput=${(e) => setP('motto', e.target.value)} /><//>
             <${Field} label="主题"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
@@ -108,11 +108,12 @@ export default function Settings() {
             </div>
             <p class="small muted">打开页面时会自动拉取较新的一方；编辑后几秒自动推送；切换标签页或关闭前也会推送。</p>`
           : login && login.configured ? html`
-            <div class="row wrap">
-              <a class="btn primary" href="/api/auth/login">用 GitHub 登录</a>
+            <div class="login-btns">
+              <a class="lbtn gh" href="/api/auth/login"><${Icon} name="github" size=${18} /><span><b>用 GitHub 登录</b><small>数据同步到你自己的仓库</small></span></a>
+              <button type="button" class="lbtn google" disabled title="之后会加上"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.8 6C12.3 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-2.8-.4-4H24v7.6h12.7c-.3 2.1-1.7 5.2-4.8 7.3l7.4 5.7c4.4-4.1 7.2-10.1 7.2-16.6z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.3.8-4.7l-7.8-6C1 16.5 0 20.1 0 24s1 7.5 2.6 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2 1.4-4.7 2.4-8.5 2.4-6.3 0-11.7-4.1-13.6-9.9l-7.8 6C6.5 42.6 14.6 48 24 48z"/></svg><span><b>用 Google 登录</b><small>即将支持</small></span></button>
               ${authMsg && authMsg !== 'ok' && html`<span class="small" style="color:var(--red)">登录失败：${authMsg}</span>`}
             </div>
-            <p class="small muted">登录后 token 只存在加密的 httpOnly cookie 里，浏览器脚本拿不到；数据写入 ${login.target ? login.target.repo : '你配置的仓库'}。</p>`
+            <p class="small muted">登录后 token 只存在加密的 httpOnly cookie 里，浏览器脚本拿不到；数据写入 ${login.target ? login.target.repo : '你配置的仓库'}。头像会自动用 GitHub 的，可以在上面「个人」里换。</p>`
           : html`
             <p class="small muted">当前是纯静态部署。要「登录即同步」，把仓库部署到 Vercel 并配置 OAuth（见 README）。现在可以先用 token 方式：</p>
             <div class="grid2">

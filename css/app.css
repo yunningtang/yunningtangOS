@@ -1630,3 +1630,11 @@ html[data-theme="dark"] .cv-text mark{color:#111}
 .board .bi .q.end{display:inline;position:static;font-size:1.4em;line-height:0;margin-left:2px;vertical-align:-.2em;opacity:.5}
 .todo .deferred{display:inline-flex;align-items:center;gap:2px;font-size:.68rem;padding:1px 7px;border-radius:999px;background:var(--hover);color:var(--text-4)}.todo .deferred.many{color:var(--amber);background:color-mix(in srgb,var(--amber) 12%,transparent)}
 html[data-theme="dark"] .todo .defer{background:color-mix(in srgb,var(--amber) 22%,transparent)}html[data-theme="dark"] .todo .defer.late{background:color-mix(in srgb,var(--red) 22%,transparent)}
+
+/* ---------- 登录按钮 ---------- */
+.login-btns{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.lbtn{display:inline-flex;align-items:center;gap:12px;height:52px;padding:0 18px 0 14px;border-radius:14px;text-decoration:none;font-size:.84rem;transition:transform .16s ease,box-shadow .16s ease,opacity .16s}
+.lbtn span{display:flex;flex-direction:column;line-height:1.2;text-align:left}.lbtn b{font-weight:600}.lbtn small{font-size:.7rem;opacity:.7;margin-top:2px}
+.lbtn.gh{background:#24292f;color:#fff;box-shadow:0 8px 20px -10px rgba(0,0,0,.6)}.lbtn.gh:hover{transform:translateY(-1px);box-shadow:0 12px 24px -10px rgba(0,0,0,.6)}
+html[data-theme="dark"] .lbtn.gh{background:#f6f8fa;color:#24292f}
+.lbtn.google{background:var(--paper);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-2),0 1px 2px rgba(20,20,20,.05)}.lbtn.google:disabled{opacity:.55;cursor:not-allowed}
