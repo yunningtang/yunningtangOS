@@ -60,8 +60,11 @@ export default function Dashboard() {
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
   // 只放今天的：今天到期的 + 逾期没做完的；没排日期的不进来，只在底部给个数
-  const todosAll = useMemo(() => sortBy(s.todos.filter((t) => (!t.done && t.due && t.due <= today) || (t.done && t.completedAt === today)), 'priority', 'due', 'time'), [s.todos]);
+  const todosAll = useMemo(() => sortBy(s.todos.filter((t) => (!t.done && t.due === today) || (t.done && t.completedAt === today)), 'priority', 'due', 'time'), [s.todos]);
   const undated = useMemo(() => s.todos.filter((t) => !t.done && !t.due).length, [s.todos]);
+  // 逾期的单独折叠一段，不混进今天的列表
+  const lateTodos = useMemo(() => sortBy(s.todos.filter((t) => !t.done && t.due && t.due < today), 'due', 'priority'), [s.todos]);
+  const [showLate, setShowLate] = useState(false);
   const todos = todosAll.filter((t) => !t.done).slice(0, 10);
   const doneTodos = todosAll.filter((t) => t.done);
   const [showDone, setShowDone] = useState(false);
@@ -184,6 +187,8 @@ export default function Dashboard() {
         <div class="card-h"><h3>待办 ${todos.length > 0 && html`<span class="muted small">${todos.length}</span>`}</h3><div class="card-act"><a class="ibtn" href="#/todos" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
         ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '今天的都做完了。' : '今天没有待办。'} />` : html`<div class="tlist">${todos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}
         <${QuickAdd} defaults=${{ due: today }} placeholder="添加今天的待办…" />
+        ${lateTodos.length > 0 && html`<button class="done-tg late" onClick=${() => setShowLate(!showLate)}><${Icon} name=${showLate ? 'down' : 'right'} size=${12} /> 逾期 ${lateTodos.length}</button>
+          ${showLate && html`<div class="tlist">${lateTodos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}`}
         ${undated > 0 && html`<a class="more undated" href="#/todos" title="没排日期的待办不在这里，去待办页看">未排期 ${undated} 项<${Icon} name="right" size=${12} /></a>`}
         ${doneTodos.length > 0 && html`<button class="done-tg" onClick=${() => setShowDone(!showDone)}><${Icon} name=${showDone ? 'down' : 'right'} size=${12} /> 已完成 ${doneTodos.length}</button>
           ${showDone && html`<div class="tlist">${doneTodos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}`}
