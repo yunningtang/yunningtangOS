@@ -1,5 +1,5 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
-import { useStore, update, upsert, remove, toggleTodo, removeUndo } from '../store.js';
+import { useStore, update, upsert, remove, toggleTodo, removeUndo, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select, useClock } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGet, lsSet, pad, weekStart, timeToMin, minToTime } from '../util.js';
 import { ctxMenu } from '../ctx.js';
@@ -95,6 +95,7 @@ export function todoMenu(t, onEdit) {
   return [
     { label: '开始专注', icon: 'clock', onClick: () => go('focus?todo=' + t.id) },
     { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
+    !t.done && { label: '拆解成步骤', icon: 'sparkle', hint: '前额叶 · 汤圆', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t })) },
     { label: t.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) },
     onEdit && { label: '编辑', icon: 'edit', onClick: () => onEdit(t) },
     !t.done && t.due && { label: lateState(t) ? '推迟…' : '改期…', icon: 'right', sub: postponeItems(t) },
@@ -119,6 +120,9 @@ export function TodoItem({ t, onEdit, compact }) {
   const ls = lateState(t, now);
   const dueCls = t.due && !t.done ? (ls === 'late' ? 'late' : ls === 'passed' ? 'passed' : t.due === today ? 'today' : '') : '';
   const lateTxt = ls === 'late' ? `逾期 ${Math.max(1, Math.round((new Date(today) - new Date(t.due)) / 864e5))} 天` : ls === 'passed' ? '已过' : '';
+  const page = get().notes.find((n) => n.ref === 'todo:' + t.id);
+  const steps = page ? (page.blocks || []).filter((b) => b.type === 'todo') : [];
+  const stepsDone = steps.filter((b) => b.checked).length;
   return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })}>
     <button class="cb" title=${`${p.label} ${p.name}`} onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
     <div class="tt">
@@ -127,6 +131,7 @@ export function TodoItem({ t, onEdit, compact }) {
         ${t.priority <= 1 && !t.done && html`<span class="pri">${p.label} ${p.name}</span>`}
         ${t.due && html`<span class=${'due ' + dueCls}><${Icon} name="calendar" size=${10} /> ${relDay(t.due)}${t.time ? ' ' + t.time : ''}</span>`}
         ${ls && html`<button class=${'defer ' + ls} title="推迟到…" onClick=${(e) => postponeMenu(e, t)}>${lateTxt} · 推迟 <${Icon} name="down" size=${9} /></button>`}
+        ${steps.length > 0 && html`<a class=${'steps ' + (stepsDone === steps.length ? 'all' : '')} href=${'#/notes/' + page.id} title="步骤在关联页面里，点开勾选"><${Icon} name="list" size=${10} /> ${stepsDone}/${steps.length} 步</a>`}
         ${t.area && html`<span>${t.area}</span>`}
         ${t.tags.map((x) => html`<${Tag}>#${x}<//>`)}
         ${t.note && html`<span title=${t.note}>· ${t.note.slice(0, 40)}${t.note.length > 40 ? '…' : ''}</span>`}

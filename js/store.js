@@ -108,7 +108,9 @@ export function update(fn) {
 }
 
 export function replace(next) {
+  const keepToken = state && state.settings && state.settings.sync && state.settings.sync.token;
   state = migrate(next);
+  if (keepToken && !(state.settings.sync && state.settings.sync.token)) state.settings.sync.token = keepToken;
   state.updatedAt = new Date().toISOString();
   persist();
   subs.forEach((f) => f());
@@ -124,7 +126,10 @@ export function useStore() {
 }
 
 export function exportJSON() {
-  return JSON.stringify(state, null, 2);
+  // 导出 / 同步的文档里不带本机的 GitHub token
+  const { settings, ...rest } = state;
+  const { sync, ...sRest } = settings || {};
+  return JSON.stringify({ ...rest, settings: { ...sRest, sync: { ...(sync || {}), token: '' } } }, null, 2);
 }
 
 // Convenience mutators used by several views.

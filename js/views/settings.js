@@ -6,6 +6,7 @@ import { push, pull, smartSync, loginState, detectLogin, status as syncStatus } 
 import { seed } from '../seed.js';
 import { toast } from '../nav.js';
 import { askConfirm, askPrompt } from '../confirm.js';
+import { aiConfig, setAiConfig, aiHeaders, usageOf, clearUsage, estimateCost } from '../ai.js';
 import { ctxMenu } from '../ctx.js';
 
 export async function uploadAvatar(file) {
@@ -39,6 +40,20 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [login, setLogin] = useState(loginState());
+  const [ai, setAi] = useState(aiConfig());
+  const [aiMsg, setAiMsg] = useState('');
+  const [bal, setBal] = useState(null);
+  const [, bump] = useState(0);
+  const saveAi = (patch) => { setAi(setAiConfig(patch)); setAiMsg(''); setBal(null); };
+  const testAi = async () => {
+    setAiMsg('测试中…');
+    try { const r = await fetch('/api/agent', { headers: aiHeaders(), cache: 'no-store' }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`); setAiMsg(`连上了：${j.provider === 'deepseek' ? 'DeepSeek' : 'Claude'} · ${j.model}${j.fromHeader ? '（用的是本机密钥）' : '（用的是服务器配置）'}`); } catch (e) { setAiMsg('失败：' + e.message); }
+  };
+  const checkBal = async () => {
+    setBal({ loading: true });
+    try { const r = await fetch('/api/agent?balance=1', { headers: aiHeaders(), cache: 'no-store' }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`); setBal(j.balance); } catch (e) { setBal({ error: e.message }); }
+  };
+  const usage = usageOf(); const cost = estimateCost(usage);
   useEffect(() => { detectLogin().then(setLogin); const f = () => setErr(syncStatus.error || ''); syncStatus.listeners.add(f); return () => syncStatus.listeners.delete(f); }, []);
   const authMsg = new URLSearchParams((location.hash.split('?')[1] || '')).get('auth');
   const setP = (k, v) => update((d) => { d.profile[k] = v; });
@@ -131,11 +146,25 @@ export default function Settings() {
             <${Field} label="显示海豹" hint="拖到任意卡片上松手，它会趴在卡片上沿跟着页面滚；拖到空白处就吸到屏幕边。右键有更多选项。"><${Seg} options=${[{ v: 'on', label: '显示' }, { v: 'off', label: '隐藏' }]} value=${s.settings.seal === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.seal = v === 'on'; })} /><//>
             <${Field} label="闲时贴边" hint="几秒没人理，就缩到屏幕边上只露一截，不压在内容上；鼠标靠近就出来。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealTuck === true ? 'on' : 'off'} onChange=${(v) => update((d) => { d.settings.sealTuck = v === 'on'; })} /><//>
           </div>
-          ${login && login.ai
-            ? html`<p class="small muted">每次只把你说的那句话和少量上下文（今天的日期、本子名、常用标签、今日待办标题）发给模型；拆出来的内容你确认后才写入。在随手记里也可以点「问汤圆」。</p>`
-            : login && login.configured
-              ? html`<p class="small muted">要接入 AI：在 Vercel 项目的环境变量里添加 <code class="mono">DEEPSEEK_API_KEY</code>（可选 <code class="mono">DEEPSEEK_MODEL</code>）或 <code class="mono">ANTHROPIC_API_KEY</code>（可选 <code class="mono">AGENT_MODEL</code>），重新部署后登录即可。密钥只放在 Vercel 环境变量里，不要贴到这里或任何对话中。没有 AI 时汤圆按随手记的本地语法理解。</p>`
-              : html`<p class="small muted">纯静态部署时汤圆只能按本地语法理解；部署到 Vercel 并配置 <code class="mono">ANTHROPIC_API_KEY</code> 后可用 AI 拆解。</p>`}
+          <${Field} label="AI 密钥" hint="服务器配置 = 用 Vercel 环境变量里的密钥。选 DeepSeek / Claude 可以直接在这里填自己的密钥：只存在这台浏览器里，不进同步数据和备份，每次请求发给你自己的后端转发。">
+            <div class="row wrap" style="gap:8px;align-items:center">
+              <${Seg} options=${[{ v: 'server', label: '服务器配置' }, { v: 'deepseek', label: 'DeepSeek' }, { v: 'anthropic', label: 'Claude' }]} value=${ai.provider} onChange=${(v) => saveAi({ provider: v })} />
+              ${ai.provider !== 'server' && html`<input type="password" style="flex:1;min-width:200px" value=${ai.key} placeholder=${ai.provider === 'deepseek' ? 'sk-…（platform.deepseek.com）' : 'sk-ant-…'} autocomplete="off" onInput=${(e) => saveAi({ key: e.target.value.trim() })} />`}
+              ${ai.provider !== 'server' && html`<input type="text" style="width:150px" value=${ai.model} placeholder=${ai.provider === 'deepseek' ? '模型，默认 deepseek-chat' : '模型，默认 claude-opus-5-5'} onInput=${(e) => saveAi({ model: e.target.value.trim() })} />`}
+              <${Btn} small onClick=${testAi} disabled=${!(login && login.user)}>测试连接<//>
+            </div>
+            ${aiMsg && html`<p class=${'small ' + (aiMsg.startsWith('失败') ? '' : 'muted')} style=${aiMsg.startsWith('失败') ? 'color:var(--red);margin-top:6px' : 'margin-top:6px'}>${aiMsg}</p>`}
+            ${!(login && login.user) && html`<p class="small muted" style="margin-top:6px">先用 GitHub 登录，汤圆只给登录用户用。</p>`}
+          <//>
+          <${Field} label="本月用量" hint="本机统计，刷新或换设备不累计；费用按公开单价估算，以平台账单为准。">
+            <div class="row wrap" style="gap:14px;align-items:center">
+              <span class="small">${usage.calls} 次 · 输入 ${(usage.in / 1000).toFixed(1)}k · 输出 ${(usage.out / 1000).toFixed(1)}k token · 约 ${cost.text}${usage.modes && usage.modes.breakdown ? ` · 其中拆解 ${usage.modes.breakdown} 次` : ''}</span>
+              ${(ai.provider === 'deepseek' || (ai.provider === 'server' && login && /deepseek/i.test(login.aiModel || ''))) && html`<${Btn} small kind="ghost" onClick=${checkBal} disabled=${!(login && login.user)}>查余额<//>`}
+              ${usage.calls > 0 && html`<${Btn} small kind="ghost" onClick=${() => { clearUsage(); bump((x) => x + 1); }}>清零<//>`}
+            </div>
+            ${bal && html`<p class="small muted" style="margin-top:6px">${bal.loading ? '查询中…' : bal.error ? '查余额失败：' + bal.error : bal.supported === false ? '这家没有余额接口，去控制台看。' : `DeepSeek 余额 ${bal.currency === 'USD' ? '$' : '¥'}${bal.total.toFixed(2)}${bal.granted ? `（赠送 ${bal.granted.toFixed(2)}）` : ''}${bal.available ? '' : ' · 账户不可用'}`}</p>`}
+          <//>
+          <p class="small muted">每次只把你说的那句话和少量上下文（今天的日期、本子名、常用标签、今日待办标题）发给模型，拆出来的内容你确认后才写入。待办右键「拆解成步骤」会把一件大事拆成 3–7 步写进它的关联页面。</p>
         </div>
       <//>
       <${Card} title="快捷键">
