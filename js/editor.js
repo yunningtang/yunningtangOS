@@ -758,7 +758,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const inlineOrBlock = (prefix, key, v) => { restoreSel(); const s0 = sel(); if (!(s0 && !s0.isCollapsed && applyInline(prefix, v))) { const ids = new Set(selRows()); emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { [key]: v || undefined }) : b))); } setTimeout(() => { emit(syncFromDom(bsRef.current)); refreshFmt(); }, 0); };
   const typeLabel = fmt && TYPES[fmt.type] ? TYPES[fmt.type].label : '文本';
   const bar = fmtHost && fmtHost.current && createPortal(html`<div class="fmt-bar" onMouseDown=${(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}>
-    ${fb('撤销 ⌘Z', () => undo(), html`<${Icon} name="left" size=${14} />`)}${fb('重做 ⌘⇧Z', () => redo(), html`<${Icon} name="right" size=${14} />`)}
+    ${fb('撤销 ⌘Z', () => undo(), html`<${Icon} name="undo" size=${15} />`)}${fb('重做 ⌘⇧Z', () => redo(), html`<${Icon} name="redo" size=${15} />`)}
     <span class="fb-sep"></span>
     ${fb('块类型', (e) => ctxMenu(e, CONVERT_TYPES.map((t) => ({ label: TYPES[t].label, icon: fmt && fmt.type === t ? 'check' : '', onClick: () => setTypeFor(t) })), '块类型'), html`${typeLabel}<${Icon} name="down" size=${11} />`, 'fb-dd')}
     ${fb('字体', (e) => ctxMenu(e, TEXT_FONTS.map(([v, n]) => ({ label: n, onClick: () => inlineOrBlock('ff', 'font', v) })), '字体'), html`字体<${Icon} name="down" size=${11} />`, 'fb-dd')}
@@ -767,14 +767,14 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     <span class="fb-sep"></span>
     ${fb('粗体 ⌘B', () => exec('bold'), html`<b>B</b>`, fmt && fmt.bold ? 'on' : '')}${fb('斜体 ⌘I', () => exec('italic'), html`<i>I</i>`, fmt && fmt.italic ? 'on' : '')}${fb('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`, fmt && fmt.underline ? 'on' : '')}${fb('删除线', () => exec('strikeThrough'), html`<s>S</s>`, 'fb-opt ' + (fmt && fmt.strike ? 'on' : ''))}
     ${fb('文字颜色', (e) => ctxMenu(e, [{ label: '默认', onClick: () => inlineOrBlock('tc', 'color', '') }, ...TEXT_COLORS.map((c) => ({ label: TEXT_COLOR_NAMES[c], color: `var(--tc-${c})`, onClick: () => inlineOrBlock('tc', 'color', c) }))], '文字颜色'), html`<span class="fb-a">A</span>`, 'fb-color')}
-    ${fb('荧光标记', (e) => ctxMenu(e, [['y', '黄'], ['g', '绿'], ['b', '蓝'], ['p', '紫'], ['r', '红']].map(([c, n]) => ({ label: n, color: { y: '#f7d774', g: '#8fd6a5', b: '#9cc0ff', p: '#d4b8ff', r: '#ffb3b3' }[c], onClick: () => { restoreSel(); applyMark(c); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } })).concat([{ label: '去掉标记', onClick: () => { restoreSel(); applyMark(null); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } }]), '荧光标记'), html`<${Icon} name="pen" size=${14} />`)}
+    ${fb('荧光标记', (e) => ctxMenu(e, [['y', '黄'], ['g', '绿'], ['b', '蓝'], ['p', '紫'], ['r', '红']].map(([c, n]) => ({ label: n, color: { y: '#f7d774', g: '#8fd6a5', b: '#9cc0ff', p: '#d4b8ff', r: '#ffb3b3' }[c], onClick: () => { restoreSel(); applyMark(c); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } })).concat([{ label: '去掉标记', onClick: () => { restoreSel(); applyMark(null); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } }]), '荧光标记'), html`<span class="fb-hl"><${Icon} name="highlighter" size=${15} /></span>`)}
     <span class="fb-sep"></span>
     ${fb('链接 ⌘K', () => linkPrompt(), html`<${Icon} name="link" size=${14} />`)}
     ${onComment && fb('评论', () => { const s0 = sel(); const q = s0 ? s0.toString().trim().slice(0, 160) : ''; const b = curB(); if (b) onComment(b.id, q); }, html`<${Icon} name="chat" size=${14} />`)}
     ${fb('插入图片', () => { const b = curB(); if (!b) return; askPrompt('图片链接', '', { title: '插入图片', placeholder: 'https://…' }).then((url) => { if (url) insertAfter(b.id, block('image', '', { url }), null); }); }, html`<${Icon} name="image" size=${14} />`, 'fb-opt')}
     <span class="fb-sep"></span>
-    ${fb('待办列表', () => setTypeFor('todo'), html`<${Icon} name="checksq" size=${14} />`, fmt && fmt.type === 'todo' ? 'on' : '')}${fb('无序列表', () => setTypeFor('bullet'), html`<${Icon} name="list" size=${14} />`, fmt && fmt.type === 'bullet' ? 'on' : '')}${fb('有序列表', () => setTypeFor('number'), html`<span class="fb-ol">1.</span>`, fmt && fmt.type === 'number' ? 'on' : '')}
-    ${fb('减少缩进 ⇧Tab', () => indentBy(-1), html`<${Icon} name="left" size=${13} />`, 'fb-ind fb-opt')}${fb('增加缩进 Tab', () => indentBy(1), html`<${Icon} name="right" size=${13} />`, 'fb-ind fb-opt')}
+    ${fb('待办列表', () => setTypeFor('todo'), html`<${Icon} name="checksq" size=${14} />`, fmt && fmt.type === 'todo' ? 'on' : '')}${fb('无序列表', () => setTypeFor('bullet'), html`<${Icon} name="list" size=${14} />`, fmt && fmt.type === 'bullet' ? 'on' : '')}${fb('有序列表', () => setTypeFor('number'), html`<${Icon} name="listol" size=${15} />`, fmt && fmt.type === 'number' ? 'on' : '')}
+    ${fb('减少缩进 ⇧Tab', () => indentBy(-1), html`<${Icon} name="outdent" size=${15} />`, 'fb-ind fb-opt')}${fb('增加缩进 Tab', () => indentBy(1), html`<${Icon} name="indent" size=${15} />`, 'fb-ind fb-opt')}
     <span class="fb-sep"></span>
     ${fb('清除格式', () => { exec('removeFormat'); applyInline('tc', ''); applyInline('fs', ''); applyInline('ff', ''); const b = curB(); if (b) update(b.id, { color: undefined, size: undefined, font: undefined }); }, html`<${Icon} name="x" size=${14} />`)}
   </div>`, fmtHost.current);
@@ -788,7 +788,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       <button class="ibtn" title="复制链接" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(lp.href); toast('已复制链接'); setLp(null); }}><${Icon} name="layers" size=${13} /></button>
       <button class="ibtn danger" title="移除链接" onClick=${() => unlink(lp.el)}><${Icon} name="x" size=${13} /></button>
     </div>`}
-    ${tb && html`<div class="sel-tb" contenteditable="false" style=${`left:${tb.x}px;top:${tb.y}px`} onMouseDown=${(e) => e.preventDefault()}>
+    ${tb && !(fmtHost && fmtHost.current && !fmtHost.current.classList.contains('off')) && html`<div class="sel-tb" contenteditable="false" style=${`left:${tb.x}px;top:${tb.y}px`} onMouseDown=${(e) => e.preventDefault()}>
       ${tbBtn('粗体 ⌘B', () => exec('bold'), html`<b>B</b>`)}
       ${tbBtn('斜体 ⌘I', () => exec('italic'), html`<i>I</i>`)}
       ${tbBtn('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`)}

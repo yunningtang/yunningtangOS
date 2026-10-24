@@ -2087,3 +2087,4 @@ body.focus-mode .fmt-bar{border-radius:0;justify-content:center}
 .notes-main{container-type:inline-size}
 @container (max-width:760px){.fmt-bar .fb-opt{display:none}.fmt-bar .fb-sep{margin:0 1px}}
 @container (max-width:620px){.fmt-bar .fb-dd:nth-of-type(2){display:none}}
+.fmt-bar .fb-hl{display:inline-flex;flex-direction:column;align-items:center;line-height:1}.fmt-bar .fb-hl::after{content:"";display:block;width:14px;height:3px;border-radius:2px;background:#f7d774;margin-top:1px}
