@@ -1807,3 +1807,4 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .sf-x{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--text-4);opacity:0;transition:opacity .18s ease .06s}.sf-row:hover .sf-x{opacity:.8}.sf-x:hover{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
 .sf-add:hover{background:transparent}.sf-plus{width:15px;flex:none;display:grid;place-items:center;color:var(--text-4);margin-left:16px}.sf-add input.sf-new::placeholder{color:var(--text-4)}
 .sf-sum{font-size:.72rem;color:var(--text-4);padding:4px 6px 0 42px}
+.todo-card .more.undated{margin-top:4px;font-size:.74rem;color:var(--text-4)}
