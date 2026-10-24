@@ -209,7 +209,6 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const [focusReq, setFocusReq] = useState(null);
   const [menu, setMenu] = useState(null);
   const menuRef = useRef(null); menuRef.current = menu;
-  const [hmenu, setHmenu] = useState(null);
   const [dragId, setDragIdState] = useState(null);
   const dragRef = useRef(null);
   const setDragId = (v) => { dragRef.current = v; setDragIdState(v); };
@@ -404,6 +403,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (lpRef.current) { setLp(null); if (e.key === 'Escape') { e.preventDefault(); return; } }
     if (mod && !e.altKey && k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (mod && !e.altKey && k === 'y') { e.preventDefault(); redo(); return; }
+    if (e.altKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); moveBlocks(e.key === 'ArrowUp' ? -1 : 1); return; }
     if (mod && e.shiftKey && !e.altKey && (e.key === '.' || e.key === '>' || e.key === ',' || e.key === '<')) { e.preventDefault(); stepSize(e.key === '.' || e.key === '>' ? 1 : -1); return; }
     if (mod && e.shiftKey && !e.altKey && k === 'v') { forceMd.current = true; setTimeout(() => { forceMd.current = false; }, 500); } // 浏览器随后触发 paste（纯文本），走 Markdown 解析
     // selection across blocks: structure changes are ours
@@ -709,6 +709,14 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     list.splice(to, 0, mv); emit(list); setDragId(null); setDropAt(null);
   };
   const addBelow = (id) => insertAfter(id, block('p'));
+  // ⌥↑ / ⌥↓：光标所在块（或选中的几块）上移 / 下移一格，光标跟着走
+  const moveBlocks = (dir) => {
+    const rows = rowsInSelection(root.current).map((r) => r.dataset.id); const c = curBlock(); const ids = rows.length ? rows : c ? [c.b.id] : []; if (!ids.length) return;
+    const list = syncFromDom(bsRef.current); const idx = ids.map((id) => list.findIndex((x) => x.id === id)).filter((i) => i >= 0).sort((a, b) => a - b); if (!idx.length) return;
+    const first = idx[0], last = idx[idx.length - 1]; if (dir < 0 && first === 0) return; if (dir > 0 && last === list.length - 1) return;
+    const group = list.splice(first, last - first + 1); list.splice(first + dir, 0, ...group); emit(list);
+    const keep = c ? caretOffset(c.el) : 0; if (c) setFocusReq({ id: c.b.id, pos: keep == null ? 'end' : keep, then: () => { const el = refs.current.get(c.b.id); if (el) el.scrollIntoView({ block: 'nearest' }); } });
+  };
 
   const onClick = (e) => {
     const wk = e.target.closest && e.target.closest('a.wiki'); if (wk) { e.preventDefault(); onOpenLink && onOpenLink(wk.dataset.title || wk.textContent); return; }
@@ -746,7 +754,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (d.replacement) list.splice(i, 1, ...d.replacement.map((x) => ({ ...x, v }))); else list[i] = bump(list[i], d.patch || {});
     emit(list); return true;
   };
-  Object.assign(api.current, { refs, dragRef, update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert, startPending, editPending, colorItems, sizeItems, fontItems, onComment: (bid, quote, view) => onComment && onComment(bid, quote, view) });
+  Object.assign(api.current, { refs, dragRef, update, removeBlock, insertAfter, addBelow, setDragId, setDropAt, onDropRow, setMdEdit, convert, startPending, editPending, colorItems, sizeItems, fontItems, onComment: (bid, quote, view) => onComment && onComment(bid, quote, view) });
   const items = menuItems();
   const tbBtn = (title, fn, child, cls = '') => html`<button title=${title} class=${cls} onMouseDown=${(e) => e.preventDefault()} onClick=${() => { fn(); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); }}>${child}</button>`;
 
@@ -821,7 +829,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       </div>`}
       ${onComment && tbBtn('评论选中的文字', () => { const s0 = sel(); const q = s0 ? s0.toString().trim().slice(0, 160) : ''; const c = curBlock(); if (c) onComment(c.b.id, q); setTb(null); }, html`<${Icon} name="chat" size=${13} />`)}
     </div>`}
-    ${vis.map((b) => html`<${Row} key=${b.id} b=${b} api=${api.current} cmn=${cm[b.id] || 0} hm=${hmenu === b.id} drag=${dragId === b.id} dragging=${!!dragId} drop=${dropAt && dropAt.id === b.id ? (dropAt.after ? 'after' : 'before') : ''} md=${mdEdit === b.id} num=${b.type === 'number' ? numberOf(b) : 0} />
+    ${vis.map((b) => html`<${Row} key=${b.id} b=${b} api=${api.current} cmn=${cm[b.id] || 0} drag=${dragId === b.id} dragging=${!!dragId} drop=${dropAt && dropAt.id === b.id ? (dropAt.after ? 'after' : 'before') : ''} md=${mdEdit === b.id} num=${b.type === 'number' ? numberOf(b) : 0} />
       ${menu && menu.id === b.id && items.length > 0 && html`<div class="popmenu bmenu" contenteditable="false">${items.map((it, i) => html`<div class=${'pm ' + (i === menu.idx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); applyMenu(it, b); }}><b>${it.label}</b>${it.hint && html`<small>${it.hint}</small>`}</div>`)}</div>`}`)}
     <div class="b-tail" contenteditable="false"></div>
   </div>`;
@@ -831,7 +839,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
 class Row extends Component {
   shouldComponentUpdate(np) {
     const p = this.props;
-    return np.b !== p.b || np.hm !== p.hm || np.drag !== p.drag || np.dragging !== p.dragging || np.drop !== p.drop || np.md !== p.md || np.num !== p.num || np.cmn !== p.cmn;
+    return np.b !== p.b || np.drag !== p.drag || np.dragging !== p.dragging || np.drop !== p.drop || np.md !== p.md || np.num !== p.num || np.cmn !== p.cmn;
   }
   componentDidMount() { this.sync(); }
   componentDidUpdate(prev) {
@@ -840,8 +848,8 @@ class Row extends Component {
   }
   componentWillUnmount() { const { api, b } = this.props; if (api.refs.current.get(b.id) === this.el) api.refs.current.delete(b.id); }
   sync() { const el = this.el, b = this.props.b; if (!el) return; this.props.api.refs.current.set(b.id, el); if (b.type === 'table') { if (el.dataset.json !== JSON.stringify([b.rows || emptyTable(), b.header !== false, b.bg || {}])) renderTable(el, b); return; } if (el.innerHTML !== b.html) el.innerHTML = b.html; }
-  render({ b, api, hm, drag, dragging, drop, md, num, cmn }) {
-    const { update, removeBlock, insertAfter, addBelow, setHmenu, setDragId, setDropAt, onDropRow, setMdEdit, convert } = api;
+  render({ b, api, drag, dragging, drop, md, num, cmn }) {
+    const { update, removeBlock, insertAfter, addBelow, setDragId, setDropAt, onDropRow, setMdEdit, convert } = api;
     const setEl = (el) => { this.el = el; if (el) { api.refs.current.set(b.id, el); if (b.type === 'table' && !el.dataset.json) renderTable(el, b); } };
     const dropCls = drop ? ' drop-' + drop : '';
     let body;
@@ -898,8 +906,7 @@ class Row extends Component {
       onDragOver=${(e) => { if (!api.dragRef.current) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setDropAt({ id: b.id, after: e.clientY > r.top + r.height / 2 }); }}
       onDrop=${(e) => { if (api.dragRef.current) onDropRow(e, b.id); }}>
       <div class="b-gutter" contenteditable="false">
-        <button class="b-plus" title="在下方添加块" onMouseDown=${(e) => e.preventDefault()} onClick=${() => addBelow(b.id)}><${Icon} name="plus" size=${14} /></button>
-        <button class="b-handle" title="拖动 · 点击打开菜单" draggable="true" onDragStart=${(e) => { setDragId(b.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.id); }} onDragEnd=${() => { setDragId(null); setDropAt(null); }} onMouseDown=${(e) => e.preventDefault()} onClick=${(e) => { const r = e.currentTarget.getBoundingClientRect(); menu({ clientX: r.left, clientY: r.bottom + 2, target: e.currentTarget, preventDefault() {}, stopPropagation() {} }); }}>⋮⋮</button>
+        <button class="b-handle" title="拖动调整顺序（⌥↑ / ⌥↓ 也可以）" draggable="true" onDragStart=${(e) => { setDragId(b.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.id); }} onDragEnd=${() => { setDragId(null); setDropAt(null); }} onMouseDown=${(e) => e.preventDefault()}>⋮⋮</button>
       </div>
       ${body}
       ${cmn > 0 && html`<button class="b-cm" contenteditable="false" title=${`${cmn} 条评论`} onMouseDown=${(e) => e.preventDefault()} onClick=${() => api.onComment(b.id, '', true)}><${Icon} name="chat" size=${12} />${cmn}</button>`}
