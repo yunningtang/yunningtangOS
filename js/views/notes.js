@@ -307,7 +307,7 @@ function TagsView({ notes }) {
   ], '#' + t);
   const cur = sel && tags.some(([t]) => t === sel) ? sel : (tags[0] ? tags[0][0] : null);
   const pages = cur ? sortBy(notes.filter((n) => n.tags.includes(cur)), '-updated') : [];
-  return html`<div class="page"><div class="crumbs"><a href="#/notes">笔记</a><span>/</span><b>标签</b><span class="flex1"></span><span class="small muted">${tags.length} 个标签 · 右键可重命名或移除</span></div><div class="page-body">
+  return html`<div class="page"><div class="crumbs"><${NotesBack} /><span>/</span><b>标签</b><span class="flex1"></span><span class="small muted">${tags.length} 个标签 · 右键可重命名或移除</span></div><div class="page-body">
     ${tags.length === 0 ? html`<${Empty} icon="tag" text="还没有标签。在页面标题下面点「+ 标签」给页面加标签。" />` : html`
       <div class="tag-cloud">${tags.map(([t, c]) => html`<button key=${t} class=${'tag-chip ' + (t === cur ? 'on' : '')} style=${(([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(t))} onClick=${() => setSel(t)} onContextMenu=${(e) => tagMenu(e, t)}><span>${t}</span><small>${c}</small></button>`)}</div>
       ${cur && html`<div class="tag-group"><div class="sec-h"><span>#${cur}</span><span class="muted">${pages.length} 页</span><span class="flex1"></span><button class="btn ghost sm" onClick=${() => go('notes?tag=' + encodeURIComponent(cur))}>在列表里筛选</button></div>
@@ -325,7 +325,7 @@ function FilesView({ notes, notebooks }) {
   const groups = useMemo(() => { const m = new Map(); vis.forEach((r) => { const k = r.n.nb || 'nb-inbox'; if (!m.has(k)) m.set(k, []); m.get(k).push(r); }); return [...m.entries()]; }, [vis]);
   const total = rows.reduce((n, r) => n + (r.b.size || 0), 0);
   const openFile = async (fid) => { const u = await fileUrl(fid); if (u) window.open(u, '_blank', 'noopener'); };
-  return html`<div class="page"><div class="crumbs"><a href="#/notes">笔记</a><span>/</span><b>附件</b><span class="flex1"></span><span class="small muted">${rows.length} 个文件 · ${fmtSize(total)} · 存在这台设备上，登录后随同步上传</span></div><div class="page-body">
+  return html`<div class="page"><div class="crumbs"><${NotesBack} /><span>/</span><b>附件</b><span class="flex1"></span><span class="small muted">${rows.length} 个文件 · ${fmtSize(total)} · 存在这台设备上，登录后随同步上传</span></div><div class="page-body">
     ${rows.length === 0 ? html`<${Empty} icon="file" text="还没有附件。把 PDF 或文件拖进任何一页，或在页面里输入 /文件。" />` : html`
       <div class="searchin" style="max-width:360px;margin-bottom:16px"><${Icon} name="search" size=${13} /><input type="text" value=${q} placeholder="搜索文件名或页面…" onInput=${(e) => setQ(e.target.value)} /></div>
       ${groups.map(([nbId, list]) => { const nb = notebooks.find((x) => x.id === nbId); return html`<div class="tag-group" key=${nbId}><div class="sec-h"><i class="nb-dot" style=${`background:${nb ? nb.color : '#999'}`}></i>${nb ? nb.name : '收件箱'}<span class="muted">${list.length}</span></div>
@@ -375,7 +375,12 @@ function MetaLine({ note, notes, notebooks, words, onMove, backlinks = 0 }) {
   </div>`;
 }
 
+// 行动 / 图谱 / 标签 / 附件 这些子页的「返回」：回到上一次打开的页面，没有就回本子列表
+export function notesBackHref() { try { const id = localStorage.getItem('ytos.notes.last'); return id && get().notes.some((n) => n.id === id) ? '#/notes/' + id : '#/notes'; } catch { return '#/notes'; } }
+export function NotesBack() { const href = notesBackHref(); return html`<a class="crumb-back" href=${href} title=${href === '#/notes' ? '返回本子' : '返回上次打开的页面'}><${Icon} name="left" size=${14} /> 笔记</a>`; }
+
 function Page({ note, notes, notebooks = [], onCreateChild }) {
+  useEffect(() => { try { localStorage.setItem('ytos.notes.last', note.id); } catch {} }, [note.id]);
   const [moveOpen, setMoveOpen] = useState(false);
   const [peek, setPeek] = useState(null); // { title, n, x, y } hover preview of a [[link]]
   const peekTimer = useRef();
@@ -490,5 +495,5 @@ function GraphView({ notes }) {
     return () => g.destroy();
   }, [notes]);
   const links = notes.reduce((n, x) => n + linksOf(x.body).length, 0);
-  return html`<div class="graph-wrap"><div class="crumbs"><a href="#/notes">笔记</a><span>/</span><b>图谱</b><span class="flex1"></span><span class="small muted">${notes.length} 页 · ${links} 条链接 · 拖动节点，点击打开</span></div><canvas ref=${ref} class="graph"></canvas></div>`;
+  return html`<div class="graph-wrap"><div class="crumbs"><${NotesBack} /><span>/</span><b>图谱</b><span class="flex1"></span><span class="small muted">${notes.length} 页 · ${links} 条链接 · 拖动节点，点击打开</span></div><canvas ref=${ref} class="graph"></canvas></div>`;
 }

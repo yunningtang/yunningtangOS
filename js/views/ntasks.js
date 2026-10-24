@@ -6,6 +6,7 @@ import { textOf, blocksToMd } from '../blocks.js';
 import { uid, todayStr } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
+import { NotesBack } from './notes.js';
 
 export function noteTasks(notes, { done = false } = {}) {
   const out = [];
@@ -56,7 +57,7 @@ export function NoteTasks({ notes, done = false, limit = 0, notebooks = [] }) {
 export function NoteTasksView({ notes, notebooks }) {
   const [view, setView] = useState(() => (new URLSearchParams((location.hash.split('?')[1] || '')).get('v') === 'done' ? 'done' : 'open'));
   const open = noteTasks(notes).length, done = noteTasks(notes, { done: true }).length;
-  return html`<div class="page"><div class="crumbs"><a class="m-back" href="#/notes" title="返回"><${Icon} name="left" size=${16} /></a><a href="#/notes">笔记</a><span>/</span><b>行动</b><span class="flex1"></span><${Seg} options=${[{ v: 'open', label: `未完成 ${open}` }, { v: 'done', label: `已完成 ${done}` }]} value=${view} onChange=${setView} /></div>
+  return html`<div class="page"><div class="crumbs"><${NotesBack} /><span>/</span><b>行动</b><span class="flex1"></span><${Seg} options=${[{ v: 'open', label: `未完成 ${open}` }, { v: 'done', label: `已完成 ${done}` }]} value=${view} onChange=${setView} /></div>
     <div class="page-body">
       <p class="small muted" style="margin-bottom:16px">页面里所有的待办块都汇总在这里，勾选会直接写回原来的页面。在页面里输入 <code>[] </code> 或 <code>/待办</code> 就能创建一条。</p>
       ${(view === 'open' ? open : done) === 0 ? html`<${Empty} icon="checksq" text=${view === 'open' ? '页面里没有未完成的待办。' : '还没有完成过页面里的待办。'} />` : html`<${NoteTasks} notes=${notes} notebooks=${notebooks} done=${view === 'done'} />`}

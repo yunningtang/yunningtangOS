@@ -249,7 +249,14 @@ export function MiniPomo() {
   const st = usePomo();
   if (st.phase === 'idle') return null;
   const rem = pomo.remaining();
-  return html`<a class=${'mini-pomo ' + st.phase + (st.paused ? ' paused' : '')} href="#/focus" title="打开专注">
+  const menu = (e) => ctxMenu(e, [
+    { label: st.paused ? '继续' : '暂停', icon: st.paused ? 'play' : 'pause', onClick: () => (st.paused ? pomo.resume() : pomo.pause()) },
+    st.phase === 'work' ? { label: '提前完成并记录', icon: 'check', onClick: () => pomo.stop(true) } : { label: '跳过休息', icon: 'right', onClick: () => pomo.skip() },
+    { label: '打开专注页', icon: 'clock', onClick: () => go('focus') },
+    'sep',
+    { label: '取消这一轮', icon: 'x', danger: true, onClick: () => pomo.stop(false) },
+  ], st.label || '专注');
+  return html`<a class=${'mini-pomo ' + st.phase + (st.paused ? ' paused' : '')} href="#/focus" title="打开专注 · 右键可取消" onContextMenu=${menu}>
     <span class="mp-time">${pomo.fmt(rem)}</span>
     <span class="mp-label nl">${st.phase === 'break' ? '休息中' : st.label || '专注中'}</span>
     <button class="ibtn nl" onClick=${(e) => { e.preventDefault(); st.paused ? pomo.resume() : pomo.pause(); }} title=${st.paused ? '继续' : '暂停'}><${Icon} name=${st.paused ? 'play' : 'pause'} size=${13} /></button>

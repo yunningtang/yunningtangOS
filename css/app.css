@@ -1741,3 +1741,18 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .tl.drop-over{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--blue) 35%,transparent);border-radius:10px}
 .wday .todo .meta{row-gap:3px}.wday .todo .meta .defer{padding:1px 6px;gap:1px}
 .subnav a{cursor:pointer}.subnav a.dragging{opacity:.4}.subnav a.drop-before{box-shadow:inset 2px 0 0 var(--blue)}.subnav a.drop-after{box-shadow:inset -2px 0 0 var(--blue)}
+
+/* 子页「返回」 */
+.crumbs .crumb-back{display:inline-flex;align-items:center;gap:3px;color:var(--text-2);padding:3px 8px 3px 5px;border-radius:8px}.crumbs .crumb-back:hover{background:var(--hover);color:var(--text)}
+/* 子任务：紧凑一列，分钟紧跟标题，删除键悬停才出现 */
+.steps-l{max-width:640px}
+.step .st-t{flex:0 1 auto;cursor:text}.step .st-t:hover{text-decoration:underline dotted;text-underline-offset:3px}
+.step .st-m{flex:none;font-size:.68rem;color:var(--text-4);padding:1px 6px;border-radius:999px;background:transparent;font-variant-numeric:tabular-nums}.step .st-m:hover{background:var(--hover-2);color:var(--text-2)}
+.step .st-in{flex:1;min-width:0;height:24px;font-size:.8rem;padding:0 6px}.step .st-min{width:56px;height:22px;font-size:.72rem;padding:0 4px;text-align:right}
+.step .st-x{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--text-4);opacity:0;transition:opacity .18s ease .06s,background .15s;margin-left:auto}.step:hover .st-x{opacity:.8}.step .st-x:hover{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.step .st-go{margin-left:0}
+/* 弹窗里的步骤 */
+.steps-f{display:flex;flex-direction:column;gap:4px}
+.sf-row{display:flex;align-items:center;gap:6px}.sf-row input[type=checkbox]{width:15px;height:15px;margin:0 2px;flex:none;accent-color:var(--blue)}.sf-row input[type=text]{height:30px}.sf-row.done input[type=text]{color:var(--text-4);text-decoration:line-through}
+.sf-row .sf-min{width:60px;height:30px;padding:0 6px;text-align:right;-moz-appearance:textfield}.sf-row .sf-min::-webkit-inner-spin-button,.sf-row .sf-min::-webkit-outer-spin-button{-webkit-appearance:none}.sf-row .sf-u{font-size:.74rem;color:var(--text-4)}
+.steps-f .pt-row.new{min-height:26px;font-size:.76rem}

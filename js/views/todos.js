@@ -32,6 +32,22 @@ export function quickParse(text) {
   return out;
 }
 
+// 弹窗里的步骤编辑：每行一个输入框 + 分钟，回车加一行
+function StepsField({ value, onChange }) {
+  const rows = value;
+  const upd = (i, patch) => onChange(rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const addRow = () => onChange([...rows, { id: uid(), title: '', minutes: 25, kind: '', done: false }]);
+  return html`<div class="steps-f">
+    ${rows.map((x, i) => html`<div class=${'sf-row ' + (x.done ? 'done' : '')} key=${x.id}>
+      <input type="checkbox" checked=${!!x.done} onChange=${() => upd(i, { done: !x.done })} />
+      <input class="flex1" type="text" value=${x.title} placeholder="这一步做什么" onInput=${(e) => upd(i, { title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); addRow(); } }} />
+      <input class="sf-min" type="number" min="5" max="180" step="5" value=${x.minutes} onInput=${(e) => upd(i, { minutes: Math.max(5, Math.min(180, +e.target.value || 25)) })} /><span class="sf-u">分</span>
+      <button type="button" class="ibtn" title="删除" onClick=${() => onChange(rows.filter((_, j) => j !== i))}><${Icon} name="x" size=${12} /></button>
+    </div>`)}
+    <button type="button" class="pt-row flat new" onClick=${addRow}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">加一步</span></button>
+  </div>`;
+}
+
 export function TodoModal({ open, todo, onClose, defaults = {} }) {
   const [f, setF] = useState(null);
   useEffect(() => {
@@ -41,7 +57,7 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
   const set = (k, v) => setF({ ...f, [k]: v });
   const save = () => {
     if (!f.title.trim()) return;
-    const { _new, ...clean } = f; upsert('todos', { ...clean, title: f.title.trim() });
+    const { _new, ...clean } = f; upsert('todos', { ...clean, title: f.title.trim(), steps: (f.steps || []).filter((x) => x.title && x.title.trim()).map((x) => ({ ...x, title: x.title.trim() })) });
     onClose();
   };
   return html`<${Modal} open=${open} onClose=${onClose} title=${todo && !todo._new ? '编辑待办' : '新建待办'} foot=${html`
@@ -59,6 +75,9 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
       <${Field} label="优先级"><div class="pri-pick">${PRIORITY.map((p) => html`<button type="button" style=${`--pc:${p.color}`} class=${f.priority === p.v ? 'on' : ''} title=${p.name} onClick=${() => set('priority', p.v)}>${p.label}</button>`)}</div><//>
       <${Field} label="标签"><${TagInput} value=${f.tags} onChange=${(v) => set('tags', v)} /><//>
       <${Field} label="备注"><textarea rows="3" value=${f.note} onInput=${(e) => set('note', e.target.value)}></textarea><//>
+      <${Field} label="步骤" hint="一行一步，可以带时长：买菜 45分。保存后在待办行里展开勾选，也可以让汤圆拆。">
+        <${StepsField} value=${f.steps || []} onChange=${(v) => set('steps', v)} />
+      <//>
     </div>
   <//>`;
 }
@@ -100,6 +119,7 @@ export function todoMenu(t, onEdit) {
     { label: '开始专注', icon: 'clock', onClick: () => go('focus?todo=' + t.id) },
     { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
     !t.done && { label: '拆解成步骤', icon: 'sparkle', hint: '前额叶 · 汤圆', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t })) },
+    !t.done && { label: stepsOf(t).length ? '添加一步' : '添加子步骤', icon: 'list', onClick: () => window.dispatchEvent(new CustomEvent('todo:addstep', { detail: t.id })) },
     { label: t.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) },
     onEdit && { label: '编辑', icon: 'edit', onClick: () => onEdit(t) },
     !t.done && t.due && { label: lateState(t) ? '推迟…' : '改期…', icon: 'right', sub: postponeItems(t) },
@@ -130,18 +150,26 @@ function stepMenu(e, t, x) {
   ], x.title);
 }
 export const startStep = (t, x) => { pomo.start({ label: x.title, todoId: t.id, stepId: x.id, workLen: x.minutes || 25, breakLen: Math.max(3, Math.round((x.minutes || 25) / 5)) }); toast(`开始：${x.title} · ${x.minutes || 25} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
-export function StepList({ t }) {
+export function StepList({ t, autoAdd = false }) {
   const steps = stepsOf(t);
-  const [adding, setAdding] = useState(false); const [v, setV] = useState('');
-  const add = () => { const q = v.trim(); if (q) addSteps(t.id, [{ title: q, minutes: 25 }]); setV(''); setAdding(false); };
+  const [adding, setAdding] = useState(autoAdd); const [v, setV] = useState('');
+  const [edit, setEdit] = useState(null); // { id, title } 正在改名的那一步
+  const [minEdit, setMinEdit] = useState(null); // 正在改分钟的那一步
+  const add = () => { const q = v.trim(); if (q) { const m = q.match(/^(.*?)\s*(\d{1,3})\s*分(?:钟)?$/); addSteps(t.id, [m ? { title: m[1].trim(), minutes: +m[2] } : { title: q, minutes: 25 }]); } setV(''); if (!q) setAdding(false); };
+  const commitTitle = () => { if (edit && edit.title.trim()) setStep(t.id, edit.id, { title: edit.title.trim() }); setEdit(null); };
   return html`<ul class="steps-l">
     ${steps.map((x) => html`<li key=${x.id} class=${'step ' + (x.done ? 'done' : '')} ...${dragProps('step', { id: x.id, todo: t.id }, { onStart: (e) => e.stopPropagation(), onEnd: (e) => e.stopPropagation() })} ...${dropProps('step', (d, { after }) => { if (d.todo === t.id && d.id !== x.id) moveStep(t.id, d.id, x.id, !!after); }, { position: true })} onContextMenu=${(e) => { e.stopPropagation(); stepMenu(e, t, x); }}>
       <button class="cb" onClick=${() => toggleStep(t.id, x.id)} aria-label="完成这一步"><${Icon} name="check" size=${10} /></button>
-      <span class="st-t">${x.title}</span>
-      <span class="st-m">${x.minutes} 分</span>
+      ${edit && edit.id === x.id
+        ? html`<input class="st-in" autofocus value=${edit.title} onInput=${(e) => setEdit({ ...edit, title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') setEdit(null); }} onBlur=${commitTitle} />`
+        : html`<span class="st-t" title="点击改名，拖动排序" onClick=${() => !x.done && setEdit({ id: x.id, title: x.title })}>${x.title}</span>`}
+      ${minEdit === x.id
+        ? html`<input class="st-min" type="number" min="5" max="180" step="5" autofocus value=${x.minutes} onKeyDown=${(e) => { if (e.key === 'Enter' || e.key === 'Escape') e.target.blur(); }} onBlur=${(e) => { const m = +e.target.value; if (m) setStep(t.id, x.id, { minutes: Math.max(5, Math.min(180, m)) }); setMinEdit(null); }} />`
+        : html`<button class="st-m" title="点击改分钟" onClick=${() => setMinEdit(x.id)}>${x.minutes} 分</button>`}
       ${!x.done && html`<button class="st-go" title="开始这一步（番茄钟）" onClick=${() => startStep(t, x)}><${Icon} name="play" size=${10} /></button>`}
+      <button class="st-x" title="删除这一步" onClick=${() => removeStep(t.id, x.id)}><${Icon} name="x" size=${10} /></button>
     </li>`)}
-    ${adding ? html`<li class="step new"><input autofocus value=${v} placeholder="再加一步，回车保存" onInput=${(e) => setV(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setV(''); setAdding(false); } }} onBlur=${add} /></li>`
+    ${adding ? html`<li class="step new"><input class="st-in" autofocus value=${v} placeholder="再加一步，可以带时长：买菜 45分 · 回车保存，Esc 退出" onInput=${(e) => setV(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setV(''); setAdding(false); } }} onBlur=${() => { if (v.trim()) add(); else setAdding(false); }} /></li>`
       : html`<li class="step new"><button onClick=${() => setAdding(true)}><${Icon} name="plus" size=${10} /> 加一步</button></li>`}
   </ul>`;
 }
@@ -155,6 +183,8 @@ export function TodoItem({ t, onEdit, compact }) {
   const lateTxt = ls === 'late' ? `逾期 ${Math.max(1, Math.round((new Date(today) - new Date(t.due)) / 864e5))} 天` : ls === 'passed' ? '已过' : '';
   const sp = stepsProgress(t);
   const [showSteps, setShowSteps] = useState(() => sp.total > 0 && sp.done < sp.total && !t.done); // 还没做完的默认展开
+  const [forceAdd, setForceAdd] = useState(false); // 右键「添加步骤」：展开并直接给输入框
+  useEffect(() => { const h = (e) => { if (e.detail === t.id) { setShowSteps(true); setForceAdd(true); } }; window.addEventListener('todo:addstep', h); return () => window.removeEventListener('todo:addstep', h); }, [t.id]);
   const chip = sp.total > 0 && html`<button class=${'steps ' + (sp.done === sp.total ? 'all ' : '') + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}><${Icon} name="list" size=${10} /> ${sp.done}/${sp.total} 步 <${Icon} name=${showSteps ? 'up' : 'down'} size=${9} /></button>`;
   return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done ' : '') + (showSteps && sp.total ? 'has-steps' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })}>
     <button class="cb" title=${`${p.label} ${p.name}`} onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
@@ -171,7 +201,7 @@ export function TodoItem({ t, onEdit, compact }) {
         ${t.note && html`<span title=${t.note}>· ${t.note.slice(0, 40)}${t.note.length > 40 ? '…' : ''}</span>`}
       </div>`}
       ${compact && (t.time || ls || sp.total > 0) && html`<div class="meta">${ls ? html`<button class=${'defer ' + ls} title=${lateTxt + ' · 点击推迟'} onClick=${(e) => postponeMenu(e, t)}>${ls === 'late' ? relDay(t.due) + (t.time ? ' ' + t.time : '') : t.time + ' 已过'} <${Icon} name="down" size=${9} /></button>` : t.time && html`<span class=${'due ' + dueCls}>${t.time}</span>`}${chip}</div>`}
-      ${showSteps && sp.total > 0 && html`<${StepList} t=${t} />`}
+      ${(showSteps && sp.total > 0 || forceAdd) && html`<${StepList} t=${t} autoAdd=${forceAdd} />`}
     </div>
     ${onEdit && html`<div class="acts"><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => onEdit(t)} /></div>`}
   </div>`;
