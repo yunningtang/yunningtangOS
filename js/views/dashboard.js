@@ -59,14 +59,13 @@ export default function Dashboard() {
   const [editing, setEditing] = useState(null);
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
-  // 只放今天的：今天到期的 + 逾期没做完的；没排日期的不进来，只在底部给个数
-  const todosAll = useMemo(() => sortBy(s.todos.filter((t) => (!t.done && t.due === today) || (t.done && t.completedAt === today)), 'priority', 'due', 'time'), [s.todos]);
-  const undated = useMemo(() => s.todos.filter((t) => !t.done && !t.due).length, [s.todos]);
-  // 逾期的单独折叠一段，不混进今天的列表
-  const lateTodos = useMemo(() => sortBy(s.todos.filter((t) => !t.done && t.due && t.due < today), 'due', 'priority'), [s.todos]);
-  const [showLate, setShowLate] = useState(false);
-  const todos = todosAll.filter((t) => !t.done).slice(0, 10);
-  const doneTodos = todosAll.filter((t) => t.done);
+  // 全部没做完的待办，按 逾期 / 今天 / 明天 / 本周 / 之后 / 未排期 分组；今天完成的折叠在底部
+  const tomorrow = addDays(today, 1), weekEnd = addDays(today, 6);
+  const groupOf = (t) => (!t.due ? '未排期' : t.due < today ? '逾期' : t.due === today ? '今天' : t.due === tomorrow ? '明天' : t.due <= weekEnd ? '本周' : '之后');
+  const GROUPS = ['逾期', '今天', '明天', '本周', '之后', '未排期'];
+  const todoGroups = useMemo(() => { const m = new Map(); for (const t of sortBy(s.todos.filter((t) => !t.done), 'due', 'priority', 'time')) { const g = groupOf(t); if (!m.has(g)) m.set(g, []); m.get(g).push(t); } return GROUPS.filter((g) => m.has(g)).map((g) => [g, m.get(g)]); }, [s.todos]);
+  const todos = todoGroups.flatMap(([, l]) => l);
+  const doneTodos = useMemo(() => sortBy(s.todos.filter((t) => t.done && t.completedAt === today), 'priority'), [s.todos]);
   const [showDone, setShowDone] = useState(false);
   const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today && !b.pomo), 'start'), [s.blocks]);
   const goals = s.goals[monthKey()] || [];
@@ -185,11 +184,8 @@ export default function Dashboard() {
       <//>` },
     todos: { title: '待办', span: 1, el: html`<${Card} class="todo-card" ...${dropProps('todo', (d) => upsert('todos', { id: d.id, due: today }))}>
         <div class="card-h"><h3>待办 ${todos.length > 0 && html`<span class="muted small">${todos.length}</span>`}</h3><div class="card-act"><a class="ibtn" href="#/todos" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
-        ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '今天的都做完了。' : '今天没有待办。'} />` : html`<div class="tlist">${todos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}
-        <${QuickAdd} defaults=${{ due: today }} placeholder="添加今天的待办…" />
-        ${lateTodos.length > 0 && html`<button class="done-tg late" onClick=${() => setShowLate(!showLate)}><${Icon} name=${showLate ? 'down' : 'right'} size=${12} /> 逾期 ${lateTodos.length}</button>
-          ${showLate && html`<div class="tlist">${lateTodos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}`}
-        ${undated > 0 && html`<a class="more undated" href="#/todos" title="没排日期的待办不在这里，去待办页看">未排期 ${undated} 项<${Icon} name="right" size=${12} /></a>`}
+        ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '都做完了。' : '清清爽爽，没有待办。'} />` : html`<div class="tlist">${todoGroups.map(([g, list]) => html`<div class=${'tg-h ' + (g === '逾期' ? 'late' : g === '今天' ? 'today' : '')} key=${g}>${g}<span>${list.length}</span></div>${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}`)}</div>`}
+        <${QuickAdd} defaults=${{ due: today }} placeholder="添加待办…（默认今天）" />
         ${doneTodos.length > 0 && html`<button class="done-tg" onClick=${() => setShowDone(!showDone)}><${Icon} name=${showDone ? 'down' : 'right'} size=${12} /> 已完成 ${doneTodos.length}</button>
           ${showDone && html`<div class="tlist">${doneTodos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}`}
       <//>` },
