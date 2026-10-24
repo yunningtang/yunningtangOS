@@ -10,7 +10,7 @@ import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
 import { mountGraph } from '../graph.js';
 import { BlockEditor, focusEditor } from '../editor.js';
-import { blocksToMd, mdToBlocks, textOf } from '../blocks.js';
+import { blocksToMd, mdToBlocks, textOf, sanitizeDoc } from '../blocks.js';
 import { listFiles, fmtSize, isPdf, fileUrl } from '../files.js';
 import { TEMPLATES, templateBlocks } from '../templates.js';
 import { exportCardPng, copyCardPng } from '../card.js';
@@ -31,8 +31,8 @@ export function linksOf(body) {
 }
 
 export function renderMd(src) {
-  let h = marked.parse((src || '').replace(/^> ?(💡|⚠️|✅|📌|❗)\s?/gm, '> **$1** '));
-  h = h.replace(/<\/?(script|iframe|object|embed)[^>]*>/gi, '').replace(/\son\w+="[^"]*"/gi, '').replace(/javascript:/gi, '');
+  // marked 的输出整段过一遍块级消毒（标签白名单 + 属性白名单），不再靠正则删 script
+  let h = sanitizeDoc(marked.parse((src || '').replace(/^> ?(💡|⚠️|✅|📌|❗)\s?/gm, '> **$1** ')));
   h = h.replace(/@\[(todo|book|trip|goal|link):([\w-]+)\|([^\]]+)\]/g, (_, k, id, t) => `<a class="ref" href="#/${{ todo: 'todos?open=', book: 'reading?open=', trip: 'explore?sel=', goal: 'plan/month?open=', link: 'links?open=' }[k]}${id}" data-kind="${k}">${escapeHtml(t)}</a>`).replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
   // Resolve [[links]] everywhere except inside code.
   return h.split(/(<code[\s\S]*?<\/code>|<pre[\s\S]*?<\/pre>)/).map((part, i) => i % 2 ? part : part.replace(LINK_RE, (_, t, alias) => `<a href="#/notes/t:${encodeURIComponent(t.trim())}" class="wiki">${escapeHtml(alias || t)}</a>`)).join('');
@@ -395,8 +395,11 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   useEffect(() => { if (isBlank(note) && titleRef.current && !document.querySelector('.modal-bg')) titleRef.current.focus(); }, [note.id]);
   const intoEditor = () => { const root = document.querySelector('.beditor'); if (!focusEditor(root, 'start')) root && root.focus(); };
   const backToTitle = useMemo(() => () => { const t = titleRef.current; if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, []);
-  const onBlocks = useMemo(() => (blocks) => upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() }), [note.id]);
-  const blocks = useMemo(() => (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), [note.id]);
+  // 同步从别的设备拉回这一页的新版本时，编辑器没在输入就换成新版本；在输入就先不动，免得打断（本机改动会在下一次合并时按时间戳处理）
+  const seededAt = useRef(note.updated); const [extVer, setExtVer] = useState(0);
+  const onBlocks = useMemo(() => (blocks) => { const updated = new Date().toISOString(); seededAt.current = updated; upsert('notes', { id: note.id, blocks, body: blocksToMd(blocks), updated }); }, [note.id]);
+  useEffect(() => { if (note.updated === seededAt.current) return; const ed = document.querySelector('.beditor'); const typing = ed && ed.contains(document.activeElement); if (!typing) { seededAt.current = note.updated; setExtVer((v) => v + 1); } }, [note.updated]);
+  const blocks = useMemo(() => (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), [note.id, extVer]);
   const notesRef = useRef(notes); notesRef.current = notes;
   const openLink = useMemo(() => (t) => go('notes/t:' + encodeURIComponent(t)), []);
   const createRef = useRef(); createRef.current = (title) => { if (!findByTitle(get().notes, title)) newNote({ title, parent: note.id }); };
@@ -448,7 +451,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
       <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
       <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} backlinks=${backlinks.length} />
       <div onMouseOver=${onOver} onMouseOut=${onOut}>
-      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} /><//>
+      <${Still} k=${note.id + ':' + (note.font || '')}><${BlockEditor} key=${note.id + ':' + extVer} blocks=${blocks} onChange=${onBlocks} notesRef=${notesRef} noteId=${note.id} onCreatePage=${createLinkedStable} onOpenLink=${openLink} pageFont=${note.font} onExitTop=${backToTitle} onExport=${exportSel} /><//>
       </div>
       ${peek && html`<div class="wiki-peek popmenu" style=${`position:fixed;left:${Math.min(peek.x, innerWidth - 300)}px;top:${peek.y}px`} onMouseEnter=${() => clearTimeout(peekTimer.current)} onMouseLeave=${() => setPeek(null)}>
         ${peek.n ? html`<a class="wp-t" href=${'#/notes/' + peek.n.id}><${Icon} name="note" size=${13} /><b>${noteTitle(peek.n)}</b></a><p>${snippet(peek.n) || '空白页'}</p><small>${fmtShort(peek.n.updated.slice(0, 10))} · ${(notebooks.find((b) => b.id === peek.n.nb) || {}).name || ''}</small>`

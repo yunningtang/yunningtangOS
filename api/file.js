@@ -1,7 +1,7 @@
 // Attachments in the data repo: assets/<id> next to the data file.
 // GET  ?id=...            -> { name, type, content (base64) }
 // PUT  { id, name, type, content (base64) }  -> writes / updates the file as a commit
-import { session, json, gh, dataTarget, readBody, resolveBranch } from './_lib.js';
+import { session, json, gh, dataTarget, readJson, resolveBranch } from './_lib.js';
 
 export default async function handler(req, res) {
   const s = await session(req);
@@ -22,17 +22,19 @@ export default async function handler(req, res) {
     return json(res, 200, { content: (content || '').replace(/\n/g, '') });
   }
   if (req.method === 'PUT') {
-    let body;
-    try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: 'bad json' }); }
+    const body = await readJson(req);
+    if (!body) return json(res, 400, { error: 'bad json' });
     const id = String(body.id || '').replace(/[^\w-]/g, '');
     if (!id || typeof body.content !== 'string') return json(res, 400, { error: 'id and content required' });
+    if (!/^[A-Za-z0-9+/=\s]*$/.test(body.content)) return json(res, 400, { error: 'content must be base64' });
+    if (body.content.length > 5.5e6) return json(res, 413, { error: '附件太大（上限约 4 MB）' });
     const file = `/repos/${repo}/contents/${dir}/${id}`;
     const cur = await gh(s.t, `${file}?ref=${encodeURIComponent(branch)}`);
-    const payload = { message: `os: attachment ${body.name || id}`, content: body.content, branch };
+    const payload = { message: `os: attachment ${String(body.name || id).replace(/[\r\n]/g, ' ').slice(0, 80)}`, content: body.content, branch };
     if (cur.ok && cur.body && cur.body.sha) payload.sha = cur.body.sha;
     const r = await gh(s.t, file, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!r.ok) return json(res, r.status, { error: r.body?.message || 'github error' });
-    return json(res, 200, { ok: true });
+    return json(res, 200, { ok: true, sha: r.body && r.body.content ? r.body.content.sha : null });
   }
   json(res, 405, { error: 'method not allowed' });
 }

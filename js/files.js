@@ -41,7 +41,10 @@ const urls = new Map();
 export async function fileUrl(id) {
   if (urls.has(id)) return urls.get(id);
   const r = await getFile(id); if (!r) return null;
-  const u = URL.createObjectURL(r.blob); urls.set(id, u); return u;
+  // 类型按文件头判断，不信元数据：名字叫 .pdf 的 HTML 不能以同源 blob 页面打开
+  const head = new Uint8Array(await r.blob.slice(0, 5).arrayBuffer()); const isPdfBytes = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46;
+  const type = isPdfBytes ? 'application/pdf' : /^(image|audio|video)\//.test(r.blob.type) ? r.blob.type : 'application/octet-stream';
+  const u = URL.createObjectURL(type === r.blob.type ? r.blob : new Blob([r.blob], { type })); urls.set(id, u); return u;
 }
 export function forgetUrl(id) { const u = urls.get(id); if (u) { URL.revokeObjectURL(u); urls.delete(id); } }
 

@@ -33,7 +33,7 @@ export function cookies(req) {
   const out = {};
   for (const part of (req.headers.cookie || '').split(/;\s*/)) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i)] = decodeURIComponent(part.slice(i + 1));
+    if (i > 0) { try { out[part.slice(0, i)] = decodeURIComponent(part.slice(i + 1)); } catch { /* 坏的 % 序列：忽略这个 cookie，别让所有接口 500 */ } }
   }
   return out;
 }
@@ -44,9 +44,15 @@ export function setCookie(res, name, value, opts = {}) {
   res.setHeader('Set-Cookie', [...(Array.isArray(prev) ? prev : prev ? [prev] : []), parts.join('; ')]);
 }
 
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 90; // 90 天，服务端也检查，不只靠浏览器的 Max-Age
+export function allowedUsers() { return (env('ALLOWED_USER') || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean); }
 export async function session(req) {
   const c = cookies(req)[COOKIE];
-  return c ? open(c) : null;
+  const s = c ? await open(c) : null;
+  if (!s || !s.t || !s.u) return null;
+  if (!s.at || Date.now() - s.at > SESSION_MAX_AGE * 1000) return null; // 过期
+  const allowed = allowedUsers(); if (!allowed.length || !allowed.includes(String(s.u).toLowerCase())) return null; // 每次请求都重查允许名单
+  return s;
 }
 
 export function json(res, status, body) {
@@ -67,13 +73,18 @@ export async function gh(token, path, init = {}) {
   return { status: r.status, ok: r.ok, body };
 }
 
-export function readBody(req) {
+export function readBody(req, limit = 6e6) {
   return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', (c) => { data += c; if (data.length > 20e6) reject(new Error('too large')); });
-    req.on('end', () => resolve(data));
+    const chunks = []; let size = 0;
+    req.on('data', (c) => { size += c.length; if (size > limit) { reject(new Error('too large')); req.destroy(); return; } chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)); });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8'))); // 拼完再解码，中文不会在分块边界被切坏
     req.on('error', reject);
   });
+}
+// 请求体必须是 JSON 对象
+export async function readJson(req, limit) {
+  let body; try { body = JSON.parse(await readBody(req, limit)); } catch { return null; }
+  return body && typeof body === 'object' && !Array.isArray(body) ? body : null;
 }
 
 export function dataTarget() {

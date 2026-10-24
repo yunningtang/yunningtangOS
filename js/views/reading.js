@@ -29,13 +29,13 @@ export async function findCover(title, author) {
   const q = [title, author].filter(Boolean).join(' ');
   if (!title) return '';
   try {
-    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent('intitle:' + title + (author ? ' inauthor:' + author : ''))}&maxResults=5`);
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent('intitle:' + title + (author ? ' inauthor:' + author : ''))}&maxResults=5`, { signal: AbortSignal.timeout(8000) });
     const j = await r.json();
     const hit = (j.items || []).find((it) => it.volumeInfo && it.volumeInfo.imageLinks);
     if (hit) { const l = hit.volumeInfo.imageLinks; return (l.thumbnail || l.smallThumbnail).replace(/^http:/, 'https:').replace(/&edge=curl/, '').replace(/zoom=\d/, 'zoom=2'); }
   } catch {}
   try {
-    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=5&fields=cover_i`);
+    const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=5&fields=cover_i`, { signal: AbortSignal.timeout(8000) });
     const j = await r.json();
     const hit = (j.docs || []).find((d) => d.cover_i);
     if (hit) return `https://covers.openlibrary.org/b/id/${hit.cover_i}-M.jpg`;

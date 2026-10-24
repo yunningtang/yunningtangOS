@@ -1,5 +1,5 @@
 // Sample content so the OS doesn't open empty. Everything here can be cleared in Settings.
-import { get, replace } from './store.js';
+import { get, replace, loadError } from './store.js';
 import { uid, todayStr, addDays, monthKey, weekKey, weekStart, weekDays } from './util.js';
 
 // 只生成示例文档，不写入（同步时用来判断「这台设备是不是只有一份没动过的示例数据」）
@@ -94,6 +94,7 @@ export function seedDoc(base) {
     { id: uid(), place: '雷克雅未克', region: '', country: '冰岛', lat: 64.1466, lng: -21.9426, date: '2028-01-01', end: '', note: '极光。', photos: [], rating: 0, tags: [], kind: 'wish' },
   ];
 
+  for (const k of ['todos', 'notes', 'books', 'links', 'trips', 'blocks', 'notebooks']) (s[k] || []).forEach((x) => { x.seed = true; });
   s.settings.seeded = true;
   return s;
 }
@@ -102,5 +103,5 @@ export function seed() { replace(seedDoc()); }
 export function seedIfEmpty() {
   const s = get();
   const empty = !s.todos.length && !s.notes.length && !s.books.length && !s.links.length && !s.trips.length;
-  if (empty && !s.settings.seeded) seed();
+  if (empty && !s.settings.seeded && !loadError) seed();
 }

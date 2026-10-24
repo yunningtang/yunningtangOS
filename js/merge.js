@@ -5,9 +5,12 @@ const LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const stamp = (x) => (x && (x.updated || x.updatedAt || x.deletedAt || x.completedAt || '')) || '';
 
+// 记录用 id 分组；没有 id 的（自定义时间块类型只有 v）退回用 v，再不行就整条 JSON，绝不把多条挤到同一个 key
+const keyOf = (x) => (x && (x.id ?? x.v ?? JSON.stringify(x)));
 export function mergeList(base = [], local = [], remote = []) {
-  const bm = new Map(base.map((x) => [x.id, x])), lm = new Map(local.map((x) => [x.id, x])), rm = new Map(remote.map((x) => [x.id, x]));
-  const ids = [...new Set([...base, ...local, ...remote].map((x) => x.id))];
+  const arr = (l) => (Array.isArray(l) ? l.filter(Boolean) : []); base = arr(base); local = arr(local); remote = arr(remote);
+  const bm = new Map(base.map((x) => [keyOf(x), x])), lm = new Map(local.map((x) => [keyOf(x), x])), rm = new Map(remote.map((x) => [keyOf(x), x]));
+  const ids = [...new Set([...base, ...local, ...remote].map(keyOf))];
   const out = [];
   for (const id of ids) {
     const b = bm.get(id), l = lm.get(id), r = rm.get(id);
@@ -18,11 +21,11 @@ export function mergeList(base = [], local = [], remote = []) {
     else pick = stamp(r) > stamp(l) ? r : l;
     if (pick) out.push(pick);
   }
-  const orderOf = (l) => l.map((x) => x.id).join('\u0001');
-  const localMoved = orderOf(local) !== orderOf(base.filter((x) => lm.has(x.id)));
+  const orderOf = (l) => l.map(keyOf).join('\u0001');
+  const localMoved = orderOf(local) !== orderOf(base.filter((x) => lm.has(keyOf(x))));
   const primary = localMoved ? local : remote, secondary = localMoved ? remote : local;
-  const pos = new Map(primary.map((x, i) => [x.id, i])); const spos = new Map(secondary.map((x, i) => [x.id, i]));
-  out.sort((a, b) => (pos.has(a.id) ? pos.get(a.id) : 1e6 + (spos.get(a.id) || 0)) - (pos.has(b.id) ? pos.get(b.id) : 1e6 + (spos.get(b.id) || 0)));
+  const pos = new Map(primary.map((x, i) => [keyOf(x), i])); const spos = new Map(secondary.map((x, i) => [keyOf(x), i]));
+  out.sort((a, b) => (pos.has(keyOf(a)) ? pos.get(keyOf(a)) : 1e6 + (spos.get(keyOf(a)) || 0)) - (pos.has(keyOf(b)) ? pos.get(keyOf(b)) : 1e6 + (spos.get(keyOf(b)) || 0)));
   return out;
 }
 
@@ -60,6 +63,8 @@ export function merge3(base, local, remote) {
   out.weeks = mergeMap(base.weeks, local.weeks, remote.weeks, (b, l, r) => ({ ...mergeObj(b || {}, l || {}, r || {}), items: mergeMap((b || {}).items, (l || {}).items, (r || {}).items, (bb, ll, rr) => mergeList(bb || [], ll || [], rr || [])) }));
   const bv = base.vision || {}, lv = local.vision || {}, rv = remote.vision || {};
   out.vision = { ...lv, statements: mergeList(bv.statements, lv.statements, rv.statements), board: mergeList(bv.board, lv.board, rv.board), longterm: mergeList(bv.longterm, lv.longterm, rv.longterm), areas: mergeList(bv.areas, lv.areas, rv.areas) };
+  // 同一页不能既在笔记里又在最近删除里（一边编辑一边删除时会出现）：留在笔记里的那份为准
+  const live = new Set(out.notes.map((n) => n.id)); out.trash = out.trash.filter((n) => !live.has(n.id));
   out.profile = mergeObj(base.profile, local.profile, remote.profile);
   // settings stay per device, except the dashboard layout and place which are nice to share
   const ls = local.settings || {}, rs = remote.settings || {}, bs = base.settings || {};

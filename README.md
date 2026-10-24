@@ -29,9 +29,11 @@
 
 - 默认存在浏览器 `localStorage`（key `ytos.v1`），一份 JSON 文档，随时在设置里导出。
 - 同步到 GitHub 仓库里的一个文件（默认 `data/os.json`），每次同步是一次提交，可回滚。两种方式：
-  - **登录即同步（推荐，需要 Vercel）**：设置页点「用 GitHub 登录」，之后打开页面自动拉取、编辑后几秒自动推送。token 存在加密的 httpOnly cookie 里，浏览器脚本拿不到。合并是三方的（上次同步的副本 / 本机 / 远端）；一台从没同步过的设备第一次登录时，如果它只有没动过的示例数据，就整份换成远端，否则只往远端加东西、不删。
+  - **登录即同步（推荐，需要 Vercel）**：设置页点「用 GitHub 登录」，之后打开页面自动拉取、编辑后几秒自动推送。token 存在加密的 httpOnly cookie 里，浏览器脚本拿不到。合并是三方的（上次同步的副本 / 本机 / 远端）；一台从没同步过的设备第一次登录时，如果它只有没动过的示例数据，就整份换成远端，否则只往远端加东西、不删，个人资料和总览布局以远端为准。同一浏览器开多个标签页也是三方合并，不会互相覆盖。会话 90 天过期，断开连接会在 GitHub 那边吊销 token。
   - **token 方式（纯静态托管）**：设置页填仓库、分支、路径和一个只给该仓库 Contents 读写权限的 fine-grained token。
 - 第一次打开会载入一份示例数据，设置里可以「清空全部」。
+- 本地数据读不出来时不会被覆盖：原文另存成 `ytos.v1.broken-<时间>`，页面给出提示；浏览器存储满了也会提示，不会悄悄丢改动。导入备份前会先把当前数据存一份，可以撤销。
+- 所有从外面进来的 HTML（导入、同步、AI 生成、Markdown 预览）都过白名单消毒，页面带 CSP。
 - 公开仓库里的数据文件也是公开的，私人内容请指向一个私有仓库（`DATA_REPO` 可以是另一个仓库）。
 
 ## 附件（PDF 等）
@@ -57,7 +59,7 @@
    | `DATA_REPO` | 存数据的仓库，如 `yunningtang/yunningtangOS` 或一个私有仓库 |
    | `DATA_BRANCH` | 可选，默认 `main`（本仓库是 `master`） |
    | `DATA_PATH` | 可选，默认 `data/os.json` |
-   | `ALLOWED_USER` | 你的 GitHub 用户名，只有这个账号能登录同步 |
+   | `ALLOWED_USER` | 你的 GitHub 用户名（多个用逗号隔开），只有这些账号能登录同步。**没配就谁都登不上**，每次请求都会重查 |
    | `DEEPSEEK_API_KEY` | 可选。汤圆助手用 DeepSeek 拆解自然语言（OpenAI 兼容接口，支付宝 / 微信充值）；只有登录用户能调用 `/api/agent`。密钥只放这里，不要写进代码或对话 |
    | `DEEPSEEK_MODEL` | 可选，默认 `deepseek-chat`；以官网价格页的模型名为准 |
    | `ANTHROPIC_API_KEY` / `AGENT_MODEL` | 可选，换用 Claude（默认 `claude-opus-5-5`）。两个密钥都有时默认 DeepSeek，`AGENT_PROVIDER=anthropic` 可切换 |

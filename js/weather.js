@@ -29,7 +29,7 @@ export function getPosition() {
 
 export async function reverseGeo(lat, lng) {
   try {
-    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=zh`);
+    const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=zh`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) throw new Error();
     const j = await r.json();
     const parts = [j.city || j.locality, j.principalSubdivision].filter(Boolean);
@@ -40,7 +40,7 @@ export async function reverseGeo(lat, lng) {
 }
 
 export async function searchPlace(q) {
-  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=zh&format=json`);
+  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=zh&format=json`, { signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw new Error('搜索失败');
   const j = await r.json();
   return (j.results || []).map((x) => ({ name: x.name, sub: [x.admin1, x.country].filter(Boolean).join(' · '), region: x.admin1 || '', country: x.country || '', cc: x.country_code || '', lat: x.latitude, lng: x.longitude }));
@@ -50,7 +50,7 @@ export async function fetchWeather(lat, lng, force = false) {
   const key = `${lat},${lng}`;
   try { const c = JSON.parse(localStorage.getItem(WX_KEY) || 'null'); if (!force && c && c.key === key && Date.now() - c.at < CACHE_MS) return c.data; } catch {}
   const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=4`;
-  const r = await fetch(u);
+  const r = await fetch(u, { signal: AbortSignal.timeout(10000) });
   if (!r.ok) throw new Error('天气服务暂时不可用');
   const j = await r.json();
   const cur = j.current || {};

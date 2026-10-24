@@ -2,7 +2,7 @@ import { html, useState, useEffect } from '../../vendor/preact.js';
 import { useStore, update, replace, exportJSON, blank } from '../store.js';
 import { Icon, Btn, Card, Field, Seg, confirmDel } from '../ui.js';
 import { download, readFile, todayStr, pickFile, imageToSquare } from '../util.js';
-import { push, pull, smartSync, loginState, detectLogin, status as syncStatus } from '../sync.js';
+import { push, pull, smartSync, guarded, loginState, detectLogin, status as syncStatus } from '../sync.js';
 import { seed } from '../seed.js';
 import { toast } from '../nav.js';
 import { askConfirm, askPrompt } from '../confirm.js';
@@ -64,11 +64,18 @@ export default function Settings() {
   const setSync = (k, v) => update((d) => { d.settings.sync[k] = v; });
   const run = async (fn, okMsg) => {
     setBusy(true); setErr('');
-    try { const r = await fn(); toast(okMsg || (r === 'pulled' ? '已从 GitHub 拉取' : r === 'same' ? '已是最新' : r === 'merged' ? '两边的改动已合并并推送' : '已推送到 GitHub')); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try { const r = await guarded(fn); if (r === undefined) { toast('正在同步，稍等一下'); return; } toast(okMsg || (r === 'pulled' ? '已从 GitHub 拉取' : r === 'same' ? '已是最新' : r === 'merged' ? '两边的改动已合并并推送' : '已推送到 GitHub')); } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const importFile = async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { const j = JSON.parse(await readFile(f)); if (!j.todos) throw new Error('不是有效的备份文件'); replace(j); toast('已导入'); } catch (x) { toast(x.message); }
+    try {
+      const j = JSON.parse(await readFile(f)); if (!j || typeof j !== 'object' || !Array.isArray(j.todos)) throw new Error('不是有效的备份文件');
+      const cur = s; const n = (k) => (Array.isArray(j[k]) ? j[k].length : 0);
+      const ok = await askConfirm(`备份里有：待办 ${n('todos')}、笔记 ${n('notes')}、书 ${n('books')}、收藏 ${n('links')}、足迹 ${n('trips')}。\n当前有：待办 ${cur.todos.length}、笔记 ${cur.notes.length}、书 ${cur.books.length}、收藏 ${cur.links.length}、足迹 ${cur.trips.length}。\n导入会整份替换当前数据（当前这份会先存一份在本机，设置里可以撤销）；开着云端同步的话，备份之后新建的内容会被当成删除同步出去。`, { title: '导入这份备份？', ok: '替换导入' });
+      if (!ok) return;
+      try { localStorage.setItem('ytos.v1.prev', exportJSON()); } catch {}
+      replace(j); toast('已导入', { label: '撤销', onClick: () => { try { const prev = localStorage.getItem('ytos.v1.prev'); if (prev) { replace(JSON.parse(prev)); toast('已恢复导入前的数据'); } } catch {} } });
+    } catch (x) { toast(x.message); }
     e.target.value = '';
   };
   const counts = [['待办', s.todos.length], ['时间块', s.blocks.length], ['书', s.books.length], ['收藏', s.links.length], ['笔记', s.notes.length], ['足迹', s.trips.length]];
@@ -113,7 +120,7 @@ export default function Settings() {
             <div class="int-row">
               <span class="int-ic gh"><${Icon} name="github" size=${16} /></span>
               <div class="int-b"><b>GitHub</b><small>${connected ? html`${login.user.login} · ${login.target.repo} · ${login.target.branch}` : login && login.configured ? '同步到你的私人仓库' : '静态部署：用 token 直连仓库'}</small></div>
-              ${connected ? html`<span class="int-tag on">已连接</span><a class="btn sm ghost" href="/api/auth/logout">断开</a>`
+              ${connected ? html`<span class="int-tag on">已连接</span><button class="btn sm ghost" onClick=${async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.reload(); }}>断开</button>`
                 : login && login.configured ? html`<a class="btn sm primary" href="/api/auth/login">连接</a>`
                 : html`<button class="btn sm" onClick=${() => setTokOpen((v) => !v)}>${tokOpen ? '收起' : tokenMode ? '设置' : '配置'}</button>`}
             </div>

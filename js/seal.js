@@ -560,7 +560,7 @@ export function Seal() {
     const existing = stepsOf(cur).map((x) => x.title);
     const now = new Date();
     try {
-      const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, body: JSON.stringify({ mode: 'breakdown', text: t.title, context: { today: todayStr(), weekday: WEEKDAY_SUN[now.getDay()], now: `${pad(now.getHours())}:${pad(now.getMinutes())}`, due: t.due || '', note: t.note || '', existing } }) });
+      const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, signal: AbortSignal.timeout(90000), body: JSON.stringify({ mode: 'breakdown', text: t.title, context: { today: todayStr(), weekday: WEEKDAY_SUN[now.getDay()], now: `${pad(now.getHours())}:${pad(now.getMinutes())}`, due: t.due || '', note: t.note || '', existing } }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       recordUsage(j);
@@ -599,7 +599,7 @@ export function Seal() {
       try {
         // 上一轮还没保存的草稿一起发过去，对方说「第二个改成后天」时模型能对上号
         const pending = [...msgsR.current].reverse().find((m) => m.who === 'bot' && m.items && m.items.length && m.saved == null && !m.superseded);
-        const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, body: JSON.stringify({ text, history: hist, context: buildContext(st, pending ? pending.items : []) }) });
+        const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, signal: AbortSignal.timeout(90000), body: JSON.stringify({ text, history: hist, context: buildContext(st, pending ? pending.items : []) }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
         recordUsage(j);

@@ -104,9 +104,13 @@ const BASE_KEY = 'sync-base';
 // 没同步过、而且内容和示例数据长得一样（标题集合一致）→ 当作空白设备
 function isUntouchedSeed(doc) {
   if (!doc || !doc.settings || !doc.settings.seeded || doc.settings.lastSync) return false;
+  const lists = ['notes', 'todos', 'books', 'links', 'trips'];
+  // 新版示例数据每条都带 seed 标记：全是示例、一条自己的都没有 → 空白设备
+  if (lists.some((k) => (doc[k] || []).some((x) => x && x.seed))) return lists.every((k) => (doc[k] || []).every((x) => x && x.seed));
+  // 老版本没有标记：按标题和当前示例比对
   const titles = (l) => (l || []).map((x) => x.title || x.place || x.url || '').sort().join('\u0001');
   const sd = seedDoc();
-  return ['notes', 'todos', 'books', 'links', 'trips'].every((k) => titles(doc[k]) === titles(sd[k]));
+  return lists.every((k) => titles(doc[k]) === titles(sd[k]));
 }
 const getBase = () => kvGet(BASE_KEY);
 const setBase = (doc) => kvSet(BASE_KEY, JSON.parse(JSON.stringify(doc)));
@@ -138,7 +142,15 @@ export async function smartSync() {
   const base = await getBase();
   // 这台设备第一次同步（没有 base）：不能拿远端当 base，否则本地没有的东西全被当成「本地删除」，会把远端清掉。
   // 本地只是一份没动过的示例数据 → 直接以远端为准；本地有自己的内容 → 以空 base 合并（只加不删）。
-  const merged = base ? merge3(base, local, remote.data) : (isUntouchedSeed(local) ? remote.data : merge3({}, local, remote.data));
+  let merged;
+  if (base) merged = merge3(base, local, remote.data);
+  else if (isUntouchedSeed(local)) merged = remote.data;
+  else { // 只加不删；个人资料 / 总览布局 / 位置这些「单值」以远端为准，别用新设备的默认值把远端盖掉
+    merged = merge3({}, local, remote.data);
+    const rp = remote.data.profile || {}, rs = remote.data.settings || {};
+    merged.profile = { ...(local.profile || {}), ...Object.fromEntries(Object.entries(rp).filter(([, v]) => v != null && v !== '')) };
+    merged.settings = { ...(merged.settings || {}), dash: rs.dash || (merged.settings || {}).dash, place: rs.place || (merged.settings || {}).place };
+  }
   const localChanged = syncView(merged) !== syncView(local);
   const remoteChanged = syncView(merged) !== syncView(remote.data);
   if (localChanged) replace(keepLocal(merged));
@@ -149,7 +161,7 @@ export async function smartSync() {
   return remoteChanged ? (localChanged ? 'merged' : 'pushed') : (localChanged ? 'pulled' : 'same');
 }
 
-async function guarded(fn) {
+export async function guarded(fn) {
   if (busy) return;
   busy = true; setStatus({ busy: true, error: '' });
   try { const r = await fn(); setStatus({ last: new Date().toISOString() }); return r; } catch (e) { setStatus({ error: e.message }); throw e; } finally { busy = false; setStatus({ busy: false }); }

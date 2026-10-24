@@ -103,6 +103,45 @@ export function sanitize(html) {
 }
 
 /* ---------- rich html (clipboard / web page) -> blocks ---------- */
+// 块级消毒：给 marked 渲染出来的整段 HTML 用（最近删除预览、md 块）。白名单之外的标签只保留文字；属性除了少数几个全丢。
+const DOC_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'CODE', 'HR', 'BR', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'DEL', 'MARK', 'A', 'IMG', 'INPUT', 'DIV', 'SPAN']);
+export function sanitizeDoc(html) {
+  const t = document.createElement('template'); t.innerHTML = html || '';
+  const walk = (node) => {
+    let out = '';
+    for (const c of node.childNodes) {
+      if (c.nodeType === 3) { out += escapeHtml(c.nodeValue); continue; }
+      if (c.nodeType !== 1) continue;
+      if (SKIP.has(c.tagName) || c.tagName === 'SCRIPT' || c.tagName === 'STYLE') continue;
+      if (!DOC_TAGS.has(c.tagName)) { out += walk(c); continue; }
+      const tag = c.tagName.toLowerCase();
+      if (tag === 'br' || tag === 'hr') { out += `<${tag}>`; continue; }
+      if (tag === 'img') { const src = (c.getAttribute('src') || '').trim(); if (/^(https?:|data:image\/)/i.test(src)) out += `<img src="${escapeHtml(src)}" alt="${escapeHtml(c.getAttribute('alt') || '')}" loading="lazy" referrerpolicy="no-referrer">`; continue; }
+      if (tag === 'input') { if ((c.getAttribute('type') || '').toLowerCase() === 'checkbox') out += `<input type="checkbox" disabled${c.hasAttribute('checked') ? ' checked' : ''}>`; continue; }
+      if (tag === 'a') { const href = unwrapGoogleUrl((c.getAttribute('href') || '').trim()); const cls = (c.getAttribute('class') || '').match(/\b(ref|wiki)\b/); const attrs = [];
+        if (/^(https?:|mailto:|#)/i.test(href)) attrs.push(`href="${escapeHtml(href)}"`); if (cls) attrs.push(`class="${cls[1]}"`); if (/^https?:/i.test(href)) attrs.push('target="_blank" rel="noopener"');
+        out += attrs.length ? `<a ${attrs.join(' ')}>${walk(c)}</a>` : walk(c); continue; }
+      if (tag === 'code' || tag === 'pre') { out += `<${tag}>${escapeHtml(c.textContent)}</${tag}>`; continue; }
+      if (tag === 'mark') { const m = (c.className || '').match(/\bhl-([ygbpr])\b/); out += `<mark${m ? ` class="hl-${m[1]}"` : ''}>${walk(c)}</mark>`; continue; }
+      out += `<${tag}>${walk(c)}</${tag}>`;
+    }
+    return out;
+  };
+  return walk(t.content);
+}
+// 存起来的块在载入 / 导入 / 同步回来时再过一遍消毒，不信任任何来源（编辑器只在写出时消毒，不够）
+export function sanitizeBlocks(blocks) {
+  if (!Array.isArray(blocks)) return [];
+  return blocks.filter((b) => b && typeof b === 'object').map((b) => {
+    const x = { ...b };
+    if (x.type === 'table') { x.rows = Array.isArray(x.rows) ? x.rows.map((r) => (Array.isArray(r) ? r.map((c) => sanitize(String(c ?? ''))) : [])) : []; x.html = ''; }
+    else if (x.type === 'code') { x.html = escapeHtml(textOf(String(x.html ?? ''))).replace(/\n/g, '<br>'); }
+    else if (typeof x.html === 'string' && x.html && /[<&]/.test(x.html)) x.html = sanitize(x.html);
+    if (typeof x.url === 'string' && x.url && !/^(https?:|data:image\/)/i.test(x.url.trim())) x.url = '';
+    return x;
+  });
+}
+
 export function htmlToBlocks(html) {
   const t = document.createElement('template');
   t.innerHTML = html || '';
@@ -224,7 +263,7 @@ export function mdToBlocks(md) {
     }
     if (!line) { i++; continue; }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { out.push(block('divider')); i++; continue; }
-    if ((m = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/))) { out.push(block('image', escapeHtml(m[1]), { url: m[2] })); i++; continue; }
+    if ((m = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/))) { out.push(block('image', escapeHtml(m[1]), { url: /^(https?:|data:image\/)/i.test(m[2]) ? m[2] : '' })); i++; continue; }
     if ((m = line.match(/^\[([^\]]*)\]\(ytos-file:\/\/([\w-]+)(?:\|([^)]*))?\)$/))) { const [mime, size] = (m[3] || '').split(','); out.push(block('file', '', { fid: m[2], name: m[1], mime: mime || '', size: +size || 0 })); i++; continue; }
     if ((m = line.match(/^(#{1,3})\s+(.*)$/))) { out.push(block('h' + m[1].length, inlineMdToHtml(m[2]), { indent })); i++; continue; }
     if ((m = line.match(/^[-*+]\s+\[([ xX])\]\s*(.*)$/))) { out.push(block('todo', inlineMdToHtml(m[2]), { checked: m[1] !== ' ', indent })); i++; continue; }

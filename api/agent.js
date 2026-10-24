@@ -9,7 +9,7 @@
 //   2. 浏览器设置里填的密钥，随请求放在 x-ai-key 头里，只存在那台浏览器的 localStorage，不进同步数据
 // 只有登录用户能调用，密钥不会被路人刷。
 import Anthropic from '@anthropic-ai/sdk';
-import { session, json, readBody, env } from './_lib.js';
+import { session, json, readJson, env } from './_lib.js';
 
 const DEFAULTS = { anthropic: 'claude-opus-5-5', deepseek: 'deepseek-chat' };
 const DS_BASE = env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com');
@@ -22,8 +22,10 @@ export function resolve(req) {
   const hm = String(h['x-ai-model'] || '').trim();
   let provider = hp || env('AGENT_PROVIDER') || (env('DEEPSEEK_API_KEY') && !env('ANTHROPIC_API_KEY') ? 'deepseek' : 'anthropic');
   provider = provider === 'deepseek' ? 'deepseek' : 'anthropic';
+  // 只有自带密钥（BYOK）时才听请求头里的 provider / model；用服务器密钥时一律按环境变量来，防止把贵的模型跑在别人的账单上
+  if (!hk) provider = (env('AGENT_PROVIDER') || (env('DEEPSEEK_API_KEY') && !env('ANTHROPIC_API_KEY') ? 'deepseek' : 'anthropic')) === 'deepseek' ? 'deepseek' : 'anthropic';
   const key = hk || (provider === 'deepseek' ? env('DEEPSEEK_API_KEY') : env('ANTHROPIC_API_KEY')) || '';
-  const model = hm || (provider === 'deepseek' ? env('DEEPSEEK_MODEL') : env('AGENT_MODEL')) || DEFAULTS[provider];
+  const model = (hk && hm) || (provider === 'deepseek' ? env('DEEPSEEK_MODEL') : env('AGENT_MODEL')) || DEFAULTS[provider];
   return { provider, key, model, fromHeader: !!hk };
 }
 export const provider = () => resolve().provider;
@@ -131,10 +133,11 @@ const JSON_HINT = {
 /* ---------------- 上下文 ---------------- */
 const clip = (arr, n) => (Array.isArray(arr) ? arr.slice(0, n).map((x) => String(x).slice(0, 60)) : []);
 // 已有待办：带 id、日期、状态，模型去重时能对得上
-const todoLine = (t) => (typeof t === 'string' ? t : `${t.title}${t.due ? ' @' + t.due + (t.time ? ' ' + t.time : '') : ''}${t.done ? '（已完成）' : ''} [${t.id}]`).slice(0, 90);
-const draftLine = (it) => { const bits = [KIND_CN[it.kind] || it.kind, it.title]; if (it.date) bits.push(it.date); if (it.time) bits.push(it.time); if (it.start) bits.push(`${it.start}–${it.end || '?'}`); if (it.priority != null && it.kind === 'todo') bits.push('P' + it.priority); if (it.tags && it.tags.length) bits.push(it.tags.map((x) => '#' + x).join(' ')); return `- [${it.id}] ${bits.join(' · ')}`; };
+const todoLine = (t) => (typeof t === 'string' ? t : !t || typeof t !== 'object' ? '' : `${t.title}${t.due ? ' @' + t.due + (t.time ? ' ' + t.time : '') : ''}${t.done ? '（已完成）' : ''} [${t.id}]`).slice(0, 90);
+const draftLine = (it) => { if (!it || typeof it !== 'object') return ''; const tags = Array.isArray(it.tags) ? it.tags : []; const bits = [KIND_CN[it.kind] || it.kind, it.title]; if (it.date) bits.push(it.date); if (it.time) bits.push(it.time); if (it.start) bits.push(`${it.start}–${it.end || '?'}`); if (it.priority != null && it.kind === 'todo') bits.push('P' + it.priority); if (tags.length) bits.push(tags.map((x) => '#' + String(x)).join(' ')); return `- [${it.id}] ${bits.join(' · ')}`; };
 const KIND_CN = { todo: '待办', block: '时间块', note: '笔记', goal: '月度目标', focus: '周焦点', book: '书', link: '链接', vision: '肯定句' };
-function contextBlock(c = {}, mode) {
+function contextBlock(c, mode) {
+  c = c && typeof c === 'object' ? c : {};
   const lines = [`今天：${c.today || ''}（${c.weekday || ''}），现在 ${c.now || ''}`];
   if (c.who) lines.push(`现在登录的名字：${String(c.who).slice(0, 30)}`);
   if (mode === 'breakdown') {
@@ -145,11 +148,11 @@ function contextBlock(c = {}, mode) {
     lines.push(`可用本子：${clip(c.notebooks, 20).join('、') || '（无）'}`);
     lines.push(`可用时间块类型：${clip(c.kinds, 20).join('、') || '（无）'}`);
     lines.push(`已有标签：${clip(c.tags, 40).join('、') || '（无）'}`);
-    const todos = Array.isArray(c.todos) ? c.todos.slice(0, 30).map(todoLine) : [];
+    const todos = Array.isArray(c.todos) ? c.todos.slice(0, 30).map(todoLine).filter(Boolean) : [];
     lines.push(`已有的待办（未完成，近期）：${todos.join('；') || '（无）'}`);
     if (c.goals && c.goals.length) lines.push(`本月已有的目标：${clip(c.goals, 10).join('；')}`);
     if (c.focus) lines.push(`本周焦点：${String(c.focus).slice(0, 200)}`);
-    if (Array.isArray(c.draft) && c.draft.length) lines.push(`待确认的草稿（上一轮给的、还没保存；对方若在改它就按 modify 输出，带 ref）：\n${c.draft.slice(0, 12).map(draftLine).join('\n')}`);
+    if (Array.isArray(c.draft) && c.draft.length) lines.push(`待确认的草稿（上一轮给的、还没保存；对方若在改它就按 modify 输出，带 ref）：\n${c.draft.slice(0, 12).map(draftLine).filter(Boolean).join('\n')}`);
     if (c.calendar) lines.push(`日历（算日期时直接查这里，不要心算）：\n${String(c.calendar).slice(0, 1200)}`);
   }
   return lines.join('\n');
@@ -229,7 +232,7 @@ async function askDeepSeek(cfg, system, messages, mode, retry = 0) {
   // retry 1：提醒上次 JSON 不合法；retry 2：DeepSeek 的 json_object 模式偶尔会回空内容，这次不开它，靠提示词 + parseLoose
   const sys = system + '\n\n' + JSON_HINT[mode] + (retry ? '\n\n注意：上一次的输出是空的或不是合法 JSON。这次只输出一个完整、紧凑的 JSON 对象，字符串里的换行写成 \\n，不要 Markdown 代码块，不要多余文字。' : '');
   const body = { model: cfg.model, max_tokens: 6000, temperature: retry ? 0 : 0.3, ...(retry >= 2 ? {} : { response_format: { type: 'json_object' } }), messages: [{ role: 'system', content: sys }, ...messages] };
-  const r = await fetch(`${DS_BASE}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.key}` }, body: JSON.stringify(body) });
+  const r = await fetch(`${DS_BASE}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.key}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(45000) });
   const text = await r.text();
   let j = null; try { j = JSON.parse(text); } catch {}
   if (!r.ok) {
@@ -270,7 +273,7 @@ async function askClaude(cfg, system, schema, messages) {
 
 async function balance(cfg) {
   if (cfg.provider !== 'deepseek') return { supported: false };
-  const r = await fetch(`${DS_BASE}/user/balance`, { headers: { Authorization: `Bearer ${cfg.key}` } });
+  const r = await fetch(`${DS_BASE}/user/balance`, { headers: { Authorization: `Bearer ${cfg.key}` }, signal: AbortSignal.timeout(15000) });
   const j = await r.json().catch(() => null);
   if (!r.ok) throw fail(r.status === 401 ? 'DeepSeek 密钥无效' : `查询失败 ${r.status}`);
   const info = (j && j.balance_infos && j.balance_infos[0]) || {};
@@ -282,7 +285,7 @@ export default async function handler(req, res) {
   const cfg = resolve(req);
   const s = await session(req);
   if (!s) return json(res, 401, { error: '请先登录再使用汤圆' });
-  if (req.method === 'POST' && rateLimited((s.user && s.user.login) || 'anon')) return json(res, 429, { error: '说得太快啦，歇一分钟再来' });
+  if (rateLimited(s.u || 'anon')) return json(res, 429, { error: '说得太快啦，歇一分钟再来' });
   if (!cfg.key) return json(res, 503, { error: `AI 未配置：在设置里填密钥，或在 Vercel 环境变量里设置 ${cfg.provider === 'deepseek' ? 'DEEPSEEK_API_KEY' : 'ANTHROPIC_API_KEY'}` });
 
   if (req.method === 'GET') {
@@ -294,8 +297,8 @@ export default async function handler(req, res) {
   }
   if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
 
-  let body;
-  try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: 'bad json' }); }
+  const body = await readJson(req, 1e6);
+  if (!body) return json(res, 400, { error: 'bad json' });
   const r = await runAgent(body, cfg);
   json(res, r.status, r.body);
 }

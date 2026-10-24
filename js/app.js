@@ -171,6 +171,9 @@ function App() {
 }
 
 seedIfEmpty();
+// 本地数据载入失败 / 存不下：必须让人看见，不能悄悄丢
+import('./store.js').then(({ loadError }) => { if (loadError) toast('本地数据没能读出来，已原样另存，本次不会写回。先导出或联系开发者排查：' + loadError.slice(0, 60), { sticky: true }); });
+window.addEventListener('ytos:persist-error', (e) => toast(e.detail === 'quota' ? '浏览器本地存储已满，新的改动存不下！删掉几张粘贴的大图片，或先导出备份。' : '本地保存失败：' + e.detail, { sticky: true }));
 (() => {
   // topbar: frosted once scrolled; slides away while scrolling down, comes back on the first scroll up or near the top
   let last = window.scrollY, hidden = false;

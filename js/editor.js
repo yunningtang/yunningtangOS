@@ -6,7 +6,7 @@ import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
 import { get as storeGet } from './store.js';
-import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable } from './blocks.js';
+import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc } from './blocks.js';
 import { todayStr, escapeHtml, imageToDataUrl, pickFile } from './util.js';
 import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './files.js';
 import { fetchAttachment } from './sync.js';
@@ -537,7 +537,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     const out = [];
     for (const f of files) {
       if (/^image\//.test(f.type)) { const u = await imageToDataUrl(f, 1600).catch(() => null); if (u) out.push(block('image', '', { url: u })); continue; }
-      if (f.size > 40 * 1048576) { toast(`「${f.name}」超过 40 MB，没有导入`); continue; }
+      if (f.size > 4 * 1048576) { toast(`「${f.name}」超过 4 MB，没有导入（同步接口的上限）`); continue; }
       const rec = await saveFile(f); out.push(block('file', '', { fid: rec.id, name: rec.name, mime: rec.type, size: rec.size }));
     }
     return out;
@@ -699,7 +699,7 @@ class Row extends Component {
     else if (b.type === 'code') body = html`<div class="b-code" contenteditable="false"><input class="b-lang" value=${b.lang || ''} placeholder="语言" onInput=${(e) => update(b.id, { lang: e.target.value })} /><pre ref=${setEl} contenteditable="plaintext-only" class="b-text" data-ph="代码"></pre></div>`;
     else if (b.type === 'md') body = md
       ? html`<pre ref=${setEl} contenteditable="plaintext-only" class="b-text b-mdsrc" onBlur=${() => setMdEdit(null)}></pre>`
-      : html`<div class="b-mdview md" contenteditable="false" title="点击编辑" onClick=${() => setMdEdit(b.id)} dangerouslySetInnerHTML=${{ __html: marked.parse(textOf(b.html)) }}></div>`;
+      : html`<div class="b-mdview md" contenteditable="false" title="点击编辑" onClick=${() => setMdEdit(b.id)} dangerouslySetInnerHTML=${{ __html: sanitizeDoc(marked.parse(textOf(b.html))) }}></div>`;
     else body = html`<div class=${'b-' + b.type}>
       ${b.type === 'bullet' && html`<span class="b-mark" contenteditable="false">•</span>`}
       ${b.type === 'number' && html`<span class="b-mark num" contenteditable="false">${num}.</span>`}
@@ -766,7 +766,7 @@ function FileView({ b, onRemove }) {
         <button class="ibtn danger" title="移除附件" onClick=${onRemove}><${Icon} name="x" size=${14} /></button>
       </div>
     </div>
-    ${pdf && open && url && html`<iframe class="bf-pdf" src=${url + '#toolbar=1&navpanes=0'} title=${b.name}></iframe>`}
+    ${pdf && open && url && html`<iframe class="bf-pdf" sandbox="" src=${url + '#toolbar=1&navpanes=0'} title=${b.name}></iframe>`}
   </div>`;
 }
 
