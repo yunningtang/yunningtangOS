@@ -100,6 +100,7 @@ export default function Settings() {
             <${Field} label="风格"><div class="skin-pick">${[
               { v: 'glass', n: '玻璃', d: '半透明卡片，柔和光晕', bg: 'linear-gradient(135deg,#eef2fb,#f6f3f8)', card: 'rgba(255,255,255,.7)', ac: '#4f7cf5', line: 'rgba(255,255,255,.9)' },
               { v: 'liquid', n: '液态玻璃', d: 'iOS 26 风：透亮折射、胶囊控件、流动色彩', bg: 'linear-gradient(135deg,#dfe9ff,#ffe3ef 45%,#dcf5ee)', card: 'rgba(255,255,255,.38)', ac: '#2f7cf6', line: 'rgba(255,255,255,.95)' },
+              { v: 'mac', n: 'macOS', d: '系统原生：侧栏贴边无圆角，SF 字体，Apple 系统色', bg: 'linear-gradient(90deg,#f3f3f5 0 34%,#ffffff 34%)', card: '#ffffff', ac: '#007aff', line: 'rgba(0,0,0,.1)' },
               { v: 'notion', n: 'Notion', d: '纯白、细线、方正', bg: '#ffffff', card: '#ffffff', ac: '#2383e2', line: 'rgba(55,53,47,.16)' },
               { v: 'claude', n: 'Claude', d: '米色暖底，赤陶色点缀，衬线标题', bg: '#f4f1ea', card: '#faf9f5', ac: '#c96442', line: 'rgba(60,50,30,.14)' },
               { v: 'steam', n: 'Steam', d: '深蓝灰底，青蓝与绿按钮', bg: '#1b2838', card: '#2a475e', ac: '#66c0f4', line: 'rgba(0,0,0,.4)' },
