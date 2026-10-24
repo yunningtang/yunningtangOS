@@ -1707,12 +1707,12 @@ html[data-theme="dark"] .ac{box-shadow:0 0 0 1px rgba(255,255,255,.09)}
 .ac-dash{color:var(--text-4);font-size:.72rem}
 /* 输入：多行 composer，Enter 发送 */
 .seal-cw{padding:0 12px 12px;flex:none}
-.seal-form{display:flex;align-items:flex-end;gap:6px;padding:4px 4px 4px 0;border-radius:14px;background:var(--paper);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(20,20,20,.04);transition:box-shadow .16s ease}
+.seal-form{display:flex;align-items:center;gap:6px;padding:4px 7px 4px 0;border-radius:14px;background:var(--paper);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(20,20,20,.04);transition:box-shadow .16s ease}
 html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .seal-form:hover{box-shadow:0 0 0 1px color-mix(in srgb,var(--text-4) 70%,var(--line-2)),0 1px 2px rgba(20,20,20,.04)}
 .seal-form:focus-within{box-shadow:0 0 0 1px var(--sp),0 0 0 4px rgba(40,127,205,.12)}
 .seal-form.busy{opacity:.75}
-.seal-form textarea{display:block;flex:1;min-width:0;min-height:36px;max-height:160px;resize:none;border:0;outline:0;background:transparent;box-shadow:none;padding:9px 6px 9px 14px;font:inherit;font-size:.84rem;line-height:1.5;color:var(--text)}.seal-form textarea:focus,.seal-form textarea:focus-visible{outline:0;box-shadow:none;background:transparent}
+.seal-form textarea{display:block;flex:1;min-width:0;min-height:36px;max-height:160px;resize:none;border:0;outline:0;background:transparent;box-shadow:none;padding:8px 6px 8px 14px;font:inherit;font-size:.84rem;line-height:1.5;color:var(--text)}.seal-form textarea:focus,.seal-form textarea:focus-visible{outline:0;box-shadow:none;background:transparent}
 .seal-form textarea::placeholder{color:var(--text-4)}
 
 .seal-send{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;background:var(--sp);color:#fff;transition:opacity .15s,transform .15s,background .15s}.seal-send:hover:not(:disabled){background:#2270b8}.seal-send:active:not(:disabled){transform:scale(.96)}.seal-send:disabled{opacity:.3}
@@ -1760,3 +1760,4 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .seal-h{cursor:grab;user-select:none}.seal-h:active{cursor:grabbing}.seal-panel.big .seal-h{cursor:default}.seal-panel.moving{transition:none!important}
 .seal-h.pinned .seal-id b::after{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--s2);margin-left:6px;vertical-align:middle;opacity:.6}
 .sm-retry{display:inline-flex;align-items:center;gap:4px;margin-left:8px;height:22px;padding:0 8px;border-radius:999px;font-size:.72rem;color:var(--text-2);background:var(--hover)}.sm-retry:hover{background:var(--hover-2);color:var(--text)}
+.seal-form.multi{align-items:flex-end}.seal-form.multi .seal-send{margin-bottom:0}

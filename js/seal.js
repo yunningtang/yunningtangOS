@@ -601,7 +601,7 @@ export function Seal() {
   const unsave = (m) => { const f = undoRef.current[m.id]; if (f) f(); delete undoRef.current[m.id]; setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: null, open: '' } : x)); toast('已撤销'); };
   // 输入框：Enter 发送，Shift+Enter 换行，高度跟着内容长
   const onKey = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(txt); } };
-  const grow = (el) => { if (!el) return; el.style.height = '0'; el.style.height = Math.min(160, el.scrollHeight) + 'px'; };
+  const grow = (el) => { if (!el) return; el.style.height = '0'; const h = Math.min(160, el.scrollHeight); el.style.height = h + 'px'; const form = el.closest('.seal-form'); if (form) form.classList.toggle('multi', h > 44); }; // 多行时发送键贴底，单行时和文字居中对齐
   useEffect(() => { grow(inRef.current); }, [txt]);
   const fmtMin = (t) => (t >= 60 ? `${Math.floor(t / 60)} 小时${t % 60 ? ' ' + (t % 60) + ' 分' : ''}` : `${t} 分钟`);
 
