@@ -225,7 +225,7 @@ function usePopover(open, setOpen, anchorRef) {
   return pos;
 }
 
-export function DateInput({ value, onChange, placeholder = '选择日期', clearable = true, class: cls = '' }) {
+export function DateInput({ value, onChange, placeholder = '选择日期', clearable = true, short = false, class: cls = '' }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
   const pos = usePopover(open, setOpen, ref);
@@ -237,7 +237,7 @@ export function DateInput({ value, onChange, placeholder = '选择日期', clear
   for (let i = 0; i < start; i++) cells.push(null);
   for (let d = 1; d <= days; d++) cells.push(`${ym}-${_pad(d)}`);
   const shift = (n) => { const d = new Date(y, m - 1 + n, 1); setYm(`${d.getFullYear()}-${_pad(d.getMonth() + 1)}`); };
-  const label = value ? `${_fmt(value, true)} ${_WD[new Date(value.replace(/-/g, '/')).getDay()]}` : placeholder;
+  const label = value ? (short ? `${+value.slice(5, 7)}/${+value.slice(8, 10)} ${_WD[new Date(value.replace(/-/g, '/')).getDay()]}` : `${_fmt(value, true)} ${_WD[new Date(value.replace(/-/g, '/')).getDay()]}`) : placeholder;
   const t = _today();
   return html`<div class=${'pick ' + cls}>
     <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'is-empty')} onClick=${() => setOpen(!open)}><${Icon} name="calendar" size=${13} /><span>${label}</span></button>

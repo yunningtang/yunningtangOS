@@ -2,7 +2,7 @@
 // 对话里说一句话，汤圆把它拆成 待办 / 时间块 / 笔记，先给你预览，确认后才写入。
 // 有 AI（Vercel 上配置了 ANTHROPIC_API_KEY 且已登录）时走 /api/agent；没有就退回随手记的本地语法。
 import { html, useState, useEffect, useRef } from '../vendor/preact.js';
-import { useStore, upsert, get, update } from './store.js';
+import { useStore, upsert, get, update, remove } from './store.js';
 import { ctxMenu } from './ctx.js';
 import { Icon, DateInput, TimeInput } from './ui.js';
 import * as pomo from './pomo.js';
@@ -179,17 +179,21 @@ function fromAI(it, s) {
     subitems: (Array.isArray(it.subitems) ? it.subitems : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 6),
     url: typeof it.url === 'string' ? it.url.trim() : '', author: typeof it.author === 'string' ? it.author.trim() : '',
   };
+  // 哪些字段是我们替模型补的默认值（不是对方说的）：预览里会标成「建议值」，改过就算确认
+  item.inferred = [];
+  if (!Number.isInteger(it.priority) && item.kind === 'todo') item.inferred.push('priority');
   if (item.kind === 'link' && !/^https?:\/\//i.test(item.url)) { const m = (item.title + ' ' + item.body).match(/https?:\/\/\S+/); if (m) item.url = m[0]; else item.kind = 'todo'; }
   if (item.kind === 'block' && !item.start) { item.kind = 'todo'; } // 没有起止时间就不是时间块
-  if (item.kind === 'block') { if (!item.date) item.date = todayStr(); if (!item.end || timeToMin(item.end) <= timeToMin(item.start)) item.end = minToTime(timeToMin(item.start) + 60); }
+  if (item.kind === 'block') { if (!item.date) { item.date = todayStr(); item.inferred.push('date'); } if (!item.end || timeToMin(item.end) <= timeToMin(item.start)) { item.end = minToTime(timeToMin(item.start) + 60); item.inferred.push('end'); } if (!kind) item.inferred.push('kindV'); }
+  if (item.kind === 'note' && !nb) item.inferred.push('nb');
   return item.title ? item : null;
 }
 function fromLocal(text, s) {
   const p = plan(text, detect(text), s.notebooks);
   if (p.invalid) return [];
-  if (p.kind === 'todo') return [{ id: uid(), on: true, kind: 'todo', title: p.todo.title, date: p.todo.due || '', time: p.todo.time || '', start: '', end: '', priority: p.todo.priority, tags: p.todo.tags, kindV: 'focus', nb: null, body: '', subitems: [], url: '', author: '' }];
-  if (p.kind === 'block') return [{ id: uid(), on: true, kind: 'block', title: p.block.title, date: p.block.date, time: '', start: p.block.start, end: p.block.end, priority: 2, tags: [], kindV: 'focus', nb: null, body: '', subitems: [], url: '', author: '' }];
-  return [{ id: uid(), on: true, kind: 'note', title: p.note.title || '无标题', date: '', time: '', start: '', end: '', priority: 2, tags: p.note.tags, kindV: 'focus', nb: p.note.nb || 'nb-inbox', body: p.note.body, subitems: [], url: '', author: '' }];
+  if (p.kind === 'todo') return [{ id: uid(), on: true, kind: 'todo', title: p.todo.title, date: p.todo.due || '', time: p.todo.time || '', start: '', end: '', priority: p.todo.priority, tags: p.todo.tags, kindV: 'focus', nb: null, body: '', subitems: [], url: '', author: '', inferred: [] }];
+  if (p.kind === 'block') return [{ id: uid(), on: true, kind: 'block', title: p.block.title, date: p.block.date, time: '', start: p.block.start, end: p.block.end, priority: 2, tags: [], kindV: 'focus', nb: null, body: '', subitems: [], url: '', author: '', inferred: [] }];
+  return [{ id: uid(), on: true, kind: 'note', title: p.note.title || '无标题', date: '', time: '', start: '', end: '', priority: 2, tags: p.note.tags, kindV: 'focus', nb: p.note.nb || 'nb-inbox', body: p.note.body, subitems: [], url: '', author: '', inferred: [] }];
 }
 function metaOf(it, s) {
   const d = it.date ? (it.date === todayStr() ? '今天' : it.date === todayStr(new Date(Date.now() + 864e5)) ? '明天' : it.date.slice(5).replace('-', '/')) : '';
@@ -204,21 +208,20 @@ function metaOf(it, s) {
   return [nb ? nb.name : '收件箱', ...it.tags.map((t) => '#' + t), it.body && `${it.body.length} 字`].filter(Boolean).join(' · ');
 }
 function saveItems(items) {
-  let n = 0, last = null;
+  let n = 0, last = null; const undos = [];
   for (const it of items) {
     if (!it.on) continue;
-    if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; }
-    else if (it.kind === 'block') { const b = { id: uid(), date: it.date, start: it.start, end: it.end, title: it.title, kind: it.kindV, note: it.body }; upsert('blocks', b); last = 'plan/day?d=' + b.date; }
-    else if (it.kind === 'goal') { const mk = it.date ? it.date.slice(0, 7) : monthKey(); const g = { id: uid(), title: it.title, area: '', why: it.body || '', krs: it.subitems.map((text) => ({ id: uid(), text, done: false })), progress: 0 }; update((d) => { d.goals[mk] = d.goals[mk] || []; d.goals[mk].push(g); }); last = 'plan/month'; }
-    else if (it.kind === 'focus') { const key = weekKey(); update((d) => { d.weeks[key] = d.weeks[key] || { focus: '', items: {}, review: '' }; const lines = (d.weeks[key].focus || '').split('\n').filter((x) => x.trim()); if (lines.length < 3) lines.push(it.title); else lines[2] = it.title; d.weeks[key].focus = lines.join('\n'); }); last = 'plan/week'; }
-    else if (it.kind === 'book') { const st = get(); const b = { id: uid(), title: it.title, author: it.author, type: typesOf(st)[0][0], status: 'want', progress: 0, total: 0, rating: 0, cover: '', link: '', note: it.body, tags: it.tags, color: ['#2d8f88', '#3b6fd6', '#7461c9', '#c9588a', '#c7873a'][st.books.length % 5], started: '', finished: '', created: todayStr() }; upsert('books', b); autoCover(b, true); last = 'reading?open=' + b.id; }
-    else if (it.kind === 'link') { const l = { id: uid(), url: it.url, host: hostOf(it.url), title: it.title || hostOf(it.url), note: it.body, tags: it.tags, fav: false, read: false, created: todayStr() }; upsert('links', l); last = 'links'; }
-    else if (it.kind === 'vision') { update((d) => { d.vision.statements.push({ id: uid(), text: it.title, created: todayStr() }); }); last = 'vision'; }
-    else { const nn = newNote({ title: it.title, body: it.body, tags: it.tags, nb: it.nb || 'nb-inbox', blocks: mdToBlocks(it.body) }); last = 'notes/' + nn.id; }
+    if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; undos.push(() => remove('todos', t.id)); }
+    else if (it.kind === 'block') { const b = { id: uid(), date: it.date, start: it.start, end: it.end, title: it.title, kind: it.kindV, note: it.body }; upsert('blocks', b); last = 'plan/day?d=' + b.date; undos.push(() => remove('blocks', b.id)); }
+    else if (it.kind === 'goal') { const mk = it.date ? it.date.slice(0, 7) : monthKey(); const g = { id: uid(), title: it.title, area: '', why: it.body || '', krs: it.subitems.map((text) => ({ id: uid(), text, done: false })), progress: 0 }; update((d) => { d.goals[mk] = d.goals[mk] || []; d.goals[mk].push(g); }); last = 'plan/month'; undos.push(() => update((d) => { if (d.goals[mk]) d.goals[mk] = d.goals[mk].filter((x) => x.id !== g.id); })); }
+    else if (it.kind === 'focus') { const key = weekKey(); const prev = (get().weeks[key] || {}).focus || ''; update((d) => { d.weeks[key] = d.weeks[key] || { focus: '', items: {}, review: '' }; const lines = (d.weeks[key].focus || '').split('\n').filter((x) => x.trim()); if (lines.length < 3) lines.push(it.title); else lines[2] = it.title; d.weeks[key].focus = lines.join('\n'); }); last = 'plan/week'; undos.push(() => update((d) => { if (d.weeks[key]) d.weeks[key].focus = prev; })); }
+    else if (it.kind === 'book') { const st = get(); const b = { id: uid(), title: it.title, author: it.author, type: typesOf(st)[0][0], status: 'want', progress: 0, total: 0, rating: 0, cover: '', link: '', note: it.body, tags: it.tags, color: ['#2d8f88', '#3b6fd6', '#7461c9', '#c9588a', '#c7873a'][st.books.length % 5], started: '', finished: '', created: todayStr() }; upsert('books', b); autoCover(b, true); last = 'reading?open=' + b.id; undos.push(() => remove('books', b.id)); }
+    else if (it.kind === 'link') { const l = { id: uid(), url: it.url, host: hostOf(it.url), title: it.title || hostOf(it.url), note: it.body, tags: it.tags, fav: false, read: false, created: todayStr() }; upsert('links', l); last = 'links'; undos.push(() => remove('links', l.id)); }
+    else if (it.kind === 'vision') { const v = { id: uid(), text: it.title, created: todayStr() }; update((d) => { d.vision.statements.push(v); }); last = 'vision'; undos.push(() => update((d) => { d.vision.statements = d.vision.statements.filter((x) => x.id !== v.id); })); }
+    else { const nn = newNote({ title: it.title, body: it.body, tags: it.tags, nb: it.nb || 'nb-inbox', blocks: mdToBlocks(it.body) }); last = 'notes/' + nn.id; undos.push(() => remove('notes', nn.id)); }
     n++;
   }
-  if (n) toast(`汤圆帮你记了 ${n} 项`, last && n === 1 ? { label: '打开', onClick: () => go(last) } : undefined);
-  return n;
+  return { n, open: last && n === 1 ? last : '', undo: () => { for (const f of undos.reverse()) f(); } };
 }
 function buildContext(s) {
   const now = new Date(), today = todayStr();
@@ -281,10 +284,14 @@ export function Seal() {
   const [threads, setThreads] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.threads') || '[]'); } catch { return []; } });
   const [tid, setTid] = useState(() => uid());
   const [view, setView] = useState('chat');      // chat | history
-  const [big, setBig] = useState(false);
+  const [mode, setMode] = useState(() => { try { return localStorage.getItem('ytos.seal.mode') || ''; } catch { return ''; } }); // '' 浮窗 | big 展开 | full 最大化
+  const big = !!mode;
+  const setModeKeep = (m) => { setMode(m); try { localStorage.setItem('ytos.seal.mode', m); } catch {} };
   const [size, setSize] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.size') || 'null'); } catch { return null; } });
   const openRef = useRef(false); openRef.current = open;
   const bigRef = useRef(false); bigRef.current = big;
+  const undoRef = useRef({}); // 每条已保存消息的撤销函数
+  const [editing, setEditing] = useState(null); // 手机上点元信息才展开日期 / 时间编辑
   const sRef = useRef(s); sRef.current = s;
   const msgsR = useRef(msgs); msgsR.current = msgs;
 
@@ -444,7 +451,7 @@ export function Seal() {
     window.addEventListener('keydown', h);
     return () => { clearTimeout(t); window.removeEventListener('keydown', h); };
   }, [open]);
-  useEffect(() => { if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight; if (open) api.current.posPanel && api.current.posPanel(); }, [msgs, busy, open, big, view]);
+  useEffect(() => { if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight; if (open) api.current.posPanel && api.current.posPanel(); }, [msgs, busy, open, mode, view]);
 
   // ---- 历史：每段对话存成一个 thread（只存文字和预览条目，最多 30 段） ----
   useEffect(() => {
@@ -535,72 +542,113 @@ export function Seal() {
   }, []);
 
   const toggleItem = (mid, iid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, on: !it.on } : it) }));
-  const editItem = (mid, iid, patch) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, ...patch } : it) }));
+  const editItem = (mid, iid, patch) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, ...patch, inferred: (it.inferred || []).filter((k) => !(k in patch) && !(k === 'end' && 'start' in patch)) } : it) }));
   // 步骤：排进时间线 / 开始第一步（番茄钟）
   const scheduleMsg = (m) => { const steps = m.steps.filter((x) => x.on); if (!steps.length) return; const made = scheduleSteps(steps, m.todo.title); setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: steps.length, scheduled: made.length } : x)); toast(`排进了 ${made.length} 段，从 ${made[0].start} 开始`, { label: '看时间线', onClick: () => go('plan/day?d=' + made[0].date) }); api.current.happy && api.current.happy(1.6); };
   const startStep = (m, x) => { pomo.start({ label: x.title, todoId: m.todo.id, workLen: Math.max(5, Math.min(180, x.minutes || 25)) }); toast(`开始：${x.title} · ${x.minutes || 25} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
-  const save = (m) => { const n = saveItems(m.items); setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: n } : x)); api.current.happy && api.current.happy(1.6); api.current.flap && api.current.flap(); };
+  const save = (m) => {
+    const r = saveItems(m.items); undoRef.current[m.id] = r.undo;
+    setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: r.n, open: r.open } : x));
+    if (r.n) toast(`记了 ${r.n} 项`, r.open ? { label: '打开', onClick: () => go(r.open) } : undefined);
+    api.current.happy && api.current.happy(1.6); api.current.flap && api.current.flap();
+  };
+  const unsave = (m) => { const f = undoRef.current[m.id]; if (f) f(); delete undoRef.current[m.id]; setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: null, open: '' } : x)); toast('已撤销'); };
+  // 输入框：Enter 发送，Shift+Enter 换行，高度跟着内容长
+  const onKey = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(txt); } };
+  const grow = (el) => { if (!el) return; el.style.height = '0'; el.style.height = Math.min(160, el.scrollHeight) + 'px'; };
+  useEffect(() => { grow(inRef.current); }, [txt]);
+  const fmtMin = (t) => (t >= 60 ? `${Math.floor(t / 60)} 小时${t % 60 ? ' ' + (t % 60) + ' 分' : ''}` : `${t} 分钟`);
 
   const login = loginState();
   const aiOn = aiEnabled(login);
+  const status = busy ? { cls: 'busy', text: '正在整理…' } : aiOn ? { cls: 'on', text: aiLabel(login) + ' · 已连接' } : login && login.user ? { cls: 'off', text: '本地规则 · 未接 AI' } : { cls: 'off', text: '未登录 · 本地规则' };
+  const metaParts = (it) => {
+    // 预览行右侧的元信息：日期 / 时间 / 其他；标出推断的字段
+    const d = it.date ? (it.date === todayStr() ? '今天' : it.date === todayStr(new Date(Date.now() + 864e5)) ? '明天' : it.date.slice(5).replace('-', '/')) : '';
+    const inf = it.inferred || [];
+    if (it.kind === 'todo') return [d && { t: d }, it.time && { t: it.time }, { t: 'P' + it.priority, i: inf.includes('priority') }, ...it.tags.map((t) => ({ t: '#' + t }))].filter(Boolean);
+    if (it.kind === 'block') { const k = allKinds().find((x) => x.v === it.kindV); return [{ t: d, i: inf.includes('date') }, { t: `${it.start}–${it.end}`, i: inf.includes('end') }, k && { t: k.name, i: inf.includes('kindV') }].filter(Boolean); }
+    if (it.kind === 'note') { const nb = s.notebooks.find((b) => b.id === it.nb); return [{ t: nb ? nb.name : '收件箱', i: inf.includes('nb') }, ...it.tags.map((t) => ({ t: '#' + t })), it.body && { t: `${it.body.length} 字` }].filter(Boolean); }
+    return [{ t: metaOf(it, s) }];
+  };
   return html`
     <button class="seal-fab" ref=${fabRef} aria-label="汤圆助手（可拖动）" aria-expanded=${open} title="汤圆：说一句话，帮你拆成待办 / 时间块 / 笔记">
       <canvas ref=${cvRef} width="300" height="300"></canvas>
       ${badge > 0 && !open && html`<span class="seal-badge">${badge}</span>`}
     </button>
-    <div class=${'seal-panel ' + (open ? '' : 'closed ') + (big ? 'big' : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size && !big ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
+    <div class=${'seal-panel ' + (open ? '' : 'closed ') + (mode ? 'big ' + mode : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size && !big ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
       <div class="seal-rz" title="拖动调整大小" onPointerDown=${resizeStart}></div>
       <div class="seal-h">
-        ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>` : html`<b>汤圆</b><small>${aiOn ? aiLabel(login) + ' 已接入' : login && login.user ? '本地语法' : '未登录 · 本地语法'}</small>`}
+        ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
+          : html`<span class="seal-id"><i class=${'dot ' + status.cls}></i><b>汤圆</b><small>${status.text}</small></span>`}
         <span class="flex1"></span>
         ${view === 'chat' && html`<button class=${'ibtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
         ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
-        <button class="ibtn seal-big" title=${big ? '恢复小窗' : '展开'} onClick=${() => setBig((b) => !b)}><${Icon} name=${big ? 'minus' : 'maximize'} size=${15} /></button>
+        <button class="ibtn seal-big" title=${mode === 'big' ? '恢复浮窗' : '展开'} onClick=${() => setModeKeep(mode === 'big' ? '' : 'big')}><${Icon} name=${mode === 'big' ? 'minus' : 'maximize'} size=${15} /></button>
+        <button class="ibtn seal-full" title=${mode === 'full' ? '退出全屏' : '全屏'} onClick=${() => setModeKeep(mode === 'full' ? 'big' : 'full')}><${Icon} name=${mode === 'full' ? 'minus' : 'frame'} size=${15} /></button>
         <button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button>
       </div>
-      ${view === 'history' ? html`<div class="seal-msgs seal-hist">
+      ${view === 'history' ? html`<div class="seal-msgs seal-hist"><div class="seal-col">
         ${threads.length === 0 && html`<div class="seal-empty">还没有历史对话</div>`}
         ${threads.map((t) => html`<div key=${t.id} class=${'sh-row ' + (t.id === tid ? 'cur' : '')} onClick=${() => openThread(t)}>
           <span class="sh-t">${t.title}</span><small>${relTime(t.updated)} · ${t.msgs.filter((m) => m.who === 'me').length} 句</small>
           <button class="ibtn sh-del" title="删除" onClick=${(e) => { e.stopPropagation(); delThread(t.id); }}><${Icon} name="x" size=${13} /></button>
         </div>`)}
-      </div>` : html`<div class="seal-msgs" ref=${msgsRef}>
-        ${msgs.length === 0 && html`<div class="sm bot">嗨，我是汤圆。随便说一句，我帮你拆成待办、时间块或笔记，你确认了我才记。</div>
-          <div class="seal-hints">${HINTS.map((h) => html`<button key=${h} type="button" onClick=${() => ask(h)}>${h}</button>`)}</div>`}
+      </div></div>` : html`<div class="seal-msgs" ref=${msgsRef}><div class="seal-col">
+        ${msgs.length === 0 && html`<div class="seal-intro">
+            <p>说一句话，我整理成待办、时间块、笔记或目标。你确认了才会写进去。</p>
+            <div class="seal-hints">${HINTS.map((h) => html`<button key=${h} type="button" onClick=${() => ask(h)}>${h}</button>`)}</div>
+          </div>`}
         ${msgs.map((m) => html`<div key=${m.id} class=${'sm ' + m.who}>
           <div class="sm-t">${m.text}</div>
-          ${m.items && m.items.length > 0 && html`<div class="seal-items">
-            ${m.items.map((it) => html`<label key=${it.id} class=${'si ' + (it.on ? '' : 'off') + (m.saved != null ? ' done' : '')}>
-              <input type="checkbox" checked=${it.on} disabled=${m.saved != null} onChange=${() => toggleItem(m.id, it.id)} />
-              <span class=${'si-k k-' + it.kind}>${KIND_LABEL[it.kind]}</span>
-              <span class="si-b"><b>${it.title}</b><small>${metaOf(it, s)}</small></span>
-              ${m.saved == null && ['todo', 'block', 'goal'].includes(it.kind) && html`<span class="si-edit" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                <${DateInput} value=${it.date} placeholder=${it.kind === 'goal' ? '月份' : '日期'} clearable=${it.kind !== 'block'} onChange=${(v) => editItem(m.id, it.id, { date: v })} />
+          ${m.via === 'fallback' && html`<div class="sm-warn">AI 没有响应，下面是按本地规则识别的，请仔细检查。</div>`}
+          ${m.items && m.items.length > 0 && (() => {
+            const on = m.items.filter((it) => it.on).length, saved = m.saved != null;
+            const needCheck = !saved && m.items.some((it) => it.on && (it.inferred || []).length);
+            return html`<div class=${'ac ' + (saved ? 'saved' : '')}>
+            <div class="ac-h"><span>识别到的安排</span><small>${m.items.length} 项</small></div>
+            ${m.items.map((it) => html`<label key=${it.id} class=${'ac-row ' + (it.on ? '' : 'off') + (editing === it.id ? ' editing' : '')}>
+              <input type="checkbox" checked=${it.on} disabled=${saved} onChange=${() => toggleItem(m.id, it.id)} />
+              <span class="ac-b"><span class="ac-t">${it.title}</span><span class="ac-k">${KIND_LABEL[it.kind]}</span></span>
+              <span class="ac-m" onClick=${!saved && ['todo', 'block', 'goal'].includes(it.kind) ? (e) => { e.preventDefault(); e.stopPropagation(); setEditing(editing === it.id ? null : it.id); } : undefined}>${metaParts(it).map((x, i) => html`<span key=${i} class=${x.i ? 'inf' : ''} title=${x.i ? '汤圆补的建议值，点下面的日期 / 时间可以改' : ''}>${x.t}</span>`)}</span>
+              ${!saved && ['todo', 'block', 'goal'].includes(it.kind) && html`<span class="ac-edit" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                <${DateInput} short value=${it.date} placeholder=${it.kind === 'goal' ? '月份' : '日期'} clearable=${it.kind !== 'block'} onChange=${(v) => editItem(m.id, it.id, { date: v })} />
                 ${it.kind === 'todo' && html`<${TimeInput} value=${it.time} placeholder="时间" onChange=${(v) => editItem(m.id, it.id, { time: v })} />`}
                 ${it.kind === 'block' && html`<${TimeInput} value=${it.start} placeholder="开始" clearable=${false} onChange=${(v) => editItem(m.id, it.id, { start: v, end: minToTime(timeToMin(v) + Math.max(15, timeToMin(it.end) - timeToMin(it.start))) })} />`}
+                <button class="ac-done" type="button" title="完成" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); setEditing(null); }}><${Icon} name="check" size=${12} /></button>
               </span>`}
             </label>`)}
-            ${m.saved != null ? html`<div class="si-saved"><${Icon} name="check" size=${12} /> 已保存 ${m.saved} 项</div>`
-              : html`<button class="btn primary sm si-save" disabled=${!m.items.some((it) => it.on)} onClick=${() => save(m)}><${Icon} name="check" size=${13} /> 保存 ${m.items.filter((it) => it.on).length} 项</button>`}
-          </div>`}
-          ${m.steps && m.steps.length > 0 && html`<div class="seal-items steps">
-            <div class="st-h">前额叶 · 把「${m.todo.title}」拆开</div>
-            ${m.steps.map((x, i) => html`<label key=${x.id} class=${'si ' + (x.on ? '' : 'off') + (m.saved != null ? ' done' : '')}>
-              <input type="checkbox" checked=${x.on} disabled=${m.saved != null} onChange=${() => toggleStep(m.id, x.id)} />
-              <span class="si-n">${i + 1}</span>
-              <span class="si-b"><b>${x.title}</b><small>${[x.kind, x.minutes ? `${x.minutes} 分` : '', x.hint].filter(Boolean).join(' · ')}</small></span>
-              <button class="si-go" title=${`开始这一步 · ${x.minutes || 25} 分钟番茄钟`} onClick=${(e) => { e.preventDefault(); e.stopPropagation(); startStep(m, x); }}><${Icon} name="play" size=${11} /></button>
+            <div class="ac-f">
+              ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> 已保存 ${m.saved} 项</span><span class="flex1"></span>${m.open && html`<button class="btn sm ghost" onClick=${() => go(m.open)}>打开</button>`}${undoRef.current[m.id] && html`<button class="btn sm ghost" onClick=${() => unsave(m)}>撤销</button>`}`
+                : html`<span class=${'ac-hint ' + (needCheck ? 'warn' : '')}>${needCheck ? '带点的是建议值，请检查日期和时间' : on ? '确认后写进对应模块' : '至少勾选一项'}</span><span class="flex1"></span><button class="btn primary sm ac-save" disabled=${!on} onClick=${() => save(m)}>保存 ${on} 项</button>`}
+            </div>
+          </div>`; })()}
+          ${m.steps && m.steps.length > 0 && (() => {
+            const on = m.steps.filter((x) => x.on), saved = m.saved != null, total = on.reduce((a, x) => a + (x.minutes || 25), 0);
+            return html`<div class=${'ac steps ' + (saved ? 'saved' : '')}>
+            <div class="ac-h"><span>「${m.todo.title}」拆成 ${m.steps.length} 步</span><small>约 ${fmtMin(total)}</small></div>
+            ${m.steps.map((x, i) => html`<label key=${x.id} class=${'ac-row ' + (x.on ? '' : 'off')}>
+              <input type="checkbox" checked=${x.on} disabled=${saved} onChange=${() => toggleStep(m.id, x.id)} />
+              <span class="ac-n">${i + 1}</span>
+              <span class="ac-b"><span class="ac-t">${x.title}</span>${x.hint && html`<span class="ac-k">${x.hint}</span>`}</span>
+              <span class="ac-m"><span>${x.kind}</span><span>${x.minutes || 25} 分</span></span>
+              <button class="ac-go" title=${`开始这一步 · ${x.minutes || 25} 分钟番茄钟`} onClick=${(e) => { e.preventDefault(); e.stopPropagation(); startStep(m, x); }}><${Icon} name="play" size=${11} /></button>
             </label>`)}
-            <div class="st-sum">共 ${m.steps.filter((x) => x.on).length} 步 · 约 ${(() => { const t = m.steps.filter((x) => x.on).reduce((a, x) => a + (x.minutes || 25), 0); return t >= 60 ? `${Math.floor(t / 60)} 小时${t % 60 ? ' ' + (t % 60) + ' 分' : ''}` : `${t} 分钟`; })()}</div>
-            ${m.saved != null ? html`<div class="si-saved"><${Icon} name="check" size=${12} /> ${m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已写进页面 ${m.saved} 步`}</div>`
-              : html`<div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn primary sm si-save" disabled=${!m.steps.some((x) => x.on)} onClick=${() => saveSteps(m)}><${Icon} name="check" size=${13} /> 写进页面</button><button class="btn sm si-save" disabled=${!m.steps.some((x) => x.on)} title="从现在起依次排进今天的时间线，避开已有安排" onClick=${() => scheduleMsg(m)}><${Icon} name="calendar" size=${13} /> 排进时间线</button></div>`}
-          </div>`}
+            <div class="ac-f">
+              ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> ${m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已写进页面 ${m.saved} 步`}</span>`
+                : html`<span class="ac-hint">按播放键可以直接开始某一步</span><span class="flex1"></span><button class="btn sm ghost" disabled=${!on.length} title="从现在起依次排进今天的时间线，避开已有安排" onClick=${() => scheduleMsg(m)}>排进时间线</button><button class="btn primary sm ac-save" disabled=${!on.length} onClick=${() => saveSteps(m)}>写进页面</button>`}
+            </div>
+          </div>`; })()}
         </div>`)}
         ${busy && html`<div class="sm bot typing"><i></i><i></i><i></i></div>`}
-      </div>`}
-      <form class="seal-form" onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
-        <input ref=${inRef} value=${txt} placeholder="和汤圆说点什么…" autocomplete="off" onInput=${(e) => setTxt(e.target.value)} />
-        <button class="seal-send" type="submit" title="发送" disabled=${!txt.trim() || busy}><${Icon} name="up" size=${15} /></button>
-      </form>
+      </div></div>`}
+      <div class="seal-col seal-cw"><form class=${'seal-form ' + (busy ? 'busy' : '')} onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
+        <textarea ref=${inRef} rows="1" value=${txt} placeholder="描述你的安排，比如「周三下午三点和导师开会」" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
+        <div class="seal-fb">
+          <small>${txt.includes('\n') || txt.length > 40 ? 'Enter 发送 · Shift+Enter 换行' : ''}</small>
+          <span class="flex1"></span>
+          <button class="seal-send" type="submit" title="发送（Enter）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${15} />`}</button>
+        </div>
+      </form></div>
     </div>`;
 }
