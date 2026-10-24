@@ -1703,6 +1703,8 @@ html[data-theme="dark"] .ac{box-shadow:0 0 0 1px rgba(255,255,255,.09)}
 .ac .btn.primary{background:var(--sp);border-color:var(--sp);color:#fff}.ac .btn.primary:hover:not(:disabled){background:#2270b8;border-color:#2270b8}
 .ac .btn.sm{height:28px;padding:0 10px;font-size:.76rem}.ac .btn.ghost{background:transparent;border-color:transparent;color:var(--text-2)}.ac .btn.ghost:hover:not(:disabled){background:var(--hover-2)}
 .ac.saved{box-shadow:0 0 0 1px color-mix(in srgb,var(--ss) 35%,transparent)}
+.ac.sup{opacity:.55}.ac.sup .ac-h{padding:8px 12px;font-weight:500}
+.ac-dash{color:var(--text-4);font-size:.72rem}
 /* 输入：多行 composer，Enter 发送 */
 .seal-cw{padding:0 12px 12px;flex:none}
 .seal-form{display:flex;flex-direction:column;border-radius:14px;background:var(--paper);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(20,20,20,.04);transition:box-shadow .16s ease}

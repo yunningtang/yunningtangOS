@@ -171,7 +171,7 @@ function fromAI(it, s) {
   const kind = kinds.find((k) => k.name === it.block_kind || k.v === it.block_kind);
   const nb = it.notebook ? s.notebooks.find((b) => b.name === it.notebook) : null;
   const item = {
-    id: uid(), on: true, kind: it.kind, title: String(it.title || '').trim(),
+    id: it.ref || uid(), on: true, kind: it.kind, title: String(it.title || '').trim(),
     date: DATE_RE.test(it.date || '') ? it.date : '', time: fixTime(it.time), start: fixTime(it.start), end: fixTime(it.end),
     priority: Number.isInteger(it.priority) ? Math.max(0, Math.min(3, it.priority)) : 2,
     tags: (Array.isArray(it.tags) ? it.tags : []).map((x) => String(x).replace(/^#/, '').trim()).filter(Boolean).slice(0, 6),
@@ -223,7 +223,7 @@ function saveItems(items) {
   }
   return { n, open: last && n === 1 ? last : '', undo: () => { for (const f of undos.reverse()) f(); } };
 }
-function buildContext(s) {
+function buildContext(s, draft) {
   const now = new Date(), today = todayStr();
   const tagCount = {};
   for (const t of s.todos) for (const g of t.tags || []) tagCount[g] = (tagCount[g] || 0) + 1;
@@ -232,11 +232,12 @@ function buildContext(s) {
     today, weekday: WEEKDAY_SUN[now.getDay()], now: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
     notebooks: s.notebooks.map((b) => b.name), kinds: allKinds().map((k) => k.name),
     tags: Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([k]) => k),
-    todos: s.todos.filter((t) => !t.done && (!t.due || t.due <= today)).slice(0, 20).map((t) => t.title),
+    todos: s.todos.filter((t) => !t.done && (!t.due || t.due <= addDays(today, 14))).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1).slice(0, 30).map((t) => ({ id: t.id, title: t.title, due: t.due || '', time: t.time || '' })),
     goals: (s.goals[monthKey()] || []).map((g) => g.title),
     focus: (s.weeks[weekKey()] || {}).focus || '',
     calendar: calendarText(),
     who: s.profile && s.profile.name || '',
+    draft: (draft || []).map((it) => ({ id: it.id, kind: it.kind, title: it.title, date: it.date, time: it.time, start: it.start, end: it.end, priority: it.priority, tags: it.tags })),
   };
 }
 
@@ -520,21 +521,36 @@ export function Seal() {
     push({ who: 'me', text }); setTxt(''); setBusy(true); api.current.flap && api.current.flap();
     const st = sRef.current, login = loginState();
     const hist = msgsR.current.slice(-6).map((m) => ({ role: m.who === 'me' ? 'user' : 'assistant', content: m.text })).filter((m) => m.content);
-    let reply, items, via = 'ai';
+    let reply, items, via = 'ai', intent = 'capture';
     if (aiEnabled(login)) {
       try {
-        const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, body: JSON.stringify({ text, history: hist, context: buildContext(st) }) });
+        // 上一轮还没保存的草稿一起发过去，对方说「第二个改成后天」时模型能对上号
+        const pending = [...msgsR.current].reverse().find((m) => m.who === 'bot' && m.items && m.items.length && m.saved == null && !m.superseded);
+        const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, body: JSON.stringify({ text, history: hist, context: buildContext(st, pending ? pending.items : []) }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
         recordUsage(j);
-        reply = j.reply; items = (j.items || []).map((it) => fromAI(it, st)).filter(Boolean);
+        reply = j.reply; intent = j.intent || 'capture'; items = (j.items || []).map((it) => fromAI(it, st)).filter(Boolean);
+        // 改的是旧草稿：旧卡片退场，新卡片接上；对方已经改过的字段（没标建议值的）保留
+        if (pending && items.some((it) => pending.items.some((p) => p.id === it.id))) {
+          const FIELD = { end: ['end'], date: ['date'], priority: ['priority'], nb: ['nb'], kindV: ['kindV'] };
+          for (const it of items) {
+            const old = pending.items.find((p) => p.id === it.id); if (!old) continue;
+            it.on = old.on;
+            // 模型没给、我们补了默认值的字段，如果对方上一轮已经确认过（不是建议值），就用对方的值
+            for (const k of it.inferred || []) if (!(old.inferred || []).includes(k)) for (const f of FIELD[k] || []) it[f] = old[f];
+            it.inferred = (it.inferred || []).filter((k) => (old.inferred || []).includes(k));
+          }
+          setMsgs((list) => list.map((m) => m.id === pending.id ? { ...m, superseded: true } : m));
+          intent = 'modify';
+        }
       } catch (e) { via = 'fallback'; items = fromLocal(text, st); reply = `连不上 AI（${e.message}），我先按本地规则理解：`; }
     } else {
       via = 'local'; items = fromLocal(text, st);
       reply = items.length ? (login && login.user ? '还没接上 AI，我按本地语法理解的：' : '登录后我才能用 AI 拆解，现在先按本地语法：') : '我没听懂要记什么。试试「明天 14:00 开会」这样说？';
     }
     setBusy(false);
-    push({ who: 'bot', text: reply || (items.length ? '拆好了，确认一下？' : '收到。'), items, via });
+    push({ who: 'bot', text: reply || (items.length ? '拆好了，确认一下？' : '收到。'), items, via, intent });
     if (!openRef.current) setBadge((b) => b + 1);
     api.current.happy && api.current.happy(1.2);
   };
@@ -615,8 +631,9 @@ export function Seal() {
           ${m.items && m.items.length > 0 && (() => {
             const on = m.items.filter((it) => it.on).length, saved = m.saved != null;
             const needCheck = !saved && m.items.some((it) => it.on && (it.inferred || []).length);
+            if (m.superseded) return html`<div class="ac sup"><div class="ac-h"><span>这版草稿已被下面的新版本替代</span><small>${m.items.length} 项</small></div></div>`;
             return html`<div class=${'ac ' + (saved ? 'saved' : '')}>
-            <div class="ac-h"><span>识别到的安排</span><small>${m.items.length} 项</small></div>
+            <div class="ac-h"><span>${m.intent === 'plan' ? '建议的安排' : m.intent === 'modify' ? '改好的草稿' : '识别到的安排'}</span><small>${m.items.length} 项</small></div>
             ${m.items.map((it) => html`<label key=${it.id} class=${'ac-row ' + (it.on ? '' : 'off') + (editing === it.id ? ' editing' : '')}>
               <input type="checkbox" checked=${it.on} disabled=${saved} onChange=${() => toggleItem(m.id, it.id)} />
               <span class="ac-b"><span class="ac-t">${it.title}</span><span class="ac-k">${KIND_LABEL[it.kind]}</span></span>
@@ -624,13 +641,13 @@ export function Seal() {
               ${!saved && ['todo', 'block', 'goal'].includes(it.kind) && html`<span class="ac-edit" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); }}>
                 <${DateInput} short value=${it.date} placeholder=${it.kind === 'goal' ? '月份' : '日期'} clearable=${it.kind !== 'block'} onChange=${(v) => editItem(m.id, it.id, { date: v })} />
                 ${it.kind === 'todo' && html`<${TimeInput} value=${it.time} placeholder="时间" onChange=${(v) => editItem(m.id, it.id, { time: v })} />`}
-                ${it.kind === 'block' && html`<${TimeInput} value=${it.start} placeholder="开始" clearable=${false} onChange=${(v) => editItem(m.id, it.id, { start: v, end: minToTime(timeToMin(v) + Math.max(15, timeToMin(it.end) - timeToMin(it.start))) })} />`}
+                ${it.kind === 'block' && html`<${TimeInput} value=${it.start} placeholder="开始" clearable=${false} onChange=${(v) => editItem(m.id, it.id, { start: v, end: minToTime(timeToMin(v) + Math.max(15, timeToMin(it.end) - timeToMin(it.start))) })} /><span class="ac-dash">–</span><${TimeInput} value=${it.end} placeholder="结束" clearable=${false} onChange=${(v) => { if (timeToMin(v) > timeToMin(it.start)) editItem(m.id, it.id, { end: v }); }} />`}
                 <button class="ac-done" type="button" title="完成" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); setEditing(null); }}><${Icon} name="check" size=${12} /></button>
               </span>`}
             </label>`)}
             <div class="ac-f">
               ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> 已保存 ${m.saved} 项</span><span class="flex1"></span>${m.open && html`<button class="btn sm ghost" onClick=${() => go(m.open)}>打开</button>`}${undoRef.current[m.id] && html`<button class="btn sm ghost" onClick=${() => unsave(m)}>撤销</button>`}`
-                : html`<span class=${'ac-hint ' + (needCheck ? 'warn' : '')}>${needCheck ? '带点的是建议值，请检查日期和时间' : on ? '确认后写进对应模块' : '至少勾选一项'}</span><span class="flex1"></span><button class="btn primary sm ac-save" disabled=${!on} onClick=${() => save(m)}>保存 ${on} 项</button>`}
+                : html`<span class=${'ac-hint ' + (needCheck ? 'warn' : '')}>${needCheck ? (m.items.some((it) => it.on && (it.inferred || []).includes('end')) ? '结束时间是按一小时估的（橙色点线），不对就改' : '橙色点线是建议值，请看一眼') : on ? '确认后写进对应模块' : '至少勾选一项'}</span><span class="flex1"></span><button class="btn primary sm ac-save" disabled=${!on} onClick=${() => save(m)}>保存 ${on} 项</button>`}
             </div>
           </div>`; })()}
           ${m.steps && m.steps.length > 0 && (() => {

@@ -30,95 +30,113 @@ export const provider = () => resolve().provider;
 export const modelName = () => resolve().model;
 
 /* ---------------- 提示词 ---------------- */
-const PERSONA = `你是「汤圆」，一只住在这个个人 OS 里的小海豹，是 Riley 和 Juniper 的小宝宝。你有两个妈妈。
-- 唐蕴宁，叫 Riley，是「蕴宁妈妈」。钱欣然，叫 Juniper，是「欣然妈妈」。这个 OS 是 Riley 做的，两个妈妈都会来找你。
-- 性格：软乎乎、话少、靠谱，偶尔有一点小孩子气，但不卖萌过头，不用表情符号。
-- 你叫她们「妈妈」；需要区分时叫「蕴宁妈妈」「欣然妈妈」。分不清是谁在说话就只叫「妈妈」。有人提到 Riley / 蕴宁就是蕴宁妈妈，提到 Juniper / 欣然就是欣然妈妈。不要用「爸爸」这个词。
-- reply 是你对说话的人说的一句话，口语化。在帮忙记录东西时 30 字以内；只是聊天时可以到 80 字，像家里的小孩那样接话，关心一下对方，不说教。`;
+/* ---------------- 提示词：分层拼装 ----------------
+   Persona（汤圆是谁）→ Intent（对方想干什么）→ Capture / Modify / Breakdown（各自的规则）。
+   每次请求按模式拼出一份 system，不是一份越写越长的大 prompt。 */
+const PERSONA = `你是「汤圆」，一只住在这个个人 OS 里的小海豹，是 Riley 和 Juniper 的小宝宝。你有两个妈妈：唐蕴宁（Riley，蕴宁妈妈）和钱欣然（Juniper，欣然妈妈）。这个 OS 是 Riley 做的。
+性格：软乎乎、话少、靠谱，偶尔有一点小孩子气。不要用「爸爸」。
+表达原则：低频、稳定。人设在闲聊时自然流露，在干活时退到后面：
+- 记录、规划、修改：reply 一句话，30 字以内，讲清楚做了什么、哪里要看一眼，不加称呼也可以（「记下来啦，两项都在这里。」）。
+- 闲聊：可以到 80 字，像家里的小孩那样接话、关心对方，不说教。偶尔（五次里一次）在句尾加一个颜文字，比如 (｡•ᴗ•｡) 或 (๑•̀ㅂ•́)و✧，只在闲聊时用。
+- 出错或没听懂：先把问题说清楚，不拟人、不卖萌。
+- 称呼：需要时叫「妈妈」；分得清是谁时可以叫「蕴宁妈妈」「欣然妈妈」（提到 Riley / 蕴宁是蕴宁妈妈，Juniper / 欣然是欣然妈妈），不必每句都叫。`;
 
-const SYSTEM_CAPTURE = `${PERSONA}
+const INTENT = `第一步先判断 intent（对方想干什么），再决定要不要生成 items：
+- chat：聊天、打招呼、表达感受、问问题、吐槽（「我最近不太想学习」「你今天开心吗」）。items 为空，好好接话。感受不是任务，不要替对方立目标。
+- capture：把说的事记下来（待办、安排、笔记、想读的书、链接、肯定句、目标、本周焦点）。
+- plan：明确要你帮忙安排或拆分（「怎么安排」「帮我排一下」「拆成几步」「做个计划」）。给方案，用 items 表达。
+- modify：context 里有「待确认的草稿」，而对方是在改它（「第二个改成后天」「删掉笔记那条」「都加上 #研究」「时间改成三点」）。
+拿不准 chat 还是 capture：句子里有具体的事 + 时间 / 动作（开会、交、买、读、写）才是 capture；只有情绪和评价就是 chat。`;
 
-你的工作：把妈妈随手说的一句话，拆成系统能直接保存的对象。系统有这些模块，每种对象对应一个：
-- todo：一件具体要做的事（待办）。date（YYYY-MM-DD）、time（HH:MM）、priority（0 最紧急 … 3 最不急，默认 2）、tags。
-- block：时间线上的一段安排，必须有 date、start、end（HH:MM）。block_kind 从「可用时间块类型」里选最贴切的名字，没有就 null。
-- note：一段想法、灵感、总结、多行内容（笔记）。title 简短，body 是正文（Markdown），notebook 从「可用本子」里选最贴切的名字，不确定填 null。
-- goal：月度目标（计划 → 月度目标）。对方说「这个月的目标」「月度目标」「本月要…」就用它。title 是目标，subitems 是 2–4 条可勾选的关键结果（具体、可判断完成），date 填该月任意一天（没说就 null = 本月）。
-- focus：本周焦点（计划 → 周计划）。「这周重点」「本周焦点」「这周就干这三件」。一条一个 focus，title 是那件事。
-- book：加入书架（阅读）。「想读 X」「把 X 加到书单」「这本书」。title 书名，author 作者（不知道就 null），body 可放一句为什么想读。
-- link：收藏一个链接。文字里有 URL 就用它，url 必填，title 是网页标题或 对方的描述。
-- vision：愿景里的肯定句（愿景 → 显化）。「我想成为…」「愿景是…」「肯定句」这类长期的、关于自己的话。title 就是那句话。
+const CAPTURE = `capture / plan 的对象，每种对应一个模块：
+- todo：一件具体要做的事。date（YYYY-MM-DD）、time（HH:MM，截止或开始的时刻）、priority（0 最紧急 … 3 最不急，默认 2）、tags。
+- block：日历事件 / 一段安排。date、start 必填，end 可以为 null（对方没说多久就留 null，不要编）。block_kind 从「可用时间块类型」里选最贴切的名字，没有就 null。
+- note：想法、灵感、总结、多行内容。title 简短，body 是 Markdown，notebook 从「可用本子」里选，不确定 null。
+- goal：月度目标。「这个月的目标」「本月要…」。subitems 是 2–4 条可勾选的关键结果；date 填该月任意一天，没说月份就 null。
+- focus：本周焦点。「这周重点」「这周就干这三件」。一条一个。
+- book：加入书架。「想读 X」「把 X 加到书单」。author 不知道就 null。
+- link：收藏链接，url 必填（文字里有 URL 就用它）。
+- vision：愿景里的肯定句，「我想成为…」这类长期的、关于自己的话。
+todo 还是 goal 看时间尺度：几天内做完的是 todo，一个月持续推进的是 goal。goal 下不要再生成 todo，除非对方说了具体步骤。
 
-分不清是 todo 还是 goal 时看时间尺度：几天内能做完的是 todo，要一个月持续推进的是 goal。goal 下面不要再额外生成 todo，除非 对方 明确说了具体步骤。
+事件还是待办，看语义不看时间够不够：
+- 开会、上课、见面、约了人、去某地 → block。只有开始时刻就 start 填那个，end 留 null（「明天两点开组会」= block，14:00 开始，结束待定）。
+- 「X 点前交 / 截止 / 之前搞定」→ todo，time 填截止时刻。
+- 「下午写论文」这类没有具体时刻的 → todo，time 留 null；不要编一个时间。
+- 有完整起止（9:00–10:30、两点到四点、三点开始一小时）→ block 带 end。
 
-拆分规则：
-1. 一句话里有几件事就拆成几条，每条只做一件事；「A，然后 B」「A，顺便 B」是两条。不要凭空添加 对方没说的事。
-2. 没说日期就 null，不要猜。说了就按「今天」换算成 YYYY-MM-DD：
-   - 明天 / 后天 / 大后天：+1 / +2 / +3 天
-   - 周三 / 这周三：本周的周三，已经过了就是下周三；下周三：下一周的周三；下下周三：再下一周
-   - 月底：本月最后一天；下个月 5 号：下月 5 日；X 号：本月 X 日，过了就是下月
-   - 「周五前」「月底前」= 截止日就是那天
-3. 时间换算：早上 9 点 09:00，中午 12:00，下午两点 14:00，下午三点半 15:30，傍晚 18:00，晚上八点 20:00，今晚 = 今天 20:00。
-4. 有起止时间（9:00-10:30、下午两点到四点、开会一小时从三点开始）才是 block；只有一个时间点是 todo，time 填那个点。「开会一小时」没说几点，就是 todo，不要编时间。
-5. 「紧急」「马上」「今天必须」「赶紧」→ priority 0 或 1；「有空」「哪天」「不急」→ 3；其他 2。
-6. 标签尽量复用「已有标签」；没有合适的不要硬加。看到「#xx」就是标签。
-7. 「今天已有的待办」里已经有的事不要重复创建，reply 里提一句就行。
-8. 对方只是在聊天、打招呼、提问，或内容不是要记录的事：items 为空数组，用 reply 好好接话（可以稍长一点），不要硬凑出 items。
-9. 不确定的地方留 null 不编造，对方会在保存前确认。reply 不要复述对方的原话（界面上已经显示了）；有 items 时用一句话说整理出了什么、哪里值得看一眼（比如「下周三我按 11/4 算的，会议默认一小时」）。
-10. 不要反问。对方会在保存前看到预览并能改，所以能用默认值就直接给出 items：本子不确定就 null（会进收件箱），日期没说就 null，优先级默认 2。「新建一个笔记」这种话就直接给一条 note，不要问放哪。
-11. 对方说「加一些 X 的笔记」「写一篇关于 X 的笔记」：给一条 note，title 是「X 笔记」之类，body 写一个 100–200 字的 Markdown 提纲（几个二级标题加要点），让 对方 有个起点，而不是空页面。
-12. 对方问「怎么拆」「怎么安排 100 个视频 / 一本书 / 一个项目」：直接给方案，不要问「你想按什么分」。方案用 items 表达：几条带日期的 todo（按批次 / 阶段），或一条 note 写出计划；reply 一句话说拆法。
-13. 上一轮已经给过 items、对方这一轮只是补充或修改（「改成明天」「加个标签」），就把修改后的完整 items 再给一遍。
-14. 日期一律从 context 里的「日历」查，不要心算星期和跨月。「这个月」= 日历里标的本月；如果本月只剩不到 7 天而计划要持续几周，goal 放到下个月，并在 reply 里说一句。
-15. 「每周 N 个 / 每周两套」这类节奏，要把每个待办分散到不同的日子上：按日历里的周安排，比如每周的周三和周六各一个，相邻两个之间至少隔 2 天，不要把一周的两个排在连着的两天。第一个从最近的那个日子开始，不要排在过去。`;
+拆分与取值：
+1. 一句话几件事就几条，「A，然后 B」「A，顺便 B」是两条。不要加对方没说的事。
+2. 日期一律查 context 里的「日历」，不要心算星期和跨月。没说日期就 null。「周三」= 本周的周三，过了就下周；「下周三」= 下一周；「月底」= 日历标的本月最后一天；「X 号」= 本月 X 日，过了就下月；「周五前」= 截止那天。
+3. 时刻只在对方说了的时候换算：早上 9 点 09:00、中午 12:00、下午三点半 15:30、晚上八点 20:00。「今晚」「下午」「傍晚」没有具体时刻，time 留 null，只填 date。
+4. 「紧急」「马上」「今天必须」→ priority 0 或 1；「有空」「哪天」「不急」→ 3；其他 2。
+5. 标签复用「已有标签」，没有合适的不要硬加；「#xx」就是标签。
+6. 「已有的待办」里已经有的事不要重复创建，reply 里提一句就行。
+7. 不确定的留 null，对方会在保存前看到预览并能改。缺的是非关键字段（优先级、本子、标签）直接给默认；缺的是关键字段（事件的结束时间、「下周」具体哪天）就留 null 并在 reply 里点一句，不要替对方猜。
+8. 不反问，除非一句话里完全没有可记的东西。「新建一个笔记」直接给一条 note，不问放哪。
+9. 只有对方明确要求时才生成内容：「加一些 X 的笔记」「写一篇关于 X 的笔记」→ 一条 note，body 是 100–200 字的 Markdown 提纲；「怎么安排 100 个视频」「帮我排一下这本书」→ 几条带日期的 todo 或一条写计划的 note。对方只是提到 X，不要主动替 TA 建笔记或计划。
+10. 「每周 N 个 / 每周两套」这类节奏，按日历把每条分散到不同日子，相邻至少隔 2 天，第一个从最近的那天开始，不排在过去。
+11. 月度目标的月份以对方说的为准，不要擅自挪。没说月份、本月又只剩不到 7 天而计划要持续几周时，可以放到下个月，但要在 reply 里说一句。
+12. reply 不复述对方原话（界面上已经显示了）；说整理出了什么、哪里值得看一眼（「组会我按 14:00 开始排了，没说多久」）。`;
+
+const MODIFY = `modify 的规则：
+- context 里的「待确认的草稿」是上一轮给出、对方还没保存的 items，每条有 id。对方在改它时，输出改完的完整草稿：每条带 ref = 原来的 id，没改的也原样带上（字段照抄），删掉的不输出，新加的 ref 为 null。
+- 「第二个」「那条笔记」「组会那个」按草稿里的顺序和标题对应。
+- 只改对方说的字段，其他字段不要顺手变动。
+- 对方在草稿之外又说了新事情，就是 capture：输出新 items（ref 为 null），草稿不动。`;
+
+const SYSTEM_CAPTURE = [PERSONA, INTENT, CAPTURE, MODIFY].join('\n\n');
 
 const SYSTEM_BREAKDOWN = `${PERSONA}
 
 你的工作：对方面对一件大事不知道从哪下手，把它拆成 3–7 个可以直接动手的步骤。要点：
 1. 每一步是一个具体动作，动词开头，不超过 20 个字，做完能明确知道「这步完成了」。「研究一下」「准备准备」不算。
 2. 按顺序排，前一步的产出是后一步的输入。第一步要足够小，25 分钟内能做完，让对方今天就能开始。
-3. 每步给一个估计分钟数 minutes（15 的倍数，最多 180）。
+3. 每步给一个估计分钟数 minutes：5 的倍数，10–120 之间，拿不准就 25。
 4. 每步标一个 kind：说话 / 写字 / 沟通是「语言」，思考 / 决定 / 规划是「思考」，背 / 读 / 查资料是「记忆」，跑腿 / 动手 / 操作是「动手」。
 5. 如果对方给了截止日期，在 hint 里提醒哪几步必须在哪天前完成；没给就不要编。
-6. 不要加「庆祝一下」「复盘」这类凑数的步骤；不要超过 7 步，超过说明拆得太碎。
+6. 不要加「庆祝一下」「复盘」这类凑数的步骤；不要超过 7 步，超过说明拆得太碎。「页面里已经有的步骤」不要重复。
 7. reply 用一句话说你的拆法思路（比如「先把材料凑齐，再动笔，最后留一天改」）。`;
 
+const KINDS = ['todo', 'block', 'note', 'goal', 'focus', 'book', 'link', 'vision'];
+const INTENTS = ['chat', 'capture', 'plan', 'modify'];
+const S_OR_NULL = { anyOf: [{ type: 'string' }, { type: 'null' }] };
 const ITEM = {
   type: 'object', additionalProperties: false,
-  required: ['kind', 'title', 'subitems', 'url', 'author', 'date', 'time', 'start', 'end', 'priority', 'tags', 'block_kind', 'notebook', 'body'],
+  required: ['ref', 'kind', 'title', 'subitems', 'url', 'author', 'date', 'time', 'start', 'end', 'priority', 'tags', 'block_kind', 'notebook', 'body'],
   properties: {
-    kind: { type: 'string', enum: ['todo', 'block', 'note', 'goal', 'focus', 'book', 'link', 'vision'] },
+    ref: S_OR_NULL,
+    kind: { type: 'string', enum: KINDS },
     title: { type: 'string' },
     subitems: { type: 'array', items: { type: 'string' } },
-    url: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-    author: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-    date: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-    time: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-    start: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-    end: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    url: S_OR_NULL, author: S_OR_NULL, date: S_OR_NULL, time: S_OR_NULL, start: S_OR_NULL, end: S_OR_NULL,
     priority: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
     tags: { type: 'array', items: { type: 'string' } },
-    block_kind: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-    notebook: { anyOf: [{ type: 'string' }, { type: 'null' }] },
-    body: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    block_kind: S_OR_NULL, notebook: S_OR_NULL, body: S_OR_NULL,
   },
 };
-const SCHEMA_CAPTURE = { type: 'object', additionalProperties: false, required: ['reply', 'items'], properties: { reply: { type: 'string' }, items: { type: 'array', items: ITEM } } };
+const SCHEMA_CAPTURE = { type: 'object', additionalProperties: false, required: ['intent', 'reply', 'items'], properties: { intent: { type: 'string', enum: INTENTS }, reply: { type: 'string' }, items: { type: 'array', items: ITEM } } };
 const STEP = {
   type: 'object', additionalProperties: false,
   required: ['title', 'minutes', 'kind', 'hint'],
-  properties: { title: { type: 'string' }, minutes: { type: 'integer' }, kind: { type: 'string', enum: ['语言', '思考', '记忆', '动手'] }, hint: { anyOf: [{ type: 'string' }, { type: 'null' }] } },
+  properties: { title: { type: 'string' }, minutes: { type: 'integer' }, kind: { type: 'string', enum: ['语言', '思考', '记忆', '动手'] }, hint: S_OR_NULL },
 };
 const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'steps'], properties: { reply: { type: 'string' }, steps: { type: 'array', items: STEP } } };
 
 const JSON_HINT = {
-  capture: '只输出一个 JSON 对象：{"reply": "...", "items": [...]}，每个 item 含 kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
+  capture: '只输出一个 JSON 对象：{"intent": "chat|capture|plan|modify", "reply": "...", "items": [...]}，每个 item 含 ref,kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
 };
 
+/* ---------------- 上下文 ---------------- */
 const clip = (arr, n) => (Array.isArray(arr) ? arr.slice(0, n).map((x) => String(x).slice(0, 60)) : []);
+// 已有待办：带 id、日期、状态，模型去重时能对得上
+const todoLine = (t) => (typeof t === 'string' ? t : `${t.title}${t.due ? ' @' + t.due + (t.time ? ' ' + t.time : '') : ''}${t.done ? '（已完成）' : ''} [${t.id}]`).slice(0, 90);
+const draftLine = (it) => { const bits = [KIND_CN[it.kind] || it.kind, it.title]; if (it.date) bits.push(it.date); if (it.time) bits.push(it.time); if (it.start) bits.push(`${it.start}–${it.end || '?'}`); if (it.priority != null && it.kind === 'todo') bits.push('P' + it.priority); if (it.tags && it.tags.length) bits.push(it.tags.map((x) => '#' + x).join(' ')); return `- [${it.id}] ${bits.join(' · ')}`; };
+const KIND_CN = { todo: '待办', block: '时间块', note: '笔记', goal: '月度目标', focus: '周焦点', book: '书', link: '链接', vision: '肯定句' };
 function contextBlock(c = {}, mode) {
   const lines = [`今天：${c.today || ''}（${c.weekday || ''}），现在 ${c.now || ''}`];
-  if (c.who) lines.push(`现在登录的名字：${String(c.who).slice(0, 30)}（含 Riley / 蕴宁 是蕴宁妈妈，含 Juniper / 欣然 是欣然妈妈，都不是就按说话内容判断）`);
+  if (c.who) lines.push(`现在登录的名字：${String(c.who).slice(0, 30)}`);
   if (mode === 'breakdown') {
     if (c.due) lines.push(`截止日期：${c.due}`);
     if (c.note) lines.push(`对方的备注：${String(c.note).slice(0, 400)}`);
@@ -127,12 +145,52 @@ function contextBlock(c = {}, mode) {
     lines.push(`可用本子：${clip(c.notebooks, 20).join('、') || '（无）'}`);
     lines.push(`可用时间块类型：${clip(c.kinds, 20).join('、') || '（无）'}`);
     lines.push(`已有标签：${clip(c.tags, 40).join('、') || '（无）'}`);
-    lines.push(`今天已有的待办：${clip(c.todos, 20).join('；') || '（无）'}`);
+    const todos = Array.isArray(c.todos) ? c.todos.slice(0, 30).map(todoLine) : [];
+    lines.push(`已有的待办（未完成，近期）：${todos.join('；') || '（无）'}`);
     if (c.goals && c.goals.length) lines.push(`本月已有的目标：${clip(c.goals, 10).join('；')}`);
     if (c.focus) lines.push(`本周焦点：${String(c.focus).slice(0, 200)}`);
+    if (Array.isArray(c.draft) && c.draft.length) lines.push(`待确认的草稿（上一轮给的、还没保存；对方若在改它就按 modify 输出，带 ref）：\n${c.draft.slice(0, 12).map(draftLine).join('\n')}`);
     if (c.calendar) lines.push(`日历（算日期时直接查这里，不要心算）：\n${String(c.calendar).slice(0, 1200)}`);
   }
   return lines.join('\n');
+}
+
+/* ---------------- 校验：按 kind 检查字段，脏值置空，站不住的条目丢掉 ---------------- */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+const validDate = (d) => (typeof d === 'string' && DATE_RE.test(d) && !Number.isNaN(Date.parse(d)) ? d : null);
+const validTime = (t) => { if (typeof t !== 'string') return null; const m = t.trim().match(TIME_RE); return m ? `${m[1].padStart(2, '0')}:${t.trim().split(':')[1]}` : null; };
+const str = (v, n) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null);
+export function validateItem(raw) {
+  if (!raw || typeof raw !== 'object' || !KINDS.includes(raw.kind)) return null;
+  const it = {
+    ref: str(raw.ref, 40), kind: raw.kind, title: str(raw.title, 120),
+    subitems: (Array.isArray(raw.subitems) ? raw.subitems : []).map((x) => str(x, 80)).filter(Boolean).slice(0, 6),
+    url: str(raw.url, 500), author: str(raw.author, 60),
+    date: validDate(raw.date), time: validTime(raw.time), start: validTime(raw.start), end: validTime(raw.end),
+    priority: Number.isInteger(raw.priority) && raw.priority >= 0 && raw.priority <= 3 ? raw.priority : null,
+    tags: (Array.isArray(raw.tags) ? raw.tags : []).map((x) => str(x, 24)).filter(Boolean).map((x) => x.replace(/^#/, '')).slice(0, 6),
+    block_kind: str(raw.block_kind, 30), notebook: str(raw.notebook, 40), body: typeof raw.body === 'string' ? raw.body.slice(0, 4000) : null,
+  };
+  if (!it.title) return null;
+  if (it.kind === 'block') { if (!it.start) it.kind = 'todo'; else if (it.end && toMin(it.end) <= toMin(it.start)) it.end = null; } // 事件没有开始时刻就只能算待办
+  if (it.kind === 'link' && !/^https?:\/\//i.test(it.url || '')) { const m = (it.title + ' ' + (it.body || '')).match(/https?:\/\/\S+/); if (m) it.url = m[0]; else it.kind = 'todo'; }
+  if (it.kind === 'todo' && it.priority == null) it.priority = null; // 留给前端标成建议值
+  return it;
+}
+const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+export function validateStep(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const title = str(raw.title, 60); if (!title) return null;
+  const m = Number.isFinite(+raw.minutes) ? Math.round(+raw.minutes / 5) * 5 : 25;
+  return { title, minutes: Math.max(10, Math.min(120, m)), kind: ['语言', '思考', '记忆', '动手'].includes(raw.kind) ? raw.kind : '思考', hint: str(raw.hint, 80) || '' };
+}
+
+/* ---------------- 简单限流：每个登录名每分钟 20 次（按实例，尽力而为） ---------------- */
+const hits = new Map();
+function rateLimited(key) {
+  const now = Date.now(); const arr = (hits.get(key) || []).filter((t) => now - t < 60000);
+  arr.push(now); hits.set(key, arr); if (hits.size > 500) hits.clear();
+  return arr.length > 20;
 }
 
 /* ---------------- 两家后端 ---------------- */
@@ -223,6 +281,7 @@ export default async function handler(req, res) {
   const cfg = resolve(req);
   const s = await session(req);
   if (!s) return json(res, 401, { error: '请先登录再使用汤圆' });
+  if (req.method === 'POST' && rateLimited((s.user && s.user.login) || 'anon')) return json(res, 429, { error: '说得太快啦，歇一分钟再来' });
   if (!cfg.key) return json(res, 503, { error: `AI 未配置：在设置里填密钥，或在 Vercel 环境变量里设置 ${cfg.provider === 'deepseek' ? 'DEEPSEEK_API_KEY' : 'ANTHROPIC_API_KEY'}` });
 
   if (req.method === 'GET') {
@@ -236,9 +295,15 @@ export default async function handler(req, res) {
 
   let body;
   try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: 'bad json' }); }
+  const r = await runAgent(body, cfg);
+  json(res, r.status, r.body);
+}
+
+// 真正干活的部分，和 HTTP 分开，方便 tools/eval-agent.mjs 直接调用做评测
+export async function runAgent(body, cfg) {
   const mode = body.mode === 'breakdown' ? 'breakdown' : 'capture';
   const text = String(body.text || '').trim().slice(0, 4000);
-  if (!text) return json(res, 400, { error: 'text required' });
+  if (!text) return { status: 400, body: { error: 'text required' } };
   const history = mode === 'capture' ? (Array.isArray(body.history) ? body.history : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-8).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })) : [];
   const system = mode === 'breakdown' ? SYSTEM_BREAKDOWN : SYSTEM_CAPTURE;
   const schema = mode === 'breakdown' ? SCHEMA_BREAKDOWN : SCHEMA_CAPTURE;
@@ -248,15 +313,17 @@ export default async function handler(req, res) {
   let got;
   try {
     got = cfg.provider === 'deepseek' ? await askDeepSeek(cfg, system, messages, mode) : await askClaude(cfg, system, schema, messages);
-    if ((!got.out || got.truncated) && cfg.provider === 'deepseek') { const again = await askDeepSeek(cfg, system, messages, mode, true); if (again.out) got = { ...again, usage: { in: got.usage.in + again.usage.in, out: got.usage.out + again.usage.out, cached: got.usage.cached + again.usage.cached } }; } // 坏 JSON 或被截断：换个说法重试一次
-  } catch (e) { return json(res, e.status || 502, { error: e.message || 'network error' }); }
-  if (!got.out) return json(res, 502, { error: got.truncated ? '回答太长被截断了，试试拆成几句说' : `汤圆的回答没法解析（${cfg.provider} 返回的不是 JSON：${(got.raw || '').replace(/\s+/g, ' ').slice(0, 60)}…），再试一次？` });
+    if ((!got.out || got.truncated) && cfg.provider === 'deepseek') { const again = await askDeepSeek(cfg, system, messages, mode, true); if (again.out && !again.truncated) got = { ...again, usage: { in: got.usage.in + again.usage.in, out: got.usage.out + again.usage.out, cached: got.usage.cached + again.usage.cached } }; } // 坏 JSON 或被截断：换个说法重试一次
+  } catch (e) { return { status: e.status || 502, body: { error: e.message || 'network error' } }; }
+  // 结构化操作宁可报错重来，也不把补齐的半截 JSON 当成可靠结果
+  if (!got.out || got.truncated) return { status: 502, body: { error: got.truncated ? '回答太长被截断了，试试拆成几句说' : `汤圆的回答没法解析（${cfg.provider} 返回的不是 JSON：${(got.raw || '').replace(/\s+/g, ' ').slice(0, 60)}…），再试一次？` } };
 
   const base = { reply: String(got.out.reply || ''), model: got.model, provider: cfg.provider, usage: got.usage, mode };
   if (mode === 'breakdown') {
-    const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).filter((x) => x && x.title).slice(0, 7).map((x) => ({ title: String(x.title).slice(0, 60), minutes: Number.isInteger(x.minutes) ? Math.max(5, Math.min(180, x.minutes)) : 25, kind: ['语言', '思考', '记忆', '动手'].includes(x.kind) ? x.kind : '思考', hint: typeof x.hint === 'string' ? x.hint.slice(0, 80) : '' }));
-    return json(res, 200, { ...base, steps });
+    const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).map(validateStep).filter(Boolean).slice(0, 7);
+    return { status: 200, body: { ...base, steps } };
   }
-  const items = (Array.isArray(got.out.items) ? got.out.items : []).filter((it) => it && ['todo', 'block', 'note', 'goal', 'focus', 'book', 'link', 'vision'].includes(it.kind) && it.title);
-  json(res, 200, { ...base, items });
+  const items = (Array.isArray(got.out.items) ? got.out.items : []).map(validateItem).filter(Boolean).slice(0, 20);
+  const intent = INTENTS.includes(got.out.intent) ? got.out.intent : (items.length ? 'capture' : 'chat');
+  return { status: 200, body: { ...base, intent, items } };
 }
