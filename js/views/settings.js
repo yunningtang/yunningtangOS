@@ -8,6 +8,7 @@ import { toast } from '../nav.js';
 import { askConfirm, askPrompt } from '../confirm.js';
 import { aiConfig, setAiConfig, aiHeaders, usageOf, clearUsage, estimateCost } from '../ai.js';
 import { ctxMenu } from '../ctx.js';
+import { trashPages } from './notes.js';
 
 export async function uploadAvatar(file) {
   try {
@@ -183,6 +184,7 @@ export default function Settings() {
           ${!s.settings.seeded && html`<${Btn} kind="ghost" icon="sparkle" onClick=${() => { seed(); toast('已载入示例数据'); }}>载入示例数据<//>`}
         </div>
         <p class="small muted" style="margin-top:10px">导出的文件不含 token 和 AI 密钥。开了云端同步的话，仓库里每一次提交本身就是一份备份。</p>
+        <div class="danger-row"><span class="small muted">只清笔记：所有页面进「最近删除」，30 天内可以恢复；本子、待办、书、收藏都不动。</span><${Btn} kind="ghost danger" small icon="note" disabled=${!s.notes.length} onClick=${async () => { const n = s.notes.length; if (await askConfirm(`${n} 页会移到「最近删除」，30 天内可以在笔记里恢复。`, { title: '清空所有笔记？', ok: '清空笔记' })) { trashPages(s.notes.map((x) => x.id)); toast(`清了 ${n} 页，在「最近删除」里能找回`); } }}>清空笔记<//></div>
         <div class="danger-row"><span class="small muted">清掉所有数据，从空白开始。建议先导出。</span><${Btn} kind="ghost danger" small icon="trash" onClick=${async () => { if (await askConfirm('所有待办、笔记、书、收藏、足迹都会被清除。建议先导出 JSON。', { title: '清空全部数据？', ok: '清空' })) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空全部<//></div>
       <//>
       <${Card} title="快捷键" id="set-keys">
