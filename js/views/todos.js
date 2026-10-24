@@ -1,9 +1,9 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, toggleTodo, removeUndo } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select } from '../ui.js';
-import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort , lsGet, lsSet } from '../util.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select, useClock } from '../ui.js';
+import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGet, lsSet, pad, weekStart, timeToMin, minToTime } from '../util.js';
 import { ctxMenu } from '../ctx.js';
-import { askConfirm } from '../confirm.js';
+import { askConfirm, askDate } from '../confirm.js';
 import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
 import { dragProps, dropProps } from '../dnd.js';
@@ -61,6 +61,35 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
 }
 
 export function todoPage(t) { const n = linkedPage('todo:' + t.id, { title: t.title, nb: '收件箱', tags: t.tags, body: `${t.note ? t.note + '\n\n' : ''}` }); go('notes/' + n.id); }
+// ---- 过期 / 推迟 ----
+const nowHHMM = (d = new Date()) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+// 已经到点但没完成：今天的时间过了，或日期本身是过去
+export function lateState(t, now = new Date()) {
+  if (t.done || !t.due) return '';
+  const today = todayStr(now);
+  if (t.due < today) return 'late';
+  if (t.due === today && t.time && t.time <= nowHHMM(now)) return 'passed';
+  return '';
+}
+export function postponeItems(t) {
+  const today = todayStr(); const now = new Date();
+  const move = (patch, msg) => { const undo = { id: t.id, due: t.due, time: t.time }; upsert('todos', { id: t.id, ...patch }); toast(msg, { label: '撤销', onClick: () => upsert('todos', undo) }); };
+  const plus1h = minToTime(Math.min(23 * 60 + 55, Math.ceil((now.getHours() * 60 + now.getMinutes() + 60) / 5) * 5));
+  const nextMon = addDays(weekStart(today), 7);
+  return [
+    t.time && { label: '推迟 1 小时', icon: 'clock', hint: `今天 ${plus1h}`, onClick: () => move({ due: today, time: plus1h }, `推到今天 ${plus1h}`) },
+    { label: '今晚', icon: 'moon', hint: '20:00', onClick: () => move({ due: today, time: '20:00' }, '推到今晚 20:00') },
+    { label: '明天', icon: 'calendar', hint: t.time || '', onClick: () => move({ due: addDays(today, 1) }, '推到明天') },
+    { label: '后天', icon: 'calendar', onClick: () => move({ due: addDays(today, 2) }, '推到后天') },
+    { label: '下周一', icon: 'calendar', hint: nextMon.slice(5).replace('-', '/'), onClick: () => move({ due: nextMon }, '推到下周一') },
+    { label: '选日期…', icon: 'edit', onClick: async () => { const v = await askDate('', t.due || today, { title: '推迟到' }); if (v) move({ due: v }, `推到 ${relDay(v)}`); } },
+    'sep',
+    t.time && { label: '去掉时间，今天内完成即可', icon: 'x', onClick: () => move({ due: today, time: '' }, '已去掉时间') },
+    { label: '不排期', icon: 'minus', onClick: () => move({ due: '', time: '' }, '已移到未排期') },
+  ].filter(Boolean);
+}
+export const postponeMenu = (e, t) => ctxMenu(e, postponeItems(t), `推迟「${t.title}」`);
+
 export function todoMenu(t, onEdit) {
   const today = todayStr();
   return [
@@ -68,6 +97,7 @@ export function todoMenu(t, onEdit) {
     { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
     { label: t.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) },
     onEdit && { label: '编辑', icon: 'edit', onClick: () => onEdit(t) },
+    !t.done && t.due && { label: lateState(t) ? '推迟…' : '改期…', icon: 'right', sub: postponeItems(t) },
     'sep',
     { label: '今天', icon: 'calendar', onClick: () => upsert('todos', { id: t.id, due: today }) },
     { label: '明天', icon: 'calendar', onClick: () => upsert('todos', { id: t.id, due: addDays(today, 1) }) },
@@ -84,8 +114,11 @@ export function todoMenu(t, onEdit) {
 
 export function TodoItem({ t, onEdit, compact }) {
   const p = PRIORITY[t.priority] || PRIORITY[2];
+  const now = useClock();
   const today = todayStr();
-  const dueCls = t.due && !t.done ? (t.due < today ? 'late' : t.due === today ? 'today' : '') : '';
+  const ls = lateState(t, now);
+  const dueCls = t.due && !t.done ? (ls === 'late' ? 'late' : ls === 'passed' ? 'passed' : t.due === today ? 'today' : '') : '';
+  const lateTxt = ls === 'late' ? `逾期 ${Math.max(1, Math.round((new Date(today) - new Date(t.due)) / 864e5))} 天` : ls === 'passed' ? '已过' : '';
   return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })}>
     <button class="cb" title=${`${p.label} ${p.name}`} onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
     <div class="tt">
@@ -93,11 +126,12 @@ export function TodoItem({ t, onEdit, compact }) {
       ${!compact && html`<div class="meta">
         ${t.priority <= 1 && !t.done && html`<span class="pri">${p.label} ${p.name}</span>`}
         ${t.due && html`<span class=${'due ' + dueCls}><${Icon} name="calendar" size=${10} /> ${relDay(t.due)}${t.time ? ' ' + t.time : ''}</span>`}
+        ${ls && html`<button class=${'defer ' + ls} title="推迟到…" onClick=${(e) => postponeMenu(e, t)}>${lateTxt} · 推迟 <${Icon} name="down" size=${9} /></button>`}
         ${t.area && html`<span>${t.area}</span>`}
         ${t.tags.map((x) => html`<${Tag}>#${x}<//>`)}
         ${t.note && html`<span title=${t.note}>· ${t.note.slice(0, 40)}${t.note.length > 40 ? '…' : ''}</span>`}
       </div>`}
-      ${compact && t.time && html`<div class="meta"><span class=${'due ' + dueCls}>${t.time}</span></div>`}
+      ${compact && (t.time || ls) && html`<div class="meta"><span class=${'due ' + dueCls}>${ls === 'late' ? relDay(t.due) + (t.time ? ' ' + t.time : '') : t.time}</span>${ls && html`<button class=${'defer ' + ls} title="推迟到…" onClick=${(e) => postponeMenu(e, t)}>${lateTxt} · 推迟</button>`}</div>`}
     </div>
     ${onEdit && html`<div class="acts"><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => onEdit(t)} /></div>`}
   </div>`;
@@ -175,7 +209,7 @@ export default function Todos({ route }) {
       ${allTags.length > 0 && html`<div class="filters">${allTags.map(([x, n]) => html`<${Tag} class=${'click ' + (tagF === x ? 'on' : '')} onClick=${() => setTagF(tagF === x ? '' : x)}>${x} <span class="muted">${n}</span><//>`)}</div>`}
       ${layout === 'board' ? html`<div class="board-cols">${PRIORITY.map((p) => { const list = sortBy(todos.filter((t) => t.priority === p.v), 'done', 'due', 'time'); return html`<div class="card bcol" key=${p.v} style=${`--pc:${p.color}`} ...${dropProps('todo', (d) => upsert('todos', { id: d.id, priority: p.v }))}>
         <div class="bh"><b class="bh-p">${p.label}</b>${p.name}<span>${list.length}</span></div>
-        ${list.map((t) => html`<div class=${'bcard p' + t.priority + ' ' + (t.done ? 'done' : '')} key=${t.id} style=${`--pc:${p.color}`} ...${dragProps('todo', { id: t.id })} onClick=${() => { setEditing(t); setModal(true); }} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, (x) => { setEditing(x); setModal(true); }), t.title)}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div>${t.title}</div><span class="meta">${t.due ? relDay(t.due) : ''}${t.time ? ' ' + t.time : ''}${t.area ? ' · ' + t.area : ''}${t.tags.map((x) => ' #' + x).join('')}</span></div></div>`)}
+        ${list.map((t) => html`<div class=${'bcard p' + t.priority + ' ' + (t.done ? 'done' : '')} key=${t.id} style=${`--pc:${p.color}`} ...${dragProps('todo', { id: t.id })} onClick=${() => { setEditing(t); setModal(true); }} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, (x) => { setEditing(x); setModal(true); }), t.title)}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div>${t.title}</div><span class="meta">${lateState(t) && html`<b class=${'bl ' + lateState(t)} title="右键可推迟">${lateState(t) === 'late' ? '逾期' : '已过'}</b>`}${t.due ? relDay(t.due) : ''}${t.time ? ' ' + t.time : ''}${t.area ? ' · ' + t.area : ''}${t.tags.map((x) => ' #' + x).join('')}</span></div></div>`)}
         <button class="pt-row flat new" style="min-height:26px;font-size:.76rem" onClick=${() => { setEditing(null); setModal(true); }}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">添加</span></button>
       </div>`; })}</div>`
       : groups.length === 0 ? html`<${Empty} icon="checksq" text=${view === 'done' ? '还没有完成的事。' : '清清爽爽，没有待办。'} />` : groups.map(([name, list]) => html`

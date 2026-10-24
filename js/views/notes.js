@@ -2,7 +2,7 @@ import { html, useState, useMemo, useEffect, useRef, Component } from '../../ven
 import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field , tagMenu } from '../ui.js';
-import { uid, todayStr, sortBy, debounce, escapeHtml, download, tagColor, fmtShort } from '../util.js';
+import { uid, todayStr, addDays, sortBy, debounce, escapeHtml, download, tagColor, fmtShort } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
 import { askConfirm, askPrompt } from '../confirm.js';
@@ -14,7 +14,7 @@ import { blocksToMd, mdToBlocks, textOf } from '../blocks.js';
 import { listFiles, fmtSize, isPdf, fileUrl } from '../files.js';
 import { TEMPLATES, templateBlocks } from '../templates.js';
 import { exportCardPng, copyCardPng } from '../card.js';
-import { CardsView, propsMenu, statusOf, reviewState, reviewLabel, markReviewed, areaMenu, statusMenu, reviewMenu, editTopic } from './cards.js';
+import { reviewState, reviewLabel, reviewMenu, reviewDone, isDue } from '../review.js';
 import { NoteTasksView } from './ntasks.js';
 import { CanvasView, canvasesOf, newCanvas } from './canvas.js';
 
@@ -185,7 +185,7 @@ export function useTreeState() {
 }
 
 /* ---------- main view: notebooks / pages / page ---------- */
-export function newFromTemplate(k, patch = {}) { const t = TEMPLATES.find((x) => x.k === k); const blocks = templateBlocks(k); const n = newNote({ ...patch, blocks, body: blocksToMd(blocks), status: t && t.status ? t.status : '', tags: t && t.tags ? [...t.tags] : [] }); go('notes/' + n.id); return n; }
+export function newFromTemplate(k, patch = {}) { const t = TEMPLATES.find((x) => x.k === k); const blocks = templateBlocks(k); const n = newNote({ ...patch, blocks, body: blocksToMd(blocks), review: t && t.review ? addDays(todayStr(), t.review) : '', reviewedAt: t && t.review ? todayStr() : '', tags: t && t.tags ? [...t.tags] : [] }); go('notes/' + n.id); return n; }
 export function templateMenu(e, patch = {}) { ctxMenu(e, [{ label: '空白页', icon: 'note', onClick: () => { const n = newNote(patch); go('notes/' + n.id); } }, 'sep', ...TEMPLATES.map((t) => ({ label: t.label, icon: t.icon, hint: t.hint, onClick: () => newFromTemplate(t.k, patch) }))], '新建'); }
 export const snippetOf = (n) => snippet(n);
 function snippet(n) { return (n.body || '').replace(/^\s*[-*+]\s+\[[ xX]\]\s*/gm, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '$1').replace(/<\/?u>/g, '').replace(/=={[a-z]}/g, '').replace(/@\[[a-z]+:[\w-]+\|([^\]]+)\]/g, '$1').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/==/g, '').replace(/[#>*`\[\]\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); }
@@ -226,7 +226,9 @@ export default function Notes({ route }) {
     let l = inTrash ? [...(s.trash || [])] : s.notes.filter(inNb);
     if (inTrash) { if (q.trim()) { const k = q.toLowerCase(); l = l.filter((n) => (n.title + ' ' + n.body).toLowerCase().includes(k)); } return sortBy(l, '-deletedAt'); }
     if (q.trim()) { const k = q.trim().toLowerCase(); l = k.startsWith('#') ? l.filter((n) => n.tags.some((t) => t.toLowerCase() === k.slice(1))) : l.filter((n) => (n.title + ' ' + n.body + ' ' + n.tags.join(' ')).toLowerCase().includes(k)); }
-    return sort === 'manual' ? sortBy(l, '-pinned', 'order') : sortBy(l, '-pinned', sort === 'title' ? 'title' : sort === 'created' ? '-created' : '-updated');
+    const sorted = sort === 'manual' ? sortBy(l, '-pinned', 'order') : sortBy(l, '-pinned', sort === 'title' ? 'title' : sort === 'created' ? '-created' : '-updated');
+    // 到了回看日期的页先浮上来
+    return [...sorted.filter(isDue), ...sorted.filter((n) => !isDue(n))];
   }, [s.notes, s.trash, nbSel, q, sort]);
   const create = (parent = null) => { const n = newNote({ parent, nb: nbSel === 'all' || nbSel === 'fav' ? 'nb-inbox' : nbSel }); if (parent) tree.openPath([parent]); setQ(''); go('notes/' + n.id); };
   const counts = useMemo(() => { const m = new Map(); s.notes.forEach((n) => m.set(n.nb, (m.get(n.nb) || 0) + 1)); return m; }, [s.notes]);
@@ -234,8 +236,8 @@ export default function Notes({ route }) {
   const listTitle = nbSel === 'all' ? '全部笔记' : nbSel === 'fav' ? '收藏' : nbSel === 'trash' ? '最近删除' : cur ? cur.name : '笔记';
   const trashed = inTrash ? (s.trash || []).find((n) => n.id === id) : null;
 
-  const standalone = id === 'cards' || (id || '').startsWith('canvas');
-  if (standalone) return html`<div class="nb-layout no-nb no-list standalone m-page"><section class="card notes-main">${id === 'cards' ? html`<${CardsView} notes=${s.notes} notebooks=${nbs} />` : html`<${CanvasView} id=${id.slice(7)} notes=${s.notes} notebooks=${nbs} />`}</section></div>`;
+  const standalone = (id || '').startsWith('canvas');
+  if (standalone) return html`<div class="nb-layout no-nb no-list standalone m-page"><section class="card notes-main"><${CanvasView} id=${id.slice(7)} notes=${s.notes} notebooks=${nbs} /></section></div>`;
   return html`<div class=${'nb-layout ' + (panes.nb ? '' : 'no-nb ') + (panes.list ? '' : 'no-list ') + (id ? 'm-page ' : '')}>
     ${panes.nb && html`<aside class="card nb-col">
       <div class="nb-h"><h3>本子</h3><div class="row" style="gap:2px"><${IconBtn} icon="plus" title="新本子" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }} /><${IconBtn} icon="left" title="收起" onClick=${() => setPane('nb', false)} /></div></div>
@@ -274,7 +276,7 @@ export default function Notes({ route }) {
         </a>`) : visible.map((n) => { const nb = nbOf(s, n.nb); const par = n.parent ? s.notes.find((x) => x.id === n.parent) : null; return html`<a key=${n.id} class=${'li-i ' + (n.id === id ? 'active' : '')} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, s.notes, { notebooks: nbs, openPath: tree.openPath }), noteTitle(n))} ...${dragProps('page', { id: n.id })} ...${dropProps('page', (d, { after }) => { if (d.id === n.id) return; movePage(d.id, { parent: n.parent || null, nb: n.nb, [after ? 'after' : 'before']: n.id }); if (sort !== 'manual') { setSort('manual'); try { localStorage.setItem('ytos.nsort', 'manual'); } catch {} } }, { position: true })}>
           <b>${n.pinned && html`<${Icon} name="star" size=${11} class="li-pin" />`}${par ? html`<span class="li-par">${noteTitle(par)} / </span>` : ''}${noteTitle(n)}</b>
           <p>${snippet(n) || '空白页'}</p>
-          <small>${n.updated.slice(5, 10).replace('-', '/')}${nbSel === 'all' || nbSel === 'fav' ? html` · <i style=${`background:${nb ? nb.color : '#999'}`}></i> ${nb ? nb.name : ''}` : ''}${n.tags.length ? ' · ' + n.tags.map((t) => '#' + t).join(' ') : ''}${(() => { const rs = reviewState(n); return rs === 'late' || rs === 'today' ? html` · <span class=${'li-rv ' + rs}>复习</span>` : ''; })()}</small>
+          <small>${n.updated.slice(5, 10).replace('-', '/')}${nbSel === 'all' || nbSel === 'fav' ? html` · <i style=${`background:${nb ? nb.color : '#999'}`}></i> ${nb ? nb.name : ''}` : ''}${n.tags.length ? ' · ' + n.tags.map((t) => '#' + t).join(' ') : ''}${isDue(n) ? html` · <span class=${'li-rv ' + reviewState(n)}>回看</span>` : ''}</small>
           <span class="li-acts"><button class="ibtn" title="更多…" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); ctxMenu(e, pageMenu(n, s.notes, { notebooks: nbs, openPath: tree.openPath }), noteTitle(n)); }}><${Icon} name="dots" size=${14} /></button></span>
         </a>`; })}
       </div>
@@ -282,8 +284,7 @@ export default function Notes({ route }) {
     ${panes.list && html`<${Splitter} varName="lcw" min=${200} max=${480} />`}
     <section class="card notes-main">
       ${!panes.list && html`<button class="pane-pill float" title=${'显示页面列表（' + listTitle + '）'} onClick=${() => setPane('list', true)}><${Icon} name="right" size=${12} /> 列表</button>`}
-      ${id === 'cards' ? html`<${CardsView} notes=${s.notes} notebooks=${nbs} />`
-      : id === 'tasks' ? html`<${NoteTasksView} notes=${s.notes} notebooks=${nbs} />`
+      ${id === 'tasks' ? html`<${NoteTasksView} notes=${s.notes} notebooks=${nbs} />`
       : (id || '').startsWith('canvas') ? html`<${CanvasView} id=${id.slice(7)} notes=${s.notes} notebooks=${nbs} />`
       : id === 'graph' ? html`<${GraphView} notes=${s.notes} />`
       : id === 'tags' ? html`<${TagsView} notes=${s.notes} />`
@@ -366,11 +367,8 @@ function MetaLine({ note, notes, notebooks, words, onMove, backlinks = 0 }) {
     ${adding ? html`<span class="mtag-wrap"><input class="mtag-in" ref=${(el) => el && !el.dataset.f && (el.dataset.f = 1, setTimeout(() => el.focus(), 0))} value=${txt} placeholder="标签" onInput=${(e) => { setTxt(e.target.value); setSugIdx(0); }} onKeyDown=${(e) => { if (e.isComposing) return; if (e.key === 'ArrowDown') { e.preventDefault(); setSugIdx((i) => Math.min(sugs.length - 1, i + 1)); } else if (e.key === 'ArrowUp') { e.preventDefault(); setSugIdx((i) => Math.max(0, i - 1)); } else if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') { e.preventDefault(); const pick = sugs[sugIdx]; addTag(pick ? pick.t : txt.trim()); } else if (e.key === 'Escape') { setTxt(''); setAdding(false); } else if (e.key === 'Backspace' && !txt && note.tags.length) { upsert('notes', { id: note.id, tags: note.tags.slice(0, -1) }); } }} onBlur=${() => { setTimeout(() => { addTag(); setAdding(false); }, 120); }} />
       ${sugs.length > 0 && html`<div class="popmenu tag-sug">${sugs.map((x, i) => html`<div class=${'pm ' + (i === sugIdx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); addTag(x.t); }}><b>${x.create ? `创建「${x.t}」` : x.t}</b></div>`)}</div>`}</span>`
       : html`<button class="mchip ghost" onClick=${() => setAdding(true)} title="添加标签"><${Icon} name="plus" size=${11} />${note.tags.length ? '' : ' 标签'}</button>`}
-    ${note.area && html`<button class="mchip prop" title="领域" onClick=${(e) => areaMenu(e, note, notes)}><${Icon} name="layers" size=${11} />${note.area}</button>`}
-    ${note.topic && html`<button class="mchip prop" title="主题" onClick=${() => editTopic(note)}><${Icon} name="tag" size=${11} />${note.topic}</button>`}
-    ${note.status && statusOf(note.status) && html`<button class="mchip prop" title="状态" onClick=${(e) => statusMenu(e, note)}><i class="st-dot" style=${`background:${statusOf(note.status).color}`}></i>${statusOf(note.status).label}</button>`}
-    ${note.review && html`<span class="mrev"><button class=${'mchip prop rv ' + reviewState(note)} title=${'复习日期 ' + note.review + (note.rep ? ` · 已复习 ${note.rep} 次` : '')} onClick=${(e) => reviewMenu(e, note)}><${Icon} name="refresh" size=${11} />${reviewLabel(note)}</button>${(reviewState(note) === 'late' || reviewState(note) === 'today') && html`<button class="mchip ok" title="复习过了" onClick=${() => markReviewed(note)}><${Icon} name="check" size=${11} /></button>`}</span>`}
-    <button class="mchip ghost" title="卡片属性：领域 / 主题 / 状态 / 复习日期。设了任意一个，这页就会进「卡片」视图可以整理和复习；标签只是关键词" onClick=${(e) => propsMenu(e, note, notes)}><${Icon} name="plus" size=${11} />${note.area || note.topic || note.status || note.review ? '' : ' 属性'}</button>
+    ${note.review ? html`<button class=${'mchip prop rv ' + reviewState(note)} title=${`回看 ${note.review} · 点击改日期`} onClick=${(e) => reviewMenu(e, note)}><${Icon} name="refresh" size=${11} />${reviewLabel(note)}</button>`
+      : html`<button class="mchip ghost" title="哪天回看这一页：到了那天它会浮到列表最上面提醒你" onClick=${(e) => reviewMenu(e, note)}><${Icon} name="refresh" size=${11} /> 回看</button>`}
     ${backlinks > 0 && html`<button class="mchip prop" title="有 ${backlinks} 页链接到这里，点击查看" onClick=${() => { const el = document.querySelector('.links-sec'); el && el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><${Icon} name="link" size=${11} />${backlinks} 反向链接</button>`}
     <span class=${'mdate ' + (saved ? 'saved' : '')} title=${tip}>${saved ? '已保存 ✓' : `${upd.getMonth() + 1}月${upd.getDate()}日 · ${words} 字`}</span>
     ${note.ref && html`<a class="mchip src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}
@@ -415,7 +413,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     { label: '导出 PDF / 打印', icon: 'print', onClick: () => { document.body.classList.add('print-page'); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove('print-page'), 800); }, 60); } },
   ];
   const title = noteTitle(note);
-  const cardOpts = (bl) => { const nb = notebooks.find((x) => x.id === note.nb); const sub = [nb && nb.name, note.area, note.topic, ...note.tags.map((t) => '#' + t)].filter(Boolean).join(' · '); return { title, sub, blocks: bl || (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), foot: `${get().profile.name || ''} · ${todayStr()}`, color: (nb && nb.color) || '#4f7cf5', dark: document.documentElement.dataset.theme === 'dark' }; };
+  const cardOpts = (bl) => { const nb = notebooks.find((x) => x.id === note.nb); const sub = [nb && nb.name, ...note.tags.map((t) => '#' + t)].filter(Boolean).join(' · '); return { title, sub, blocks: bl || (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), foot: `${get().profile.name || ''} · ${todayStr()}`, color: (nb && nb.color) || '#4f7cf5', dark: document.documentElement.dataset.theme === 'dark' }; };
   const exportSel = (bl, how) => (how === 'copy' ? copyCardPng(cardOpts(bl)).then(() => toast('已复制图片')).catch(() => toast('浏览器不允许复制图片，请改用导出')) : exportCardPng(cardOpts(bl), `${title} 摘录.png`).then(() => toast('已导出图片')));
   const onCanvases = canvasesOf(get(), note.id);
   const backlinks = useMemo(() => notes.filter((n) => n.id !== note.id && linksOf(n.body).some((t) => t.toLowerCase() === note.title.trim().toLowerCase()) && note.title.trim()), [notes, note.title]);
@@ -441,6 +439,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     </div>
     ${note.cover && html`<div class="page-cover" style=${coverStyle(note.cover)}><div class="cover-acts"><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: nextCover(note.cover) })}>换一张</button><button class="btn sm" onClick=${() => upsert('notes', { id: note.id, cover: '' })}>移除</button></div></div>`}
     <div class=${'page-body ' + (note.wide ? 'wide' : '')}>
+      ${isDue(note) && html`<div class="rv-bar"><${Icon} name="refresh" size=${14} /><span class="flex1">${reviewLabel(note)} · 看完了，还记得吗？</span><button class="btn sm primary" onClick=${() => reviewDone(note, true)}><${Icon} name="check" size=${13} /> 记得</button><button class="btn sm" onClick=${() => reviewDone(note, false)}>忘了</button></div>`}
       <input class="page-title" ref=${titleRef} type="text" value=${titleTxt} placeholder="无标题" onInput=${(e) => { setTitleTxt(e.target.value); save({ id: note.id, title: e.target.value }); }} onKeyDown=${(e) => { if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.isComposing)) { e.preventDefault(); intoEditor(); } }} />
       <${MetaLine} note=${note} notes=${notes} notebooks=${notebooks} words=${words} onMove=${() => setMoveOpen(true)} backlinks=${backlinks.length} />
       <div onMouseOver=${onOver} onMouseOut=${onOut}>

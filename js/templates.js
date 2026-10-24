@@ -9,7 +9,7 @@ const callout = (t) => block('callout', t);
 
 export const TEMPLATES = [
   {
-    k: 'concept', label: '概念卡 · 费曼', hint: '解释 · 类比 · 追问', icon: 'zap', status: 'doing', tags: ['概念'],
+    k: 'concept', label: '概念卡 · 费曼', hint: '解释 · 类比 · 追问', icon: 'zap', review: 3, tags: ['概念'],
     make: () => [
       callout('💡 用自己的话讲给一个 12 岁的孩子听。讲不清楚的地方，就是还没真懂的地方。'),
       h2('一句话解释'), p(),
@@ -20,7 +20,7 @@ export const TEMPLATES = [
     ],
   },
   {
-    k: 'project', label: '项目卡', hint: '目标 · 阶段 · 下一步', icon: 'kanban', status: 'doing',
+    k: 'project', label: '项目卡', hint: '目标 · 阶段 · 下一步', icon: 'kanban', review: 7,
     make: () => [
       h2('目标'), p(),
       h2('阶段'), todo('启动：明确范围'), todo('推进：做出第一个版本'), todo('收尾：整理与交付'),

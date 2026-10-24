@@ -27,6 +27,7 @@ export { go, toast };
 
 import { Capture } from './capture.js';
 import { Seal } from './seal.js';
+import { dueCount } from './review.js';
 
 export const ROUTES = [
   { path: 'home', name: '总览', icon: 'home', view: Dashboard },
@@ -38,8 +39,7 @@ export const ROUTES = [
   { sep: '输入与输出' },
   { path: 'reading', name: '阅读', icon: 'book', view: Reading, count: (s) => s.books.filter((b) => b.status === 'reading').length },
   { path: 'links', name: '收藏', icon: 'link', view: Links },
-  { path: 'notes', name: '笔记', icon: 'note', view: Notes, match: (r) => r.path === 'notes' && r.sub !== 'cards' && !(r.sub || '').startsWith('canvas') },
-  { path: 'notes', href: 'notes/cards', name: '卡片', icon: 'kanban', match: (r) => r.path === 'notes' && r.sub === 'cards' },
+  { path: 'notes', name: '笔记', icon: 'note', view: Notes, match: (r) => r.path === 'notes' && !(r.sub || '').startsWith('canvas'), count: (s) => dueCount(s.notes) },
   { path: 'notes', href: 'notes/canvas', name: '画布', icon: 'frame', match: (r) => r.path === 'notes' && (r.sub || '').startsWith('canvas') },
   { sep: '远方' },
   { path: 'vision', name: '愿景', icon: 'sparkle', view: Vision },
@@ -151,7 +151,7 @@ function App() {
     <div class="main">
       <header class="topbar">
         <${IconBtn} class="ibtn hamb" icon="menu" title="菜单" onClick=${() => setMenu(true)} />
-        <div class="ttl crumb-top">${curNote ? html`<a href="#/notes">笔记</a>${ancestors(s.notes, curNote).map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${noteTitle(curNote)}</b>` : route.path === 'notes' && route.sub && !curNote ? html`<a href="#/notes">笔记</a><span>/</span><b>${route.sub.startsWith('canvas') ? '画布' : { cards: '卡片', tasks: '行动', graph: '图谱', tags: '标签', files: '附件' }[route.sub] || '笔记'}</b>` : route.path === 'plan' ? html`<a href="#/plan">计划</a><span>/</span><b>${{ week: '周计划', day: '每日时间线', weektl: '周时间线', month: '月度目标' }[route.sub] || '周计划'}</b>` : html`<b>${active.name}</b>`}</div>
+        <div class="ttl crumb-top">${curNote ? html`<a href="#/notes">笔记</a>${ancestors(s.notes, curNote).map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${noteTitle(curNote)}</b>` : route.path === 'notes' && route.sub && !curNote ? html`<a href="#/notes">笔记</a><span>/</span><b>${route.sub.startsWith('canvas') ? '画布' : { tasks: '行动', graph: '图谱', tags: '标签', files: '附件' }[route.sub] || '笔记'}</b>` : route.path === 'plan' ? html`<a href="#/plan">计划</a><span>/</span><b>${{ week: '周计划', day: '每日时间线', weektl: '周时间线', month: '月度目标' }[route.sub] || '周计划'}</b>` : html`<b>${active.name}</b>`}</div>
         <div class="sp"></div>
         <div class="searchbox" onClick=${() => setSearch(true)}><${Icon} name="search" size=${14} /><span>搜索</span><kbd>⌘K</kbd></div>
         <button class="cap-btn" onClick=${() => setCap(true)} title="快速捕获（⌘⇧K）"><${Icon} name="plus" size=${15} /><span>记一下</span></button>
