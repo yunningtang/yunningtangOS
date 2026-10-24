@@ -1,5 +1,6 @@
 // Pomodoro state machine, persisted so it survives reloads. Views subscribe for ticks.
 import { upsert } from './store.js';
+import { markStepDone } from './steps.js';
 import { uid, todayStr, minToTime } from './util.js';
 
 const KEY = 'ytos.pomo';
@@ -34,6 +35,7 @@ function finish() {
     const pad = (n) => String(n).padStart(2, '0');
     upsert('sessions', { id: uid(), date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: new Date().toISOString() });
     st.count += 1;
+    if (st.todoId && st.stepId) { markStepDone(st.todoId, st.stepId); st.stepId = ''; } // 这一轮是某一步：做完顺手勾掉
     beep(); notify('专注完成', `${st.label || '专注'} · ${mins} 分钟。休息一下。`);
     st = { ...st, phase: 'break', startedAt: Date.now(), endsAt: Date.now() + st.breakLen * 60000, paused: false };
   } else {
@@ -47,9 +49,9 @@ function schedule() {
   if (st.phase === 'idle' || st.paused) return;
   timer = setInterval(() => { if (remaining() <= 0) finish(); else emit(); }, 1000);
 }
-export function start({ label, todoId, workLen, breakLen } = {}) {
+export function start({ label, todoId, stepId, workLen, breakLen } = {}) {
   if (workLen) st.workLen = workLen; if (breakLen) st.breakLen = breakLen;
-  st = { ...st, phase: 'work', label: label ?? st.label, todoId: todoId ?? st.todoId, startedAt: Date.now(), endsAt: Date.now() + st.workLen * 60000, paused: false };
+  st = { ...st, phase: 'work', label: label ?? st.label, todoId: todoId ?? st.todoId, stepId: stepId || '', startedAt: Date.now(), endsAt: Date.now() + st.workLen * 60000, paused: false };
   try { if (Notification.permission === 'default') Notification.requestPermission(); } catch {}
   save(); emit(); schedule();
 }

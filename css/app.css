@@ -395,10 +395,11 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .pri-pick{display:inline-flex;gap:4px}
 .pri-pick button{width:32px;height:26px;border-radius:var(--r3);font-size:.72rem;font-weight:600;color:var(--pc);background:color-mix(in srgb,var(--pc) 10%,transparent);opacity:.55}
 .pri-pick button.on,.pri-pick button:hover{opacity:1;background:color-mix(in srgb,var(--pc) 18%,transparent)}
-.board-cols{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start}
+.board-cols{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:stretch}
 .todo-tools{margin-bottom:12px}.todo-tools .quickadd{background:color-mix(in srgb,var(--paper) 70%,transparent);box-shadow:inset 0 0 0 1px var(--line)}.todo-tools .filters{margin-bottom:0;margin-top:8px}
-.bcol-empty{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;padding:22px 8px 20px;border-radius:10px;color:var(--text-4);font-size:.78rem;border:1px dashed var(--line-2)}.bcol-empty small{font-size:.72rem;color:var(--text-4)}.bcol-empty:hover{background:var(--hover);color:var(--text-3)}.bcol-empty:hover small{color:var(--blue)}
-.bcol{padding:8px;border-radius:14px;background:color-mix(in srgb,var(--paper) 42%,transparent);box-shadow:inset 0 0 0 1px var(--line)}
+.bcol{padding:8px;border-radius:14px;background:color-mix(in srgb,var(--paper) 42%,transparent);box-shadow:inset 0 0 0 1px var(--line);display:flex;flex-direction:column;min-height:150px}
+.bcol-none{padding:14px 6px 10px;font-size:.78rem;color:var(--text-4);text-align:center}.bcol>.pt-row.new{margin-top:auto}
+.bcard .meta .bs{color:var(--text-3)}.bcard .meta .bs.all{color:var(--green)}
 .bcol .bh{display:flex;align-items:center;gap:7px;font-size:.8rem;font-weight:600;margin:4px 0 8px;padding:2px 4px;color:var(--pc)}
 .bcol .bh .bh-p{display:inline-grid;place-items:center;height:20px;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--pc) 14%,transparent);color:var(--pc);font-size:.7rem;font-weight:700;letter-spacing:.02em}
 .bcol .bh span{margin-left:auto;color:var(--text-4);font-size:.74rem}
@@ -1716,3 +1717,20 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .seal-send .spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:seal-spin .8s linear infinite}
 @keyframes seal-spin{to{transform:rotate(360deg)}}
 @media (max-width:900px){.seal-rz{display:none}.seal-panel{width:calc(100vw - 32px);height:min(560px,70vh)}.seal-panel.big,.seal-panel.full{width:calc(100vw - 16px);height:calc(100vh - 24px)}.seal-panel.big .seal-msgs{padding:8px 16px 10px}.seal-panel.big .seal-cw{padding:0 12px 12px}.seal-panel.big .seal-h{padding:12px 10px 4px 18px}.ac-row{min-height:44px}.ac-row:hover .ac-edit,.ac-row:focus-within .ac-edit{display:none}.ac-row.editing .ac-edit{display:flex}.ac-row:has(.ac-edit):hover .ac-m,.ac-row:has(.ac-edit):focus-within .ac-m{display:flex}.ac-row.editing .ac-m{display:none}.seal-full{display:none}}
+
+/* ---------- 子任务：挂在待办下面的一列 ---------- */
+.todo .steps{cursor:pointer;border:0}.todo .steps.open{background:var(--hover-2);color:var(--text-2)}
+.steps-l{list-style:none;margin:6px 0 2px;padding:0 0 0 2px;display:flex;flex-direction:column;gap:1px;border-left:2px solid color-mix(in srgb,var(--pc) 30%,transparent);margin-left:4px;padding-left:10px}
+.step{display:flex;align-items:center;gap:8px;min-height:26px;padding:2px 6px 2px 2px;border-radius:7px;font-size:.8rem;color:var(--text-2);transition:background .16s ease}
+.step:hover{background:var(--hover)}.step.dragging{opacity:.4}.step.drop-over{box-shadow:inset 0 2px 0 var(--blue)}
+.step .cb{flex:none;width:14px;height:14px;margin:0;border-radius:4px;border:1.5px solid var(--text-4);background:transparent;display:grid;place-items:center;color:transparent;transition:all .1s}.step .cb:hover{border-color:var(--pc)}
+.step.done .cb{background:var(--pc);border-color:var(--pc);color:#fff}
+.step .st-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab}.step.done .st-t{color:var(--text-4);text-decoration:line-through}
+.step .st-m{flex:none;font-size:.68rem;color:var(--text-4);font-variant-numeric:tabular-nums}
+.step .st-go{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--text-4);opacity:0;transition:opacity .18s ease .06s,background .15s}.step:hover .st-go{opacity:1}.step .st-go:hover{background:var(--pc);color:#fff}
+.step.new button{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;color:var(--text-4);padding:2px 4px;border-radius:6px}.step.new button:hover{color:var(--text-2);background:var(--hover)}
+.step.new input{height:24px;font-size:.78rem;padding:0 6px;flex:1;min-width:0}
+.todo.has-steps{align-items:flex-start}
+/* 时间线里来自某一步的块：左侧一个小勾 */
+.blk .st-cb{position:absolute;left:5px;top:5px;width:14px;height:14px;border-radius:4px;border:1.5px solid var(--bc);background:var(--paper);display:grid;place-items:center;color:transparent;cursor:pointer;z-index:1}
+.blk.is-step{padding-left:24px}.blk.step-done .st-cb{background:var(--bc);color:#fff}.blk.step-done b{text-decoration:line-through;opacity:.6}

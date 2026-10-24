@@ -8,6 +8,7 @@ import { askPrompt } from '../confirm.js';
 import { toast } from '../nav.js';
 import { Splitter } from '../resize.js';
 import { dragProps, dropProps } from '../dnd.js';
+import { stepsOf, toggleStep } from '../steps.js';
 
 function kindMenu(e, k) {
   const save = (fn) => update((d) => { const it = (d.settings.kinds || []).find((x) => x.v === k.v); if (it) { fn(it); it.updated = new Date().toISOString(); } });
@@ -141,7 +142,13 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
       const b = ghost && ghost.id === b0.id ? { ...b0, start: ghost.start, end: ghost.end } : b0;
       const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60);
       if (e <= s) return null;
-      return html`<div class=${'blk ' + (ghost && ghost.id === b.id ? 'moving' : '')} key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onPointerDown=${(ev) => beginDrag(ev, b0, 'move')} onClick=${(ev) => ev.stopPropagation()} onContextMenu=${(ev) => ctxMenu(ev, [
+      // 这块是某条待办的一步：块上有个勾，勾了就把那一步标完成
+      const stepTodo = b.todoId && b.stepId ? get().todos.find((t) => t.id === b.todoId) : null;
+      const step = stepTodo ? stepsOf(stepTodo).find((x) => x.id === b.stepId) : null;
+      return html`<div class=${'blk ' + (ghost && ghost.id === b.id ? 'moving ' : '') + (step ? 'is-step ' : '') + (step && step.done ? 'step-done' : '')} key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onPointerDown=${(ev) => beginDrag(ev, b0, 'move')} onClick=${(ev) => ev.stopPropagation()} onContextMenu=${(ev) => ctxMenu(ev, [
+        step && { label: step.done ? '这一步标为未完成' : '这一步做完了', icon: 'check', onClick: () => toggleStep(stepTodo.id, step.id) },
+        step && { label: `打开待办「${stepTodo.title}」`, icon: 'checksq', onClick: () => { location.hash = '#/todos?open=' + stepTodo.id; } },
+        step && 'sep',
         { label: '编辑', icon: 'edit', onClick: () => onEdit && onEdit(b) },
         { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(b.date, 1) }) },
         { label: '复制一份（+1h）', icon: 'layers', onClick: () => upsert('blocks', { ...b, id: uid(), start: minToTime(timeToMin(b.start) + 60), end: minToTime(timeToMin(b.end) + 60) }) },
@@ -149,7 +156,7 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
         ...allKinds().map((k) => ({ label: k.name, icon: k.v === b.kind ? 'check' : 'tag', onClick: () => upsert('blocks', { id: b.id, kind: k.v }) })),
         'sep',
         { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) },
-      ], b.title)}><b>${b.title}</b><small>${b.start}–${b.end}</small><span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
+      ], b.title)}>${step && html`<button class="st-cb" title=${step.done ? '标为未完成' : '这一步做完了'} onPointerDown=${(ev) => ev.stopPropagation()} onClick=${(ev) => { ev.stopPropagation(); toggleStep(stepTodo.id, step.id); }}><${Icon} name="check" size=${9} /></button>`}<b>${b.title}</b><small>${b.start}–${b.end}</small><span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
     })}
     ${isToday && nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="now" style=${`top:${y(nowMin)}px`}></div>`}
   </div>`;

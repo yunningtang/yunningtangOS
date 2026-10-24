@@ -9,7 +9,7 @@ import { ctxMenu } from '../ctx.js';
 
 export function noteTasks(notes, { done = false } = {}) {
   const out = [];
-  for (const n of notes) for (const b of n.blocks || []) if (b.type === 'todo' && !!b.checked === done) { const text = textOf(b.html || '').trim(); if (text) out.push({ note: n, block: b, text }); }
+  for (const n of notes) { if (n.ref && n.ref.startsWith('todo:')) continue; for (const b of n.blocks || []) if (b.type === 'todo' && !!b.checked === done) { const text = textOf(b.html || '').trim(); if (text) out.push({ note: n, block: b, text }); } }
   return out;
 }
 

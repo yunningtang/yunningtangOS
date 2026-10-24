@@ -44,6 +44,16 @@ function migrate(s) {
   const moved = (out.blocks || []).filter((b) => b.pomo || (b.kind === 'focus' && typeof b.note === 'string' && b.note.startsWith('todo:')));
   if (moved.length) { moved.forEach((b) => { if (!out.sessions.some((x) => x.id === b.id)) out.sessions.push({ id: b.id, date: b.date, start: b.start, end: b.end, mins: Math.max(1, (parseInt(b.end) * 60 + parseInt(b.end.slice(3))) - (parseInt(b.start) * 60 + parseInt(b.start.slice(3)))), title: b.title || '专注', todo: (b.note || '').startsWith('todo:') ? b.note.slice(5) : '', note: '', updated: new Date().toISOString() }); }); out.blocks = out.blocks.filter((b) => !b.pomo); }
   out.canvases = (out.canvases || []).map((c) => ({ nodes: [], edges: [], strokes: [], ...c }));
+  // 拆解出来的步骤以前写在待办的关联页面里；现在挂在待办自己身上（t.steps），页面里的那段搬过来
+  for (const t of out.todos || []) {
+    if (Array.isArray(t.steps)) continue;
+    const page = out.notes.find((n) => n.ref === 'todo:' + t.id);
+    const blocks = page && page.blocks ? page.blocks.filter((b) => b.type === 'todo') : [];
+    if (!blocks.length) continue;
+    t.steps = blocks.map((b) => { const text = String(b.html || '').replace(/<[^>]+>/g, '').trim(); const m = text.match(/^(.*?)\s*[（(]\s*(\d{1,3})\s*分(?:钟)?\s*[)）]\s*$/); return { id: b.id, title: m ? m[1].trim() : text, minutes: m ? Math.max(5, Math.min(180, +m[2])) : 25, kind: '', done: !!b.checked }; }).filter((x) => x.title);
+    page.blocks = page.blocks.filter((b) => b.type !== 'todo' && !(b.type === 'h2' && /步骤/.test(b.html || '')));
+    if (!page.blocks.length) page.blocks = [{ id: 'b' + Math.random().toString(36).slice(2, 8), type: 'p', html: '' }];
+  }
   const cutoff = Date.now() - 30 * 86400000;
   out.trash = (out.trash || []).filter((n) => !n.deletedAt || new Date(n.deletedAt).getTime() > cutoff);
   // Migration to notebooks: top-level pages that have children become notebooks; loose pages go to 收件箱.

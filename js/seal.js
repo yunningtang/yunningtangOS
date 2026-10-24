@@ -6,14 +6,14 @@ import { useStore, upsert, get, update, remove } from './store.js';
 import { ctxMenu } from './ctx.js';
 import { Icon, DateInput, TimeInput } from './ui.js';
 import * as pomo from './pomo.js';
-import { uid, todayStr, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, escapeHtml, weekKey, monthKey, hostOf, addDays, parseDate } from './util.js';
+import { uid, todayStr, relDay, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, weekKey, monthKey, hostOf, addDays, parseDate } from './util.js';
 import { typesOf, autoCover } from './views/reading.js';
 import { loginState } from './sync.js';
 import { detect, plan } from './capture.js';
 import { newNote } from './views/notes.js';
-import { mdToBlocks, block, blocksToMd } from './blocks.js';
-import { linkedPage } from './views/notes.js';
+import { mdToBlocks } from './blocks.js';
 import { aiHeaders, aiEnabled, aiLabel, recordUsage } from './ai.js';
+import { stepsOf, addSteps, clampMin } from './steps.js';
 import { go, toast } from './nav.js';
 
 const S = 88, M = 18; // fab size / margin
@@ -248,11 +248,12 @@ function calendarText() {
   const mEnd = new Date(d0.getFullYear(), d0.getMonth() + 1, 0); const nStart = new Date(d0.getFullYear(), d0.getMonth() + 1, 1);
   return `本月：${monthKey(d0)}，本月最后一天 ${todayStr(mEnd)}；下月第一天 ${todayStr(nStart)}\n` + lines.join('\n');
 }
-// Tiimo 式：把拆出来的步骤从现在起依次排进时间线，避开已有的时间块，排不下就顺延到明天
-function scheduleSteps(steps, title) {
+// Tiimo 式：把拆出来的步骤从现在起依次排进时间线，避开已有的时间块；只排在清醒时段（08:00–22:00），半夜操作就排到明天早上
+const DAY_START = 8 * 60, DAY_END = 22 * 60;
+function scheduleSteps(steps, todo) {
   const st = get(); let date = todayStr(); const now = new Date();
   let cur = Math.ceil((now.getHours() * 60 + now.getMinutes() + 5) / 15) * 15;
-  const DAY_END = 23 * 60;
+  if (cur < DAY_START) cur = 9 * 60; else if (cur >= DAY_END) { date = addDays(date, 1); cur = 9 * 60; }
   const busy = (d) => st.blocks.filter((b) => b.date === d && !b.pomo).map((b) => [timeToMin(b.start), timeToMin(b.end)]).sort((a, b) => a[0] - b[0]);
   const made = [];
   for (const sp of steps) {
@@ -263,7 +264,7 @@ function scheduleSteps(steps, title) {
       if (hit) { cur = Math.ceil(hit[1] / 15) * 15; continue; }
       break;
     }
-    const b = { id: uid(), date, start: minToTime(cur), end: minToTime(cur + len), title: sp.title, kind: 'focus', note: `来自「${title}」的步骤` };
+    const b = { id: uid(), date, start: minToTime(cur), end: minToTime(cur + len), title: sp.title, kind: 'focus', note: `「${todo.title}」的一步`, todoId: todo.id, stepId: sp.id };
     upsert('blocks', b); made.push(b); cur += len + 10; // 步骤之间留 10 分钟
   }
   return made;
@@ -481,8 +482,8 @@ export function Seal() {
     const st = sRef.current, login = loginState();
     push({ who: 'me', text: `拆解：${t.title}` }); setBusy(true); api.current.flap && api.current.flap();
     if (!aiEnabled(login)) { setBusy(false); push({ who: 'bot', text: login && login.user ? '拆解需要接上 AI。去设置里填一个密钥，或者在 Vercel 配置后再来。' : '登录后才能用 AI 拆解。' }); return; }
-    const page = st.notes.find((n) => n.ref === 'todo:' + t.id);
-    const existing = page ? (page.blocks || []).filter((b) => b.type === 'todo').map((b) => b.html.replace(/<[^>]+>/g, '')) : [];
+    const cur = t.id ? st.todos.find((x) => x.id === t.id) : null;
+    const existing = stepsOf(cur).map((x) => x.title);
     const now = new Date();
     try {
       const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, body: JSON.stringify({ mode: 'breakdown', text: t.title, context: { today: todayStr(), weekday: WEEKDAY_SUN[now.getDay()], now: `${pad(now.getHours())}:${pad(now.getMinutes())}`, due: t.due || '', note: t.note || '', existing } }) });
@@ -490,30 +491,32 @@ export function Seal() {
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       recordUsage(j);
       setBusy(false);
-      push({ who: 'bot', text: j.reply || '拆好了，看看这样行不行：', steps: (j.steps || []).map((x) => ({ ...x, id: uid(), on: true })), todo: t });
+      push({ who: 'bot', text: j.reply || '拆好了，看看这样行不行：', steps: (j.steps || []).map((x) => ({ ...x, id: uid(), on: true })), todo: { id: t.id || '', title: t.title, due: t.due || '' } });
     } catch (e) { setBusy(false); push({ who: 'bot', text: `拆不动（${e.message}）。` }); }
     if (!openRef.current) setBadge((b) => b + 1);
     api.current.happy && api.current.happy(1.2);
   };
+  // 把勾选的步骤挂到待办上；拆的是一句话（还没有待办）就先建一条待办
+  const ensureTodo = (m) => {
+    let t = m.todo.id ? sRef.current.todos.find((x) => x.id === m.todo.id) : null;
+    if (!t) { t = { id: uid(), title: m.todo.title, done: false, priority: 2, due: m.todo.due || '', time: '', tags: [], area: '', note: '', created: todayStr(), steps: [] }; upsert('todos', t); setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, todo: { ...x.todo, id: t.id } } : x)); }
+    return t;
+  };
   const saveSteps = (m) => {
-    const t = sRef.current.todos.find((x) => x.id === m.todo.id) || m.todo;
     const steps = m.steps.filter((x) => x.on); if (!steps.length) return;
-    const page = linkedPage('todo:' + t.id, { title: t.title, nb: '收件箱', tags: t.tags || [], body: t.note ? t.note + '\n\n' : '' });
-    update((d) => {
-      const n = d.notes.find((x) => x.id === page.id); if (!n) return;
-      const blocks = n.blocks && n.blocks.length ? n.blocks.filter((b) => !(b.type === 'p' && !b.html.trim() && n.blocks.length === 1)) : [];
-      if (!blocks.some((b) => b.type === 'h2' && /步骤/.test(b.html))) blocks.push(block('h2', '步骤'));
-      for (const st of steps) blocks.push(block('todo', escapeHtml(st.title) + (st.minutes ? `（${st.minutes} 分）` : ''), { checked: false }));
-      n.blocks = blocks; n.body = blocksToMd(blocks); n.updated = new Date().toISOString();
-    });
-    setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: steps.length } : x));
-    toast(`写进了 ${steps.length} 步`, { label: '打开页面', onClick: () => go('notes/' + page.id) });
+    const t = ensureTodo(m);
+    const added = addSteps(t.id, steps.map((x) => ({ id: x.id, title: x.title, minutes: x.minutes, kind: x.kind })));
+    setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: added.length, open: 'todos?open=' + t.id } : x));
+    toast(`加了 ${added.length} 步到「${t.title}」`, { label: '去看看', onClick: () => go('todos?open=' + t.id) });
     api.current.happy && api.current.happy(1.6); api.current.flap && api.current.flap();
   };
   const toggleStep = (mid, sid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, steps: m.steps.map((x) => x.id === sid ? { ...x, on: !x.on } : x) }));
 
   const ask = async (text) => {
     text = (text || '').trim(); if (!text || busy) return;
+    // 「拆解 X」「把 X 拆成步骤」：直接走拆解，X 是已有待办就挂到它上面，不是就先建一条
+    const bm = text.match(/^(?:帮我)?(?:拆解|拆一下|拆分|分解|拆)[:：\s]*(.+?)(?:拆成步骤|拆开)?$/) || text.match(/^(?:把|将)?(.+?)拆(?:成|开|分|解)(?:步骤|几步|一下)?$/);
+    if (bm && bm[1] && bm[1].length <= 40) { setTxt(''); const title = bm[1].trim(); const t = sRef.current.todos.find((x) => !x.done && (x.title === title || x.title.includes(title))); return breakdown(t || { title }); }
     push({ who: 'me', text }); setTxt(''); setBusy(true); api.current.flap && api.current.flap();
     const st = sRef.current, login = loginState();
     const hist = msgsR.current.slice(-6).map((m) => ({ role: m.who === 'me' ? 'user' : 'assistant', content: m.text })).filter((m) => m.content);
@@ -544,8 +547,15 @@ export function Seal() {
   const toggleItem = (mid, iid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, on: !it.on } : it) }));
   const editItem = (mid, iid, patch) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, ...patch, inferred: (it.inferred || []).filter((k) => !(k in patch) && !(k === 'end' && 'start' in patch)) } : it) }));
   // 步骤：排进时间线 / 开始第一步（番茄钟）
-  const scheduleMsg = (m) => { const steps = m.steps.filter((x) => x.on); if (!steps.length) return; const made = scheduleSteps(steps, m.todo.title); setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: steps.length, scheduled: made.length } : x)); toast(`排进了 ${made.length} 段，从 ${made[0].start} 开始`, { label: '看时间线', onClick: () => go('plan/day?d=' + made[0].date) }); api.current.happy && api.current.happy(1.6); };
-  const startStep = (m, x) => { pomo.start({ label: x.title, todoId: m.todo.id, workLen: Math.max(5, Math.min(180, x.minutes || 25)) }); toast(`开始：${x.title} · ${x.minutes || 25} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
+  const scheduleMsg = (m) => {
+    const steps = m.steps.filter((x) => x.on); if (!steps.length) return;
+    const t = ensureTodo(m); addSteps(t.id, steps.map((x) => ({ id: x.id, title: x.title, minutes: x.minutes, kind: x.kind })));
+    const made = scheduleSteps(steps, t);
+    setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: steps.length, scheduled: made.length, open: 'plan/day?d=' + made[0].date } : x));
+    toast(`排进了 ${made.length} 段，${made[0].date === todayStr() ? '' : relDay(made[0].date) + ' '}${made[0].start} 开始`, { label: '看时间线', onClick: () => go('plan/day?d=' + made[0].date) });
+    api.current.happy && api.current.happy(1.6); api.current.flap && api.current.flap();
+  };
+  const startStep = (m, x) => { const t = ensureTodo(m); addSteps(t.id, [{ id: x.id, title: x.title, minutes: x.minutes, kind: x.kind }]); pomo.start({ label: x.title, todoId: t.id, stepId: x.id, workLen: clampMin(x.minutes) }); toast(`开始：${x.title} · ${x.minutes || 25} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
   const save = (m) => {
     const r = saveItems(m.items); undoRef.current[m.id] = r.undo;
     setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: r.n, open: r.open } : x));
@@ -635,8 +645,8 @@ export function Seal() {
               <button class="ac-go" title=${`开始这一步 · ${x.minutes || 25} 分钟番茄钟`} onClick=${(e) => { e.preventDefault(); e.stopPropagation(); startStep(m, x); }}><${Icon} name="play" size=${11} /></button>
             </label>`)}
             <div class="ac-f">
-              ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> ${m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已写进页面 ${m.saved} 步`}</span>`
-                : html`<span class="ac-hint">按播放键可以直接开始某一步</span><span class="flex1"></span><button class="btn sm ghost" disabled=${!on.length} title="从现在起依次排进今天的时间线，避开已有安排" onClick=${() => scheduleMsg(m)}>排进时间线</button><button class="btn primary sm ac-save" disabled=${!on.length} onClick=${() => saveSteps(m)}>写进页面</button>`}
+              ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> ${m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已加为「${m.todo.title}」的 ${m.saved} 步`}</span><span class="flex1"></span>${m.open && html`<button class="btn sm ghost" onClick=${() => go(m.open)}>${m.scheduled ? '看时间线' : '去看看'}</button>`}`
+                : html`<span class="ac-hint">子任务会挂在这条待办下面</span><span class="flex1"></span><button class="btn sm ghost" disabled=${!on.length} title="加为子任务，并从现在起依次排进时间线（避开已有安排，只排 8:00–22:00）" onClick=${() => scheduleMsg(m)}>排进时间线</button><button class="btn primary sm ac-save" disabled=${!on.length} onClick=${() => saveSteps(m)}>加为子任务</button>`}
             </div>
           </div>`; })()}
         </div>`)}
