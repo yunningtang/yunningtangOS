@@ -41,6 +41,20 @@ export function renderMd(src) {
 }
 
 export function noteTitle(n) { return n.title || '无标题'; }
+// 自然排序：忽略大小写、把 - _ . 空格当成一样的分隔，数字按数值比（Skill_V1 < Skill-V2 < Skill-V10）
+const natKey = (t) => String(t || '').toLowerCase().replace(/[\s_\-–—.·]+/g, ' ').trim();
+// 中英混排：数字 / 英文开头的在前，中文开头的按拼音排在后面（zh 的默认排序会把汉字排到英文前面，不符合直觉）
+const scriptOf = (t) => (/^[\u3400-\u9fff]/.test(t) ? 1 : 0);
+export const natCompare = (a, b) => { const ka = natKey(a), kb = natKey(b); return scriptOf(ka) - scriptOf(kb) || ka.localeCompare(kb, 'zh-Hans-CN', { numeric: true, sensitivity: 'base' }); };
+// 按树的顺序展开一个（可能被筛选过的）页面列表：父页在前，子页按 cmp 排在它后面；父页不在列表里的当作顶层
+function treeSort(list, cmp) {
+  const ids = new Set(list.map((n) => n.id)); const kids = new Map();
+  list.forEach((n) => { const p = n.parent && ids.has(n.parent) ? n.parent : null; if (!kids.has(p)) kids.set(p, []); kids.get(p).push(n); });
+  const out = []; const seen = new Set();
+  const walk = (p) => { (kids.get(p) || []).slice().sort(cmp).forEach((n) => { if (seen.has(n.id)) return; seen.add(n.id); out.push(n); walk(n.id); }); };
+  walk(null); list.forEach((n) => { if (!seen.has(n.id)) out.push(n); });
+  return out;
+}
 export function childrenOf(notes, id) { return sortBy(notes.filter((n) => (n.parent || null) === id), 'order', 'created'); }
 export function ancestors(notes, n) {
   const out = [];
@@ -229,7 +243,10 @@ export default function Notes({ route }) {
     let l = inTrash ? [...(s.trash || [])] : s.notes.filter(inNb);
     if (inTrash) { if (q.trim()) { const k = q.toLowerCase(); l = l.filter((n) => (n.title + ' ' + n.body).toLowerCase().includes(k)); } return sortBy(l, '-deletedAt'); }
     if (q.trim()) { const k = q.trim().toLowerCase(); l = k.startsWith('#') ? l.filter((n) => n.tags.some((t) => t.toLowerCase() === k.slice(1))) : l.filter((n) => (n.title + ' ' + n.body + ' ' + n.tags.join(' ')).toLowerCase().includes(k)); }
-    const sorted = sort === 'manual' ? sortBy(l, '-pinned', 'order') : sortBy(l, '-pinned', sort === 'title' ? 'title' : sort === 'created' ? '-created' : '-updated');
+    // 标题和自定义顺序按树排：父页在前、子页跟在后面；标题用自然排序（忽略大小写和 - _ 这类标点，数字按大小：V1 < V2 < V10）
+    const sorted = sort === 'title' ? treeSort(l, (a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || natCompare(a.title, b.title))
+      : sort === 'manual' ? treeSort(l, (a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (a.order || 0) - (b.order || 0) || String(a.created).localeCompare(String(b.created)))
+      : sortBy(l, '-pinned', sort === 'created' ? '-created' : '-updated');
     // 到了回看日期的页先浮上来
     return [...sorted.filter(isDue), ...sorted.filter((n) => !isDue(n))];
   }, [s.notes, s.trash, nbSel, q, sort]);
