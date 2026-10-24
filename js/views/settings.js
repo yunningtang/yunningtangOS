@@ -72,9 +72,12 @@ export default function Settings() {
   };
   const counts = [['待办', s.todos.length], ['时间块', s.blocks.length], ['书', s.books.length], ['收藏', s.links.length], ['笔记', s.notes.length], ['足迹', s.trips.length]];
 
-  return html`<div>
+  const SECTIONS = [['profile', '个人', 'home'], ['look', '外观', 'sun'], ['sync', '云端同步', 'cloud'], ['seal', '汤圆助手', 'sparkle'], ['data', '数据与备份', 'archive'], ['keys', '快捷键', 'key']];
+  const jump = (id) => { const el = document.getElementById('set-' + id); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } };
+  return html`<div class="settings-wrap">
+    <nav class="set-nav">${SECTIONS.map(([id, n, ic]) => html`<button key=${id} type="button" onClick=${() => jump(id)}><${Icon} name=${ic} size=${14} /><span>${n}</span></button>`)}</nav>
     <div class="settings">
-      <${Card} title="个人">
+      <${Card} title="个人" id="set-profile" sub="名字和头像会出现在总览问候和侧栏。">
         <div class="row" style="gap:16px;align-items:flex-start">
           <${AvatarPicker} size=${72} />
           <div class="form flex1">
@@ -83,6 +86,11 @@ export default function Settings() {
               <${Field} label="头像"><div class="row" style="gap:6px;flex-wrap:wrap"><${Btn} small icon="image" onClick=${() => uploadAvatar()}>上传照片<//><${Btn} small kind="ghost" onClick=${avatarFromUrl}>用链接<//>${login && login.user && login.user.avatar && s.profile.avatar !== login.user.avatar && html`<${Btn} small kind="ghost" icon="github" onClick=${() => setP('avatar', login.user.avatar)}>用 GitHub 头像<//>`}${s.profile.avatar && html`<${Btn} small kind="ghost" onClick=${() => setP('avatar', '')}>移除<//>`}</div><//>
             </div>
             <${Field} label="座右铭"><input type="text" value=${s.profile.motto} onInput=${(e) => setP('motto', e.target.value)} /><//>
+          </div>
+        </div>
+      <//>
+      <${Card} title="外观" id="set-look" sub="主题选「跟随系统」时会随操作系统的深浅色切换；风格决定卡片、边线和配色的整体质感。">
+        <div class="form">
             <${Field} label="主题"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
             <${Field} label="风格"><div class="skin-pick">${[
               { v: 'glass', n: '玻璃', d: '半透明卡片，柔和光晕', bg: 'linear-gradient(135deg,#eef2fb,#f6f3f8)', card: 'rgba(255,255,255,.7)', ac: '#4f7cf5', line: 'rgba(255,255,255,.9)' },
@@ -93,10 +101,9 @@ export default function Settings() {
             ].map((k) => html`<button type="button" key=${k.v} class=${'skin-opt ' + ((s.settings.skin || 'glass') === k.v ? 'on' : '')} onClick=${() => update((d) => { d.settings.skin = k.v; })}>
               <span class="skin-prev" style=${`background:${k.bg}`}><i style=${`left:6px;top:6px;width:18px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:6px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:29px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:88px;top:6px;right:6px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:92px;top:12px;width:22px;height:6px;border-radius:3px;background:${k.ac}`}></i></span>
               <b>${k.n}</b><small>${k.d}</small></button>`)}</div><//>
-          </div>
         </div>
       <//>
-      <${Card} title="云端同步" sub="在不同设备间访问同一份数据。">
+      <${Card} title="云端同步" id="set-sync" sub="在不同设备间访问同一份数据。">
         ${(() => {
           const connected = !!(login && login.user);
           const tokenMode = !connected && !(login && login.configured) && !!(s.settings.sync.repo && s.settings.sync.token);
@@ -145,15 +152,7 @@ export default function Settings() {
           </details>`;
         })()}
       <//>
-      <${Card} title="备份" sub=${counts.map(([k, n]) => `${k} ${n}`).join(' · ')}>
-        <div class="row wrap">
-          <${Btn} icon="download" onClick=${() => download(`ytos-${todayStr()}.json`, exportJSON())}>导出 JSON<//>
-          <label class="btn"><${Icon} name="upload" size=${15} /> 导入 JSON<input type="file" accept="application/json" style="display:none" onChange=${importFile} /></label>
-          ${!s.settings.seeded && html`<${Btn} kind="ghost" icon="sparkle" onClick=${() => { seed(); toast('已载入示例数据'); }}>载入示例数据<//>`}
-          <${Btn} kind="ghost danger" icon="trash" onClick=${async () => { if (await askConfirm('所有待办、笔记、书、收藏、足迹都会被清除。建议先导出 JSON。', { title: '清空全部数据？', ok: '清空' })) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空全部<//>
-        </div>
-      <//>
-      <${Card} title="汤圆助手" sub=${login && login.ai ? `AI 已接入（${login.aiModel || '模型由 AGENT_MODEL 决定'}）。` : '角落里的小海豹。说一句话，拆成待办 / 时间块 / 笔记，预览后再保存。'}>
+      <${Card} title="汤圆助手" id="set-seal" sub=${login && login.ai ? `AI 已接入（${login.aiModel || '模型由 AGENT_MODEL 决定'}）。` : '角落里的小海豹。说一句话，拆成待办 / 时间块 / 笔记，预览后再保存。'}>
         <div class="form">
           <div class="grid2">
             <${Field} label="显示海豹" hint="拖到任意卡片上松手，它会趴在卡片上沿跟着页面滚；拖到空白处就吸到屏幕边。右键有更多选项。"><${Seg} options=${[{ v: 'on', label: '显示' }, { v: 'off', label: '隐藏' }]} value=${s.settings.seal === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.seal = v === 'on'; })} /><//>
@@ -180,8 +179,23 @@ export default function Settings() {
           <p class="small muted">每次只把你说的那句话和少量上下文（今天的日期、本子名、常用标签、今日待办标题）发给模型，拆出来的内容你确认后才写入。待办右键「拆解成步骤」会把一件大事拆成 3–7 步写进它的关联页面。</p>
         </div>
       <//>
-      <${Card} title="快捷键">
-        <div class="small" style="line-height:2"><kbd class="mono">⌘/Ctrl K</kbd> 全局搜索 · <kbd class="mono">⌘/Ctrl ⇧ K</kbd> 记一下（快速捕获） · 笔记里 <kbd class="mono">/</kbd> 插入块、<kbd class="mono">[[</kbd> 链接页面、<kbd class="mono">@</kbd> 引用 · 画布 <kbd class="mono">V / T / P / E</kbd> 切换工具<br/>待办快速添加语法：<code class="mono">@明天</code> <code class="mono">@2026-11-01</code> <code class="mono">14:00</code> <code class="mono">!0</code>–<code class="mono">!3</code> 优先级 <code class="mono">#标签</code></div>
+      <${Card} title="数据与备份" id="set-data" sub=${counts.map(([k, n]) => `${k} ${n}`).join(' · ')}>
+        <div class="row wrap">
+          <${Btn} icon="download" onClick=${() => download(`ytos-${todayStr()}.json`, exportJSON())}>导出 JSON<//>
+          <label class="btn"><${Icon} name="upload" size=${15} /> 导入 JSON<input type="file" accept="application/json" style="display:none" onChange=${importFile} /></label>
+          ${!s.settings.seeded && html`<${Btn} kind="ghost" icon="sparkle" onClick=${() => { seed(); toast('已载入示例数据'); }}>载入示例数据<//>`}
+        </div>
+        <p class="small muted" style="margin-top:10px">导出的文件不含 token 和 AI 密钥。开了云端同步的话，仓库里每一次提交本身就是一份备份。</p>
+        <div class="danger-row"><span class="small muted">清掉所有数据，从空白开始。建议先导出。</span><${Btn} kind="ghost danger" small icon="trash" onClick=${async () => { if (await askConfirm('所有待办、笔记、书、收藏、足迹都会被清除。建议先导出 JSON。', { title: '清空全部数据？', ok: '清空' })) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空全部<//></div>
+      <//>
+      <${Card} title="快捷键" id="set-keys">
+        <div class="keys">
+          ${[['全局', [['⌘/Ctrl K', '全局搜索'], ['⌘/Ctrl ⇧ K', '记一下（快速捕获）'], ['Esc', '关闭弹窗 / 退出专注写作']]],
+             ['笔记', [['/', '插入块或模板'], ['[[', '链接页面，可直接新建'], ['@', '引用待办 / 书 / 足迹 / 目标'], ['⌘B · I · U · E · K', '粗体 · 斜体 · 下划线 · 代码 · 链接'], ['⌘⇧H', '荧光标记']]],
+             ['画布', [['V · T · P · E', '选择 · 文字 · 画笔 · 橡皮'], ['Tab / Enter', '脑图：新建子节点 / 同级节点'], ['双击空白', '新建文字']]],
+             ['待办语法', [['@明天 · @2026-11-01', '日期'], ['14:00', '时间'], ['!0 – !3', '优先级'], ['#标签', '标签']]],
+           ].map(([g, rows]) => html`<div class="keys-g" key=${g}><div class="keys-h">${g}</div>${rows.map(([k, d]) => html`<div class="keys-r" key=${k}><kbd class="mono">${k}</kbd><span>${d}</span></div>`)}</div>`)}
+        </div>
       <//>
     </div>
   </div>`;

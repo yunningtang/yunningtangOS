@@ -988,7 +988,17 @@ html[data-theme="dark"] .heat-col i.l1{background:#2a3d66}html[data-theme="dark"
 .pal .ri b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}.pal .ri small{color:var(--text-4);white-space:nowrap}
 
 /* ===== Settings ===== */
-.settings{max-width:720px;display:flex;flex-direction:column;gap:12px}
+.settings-wrap{display:grid;grid-template-columns:150px minmax(0,720px);gap:20px;align-items:start}
+.set-nav{position:sticky;top:64px;display:flex;flex-direction:column;gap:2px}
+.set-nav button{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:9px;font-size:.82rem;color:var(--text-3);text-align:left}.set-nav button:hover{background:var(--hover);color:var(--text)}
+.settings{max-width:720px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.settings .card{scroll-margin-top:64px}
+.danger-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:16px 28px}
+.keys-h{font-size:.7rem;font-weight:600;letter-spacing:.06em;color:var(--text-4);text-transform:uppercase;margin-bottom:6px}
+.keys-r{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:.8rem;color:var(--text-2);border-top:1px solid var(--line)}.keys-r:first-of-type{border-top:0}
+.keys-r kbd{flex:none;min-width:96px;font-size:.72rem;padding:2px 7px;border-radius:6px;background:var(--hover);color:var(--text)}
+@media (max-width:900px){.settings-wrap{grid-template-columns:1fr}.set-nav{position:static;flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px;scrollbar-width:none}.set-nav button{white-space:nowrap;flex:none}.set-nav button span{font-size:.78rem}.keys{grid-template-columns:1fr}}
 .sync-status{font-size:.76rem;color:var(--text-3);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .sync-status .dot{width:8px;height:8px;border-radius:50%;background:var(--text-4)}
 .sync-status .dot.ok{background:var(--green)}.sync-status .dot.err{background:var(--red)}
