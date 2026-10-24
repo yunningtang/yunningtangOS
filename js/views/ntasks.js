@@ -46,6 +46,7 @@ export function NoteTasks({ notes, done = false, limit = 0, notebooks = [] }) {
       ${rows.map((t) => html`<div class=${'nt-row ' + (t.block.checked ? 'done' : '')} key=${t.block.id} onContextMenu=${(e) => taskMenu(e, t)}>
         <button class="cb" onClick=${() => toggleNoteTask(t.note.id, t.block.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
         <span class="nt-t" onClick=${() => go('notes/' + t.note.id)}>${t.text}</span>
+        <a class="nt-go" href=${'#/notes/' + t.note.id} title=${'打开「' + (t.note.title || '无标题') + '」'}><${Icon} name="external" size=${12} /></a>
       </div>`)}
     </div>`; })}
     ${limit && tasks.length > limit ? html`<a class="more" href="#/notes/tasks">查看全部 ${tasks.length} 项<${Icon} name="right" size=${12} /></a>` : null}
@@ -53,7 +54,7 @@ export function NoteTasks({ notes, done = false, limit = 0, notebooks = [] }) {
 }
 
 export function NoteTasksView({ notes, notebooks }) {
-  const [view, setView] = useState('open');
+  const [view, setView] = useState(() => (new URLSearchParams((location.hash.split('?')[1] || '')).get('v') === 'done' ? 'done' : 'open'));
   const open = noteTasks(notes).length, done = noteTasks(notes, { done: true }).length;
   return html`<div class="page"><div class="crumbs"><a class="m-back" href="#/notes" title="返回"><${Icon} name="left" size=${16} /></a><a href="#/notes">笔记</a><span>/</span><b>行动</b><span class="flex1"></span><${Seg} options=${[{ v: 'open', label: `未完成 ${open}` }, { v: 'done', label: `已完成 ${done}` }]} value=${view} onChange=${setView} /></div>
     <div class="page-body">
