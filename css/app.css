@@ -1609,3 +1609,14 @@ html[data-theme="dark"] .seal-form{box-shadow:inset 0 0 0 1px rgba(255,255,255,.
 .cap-ai{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:999px;font-size:.78rem;font-weight:500;color:var(--text-2);background:var(--hover)}.cap-ai:hover:not(:disabled){color:var(--text);background:color-mix(in srgb,var(--blue) 14%,var(--hover))}.cap-ai:disabled{opacity:.45}
 @media (max-width:900px){.seal-panel{height:min(460px,62vh)}}
 html[data-skin="notion"] .seal-panel,html[data-skin="claude"] .seal-panel,html[data-skin="steam"] .seal-panel,html[data-skin="xp"] .seal-panel{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--paper)}
+
+/* ---------- 阅读进度：可加可减 ---------- */
+.pctl{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.pctl input[type=range]{flex:1;min-width:80px}
+.pctl .ibtn{width:24px;height:24px;flex:none}
+.pctl-v{display:inline-flex;align-items:baseline;gap:3px;flex:none;font-size:.78rem;color:var(--text-3)}
+.pctl-v input[type=number]{width:52px;height:24px;padding:0 6px;font-size:.78rem;text-align:right;-moz-appearance:textfield}.pctl-v input::-webkit-outer-spin-button,.pctl-v input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.pctl-v small{font-size:.7rem;color:var(--text-4)}
+.pctl.compact .pctl-v input[type=number]{width:46px;height:22px}
+.pace{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.pace-bars{display:flex;align-items:flex-end;gap:3px;height:24px}.pace-bars i{flex:1;max-width:14px;border-radius:2px;background:color-mix(in srgb,var(--blue) 55%,transparent);min-height:1px}.pace-bars i:last-child{background:var(--blue)}
