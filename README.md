@@ -58,8 +58,9 @@
    | `DATA_BRANCH` | 可选，默认 `main`（本仓库是 `master`） |
    | `DATA_PATH` | 可选，默认 `data/os.json` |
    | `ALLOWED_USER` | 你的 GitHub 用户名，只有这个账号能登录同步 |
-   | `ANTHROPIC_API_KEY` | 可选。配置后汤圆助手用 Claude 拆解自然语言；只有登录用户能调用 `/api/agent`。密钥只放这里，不要写进代码或对话 |
-   | `AGENT_MODEL` | 可选，默认 `claude-opus-5-5`；每次拆解约几百 token，个人使用一个月不到一美元 |
+   | `DEEPSEEK_API_KEY` | 可选。汤圆助手用 DeepSeek 拆解自然语言（OpenAI 兼容接口，支付宝 / 微信充值）；只有登录用户能调用 `/api/agent`。密钥只放这里，不要写进代码或对话 |
+   | `DEEPSEEK_MODEL` | 可选，默认 `deepseek-chat`；以官网价格页的模型名为准 |
+   | `ANTHROPIC_API_KEY` / `AGENT_MODEL` | 可选，换用 Claude（默认 `claude-opus-5-5`）。两个密钥都有时默认 DeepSeek，`AGENT_PROVIDER=anthropic` 可切换 |
 
 3. 部署后打开站点 → 设置 → 「用 GitHub 登录」。
 

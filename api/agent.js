@@ -7,6 +7,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { session, json, readBody, env } from './_lib.js';
 
 const MODEL = env('AGENT_MODEL', 'claude-opus-5-5');
+// 两家二选一：有 DEEPSEEK_API_KEY 就走 DeepSeek（OpenAI 兼容接口），否则走 Anthropic；AGENT_PROVIDER 可强制指定
+export const provider = () => (env('AGENT_PROVIDER') || (env('DEEPSEEK_API_KEY') && !env('ANTHROPIC_API_KEY') ? 'deepseek' : 'anthropic')).toLowerCase();
+const DS_MODEL = env('DEEPSEEK_MODEL', 'deepseek-chat');
+const DS_BASE = env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com');
+export const modelName = () => (provider() === 'deepseek' ? DS_MODEL : MODEL);
 
 const SYSTEM = `你是「汤圆」，一只住在 Riley 个人 OS 里的小海豹助手。软乎乎、话少、靠谱。
 
@@ -68,9 +73,42 @@ function contextBlock(c = {}) {
   return lines.join('\n');
 }
 
+// DeepSeek：OpenAI 兼容的 chat/completions，json_object 模式 + 自己校验，坏了重试一次
+async function askDeepSeek(messages) {
+  const body = {
+    model: DS_MODEL, max_tokens: 2048, temperature: 0.3,
+    response_format: { type: 'json_object' },
+    messages: [{ role: 'system', content: SYSTEM + '\n\n只输出一个 JSON 对象，形如 {"reply": "...", "items": [...]}，每个 item 含 kind,title,date,time,start,end,priority,tags,block_kind,notebook,body 这些字段（没有就填 null，tags 是数组）。不要输出 JSON 之外的任何文字。' }, ...messages],
+  };
+  const r = await fetch(`${DS_BASE}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env('DEEPSEEK_API_KEY')}` }, body: JSON.stringify(body) });
+  const text = await r.text();
+  let j = null; try { j = JSON.parse(text); } catch {}
+  if (!r.ok) {
+    const msg = (j && j.error && (j.error.message || j.error)) || text.slice(0, 200);
+    if (r.status === 401) throw Object.assign(new Error('DEEPSEEK_API_KEY 无效'), { status: 502 });
+    if (r.status === 402) throw Object.assign(new Error('DeepSeek 余额不足，去 platform.deepseek.com 充值'), { status: 502 });
+    if (r.status === 429) throw Object.assign(new Error('请求太频繁，等一下再试'), { status: 429 });
+    if (/model/i.test(String(msg)) && /not|exist|invalid/i.test(String(msg))) throw Object.assign(new Error(`模型「${DS_MODEL}」不可用，在 Vercel 设置 DEEPSEEK_MODEL 为官网价格页上的名字`), { status: 502 });
+    throw Object.assign(new Error(`DeepSeek 错误 ${r.status}：${msg}`), { status: 502 });
+  }
+  const choice = j && j.choices && j.choices[0];
+  const content = choice && choice.message && choice.message.content;
+  if (!content) throw Object.assign(new Error('DeepSeek 没有返回内容'), { status: 502 });
+  const parsed = parseLoose(content);
+  return { out: parsed, model: j.model || DS_MODEL, usage: { in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0, cached: j.usage?.prompt_cache_hit_tokens || 0 }, truncated: choice.finish_reason === 'length' };
+}
+// 模型偶尔会在 JSON 外面包一层 ```json 或者说几句话，尽量把对象抠出来
+function parseLoose(text) {
+  try { return JSON.parse(text); } catch {}
+  const m = String(text).match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]); } catch {} }
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
-  if (!env('ANTHROPIC_API_KEY')) return json(res, 503, { error: 'AI 未配置：在 Vercel 环境变量里设置 ANTHROPIC_API_KEY' });
+  const prov = provider();
+  if (prov === 'deepseek' ? !env('DEEPSEEK_API_KEY') : !env('ANTHROPIC_API_KEY')) return json(res, 503, { error: `AI 未配置：在 Vercel 环境变量里设置 ${prov === 'deepseek' ? 'DEEPSEEK_API_KEY' : 'ANTHROPIC_API_KEY'}` });
   const s = await session(req);
   if (!s) return json(res, 401, { error: '请先登录再使用汤圆' });
 
@@ -85,6 +123,19 @@ export default async function handler(req, res) {
     .slice(-8)
     .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
 
+  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context)}\n</context>\n\nRiley 说：${text}` };
+  if (prov === 'deepseek') {
+    let got;
+    try {
+      got = await askDeepSeek([...history, userMsg]);
+      if (!got.out) got = await askDeepSeek([...history, userMsg]); // 坏 JSON 重试一次
+    } catch (e) { return json(res, e.status || 502, { error: e.message || 'network error' }); }
+    if (!got.out) return json(res, 502, { error: '汤圆的回答没法解析，再试一次？' });
+    if (got.truncated) return json(res, 502, { error: '回答太长被截断了，试试拆成几句说' });
+    const items = (Array.isArray(got.out.items) ? got.out.items : []).filter((it) => it && ['todo', 'block', 'note'].includes(it.kind) && it.title);
+    return json(res, 200, { reply: String(got.out.reply || ''), items, model: got.model, usage: got.usage });
+  }
+
   const client = new Anthropic();
   let r;
   try {
@@ -95,10 +146,7 @@ export default async function handler(req, res) {
       fallbacks: 'default',
       system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
       output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
-      messages: [
-        ...history,
-        { role: 'user', content: `<context>\n${contextBlock(body.context)}\n</context>\n\nRiley 说：${text}` },
-      ],
+      messages: [...history, userMsg],
     });
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return json(res, 502, { error: 'ANTHROPIC_API_KEY 无效' });

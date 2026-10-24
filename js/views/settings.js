@@ -134,7 +134,7 @@ export default function Settings() {
           ${login && login.ai
             ? html`<p class="small muted">每次只把你说的那句话和少量上下文（今天的日期、本子名、常用标签、今日待办标题）发给模型；拆出来的内容你确认后才写入。在随手记里也可以点「问汤圆」。</p>`
             : login && login.configured
-              ? html`<p class="small muted">要接入 AI：在 Vercel 项目的环境变量里添加 <code class="mono">ANTHROPIC_API_KEY</code>（可选 <code class="mono">AGENT_MODEL</code>，默认 claude-opus-5-5），重新部署后登录即可。密钥只放在 Vercel 环境变量里，不要贴到这里或任何对话中。没有 AI 时汤圆按随手记的本地语法理解。</p>`
+              ? html`<p class="small muted">要接入 AI：在 Vercel 项目的环境变量里添加 <code class="mono">DEEPSEEK_API_KEY</code>（可选 <code class="mono">DEEPSEEK_MODEL</code>）或 <code class="mono">ANTHROPIC_API_KEY</code>（可选 <code class="mono">AGENT_MODEL</code>），重新部署后登录即可。密钥只放在 Vercel 环境变量里，不要贴到这里或任何对话中。没有 AI 时汤圆按随手记的本地语法理解。</p>`
               : html`<p class="small muted">纯静态部署时汤圆只能按本地语法理解；部署到 Vercel 并配置 <code class="mono">ANTHROPIC_API_KEY</code> 后可用 AI 拆解。</p>`}
         </div>
       <//>
