@@ -1,7 +1,7 @@
 import { html, render, useEffect, useState, useMemo } from '../vendor/preact.js';
 import { useStore, update, get } from './store.js';
 import { Icon, IconBtn, Modal } from './ui.js';
-import { todayStr, weekKey, setExtraKinds } from './util.js';
+import { todayStr, weekKey, setExtraKinds , setTagOverrides } from './util.js';
 import { seedIfEmpty } from './seed.js';
 import Dashboard from './views/dashboard.js';
 import Todos from './views/todos.js';
@@ -185,8 +185,8 @@ seedIfEmpty();
   // nudging the mouse to the very top brings it back too
   window.addEventListener('pointermove', (e) => { if (hidden && e.clientY < 8) { hidden = false; document.body.classList.remove('tb-hide'); } }, { passive: true });
 })();
-setExtraKinds(get().settings.kinds);
-subscribe(() => setExtraKinds(get().settings.kinds));
+setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors);
+subscribe(() => { setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors); });
 applySizes();
 initLiquid();
 detectLogin().then(() => autoSync(subscribe));

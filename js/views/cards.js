@@ -50,12 +50,13 @@ export function reviewMenu(e, n) {
 export async function editTopic(n) { const v = await askPrompt('主题', n.topic || '', { title: '主题', placeholder: '比如：线性代数 / 产品设计' }); if (v != null) setProp(n, 'topic', v.trim()); }
 export function propsMenu(e, n, notes) {
   const ev = at(e);
+  // 这四个是「卡片属性」：设了任意一个，这页就会出现在侧栏的「卡片」视图里，可以按表格 / 看板一起整理、按日期复习
   ctxMenu(ev, [
-    { label: '领域', icon: 'layers', hint: n.area || '', onClick: () => areaMenu(ev, n, notes) },
-    { label: '主题', icon: 'tag', hint: n.topic || '', onClick: () => editTopic(n) },
-    { label: '状态', icon: 'kanban', hint: n.status ? statusOf(n.status).label : '', onClick: () => statusMenu(ev, n) },
-    { label: '复习日期', icon: 'calendar', hint: n.review || '', onClick: () => reviewMenu(ev, n) },
-  ], '属性');
+    { label: '领域', icon: 'layers', hint: n.area || '大方向：学习 / 工作 / 设计…', onClick: () => areaMenu(ev, n, notes) },
+    { label: '主题', icon: 'tag', hint: n.topic || '具体课题：线性代数 / 某个项目', onClick: () => editTopic(n) },
+    { label: '状态', icon: 'kanban', hint: n.status ? statusOf(n.status).label : '灵感 → 整理中 → 已掌握', onClick: () => statusMenu(ev, n) },
+    { label: '复习日期', icon: 'calendar', hint: n.review || '到期提醒回看，按 1·3·7·14·30 天', onClick: () => reviewMenu(ev, n) },
+  ], '卡片属性（设了就进「卡片」视图）');
 }
 
 const SORTS = { review: '复习日期', updated: '最近更新', title: '标题', area: '领域', status: '状态' };
@@ -88,6 +89,7 @@ export function CardsView({ notes, notebooks }) {
       <span class="flex1"></span>
       ${due.length > 0 && html`<span class="cards-due" title="到了复习日期的卡片"><${Icon} name="refresh" size=${12} /> 待复习 ${due.length}</span>`}
       <${Seg} options=${[{ v: 'table', label: '表格' }, { v: 'board', label: '看板' }]} value=${mode} onChange=${setMode} />
+      <span class="ibtn cards-help" title="卡片 = 带属性的页面。给一页设了领域 / 主题 / 状态 / 复习日期中的任意一个，它就出现在这里；用表格或看板一起整理，到了复习日期会提醒回看。标签是随手贴的关键词，不参与整理。"><${Icon} name="sparkle" size=${13} /></span>
     </div>
     <div class="cards-bar">
       <${Seg} options=${[{ v: 'cards', label: '卡片' }, { v: 'all', label: '全部页面' }]} value=${scope} onChange=${setScope} />

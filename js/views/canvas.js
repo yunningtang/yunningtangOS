@@ -3,13 +3,14 @@
 import { html, useState, useEffect, useRef, useMemo } from '../../vendor/preact.js';
 import { useStore, upsert, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Empty, Modal, Seg } from '../ui.js';
-import { uid, todayStr, sortBy } from '../util.js';
+import { uid, todayStr, sortBy, escapeHtml as esc } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt, askConfirm } from '../confirm.js';
 import { dropProps } from '../dnd.js';
 import { snippetOf, newNote } from './notes.js';
-import { mdToBlocks } from '../blocks.js';
+import { mdToBlocks, sanitize } from '../blocks.js';
+import { SelToolbar, inlineShortcut } from '../editor.js';
 
 const NODE_COLORS = [['', '默认'], ['#4f7cf5', '蓝'], ['#2d8f88', '青'], ['#4a9a6a', '绿'], ['#c7873a', '琥珀'], ['#c9588a', '玫红'], ['#7461c9', '紫'], ['#d2524f', '红']];
 const PEN_COLORS = ['#1b1d21', '#4f7cf5', '#d2524f', '#4a9a6a', '#c7873a', '#7461c9'];
@@ -211,12 +212,16 @@ function Board({ board, notes, notebooks }) {
       ...canvasMenu(b, { onDelete: () => go('notes/canvas') }).filter((it) => !(it && it.label === '打开')),
     ], b.title || '画布');
   };
-  const onTextBlur = (n, el) => { const text = el.innerText.replace(/\n$/, ''); const h = Math.max(40, Math.round(el.parentElement.offsetHeight)); if (text !== (n.text || '') || h !== n.h) patchNode(n.id, { text, h }); setEditing((x) => (x === n.id ? null : x)); };
+  // 文字节点存两份：html（带粗体 / 荧光等格式）和 text（纯文字，给导出和搜索用）
+  const onTextBlur = (n, el) => { const text = el.innerText.replace(/\n$/, ''); const h = Math.max(40, Math.round(el.parentElement.offsetHeight)); const hh = sanitize(el.innerHTML).replace(/(<br>)+$/, ''); if (text !== (n.text || '') || hh !== (n.html || '') || h !== n.h) patchNode(n.id, { text, html: hh, h }); setEditing((x) => (x === n.id ? null : x)); };
+  const textHtml = (n) => (n.html != null && n.html !== '' ? n.html : esc(n.text || '').replace(/\n/g, '<br>'));
+  const wrapRef = useRef();
 
   const byId = useMemo(() => new Map(b.nodes.map((n) => [n.id, n])), [b.nodes]);
   const tr = `translate(${view.x}px, ${view.y}px) scale(${view.z})`;
   const nb = (id) => notebooks.find((x) => x.id === id);
-  return html`<div class=${'cv-wrap tool-' + tool}>
+  return html`<div class=${'cv-wrap tool-' + tool} ref=${wrapRef}>
+    <${SelToolbar} within=${wrapRef} />
     <div class="cv-tb">
       <div class="cv-tools" data-liquid="button"><span class="liq"></span>
         ${[['select', '选择', 'cursor', 'V'], ['text', '文字', 'type', 'T'], ['pen', '画笔', 'pen', 'P'], ['erase', '橡皮', 'eraser', 'E']].map(([v, l, ic, k]) => html`<button type="button" key=${v} class=${tool === v ? 'on' : ''} title=${`${l}（${k}）`} onClick=${() => setTool(v)}><${Icon} name=${ic} size=${14} /><span>${l}</span></button>`)}
@@ -239,7 +244,7 @@ function Board({ board, notes, notebooks }) {
       <div class="cv-layer" style=${`transform:${tr}`}>
         ${guides.map((g, i) => g.v != null ? html`<i key=${i} class="cv-guide v" style=${`left:${g.v}px`}></i>` : html`<i key=${i} class="cv-guide h" style=${`top:${g.h}px`}></i>`)}
         ${b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); return html`<div key=${n.id} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${n.type === 'note' ? 'height' : 'min-height'}:${n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
-          ${n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'plaintext-only' : 'false'} ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerText !== (n.text || '')) el.innerText = n.text || ''; if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } e.stopPropagation(); }} data-ph="输入文字…"></div>`
+          ${n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'true' : 'false'} spellcheck="false" ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerHTML !== textHtml(n)) el.innerHTML = textHtml(n); if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onPaste=${(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } else if (inlineShortcut(e)) { e.preventDefault(); } e.stopPropagation(); }} data-ph="输入文字…"></div>`
           : page ? html`<div class="cv-nt">${nbk && html`<i class="nb-dot" style=${`background:${nbk.color}`}></i>`}<b>${page.title || '无标题'}</b><a class="cv-open" href=${'#/notes/' + page.id} title="打开页面"><${Icon} name="external" size=${12} /></a></div><p class="cv-snip">${snippetOf(page) || '空白页'}</p>`
           : html`<div class="cv-nt muted"><${Icon} name="note" size=${13} /><b>页面已删除</b></div>`}
           <span class="cv-handle" title="拖到另一个节点来连线"></span>

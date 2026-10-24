@@ -1,6 +1,10 @@
 // Shared UI primitives: icons, cards, inputs, modal, tags.
 import { html, useEffect, useRef, useState, createPortal } from '../vendor/preact.js';
-import { tagColor, todayStr as _today, pad as _pad, WEEKDAY_SUN as _WD, fmtDate as _fmt } from './util.js';
+import { tagColor, tagKey, TAG_COLORS, TAG_COLOR_NAMES, todayStr as _today, pad as _pad, WEEKDAY_SUN as _WD, fmtDate as _fmt } from './util.js';
+import { update, renameTag, removeTag, countTag } from './store.js';
+import { ctxMenu } from './ctx.js';
+import { askPrompt, askConfirm } from './confirm.js';
+import { go, toast } from './nav.js';
 
 const ICONS = {
   home: '<path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/>',
@@ -98,9 +102,25 @@ export function IconBtn({ icon, title, size = 15, ...rest }) {
 }
 
 function flat(c) { return Array.isArray(c) ? c.map(flat).join('') : (c == null || typeof c === 'object') ? '' : String(c); }
+// 右键任何标签：换颜色 / 重命名（所有地方一起改）/ 从所有条目移除 / 去筛选
+export function tagMenu(e, name) {
+  const key = tagKey(name); if (!key) return;
+  const cnt = countTag(name);
+  ctxMenu(e, [
+    { label: '在笔记里筛选', icon: 'note', onClick: () => go('notes?tag=' + encodeURIComponent(name)) },
+    { label: '在待办里筛选', icon: 'checksq', onClick: () => go('todos?tag=' + encodeURIComponent(name)) },
+    'sep',
+    { label: '换颜色', icon: 'tag', sub: TAG_COLORS.map((c, i) => ({ label: TAG_COLOR_NAMES[i] || String(i), icon: tagColor(name)[0] === c[0] ? 'check' : '', hint: '●', color: c[0], onClick: () => update((d) => { d.settings.tagColors = { ...(d.settings.tagColors || {}), [key]: i }; }) })) },
+    { label: '重命名…', icon: 'edit', hint: cnt ? `${cnt} 处` : '', onClick: async () => { const v = await askPrompt('新名字', name, { title: `重命名标签 #${name}`, placeholder: '所有用到的地方一起改' }); if (v && v.trim() && v.trim() !== name) { const n = renameTag(name, v.trim()); toast(`已改名，${n} 处更新`); } } },
+    'sep',
+    { label: '从所有条目移除', icon: 'trash', danger: true, hint: cnt ? `${cnt} 处` : '', disabled: !cnt, onClick: async () => { if (await askConfirm(`${cnt} 个条目上的 #${name} 会被去掉，条目本身保留。`, { title: `移除标签 #${name}？`, ok: '移除' })) { removeTag(name); toast('已移除'); } } },
+  ], '#' + name);
+}
 export function Tag({ children, color, plain, class: cls = '', ...rest }) {
-  const style = color ? `--tc:${color}` : plain ? '' : (([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(flat(children).replace(/^#/, '').trim()));
-  return html`<span class=${'tag ' + cls + (color ? ' tc' : plain ? '' : ' th')} style=${style} ...${rest}>${children}</span>`;
+  const name = flat(children).replace(/^#/, '').trim();
+  const style = color ? `--tc:${color}` : plain ? '' : (([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(name));
+  const ctx = rest.onContextMenu || (plain || color ? undefined : (e) => tagMenu(e, name));
+  return html`<span class=${'tag ' + cls + (color ? ' tc' : plain ? '' : ' th')} style=${style} ...${rest} onContextMenu=${ctx}>${children}</span>`;
 }
 
 export function Empty({ icon = 'sparkle', text, children }) {

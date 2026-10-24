@@ -165,3 +165,23 @@ export function toggleTodo(id) {
   const done = !t.done;
   commit({ ...state, todos: state.todos.map((x) => (x.id === id ? { ...x, done, completedAt: done ? todayStr() : null } : x)) });
 }
+
+// ---- 标签：跨所有集合重命名 / 删除 ----
+const TAGGED = ['todos', 'notes', 'books', 'links', 'trips'];
+export function renameTag(from, to) {
+  const a = String(from).trim(), b = String(to).trim().replace(/^#/, '');
+  if (!a || !b || a === b) return 0;
+  let n = 0;
+  update((d) => { for (const k of TAGGED) for (const it of d[k] || []) if (Array.isArray(it.tags) && it.tags.includes(a)) { it.tags = [...new Set(it.tags.map((t) => (t === a ? b : t)))]; it.updated = new Date().toISOString(); n++; } });
+  return n;
+}
+export function removeTag(name) {
+  const a = String(name).trim(); let n = 0;
+  update((d) => { for (const k of TAGGED) for (const it of d[k] || []) if (Array.isArray(it.tags) && it.tags.includes(a)) { it.tags = it.tags.filter((t) => t !== a); it.updated = new Date().toISOString(); n++; } });
+  return n;
+}
+export function countTag(name) {
+  const a = String(name).trim(); const st = get(); let n = 0;
+  for (const k of TAGGED) for (const it of st[k] || []) if (Array.isArray(it.tags) && it.tags.includes(a)) n++;
+  return n;
+}

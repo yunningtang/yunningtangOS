@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, toggleTodo, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select } from '../ui.js';
-import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort } from '../util.js';
+import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort , lsGet, lsSet } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { askConfirm } from '../confirm.js';
 import { linkedPage } from './notes.js';
@@ -120,9 +120,11 @@ export function QuickAdd({ defaults = {}, placeholder = '添加待办… 例如�
 export default function Todos({ route }) {
   const s = useStore();
   useEffect(() => { const id = route && route.query && route.query.open; const t = id && s.todos.find((x) => x.id === id); if (t) { setEditing(t); setModal(true); } }, [route && route.query && route.query.open]);
-  const [view, setView] = useState('open');
-  const [layout, setLayout] = useState('list');
+  // 记住上次用的视图：下次打开直接是看板就是看板
+  const [view, setViewS] = useState(() => lsGet('ytos.todos.view', 'open')); const setView = (v) => { setViewS(v); lsSet('ytos.todos.view', v); };
+  const [layout, setLayoutS] = useState(() => lsGet('ytos.todos.layout', 'list')); const setLayout = (v) => { setLayoutS(v); lsSet('ytos.todos.layout', v); };
   const [tagF, setTagF] = useState('');
+  useEffect(() => { const t = route && route.query && route.query.tag; if (t) { setTagF(t); setView('all'); } }, [route && route.query && route.query.tag]);
   const [editing, setEditing] = useState(null);
   const [modal, setModal] = useState(false);
   const today = todayStr();

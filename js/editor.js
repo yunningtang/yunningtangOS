@@ -1,6 +1,6 @@
 // Block editor on a single contenteditable surface (like a document), with one row per block.
 // Text selection, copy and formatting flow across blocks natively; structure (split/merge/convert) is ours.
-import { html, useState, useRef, useEffect, useLayoutEffect, useCallback, Component } from '../vendor/preact.js';
+import { html, useState, useRef, useEffect, useLayoutEffect, useCallback, Component , createPortal } from '../vendor/preact.js';
 import { marked } from '../vendor/marked.js';
 import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
@@ -118,8 +118,8 @@ function onEdgeLine(el, which) {
   if (!rect) { r.selectNodeContents(el); const rr = r.getClientRects(); rect = rr[which === 'up' ? 0 : rr.length - 1]; if (!rect) return true; }
   return which === 'up' ? rect.top - box.top < 14 : box.bottom - rect.bottom < 14;
 }
-function exec(cmd, val) { document.execCommand(cmd, false, val); }
-function applyMark(color) {
+export function exec(cmd, val) { document.execCommand(cmd, false, val); }
+export function applyMark(color) {
   const s = sel(); if (!s.rangeCount) return;
   const r = s.getRangeAt(0);
   const inside = (n) => { while (n && n.nodeType !== 1) n = n.parentNode; return n && n.closest('mark'); };
@@ -772,4 +772,45 @@ function FileView({ b, onRemove }) {
 
 function phFor(b) {
   return { p: '输入 / 插入块，[[ 链接页面', h1: '标题 1', h2: '标题 2', h3: '标题 3', bullet: '列表', number: '列表', todo: '待办', toggle: '折叠标题', quote: '引用', callout: '标注', image: '图片说明', code: '代码' }[b.type] || '';
+}
+
+/* ---------- 给块编辑器之外的 contenteditable 用的浮动格式条（画布文字等） ----------
+   选中 within 里可编辑区域的文字就出现：粗体 / 斜体 / 下划线 / 删除线 / 荧光标记 / 清除格式 */
+export function SelToolbar({ within, onChange }) {
+  const [pos, setPos] = useState(null);
+  useEffect(() => {
+    const h = () => {
+      const s = sel(); const root = within && within.current;
+      if (!root || !s.rangeCount || s.isCollapsed) { setPos((x) => (x ? null : x)); return; }
+      const r = s.getRangeAt(0); let el = r.commonAncestorContainer; if (el.nodeType !== 1) el = el.parentElement;
+      const ce = el && el.closest('[contenteditable="true"]');
+      if (!ce || !root.contains(ce) || document.activeElement !== ce) { setPos((x) => (x ? null : x)); return; }
+      const rect = r.getBoundingClientRect(); if (!rect.width && !rect.height) { setPos((x) => (x ? null : x)); return; }
+      const nx = Math.round(rect.left + rect.width / 2), ny = Math.round(rect.top);
+      setPos((x) => (x && x.x === nx && x.y === ny ? x : { x: nx, y: ny }));
+    };
+    const later = () => setTimeout(h, 0);
+    document.addEventListener('selectionchange', h); window.addEventListener('scroll', h, true); document.addEventListener('focusout', later); document.addEventListener('focusin', later);
+    return () => { document.removeEventListener('selectionchange', h); window.removeEventListener('scroll', h, true); document.removeEventListener('focusout', later); document.removeEventListener('focusin', later); };
+  }, []);
+  if (!pos) return null;
+  const btn = (title, fn, child, cls = '') => html`<button title=${title} class=${cls} onMouseDown=${(e) => e.preventDefault()} onClick=${() => { fn(); onChange && onChange(); }}>${child}</button>`;
+  return createPortal(html`<div class="sel-tb fixed" style=${`left:${pos.x}px;top:${pos.y}px`} onMouseDown=${(e) => e.preventDefault()}>
+    ${btn('粗体 ⌘B', () => exec('bold'), html`<b>B</b>`)}
+    ${btn('斜体 ⌘I', () => exec('italic'), html`<i>I</i>`)}
+    ${btn('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`)}
+    ${btn('删除线', () => exec('strikeThrough'), html`<s>S</s>`)}
+    <span class="tb-hl">${btn('荧光标记 ⌘⇧H', () => applyMark('y'), 'A', 'hl')}${['y', 'g', 'b', 'p', 'r'].map((c) => btn('标记颜色', () => applyMark(c), '', 'hl-dot hl-' + c))}</span>
+    ${btn('清除格式', () => { exec('removeFormat'); applyMark(null); }, html`<${Icon} name="x" size=${13} />`)}
+  </div>`, document.body);
+}
+// 快捷键：在任何可编辑区域里按 ⌘B / I / U / ⇧H
+export function inlineShortcut(e) {
+  const mod = e.metaKey || e.ctrlKey; if (!mod) return false;
+  const k = e.key.toLowerCase();
+  if (!e.shiftKey && k === 'b') { exec('bold'); return true; }
+  if (!e.shiftKey && k === 'i') { exec('italic'); return true; }
+  if (!e.shiftKey && k === 'u') { exec('underline'); return true; }
+  if (e.shiftKey && k === 'h') { applyMark('y'); return true; }
+  return false;
 }

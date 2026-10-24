@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select } from '../ui.js';
-import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay } from '../util.js';
+import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
@@ -323,7 +323,8 @@ function WeekTimeline() {
 }
 
 export default function Planner({ route }) {
-  const sub = route.sub || 'week';
+  const sub = route.sub || lsGet('ytos.plan.tab', 'week');
+  useEffect(() => { if (route.sub) lsSet('ytos.plan.tab', route.sub); }, [route.sub]);
   const tabs = [['week', '周计划'], ['day', '每日时间线'], ['weektl', '周时间线'], ['month', '月度目标']];
   return html`<div>
     <nav class="subnav" data-liquid="a"><span class="liq"></span>${tabs.map(([k, n]) => html`<a href=${'#/plan/' + k} class=${sub === k ? 'active' : ''}>${n}</a>`)}</nav>

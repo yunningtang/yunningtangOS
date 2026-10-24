@@ -1,5 +1,7 @@
 // Small helpers shared by every view.
 
+export const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } };
+export const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 export const pad = (n) => String(n).padStart(2, '0');
@@ -233,7 +235,16 @@ export const TAG_COLORS = [
 const HUE_KEY = 'ytos.tagcolor';
 let colorMap = null;
 function loadColors() { if (colorMap) return colorMap; try { colorMap = new Map(Object.entries(JSON.parse(localStorage.getItem(HUE_KEY) || '{}'))); } catch { colorMap = new Map(); } return colorMap; }
+export const TAG_COLOR_NAMES = ['蓝', '红', '绿', '橙', '紫', '青', '粉', '黄', '靛', '薄荷', '棕', '天蓝'];
+let TAG_OVERRIDES = {};
+// 设置里保存的颜色（跟数据一起同步）优先于本机自动分配的
+export function setTagOverrides(obj) { TAG_OVERRIDES = obj && typeof obj === 'object' ? obj : {}; }
+export const tagKey = (name) => String(name).trim().replace(/^#/, '').toLowerCase();
 export function tagColor(name) {
+  const key0 = tagKey(name); if (TAG_OVERRIDES[key0]) { const i = TAG_OVERRIDES[key0]; if (Array.isArray(i)) return i; if (TAG_COLORS[i]) return TAG_COLORS[i]; }
+  return tagColorAuto(name);
+}
+function tagColorAuto(name) {
   const key = String(name).trim().replace(/^#/, '').toLowerCase(); if (!key) return TAG_COLORS[0];
   const m = loadColors(); if (m.has(key)) return m.get(key);
   const used = new Set([...m.values()].map((c) => c[0])); let c = TAG_COLORS.find((x) => !used.has(x[0]));

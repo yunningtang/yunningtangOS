@@ -28,7 +28,7 @@ function Menu() {
   if (!m) return null;
   return html`<div class="ctx popmenu" ref=${ref} style=${`left:${m.x}px;top:${m.y}px;visibility:hidden`} onContextMenu=${(e) => e.preventDefault()}>
     ${m.title && html`<div class="pm-sec">${m.title}</div>`}
-    ${m.items.map((it, i) => it === 'sep' ? html`<div class="ctx-sep" key=${i}></div>` : html`<div key=${i} class=${'pm ' + (it.danger ? 'danger' : '') + (it.disabled ? ' disabled' : '')} onClick=${() => { if (it.disabled) return; set(null); it.onClick && it.onClick(); }}>${it.icon ? html`<${Icon} name=${it.icon} size=${14} />` : html`<span class="ic"></span>`}<b>${it.label}</b>${it.hint ? html`<small>${it.hint}</small>` : html`<span></span>`}</div>`)}
+    ${m.items.map((it, i) => it === 'sep' ? html`<div class="ctx-sep" key=${i}></div>` : html`<div key=${i} class=${'pm ' + (it.danger ? 'danger' : '') + (it.disabled ? ' disabled' : '')} onClick=${() => { if (it.disabled) return; if (it.sub) { set({ ...m, title: it.label, items: [{ label: '返回', icon: 'left', onClick: () => set(m) }, 'sep', ...it.sub.filter(Boolean)] }); return; } set(null); it.onClick && it.onClick(); }}>${it.icon ? html`<${Icon} name=${it.icon} size=${14} />` : it.color ? html`<span class="ic"><i class="ctx-dot" style=${`background:${it.color}`}></i></span>` : html`<span class="ic"></span>`}<b>${it.label}</b>${it.sub ? html`<small>›</small>` : it.hint && !it.color ? html`<small>${it.hint}</small>` : html`<span></span>`}</div>`)}
   </div>`;
 }
 

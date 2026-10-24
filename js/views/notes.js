@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect, useRef, Component } from '../../vendor/preact.js';
 import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field , tagMenu } from '../ui.js';
 import { uid, todayStr, sortBy, debounce, escapeHtml, download, tagColor, fmtShort } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
@@ -308,7 +308,7 @@ function TagsView({ notes }) {
   const pages = cur ? sortBy(notes.filter((n) => n.tags.includes(cur)), '-updated') : [];
   return html`<div class="page"><div class="crumbs"><a href="#/notes">笔记</a><span>/</span><b>标签</b><span class="flex1"></span><span class="small muted">${tags.length} 个标签 · 右键可重命名或移除</span></div><div class="page-body">
     ${tags.length === 0 ? html`<${Empty} icon="tag" text="还没有标签。在页面标题下面点「+ 标签」给页面加标签。" />` : html`
-      <div class="tag-cloud">${tags.map(([t, c]) => html`<button key=${t} class=${'tag-chip ' + (t === cur ? 'on' : '')} style=${(([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(t))} onClick=${() => setSel(t)} onContextMenu=${(e) => menu(e, t)}><span>${t}</span><small>${c}</small></button>`)}</div>
+      <div class="tag-cloud">${tags.map(([t, c]) => html`<button key=${t} class=${'tag-chip ' + (t === cur ? 'on' : '')} style=${(([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(t))} onClick=${() => setSel(t)} onContextMenu=${(e) => tagMenu(e, t)}><span>${t}</span><small>${c}</small></button>`)}</div>
       ${cur && html`<div class="tag-group"><div class="sec-h"><span>#${cur}</span><span class="muted">${pages.length} 页</span><span class="flex1"></span><button class="btn ghost sm" onClick=${() => go('notes?tag=' + encodeURIComponent(cur))}>在列表里筛选</button></div>
         ${pages.map((n) => html`<a class="sub-row" key=${n.id} href=${'#/notes/' + n.id} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, notes), noteTitle(n))}><${Icon} name="note" size=${14} class="muted" /><span class="flex1">${noteTitle(n)}</span><span class="muted small">${n.tags.filter((x) => x !== cur).map((x) => '#' + x).join(' ')}</span><span class="muted small" style="margin-left:12px">${n.updated.slice(5, 10).replace('-', '/')}</span></a>`)}
       </div>`}`}
@@ -362,7 +362,7 @@ function MetaLine({ note, notes, notebooks, words, onMove, backlinks = 0 }) {
   const tip = `更新 ${upd.toLocaleString('zh-CN', { hour12: false })}\n创建 ${note.created}`;
   return html`<div class="meta-line">
     <button class="mchip" onClick=${nbMenu} title="放入其他本子"><i class="nb-dot" style=${`background:${nb ? nb.color : '#999'}`}></i>${nb ? nb.name : '收件箱'}<${Icon} name="down" size=${10} /></button>
-    ${note.tags.map((t) => html`<span class="mtag" key=${t} style=${(([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(t))}><a href=${'#/notes?tag=' + encodeURIComponent(t)}>${t}</a><button title="移除标签" onClick=${() => upsert('notes', { id: note.id, tags: note.tags.filter((x) => x !== t) })}>×</button></span>`)}
+    ${note.tags.map((t) => html`<span class="mtag" key=${t} style=${(([l, d]) => `--tc:${l};--tcd:${d}`)(tagColor(t))} onContextMenu=${(e) => tagMenu(e, t)}><a href=${'#/notes?tag=' + encodeURIComponent(t)}>${t}</a><button title="移除标签" onClick=${() => upsert('notes', { id: note.id, tags: note.tags.filter((x) => x !== t) })}>×</button></span>`)}
     ${adding ? html`<span class="mtag-wrap"><input class="mtag-in" ref=${(el) => el && !el.dataset.f && (el.dataset.f = 1, setTimeout(() => el.focus(), 0))} value=${txt} placeholder="标签" onInput=${(e) => { setTxt(e.target.value); setSugIdx(0); }} onKeyDown=${(e) => { if (e.isComposing) return; if (e.key === 'ArrowDown') { e.preventDefault(); setSugIdx((i) => Math.min(sugs.length - 1, i + 1)); } else if (e.key === 'ArrowUp') { e.preventDefault(); setSugIdx((i) => Math.max(0, i - 1)); } else if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') { e.preventDefault(); const pick = sugs[sugIdx]; addTag(pick ? pick.t : txt.trim()); } else if (e.key === 'Escape') { setTxt(''); setAdding(false); } else if (e.key === 'Backspace' && !txt && note.tags.length) { upsert('notes', { id: note.id, tags: note.tags.slice(0, -1) }); } }} onBlur=${() => { setTimeout(() => { addTag(); setAdding(false); }, 120); }} />
       ${sugs.length > 0 && html`<div class="popmenu tag-sug">${sugs.map((x, i) => html`<div class=${'pm ' + (i === sugIdx ? 'on' : '')} onMouseDown=${(e) => { e.preventDefault(); addTag(x.t); }}><b>${x.create ? `创建「${x.t}」` : x.t}</b></div>`)}</div>`}</span>`
       : html`<button class="mchip ghost" onClick=${() => setAdding(true)} title="添加标签"><${Icon} name="plus" size=${11} />${note.tags.length ? '' : ' 标签'}</button>`}
@@ -370,7 +370,7 @@ function MetaLine({ note, notes, notebooks, words, onMove, backlinks = 0 }) {
     ${note.topic && html`<button class="mchip prop" title="主题" onClick=${() => editTopic(note)}><${Icon} name="tag" size=${11} />${note.topic}</button>`}
     ${note.status && statusOf(note.status) && html`<button class="mchip prop" title="状态" onClick=${(e) => statusMenu(e, note)}><i class="st-dot" style=${`background:${statusOf(note.status).color}`}></i>${statusOf(note.status).label}</button>`}
     ${note.review && html`<span class="mrev"><button class=${'mchip prop rv ' + reviewState(note)} title=${'复习日期 ' + note.review + (note.rep ? ` · 已复习 ${note.rep} 次` : '')} onClick=${(e) => reviewMenu(e, note)}><${Icon} name="refresh" size=${11} />${reviewLabel(note)}</button>${(reviewState(note) === 'late' || reviewState(note) === 'today') && html`<button class="mchip ok" title="复习过了" onClick=${() => markReviewed(note)}><${Icon} name="check" size=${11} /></button>`}</span>`}
-    <button class="mchip ghost" title="领域 / 主题 / 状态 / 复习日期" onClick=${(e) => propsMenu(e, note, notes)}><${Icon} name="plus" size=${11} />${note.area || note.topic || note.status || note.review ? '' : ' 属性'}</button>
+    <button class="mchip ghost" title="卡片属性：领域 / 主题 / 状态 / 复习日期。设了任意一个，这页就会进「卡片」视图可以整理和复习；标签只是关键词" onClick=${(e) => propsMenu(e, note, notes)}><${Icon} name="plus" size=${11} />${note.area || note.topic || note.status || note.review ? '' : ' 属性'}</button>
     ${backlinks > 0 && html`<button class="mchip prop" title="有 ${backlinks} 页链接到这里，点击查看" onClick=${() => { const el = document.querySelector('.links-sec'); el && el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><${Icon} name="link" size=${11} />${backlinks} 反向链接</button>`}
     <span class=${'mdate ' + (saved ? 'saved' : '')} title=${tip}>${saved ? '已保存 ✓' : `${upd.getMonth() + 1}月${upd.getDate()}日 · ${words} 字`}</span>
     ${note.ref && html`<a class="mchip src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}

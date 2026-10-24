@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, upsert, remove, update, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, TagInput, confirmDel } from '../ui.js';
-import { uid, todayStr, hostOf, sortBy } from '../util.js';
+import { uid, todayStr, hostOf, sortBy , lsGet, lsSet } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { toast } from '../nav.js';
@@ -36,7 +36,7 @@ export default function Links({ route }) {
   useEffect(() => { const id = route && route.query && route.query.open; const l = id && s.links.find((x) => x.id === id); if (l) { setEditing(l); setModal(true); } }, [route && route.query && route.query.open]);
   const [q, setQ] = useState('');
   const [tagF, setTagF] = useState('');
-  const [view, setView] = useState('all');
+  const [view, setViewS] = useState(() => lsGet('ytos.links.view', 'all')); const setView = (v) => { setViewS(v); lsSet('ytos.links.view', v); };
   const [editing, setEditing] = useState(null);
   const [modal, setModal] = useState(false);
   const [quick, setQuick] = useState('');
