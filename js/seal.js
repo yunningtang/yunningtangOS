@@ -2,7 +2,8 @@
 // 对话里说一句话，汤圆把它拆成 待办 / 时间块 / 笔记，先给你预览，确认后才写入。
 // 有 AI（Vercel 上配置了 ANTHROPIC_API_KEY 且已登录）时走 /api/agent；没有就退回随手记的本地语法。
 import { html, useState, useEffect, useRef } from '../vendor/preact.js';
-import { useStore, upsert, get } from './store.js';
+import { useStore, upsert, get, update } from './store.js';
+import { ctxMenu } from './ctx.js';
 import { Icon } from './ui.js';
 import { uid, todayStr, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad } from './util.js';
 import { loginState } from './sync.js';
@@ -232,8 +233,13 @@ export function Seal() {
     let x = innerWidth - S - M, y = innerHeight - S - M - bottomPad(), tx = x, ty = y, vx = 0, vy = 0, svx = 0, svy = 0;
     try { const sp = JSON.parse(localStorage.getItem('ytos.seal')); if (sp) { tx = x = sp.side === 'l' ? M : innerWidth - S - M; ty = y = Math.min(Math.max(M, sp.y * innerHeight), innerHeight - S - M - bottomPad()); } } catch {}
     let dragging = false, moved = false, sx0, sy0, ox, oy, lastX, lastY;
+    // 闲时贴边：面板关着、鼠标不在附近超过几秒，就缩到屏幕边上只露一截，不压在内容上
+    let tucked = false, nearT = performance.now();
+    const tuckOn = () => sRef.current.settings.sealTuck !== false;
     let lookX = 0, lookY = 0, squash = 0, sqv = 0, hop = 0, hopV = 0, flap = 0, happy = 0;
-    const place = () => { fab.style.transform = `translate(${x}px,${y}px)`; };
+    let tuckK = 0; // 0 露出 → 1 贴边，缓动
+    const place = () => { const want = tucked && !dragging && !openRef.current ? 1 : 0; tuckK += (want - tuckK) * .12; if (Math.abs(want - tuckK) < .005) tuckK = want; const off = (tx === M ? -(S - 34) : (S - 34)) * tuckK; fab.style.transform = `translate(${x + off}px,${y}px)`; fab.style.opacity = String(1 - tuckK * .25); };
+    api.current.reset = () => { try { localStorage.removeItem('ytos.seal'); } catch {} tx = innerWidth - S - M; ty = innerHeight - S - M - bottomPad(); tucked = false; sqv += .1; };
     place();
     const posPanel = () => {
       const panel = panelRef.current; if (!panel || !openRef.current || bigRef.current) return;
@@ -265,7 +271,22 @@ export function Seal() {
       } else { hopV = .09; flap = 1; toggle(); }
     };
     const key = (e) => { const k = { ArrowLeft: [-24, 0], ArrowRight: [24, 0], ArrowUp: [0, -24], ArrowDown: [0, 24] }[e.key]; if (k) { e.preventDefault(); tx = Math.min(Math.max(M, tx + k[0]), innerWidth - S - M); ty = Math.min(Math.max(M, ty + k[1]), innerHeight - S - M - bottomPad()); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hopV = .09; flap = 1; toggle(); } };
-    const look = (e) => { const cx = x + S / 2, cy = y + S / 2; lookX = Math.max(-1, Math.min(1, (e.clientX - cx) / 350)); lookY = Math.max(-1, Math.min(1, (e.clientY - cy) / 350)); };
+    const look = (e) => { const cx = x + S / 2, cy = y + S / 2; lookX = Math.max(-1, Math.min(1, (e.clientX - cx) / 350)); lookY = Math.max(-1, Math.min(1, (e.clientY - cy) / 350)); if (Math.hypot(e.clientX - cx, e.clientY - cy) < 150) { nearT = performance.now(); if (tucked) { tucked = false; sqv += .05; } } };
+    const ctx = (e) => {
+      const st = sRef.current;
+      ctxMenu(e, [
+        { label: '新对话', icon: 'plus', onClick: () => { api.current.newThread && api.current.newThread(); setOpen(true); } },
+        { label: '历史对话', icon: 'clock', onClick: () => { api.current.showHistory && api.current.showHistory(); setOpen(true); } },
+        { label: openRef.current ? '关闭对话' : '打开对话', icon: 'maximize', onClick: () => setOpen((o) => !o) },
+        'sep',
+        { label: tuckOn() ? '闲时贴边：开' : '闲时贴边：关', icon: 'right', hint: '没人理时缩到屏幕边上', onClick: () => update((d) => { d.settings.sealTuck = !(d.settings.sealTuck !== false); }) },
+        { label: '回到右下角', icon: 'refresh', onClick: () => api.current.reset() },
+        { label: '设置…', icon: 'settings', onClick: () => go('settings') },
+        'sep',
+        { label: '隐藏汤圆', icon: 'eye', danger: true, hint: '设置里可再打开', onClick: () => { update((d) => { d.settings.seal = false; }); toast('汤圆藏起来了', { label: '再见到它', onClick: () => update((d) => { d.settings.seal = true; }) }); } },
+      ], '汤圆');
+    };
+    fab.addEventListener('contextmenu', ctx);
     const resize = () => { tx = (x + S / 2 < innerWidth / 2) ? M : innerWidth - S - M; ty = Math.min(Math.max(M, ty), innerHeight - S - M - bottomPad()); };
     fab.addEventListener('pointerdown', down); fab.addEventListener('pointermove', move); fab.addEventListener('pointerup', end); fab.addEventListener('pointercancel', end); fab.addEventListener('keydown', key);
     window.addEventListener('pointermove', look, { passive: true }); window.addEventListener('resize', resize);
@@ -275,6 +296,8 @@ export function Seal() {
     const frame = (now) => {
       if (dead) return;
       const dt = Math.min(.05, (now - t0) / 1000); t0 = now; idleT += dt;
+      if (!dragging && !openRef.current && tuckOn() && !tucked && now - nearT > 4000 && Math.abs(tx - x) < 1) { tucked = true; }
+      if (tucked && (openRef.current || !tuckOn())) tucked = false;
       if (!dragging) {
         if (reduce) { x = tx; y = ty; svx = svy = 0; }
         else { svx = (svx + (tx - x) * .12) * .74; svy = (svy + (ty - y) * .12) * .74; x += svx; y += svy; if (Math.abs(tx - x) < .1 && Math.abs(svx) < .1) x = tx; if (Math.abs(ty - y) < .1 && Math.abs(svy) < .1) y = ty; }
@@ -316,7 +339,7 @@ export function Seal() {
 
     return () => {
       dead = true; cancelAnimationFrame(raf); if (model) model.dispose();
-      fab.removeEventListener('pointerdown', down); fab.removeEventListener('pointermove', move); fab.removeEventListener('pointerup', end); fab.removeEventListener('pointercancel', end); fab.removeEventListener('keydown', key);
+      fab.removeEventListener('contextmenu', ctx); fab.removeEventListener('pointerdown', down); fab.removeEventListener('pointermove', move); fab.removeEventListener('pointerup', end); fab.removeEventListener('pointercancel', end); fab.removeEventListener('keydown', key);
       window.removeEventListener('pointermove', look); window.removeEventListener('resize', resize);
     };
   }, []);
@@ -340,7 +363,8 @@ export function Seal() {
     const t = { id: tid, title: (first ? first.text : msgs[0].text).slice(0, 30), updated: Date.now(), msgs };
     setThreads((list) => { const next = [t, ...list.filter((x) => x.id !== tid)].slice(0, 30); try { localStorage.setItem('ytos.seal.threads', JSON.stringify(next)); } catch {} return next; });
   }, [msgs]);
-  const newThread = () => { setMsgs([]); setTid(uid()); setTxt(''); setView('chat'); setTimeout(() => inRef.current && inRef.current.focus(), 50); };
+  api.current.showHistory = () => setView('history');
+  const newThread = api.current.newThread = () => { setMsgs([]); setTid(uid()); setTxt(''); setView('chat'); setTimeout(() => inRef.current && inRef.current.focus(), 50); };
   const openThread = (t) => { setTid(t.id); setMsgs(t.msgs); setView('chat'); };
   const delThread = (id) => setThreads((list) => { const next = list.filter((x) => x.id !== id); try { localStorage.setItem('ytos.seal.threads', JSON.stringify(next)); } catch {} if (id === tid) { setMsgs([]); setTid(uid()); } return next; });
   const relTime = (ts) => { const d = Date.now() - ts; if (d < 36e5) return Math.max(1, Math.round(d / 6e4)) + ' 分钟前'; if (d < 864e5) return Math.round(d / 36e5) + ' 小时前'; const dt = new Date(ts); return `${dt.getMonth() + 1}/${dt.getDate()}`; };
