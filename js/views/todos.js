@@ -35,16 +35,27 @@ export function quickParse(text) {
 // 弹窗里的步骤编辑：每行一个输入框 + 分钟，回车加一行
 function StepsField({ value, onChange }) {
   const rows = value;
+  const [nv, setNv] = useState('');
   const upd = (i, patch) => onChange(rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
-  const addRow = () => onChange([...rows, { id: uid(), title: '', minutes: 25, kind: '', done: false }]);
+  const parse = (q) => { const m = q.trim().match(/^(.*?)\s*(\d{1,3})\s*分(?:钟)?$/); return m ? { title: m[1].trim(), minutes: Math.max(5, Math.min(180, +m[2])) } : { title: q.trim(), minutes: 25 }; };
+  const add = () => { if (!nv.trim()) return; onChange([...rows, { id: uid(), kind: '', done: false, ...parse(nv) }]); setNv(''); };
+  const move = (id, targetId, after) => { const list = rows.filter((x) => x.id !== id); const it = rows.find((x) => x.id === id); let i = list.findIndex((x) => x.id === targetId); if (after) i++; list.splice(i, 0, it); onChange(list); };
+  const total = rows.reduce((n, x) => n + (x.minutes || 0), 0);
+  const fmt = (t) => (t >= 60 ? `${Math.floor(t / 60)} 小时${t % 60 ? ' ' + (t % 60) + ' 分' : ''}` : `${t} 分钟`);
   return html`<div class="steps-f">
-    ${rows.map((x, i) => html`<div class=${'sf-row ' + (x.done ? 'done' : '')} key=${x.id}>
-      <input type="checkbox" checked=${!!x.done} onChange=${() => upd(i, { done: !x.done })} />
-      <input class="flex1" type="text" value=${x.title} placeholder="这一步做什么" onInput=${(e) => upd(i, { title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); addRow(); } }} />
-      <input class="sf-min" type="number" min="5" max="180" step="5" value=${x.minutes} onInput=${(e) => upd(i, { minutes: Math.max(5, Math.min(180, +e.target.value || 25)) })} /><span class="sf-u">分</span>
-      <button type="button" class="ibtn" title="删除" onClick=${() => onChange(rows.filter((_, j) => j !== i))}><${Icon} name="x" size=${12} /></button>
+    ${rows.map((x, i) => html`<div class=${'sf-row ' + (x.done ? 'done' : '')} key=${x.id} ...${dragProps('mstep', { id: x.id })} ...${dropProps('mstep', (d, { after }) => { if (d.id !== x.id) move(d.id, x.id, !!after); }, { position: true })}>
+      <span class="sf-grip" title="拖动排序"><${Icon} name="dots" size=${12} /></span>
+      <button type="button" class=${'cb ' + (x.done ? 'on' : '')} title=${x.done ? '标为未完成' : '标为完成'} onClick=${() => upd(i, { done: !x.done })}><${Icon} name="check" size=${10} /></button>
+      <span class="sf-n">${i + 1}</span>
+      <input class="sf-t" type="text" value=${x.title} placeholder="这一步做什么" onInput=${(e) => upd(i, { title: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); const nx = e.target.closest('.sf-row').nextElementSibling; const inp = nx && nx.querySelector('input.sf-t, input.sf-new'); if (inp) inp.focus(); } if (e.key === 'Backspace' && !x.title) { e.preventDefault(); onChange(rows.filter((_, j) => j !== i)); } }} />
+      <span class="sf-m"><input type="number" min="5" max="180" step="5" value=${x.minutes} onInput=${(e) => upd(i, { minutes: Math.max(5, Math.min(180, +e.target.value || 25)) })} /><i>分</i></span>
+      <button type="button" class="sf-x" title="删除" onClick=${() => onChange(rows.filter((_, j) => j !== i))}><${Icon} name="x" size=${11} /></button>
     </div>`)}
-    <button type="button" class="pt-row flat new" onClick=${addRow}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">加一步</span></button>
+    <div class="sf-row sf-add">
+      <span class="sf-grip"></span><span class="sf-plus"><${Icon} name="plus" size=${11} /></span>
+      <input class="sf-new" type="text" value=${nv} placeholder=${rows.length ? '再加一步…  可以带时长，比如「买菜 45分」' : '第一步做什么？  可以带时长，比如「列清单 15分」'} onInput=${(e) => setNv(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} onBlur=${add} />
+    </div>
+    ${rows.length > 0 && html`<div class="sf-sum">共 ${rows.length} 步 · 约 ${fmt(total)}</div>`}
   </div>`;
 }
 
@@ -75,7 +86,7 @@ export function TodoModal({ open, todo, onClose, defaults = {} }) {
       <${Field} label="优先级"><div class="pri-pick">${PRIORITY.map((p) => html`<button type="button" style=${`--pc:${p.color}`} class=${f.priority === p.v ? 'on' : ''} title=${p.name} onClick=${() => set('priority', p.v)}>${p.label}</button>`)}</div><//>
       <${Field} label="标签"><${TagInput} value=${f.tags} onChange=${(v) => set('tags', v)} /><//>
       <${Field} label="备注"><textarea rows="3" value=${f.note} onInput=${(e) => set('note', e.target.value)}></textarea><//>
-      <${Field} label="步骤" hint="一行一步，可以带时长：买菜 45分。保存后在待办行里展开勾选，也可以让汤圆拆。">
+      <${Field} label="步骤" hint="保存后在待办行里展开勾选；也可以右键待办让汤圆拆。">
         <${StepsField} value=${f.steps || []} onChange=${(v) => set('steps', v)} />
       <//>
     </div>

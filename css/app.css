@@ -1747,10 +1747,6 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .step .st-x{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--text-4);opacity:0;transition:opacity .18s ease .06s,background .15s;margin-left:auto}.step:hover .st-x{opacity:.8}.step .st-x:hover{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
 .step .st-go{margin-left:0}
 /* 弹窗里的步骤 */
-.steps-f{display:flex;flex-direction:column;gap:4px}
-.sf-row{display:flex;align-items:center;gap:6px}.sf-row input[type=checkbox]{width:15px;height:15px;margin:0 2px;flex:none;accent-color:var(--blue)}.sf-row input[type=text]{height:30px}.sf-row.done input[type=text]{color:var(--text-4);text-decoration:line-through}
-.sf-row .sf-min{width:60px;height:30px;padding:0 6px;text-align:right;-moz-appearance:textfield}.sf-row .sf-min::-webkit-inner-spin-button,.sf-row .sf-min::-webkit-outer-spin-button{-webkit-appearance:none}.sf-row .sf-u{font-size:.74rem;color:var(--text-4)}
-.steps-f .pt-row.new{min-height:26px;font-size:.76rem}
 
 .seal-h{cursor:grab;user-select:none}.seal-h:active{cursor:grabbing}.seal-panel.big .seal-h{cursor:default}.seal-panel.moving{transition:none!important}
 .seal-h.pinned .seal-id b::after{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--s2);margin-left:6px;vertical-align:middle;opacity:.6}
@@ -1797,3 +1793,17 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .pl-list button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;padding:7px 10px;border-radius:8px;line-height:1.3}.pl-list button:hover,.pl-list button.on{background:var(--hover)}
 .pl-list b{font-weight:500;font-size:.84rem}.pl-list small{font-size:.72rem;color:var(--text-4)}
 .xy-tg{display:inline-flex;align-items:center;gap:4px;font-size:.76rem;color:var(--text-3);padding:2px 4px;border-radius:6px;margin:-4px 0 2px}.xy-tg:hover{background:var(--hover);color:var(--text)}
+
+/* 弹窗里的步骤：一行一步，轻量输入，拖动排序，底部直接加 */
+.steps-f{display:flex;flex-direction:column;gap:1px;margin:0 -6px}
+.sf-row{display:flex;align-items:center;gap:6px;min-height:32px;padding:1px 6px 1px 2px;border-radius:8px}.sf-row:hover{background:var(--hover)}
+.sf-row.dragging{opacity:.4}.sf-row.drop-before{box-shadow:inset 0 2px 0 var(--blue)}.sf-row.drop-after{box-shadow:inset 0 -2px 0 var(--blue)}
+.sf-grip{width:14px;flex:none;display:grid;place-items:center;color:var(--text-4);opacity:0;cursor:grab}.sf-row:hover .sf-grip{opacity:.7}
+.sf-row .cb{flex:none;width:15px;height:15px;border-radius:4px;border:1.5px solid var(--text-4);background:transparent;display:grid;place-items:center;color:transparent;transition:all .1s}.sf-row .cb:hover{border-color:var(--blue)}.sf-row .cb.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.sf-n{flex:none;width:16px;font-size:.7rem;color:var(--text-4);text-align:right;font-variant-numeric:tabular-nums}
+.sf-row input.sf-t,.sf-row input.sf-new{flex:1;min-width:0;height:28px;padding:0 6px;border:0;background:transparent;box-shadow:none;font-size:.84rem;border-radius:6px}.sf-row input.sf-t:focus,.sf-row input.sf-new:focus{background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2)}
+.sf-row.done input.sf-t{color:var(--text-4);text-decoration:line-through}
+.sf-m{flex:none;display:inline-flex;align-items:center;gap:2px;color:var(--text-4);font-size:.72rem}.sf-m input{width:44px;height:24px;padding:0 4px;text-align:right;border:0;background:transparent;box-shadow:none;font-size:.78rem;color:var(--text-3);border-radius:6px;-moz-appearance:textfield}.sf-m input:focus{background:var(--paper);box-shadow:inset 0 0 0 1px var(--line-2)}.sf-m input::-webkit-inner-spin-button,.sf-m input::-webkit-outer-spin-button{-webkit-appearance:none}.sf-m i{font-style:normal}
+.sf-x{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--text-4);opacity:0;transition:opacity .18s ease .06s}.sf-row:hover .sf-x{opacity:.8}.sf-x:hover{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.sf-add:hover{background:transparent}.sf-plus{width:15px;flex:none;display:grid;place-items:center;color:var(--text-4);margin-left:16px}.sf-add input.sf-new::placeholder{color:var(--text-4)}
+.sf-sum{font-size:.72rem;color:var(--text-4);padding:4px 6px 0 42px}
