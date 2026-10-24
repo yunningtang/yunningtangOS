@@ -85,23 +85,22 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   const today = todayStr();
   const [label, setLabel] = useState(pst.label || '');
   const [todoId, setTodoId] = useState(pst.todoId || '');
-  const [customLen, setCustomLen] = useState(false);
   useEffect(() => { if (initialTodo) { const t = s.todos.find((x) => x.id === initialTodo); if (t) { setTodoId(t.id); setLabel(t.title); } } }, [initialTodo]);
   const todos = sortBy(s.todos.filter((t) => !t.done && (t.due === today || !t.due)), 'priority');
   const rem = pomo.remaining(); const total = (pst.phase === 'break' ? pst.breakLen : pst.workLen) * 60; const pct = pst.phase === 'idle' ? 0 : 1 - rem / total; const R = 118, C = 2 * Math.PI * R;
   const begin = () => { pomo.start({ label: label.trim(), todoId }); if (!full) setLabel(''); };
-  const presets = [[25, 5], [45, 10], [50, 10], [90, 15]];
   return html`<${Card} class=${'focus-w ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '')} pad=${false}>
     <div class="fw-hero">
       <div class="fw-top"><span class="fh-k">${pst.phase === 'idle' ? '专注' : pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停' : '专注中'}</span>${full ? html`${pst.phase === 'idle' && html`<button class="fw-lens" title="点击修改休息时长" onClick=${(e) => ctxMenu(e, [...[3, 5, 10, 15, 20].map((n) => ({ label: `休息 ${n} 分钟`, icon: pst.breakLen === n ? 'check' : 'clock', onClick: () => pomo.setLens(pst.workLen, n) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('休息几分钟？', String(pst.breakLen), { title: '休息时长' }), 10); if (v >= 1 && v <= 60) pomo.setLens(pst.workLen, v); } }], '休息时长')}>${pst.workLen} 分钟 · 休息 ${pst.breakLen} 分钟 <${Icon} name="down" size=${10} /></button>`}` : html`<a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a>`}</div>
       <${Dial} rem=${rem} phase=${pst.phase} full=${full} />
-      <div class="pomo-t"><div class="pomo-time">${pomo.fmt(rem)}</div><div class="pomo-sub">${pst.phase === 'idle' ? `${pst.workLen} 分钟` : pst.phase === 'break' ? '休息' : (pst.label || '专注')}</div><${Span} rem=${rem} /></div>
+      <div class="pomo-t"><div class="pomo-time">${pomo.fmt(rem)}</div>${pst.phase !== 'idle' && html`<div class="pomo-sub">${pst.phase === 'break' ? '休息' : (pst.label || '专注')}</div>`}</div>
+      <${Ruler} phase=${pst.phase} workLen=${pst.workLen} breakLen=${pst.breakLen} rem=${rem} total=${total} full=${full} />
       ${pst.phase === 'idle' ? html`
         <form class="fw-start" onSubmit=${(e) => { e.preventDefault(); begin(); }}>
           <input type="text" value=${label} placeholder="这一轮要做什么？" onInput=${(e) => setLabel(e.target.value)} />
           <button type="submit" class="fw-go" title="开始专注"><${Icon} name="play" size=${14} /> 开始</button>
         </form>
-        <div class="chips fw-chips">${presets.map(([w, b]) => html`<button key=${w} type="button" class=${'chip ' + (pst.workLen === w && !customLen ? 'on' : '')} onClick=${() => { setCustomLen(false); pomo.setLens(w, b); }}>${w}<i>分</i></button>`)}${full && (customLen ? html`<input class="chip-in" type="number" min="5" max="180" value=${pst.workLen} autofocus onInput=${(e) => { const w = Math.max(5, Math.min(180, +e.target.value || 25)); pomo.setLens(w, Math.max(3, Math.round(w / 5))); }} />` : html`<button type="button" class=${'chip ' + (presets.every(([w]) => w !== pst.workLen) ? 'on' : '')} onClick=${() => setCustomLen(true)}>自定义</button>`)}</div>`
+        <div class="fw-tips">拖动上面的标尺或转表盘选时长 · 旗子是结束时刻</div>`
       : html`<div class="fw-ctl">
           <button class="pf-btn main" onClick=${() => (pst.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${pst.paused ? 'play' : 'pause'} size=${13} /> ${pst.paused ? '继续' : '暂停'}</button>
           ${pst.phase === 'work' ? html`<button class="pf-btn" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${13} /> 完成</button>` : html`<button class="pf-btn" onClick=${() => pomo.skip()}><${Icon} name="right" size=${13} /> 跳过</button>`}
@@ -114,6 +113,34 @@ export function PomoCard({ full = false, initialTodo = '' }) {
 /* ---------- clock-face dial: the session is a sector on a 60-minute face, a hand marks "now" ---------- */
 const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 function useTick(ms) { const [, f] = useState(0); useEffect(() => { const t = setInterval(() => f((x) => x + 1), ms); return () => clearInterval(t); }, [ms]); }
+/* ---------- 时间标尺：一条点状轨道，拖动圆环选时长；旗子标出结束时刻；运行时已过的点亮起来 ---------- */
+const breakFor = (w) => (w >= 90 ? 15 : w >= 45 ? 10 : 5);
+function Ruler({ phase, workLen, breakLen, rem, total, full }) {
+  useTick(15000);
+  const MIN = 5, MAX = full ? 120 : 90, STEP = 5;
+  const ref = useRef();
+  const running = phase !== 'idle';
+  const mins = running ? Math.round(total / 60) : workLen;            // 圆环所在位置
+  const elapsed = running ? (total - rem) / 60 : 0;                   // 已过去的分钟（点亮）
+  const now = new Date();
+  const startAt = running ? new Date(now.getTime() - (total - rem) * 1000) : now;
+  const endAt = new Date(startAt.getTime() + mins * 60000);
+  const pos = (m) => (m / MAX) * 100;
+  const set = (m) => { const v = Math.max(MIN, Math.min(MAX, Math.round(m / STEP) * STEP)); if (v !== workLen) pomo.setLens(v, breakLen && breakLen !== breakFor(workLen) ? breakLen : breakFor(v)); };
+  const fromEvent = (e) => { const r = ref.current.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * MAX; };
+  const down = (e) => { if (running) return; e.preventDefault(); ref.current.setPointerCapture(e.pointerId); ref.current.classList.add('turning'); set(fromEvent(e)); const mv = (ev) => set(fromEvent(ev)); const up = () => { ref.current.classList.remove('turning'); ref.current.removeEventListener('pointermove', mv); ref.current.removeEventListener('pointerup', up); ref.current.removeEventListener('pointercancel', up); }; ref.current.addEventListener('pointermove', mv); ref.current.addEventListener('pointerup', up); ref.current.addEventListener('pointercancel', up); };
+  const dotStep = full ? 1 : 2;
+  const dots = []; for (let m = 0; m <= MAX; m += dotStep) dots.push(m);
+  return html`<div class=${'ruler ' + (running ? 'running' : '')} ref=${ref} onPointerDown=${down} onWheel=${(e) => { if (running) return; e.preventDefault(); set(workLen + (e.deltaY > 0 ? -STEP : STEP)); }} tabindex=${running ? -1 : 0} onKeyDown=${(e) => { if (running) return; if (e.key === 'ArrowLeft') { e.preventDefault(); set(workLen - STEP); } if (e.key === 'ArrowRight') { e.preventDefault(); set(workLen + STEP); } }} role="slider" aria-valuemin=${MIN} aria-valuemax=${MAX} aria-valuenow=${mins} aria-label="专注时长">
+    <div class="rl-track">
+      ${dots.map((m) => html`<i key=${m} class=${'rl-dot ' + (m % 30 === 0 ? 'big ' : m % 15 === 0 ? 'mid ' : m % 5 === 0 ? 'five ' : '') + (running ? (m <= elapsed ? 'lit' : m <= mins ? 'in' : '') : (m <= mins ? 'in' : ''))} style=${`left:${pos(m)}%`}></i>`)}
+      <span class="rl-start">${hhmm(startAt)}</span>
+      <div class="rl-flag" style=${`left:${pos(mins)}%`}><${Icon} name="flag" size=${13} />${hhmm(endAt)}</div>
+      <div class="rl-knob" style=${`left:${pos(mins)}%`}></div>
+      <div class="rl-min" style=${`left:${pos(mins)}%`}>${running ? `${hhmm(startAt)} → ${hhmm(endAt)}` : `${mins} 分钟`}</div>
+    </div>
+  </div>`;
+}
 function Span({ rem }) { useTick(15000); const now = new Date(); return html`<div class="pomo-span">${hhmm(now)} → ${hhmm(new Date(now.getTime() + rem * 1000))}</div>`; }
 function Dial({ rem, phase, full }) {
   useTick(1000);
