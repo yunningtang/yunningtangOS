@@ -1,4 +1,4 @@
-import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
+import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, toggleTodo, update, removeUndo } from '../store.js';
 import { usePomo, PomoCard } from './focus.js';
 import * as pomo from '../pomo.js';
@@ -87,8 +87,10 @@ export default function Dashboard() {
 
   // compact timeline geometry: range follows the day's blocks (never narrower than 07–23), overlaps go side by side
   const hourH = 40, minH = 24;
-  const from = blocks.length ? Math.max(0, Math.min(7, ...blocks.map((b) => Math.floor(timeToMin(b.start) / 60)))) : 7;
-  const to = blocks.length ? Math.min(24, Math.max(23, ...blocks.map((b) => Math.ceil(Math.max(timeToMin(b.end), timeToMin(b.start) + 1) / 60)))) : 23;
+  // 范围：07–23 打底，有更早 / 更晚的块就扩，「现在」永远在范围内
+  const nowH = Math.floor(nowMin / 60);
+  const from = Math.max(0, Math.min(7, nowH, ...blocks.map((b) => Math.floor(timeToMin(b.start) / 60))));
+  const to = Math.min(24, Math.max(23, nowH + 1, ...blocks.map((b) => Math.ceil(Math.max(timeToMin(b.end), timeToMin(b.start) + 1) / 60))));
   const y = (min) => ((min - from * 60) / 60) * hourH;
   const laid = useMemo(() => {
     // lanes only for blocks that really overlap in time; blocks that would merely paint over each other
@@ -107,6 +109,11 @@ export default function Dashboard() {
     });
     return out;
   }, [blocks]);
+  // 时间线跟着「现在」走：每分钟把当前时刻保持在视野里；用户自己滚开了就不打扰，给一个「回到现在」
+  const tlRef = useRef(); const tlUser = useRef(false); const [tlAway, setTlAway] = useState(false);
+  const scrollToNow = (smooth) => { const el = tlRef.current; if (!el) return; const target = Math.max(0, y(nowMin) - el.clientHeight * 0.42); tlUser.current = false; el.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'auto' }); setTlAway(false); };
+  useEffect(() => { if (!tlUser.current) scrollToNow(false); }, [nowMin, blocks.length]);
+  const onTlScroll = (e) => { const el = e.currentTarget; const target = Math.max(0, y(nowMin) - el.clientHeight * 0.42); const away = Math.abs(el.scrollTop - target) > 80; if (away) tlUser.current = true; setTlAway(away); };
 
   // 一行三张卡等高。高度不会变的（此刻 / 月历 / 专注）放一行，内容会长的（今天 / 待办 / 笔记）放一行，
   // 这样一张卡变长不会把不相干的卡拉得空一截。
@@ -174,13 +181,14 @@ export default function Dashboard() {
     now: { title: '此刻', span: 1, el: html`<${NowWidget} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
-        <div class="mini-tl-wrap" ref=${(el) => { if (el && !el.dataset.scrolled) { el.dataset.scrolled = 1; const target = nowMin >= from * 60 && nowMin <= to * 60 ? y(nowMin) : (blocks.length ? y(timeToMin(blocks[0].start)) : 0); el.scrollTop = Math.max(0, target - el.clientHeight * 0.4); } }}>
+        <div class="mini-tl-wrap" ref=${tlRef} onScroll=${onTlScroll}>
         <div class="mini-tl" style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}><span>${pad(from + i)}:00</span></div>`)}
           ${laid.map(({ b, a, e, lane, lanes, top, h }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const w = 100 / lanes; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin ? ' past' : '') + (h < 36 ? ' one' : '')} key=${b.id} style=${`top:${top}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) }], b.title)} title=${`${b.title} ${b.start} – ${b.end}`}><b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small></div>`; })}
-          ${nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>`}
+          <div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>
         </div>
         </div>
+        ${tlAway && html`<button class="mt-back" onClick=${() => scrollToNow(true)}><${Icon} name="clock" size=${11} /> 回到现在</button>`}
       <//>` },
     todos: { title: '待办', span: 1, el: html`<${Card} class="todo-card" ...${dropProps('todo', (d) => upsert('todos', { id: d.id, due: today }))}>
         <div class="card-h"><h3>待办 ${todos.length > 0 && html`<span class="muted small">${todos.length}</span>`}</h3><div class="card-act"><a class="ibtn" href="#/todos" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
