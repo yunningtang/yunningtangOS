@@ -233,6 +233,7 @@ function buildContext(s) {
     goals: (s.goals[monthKey()] || []).map((g) => g.title),
     focus: (s.weeks[weekKey()] || {}).focus || '',
     calendar: calendarText(),
+    who: s.profile && s.profile.name || '',
   };
 }
 
