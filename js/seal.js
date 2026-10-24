@@ -114,8 +114,8 @@ function buildSeal(THREE, cv) {
   const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const line = (pts, r = .016) => new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, r, 8, false), stitch);
   // 嘴：从鼻子下来一小竖，再往两边各翘一个弧（ω）
-  const mouth = new THREE.Group(); stick(mouth, onHead(0, -.36, .96, FL * .55 + .12));
-  mouth.add(line([v3(0, .13, 0), v3(0, .0, 0)]));
+  const mouth = new THREE.Group(); stick(mouth, onHead(0, -.3, .96, FL * .55 + .12)); // ω 贴着鼻子下面一点点
+  mouth.add(line([v3(0, .07, 0), v3(0, .0, 0)]));
   [-1, 1].forEach((sx) => mouth.add(line([v3(0, .0, 0), v3(sx * .07, -.055, -.004), v3(sx * .14, -.045, -.012), v3(sx * .19, .01, -.024)])));
   const eyes = [];
   [-1, 1].forEach((sx) => {
