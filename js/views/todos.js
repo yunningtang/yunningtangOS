@@ -170,7 +170,7 @@ export function TodoItem({ t, onEdit, compact }) {
         ${t.tags.map((x) => html`<${Tag}>#${x}<//>`)}
         ${t.note && html`<span title=${t.note}>· ${t.note.slice(0, 40)}${t.note.length > 40 ? '…' : ''}</span>`}
       </div>`}
-      ${compact && (t.time || ls || sp.total > 0) && html`<div class="meta">${(t.time || ls) && html`<span class=${'due ' + dueCls}>${ls === 'late' ? relDay(t.due) + (t.time ? ' ' + t.time : '') : t.time}</span>`}${ls && html`<button class=${'defer ' + ls} title="推迟到…" onClick=${(e) => postponeMenu(e, t)}>${lateTxt} · 推迟</button>`}${chip}</div>`}
+      ${compact && (t.time || ls || sp.total > 0) && html`<div class="meta">${ls ? html`<button class=${'defer ' + ls} title=${lateTxt + ' · 点击推迟'} onClick=${(e) => postponeMenu(e, t)}>${ls === 'late' ? relDay(t.due) + (t.time ? ' ' + t.time : '') : t.time + ' 已过'} <${Icon} name="down" size=${9} /></button>` : t.time && html`<span class=${'due ' + dueCls}>${t.time}</span>`}${chip}</div>`}
       ${showSteps && sp.total > 0 && html`<${StepList} t=${t} />`}
     </div>
     ${onEdit && html`<div class="acts"><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => onEdit(t)} /></div>`}

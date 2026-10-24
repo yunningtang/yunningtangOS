@@ -136,8 +136,17 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
   const y = (min) => ((min - from * 60) / 60) * hourH;
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const isToday = date === todayStr();
-  return html`<div class="tl" style=${`--h:${hourH}px`}>
-    ${hours.map((h) => html`<div class=${'hour ' + (onCreate ? 'click' : '')} onClick=${onCreate ? () => onCreate(minToTime(h * 60)) : undefined} ...${dropProps(['todo', 'block'], (d) => { if (d.kind === 'block') { const b = get().blocks.find((x) => x.id === d.id); if (!b) return; const len = timeToMin(b.end) - timeToMin(b.start); upsert('blocks', { id: b.id, date, start: minToTime(h * 60), end: minToTime(h * 60 + len) }); } else { const t = get().todos.find((x) => x.id === d.id); if (!t) return; upsert('todos', { id: t.id, due: date, time: minToTime(h * 60) }); if (onCreate && !get().blocks.some((x) => x.date === date && x.title === t.title)) upsert('blocks', { id: uid(), date, start: minToTime(h * 60), end: minToTime(h * 60 + 60), title: t.title, kind: 'focus', note: '' }); } })}><span>${String(h).padStart(2, '0')}:00</span></div>`)}
+  // 整条时间线是一个放置区：按松手的位置算到 15 分钟，落在已有块上也行
+  const dropAt = (d, { event }) => {
+    const r = event.currentTarget.getBoundingClientRect();
+    const min = Math.max(from * 60, Math.min(to * 60 - 15, from * 60 + Math.round(((event.clientY - r.top) / hourH) * 60 / 15) * 15));
+    if (d.kind === 'block') { const b = get().blocks.find((x) => x.id === d.id); if (!b) return; const len = timeToMin(b.end) - timeToMin(b.start); upsert('blocks', { id: b.id, date, start: minToTime(min), end: minToTime(Math.min(to * 60, min + len)) }); return; }
+    const t = get().todos.find((x) => x.id === d.id); if (!t) return;
+    upsert('todos', { id: t.id, due: date, time: minToTime(min) });
+    if (onCreate && !get().blocks.some((x) => x.date === date && x.title === t.title)) upsert('blocks', { id: uid(), date, start: minToTime(min), end: minToTime(Math.min(to * 60, min + 60)), title: t.title, kind: 'focus', note: '', todoId: t.id });
+  };
+  return html`<div class="tl" style=${`--h:${hourH}px`} ...${dropProps(['todo', 'block'], dropAt)}>
+    ${hours.map((h) => html`<div class=${'hour ' + (onCreate ? 'click' : '')} onClick=${onCreate ? () => onCreate(minToTime(h * 60)) : undefined}><span>${String(h).padStart(2, '0')}:00</span></div>`)}
     ${blocks.map((b0) => {
       const b = ghost && ghost.id === b0.id ? { ...b0, start: ghost.start, end: ghost.end } : b0;
       const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60);
@@ -332,9 +341,12 @@ function WeekTimeline() {
 export default function Planner({ route }) {
   const sub = route.sub || lsGet('ytos.plan.tab', 'week');
   useEffect(() => { if (route.sub) lsSet('ytos.plan.tab', route.sub); }, [route.sub]);
-  const tabs = [['week', '周计划'], ['day', '每日时间线'], ['weektl', '周时间线'], ['month', '月度目标']];
+  const ALL = { week: '周计划', day: '每日时间线', weektl: '周时间线', month: '月度目标' };
+  // 页签顺序可以拖动调整，记住
+  const [order, setOrder] = useState(() => { const saved = lsGet('ytos.plan.tabs', '').split(',').filter((k) => ALL[k]); return [...saved, ...Object.keys(ALL).filter((k) => !saved.includes(k))]; });
+  const reorder = (id, target, after) => setOrder((o) => { const next = o.filter((k) => k !== id); let i = next.indexOf(target); if (after) i++; next.splice(i, 0, id); lsSet('ytos.plan.tabs', next.join(',')); return next; });
   return html`<div>
-    <nav class="subnav" data-liquid="a"><span class="liq"></span>${tabs.map(([k, n]) => html`<a href=${'#/plan/' + k} class=${sub === k ? 'active' : ''}>${n}</a>`)}</nav>
+    <nav class="subnav" data-liquid="a"><span class="liq"></span>${order.map((k) => html`<a key=${k} href=${'#/plan/' + k} class=${sub === k ? 'active' : ''} title="拖动可调整顺序" ...${dragProps('ptab', { id: k })} ...${dropProps('ptab', (d, { after }) => { if (d.id !== k) reorder(d.id, k, after); }, { position: true, horizontal: true })}>${ALL[k]}</a>`)}</nav>
     ${sub === 'week' && html`<${WeekBoard} />`}
     ${sub === 'day' && html`<${DayView} initial=${route.query && route.query.d} />`}
     ${sub === 'weektl' && html`<${WeekTimeline} />`}
