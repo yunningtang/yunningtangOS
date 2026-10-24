@@ -121,7 +121,7 @@ function contextBlock(c = {}, mode) {
   if (c.who) lines.push(`现在登录的名字：${String(c.who).slice(0, 30)}（含 Riley / 蕴宁 是爸爸，含 Juniper / 欣然 是妈妈，都不是就按说话内容判断）`);
   if (mode === 'breakdown') {
     if (c.due) lines.push(`截止日期：${c.due}`);
-    if (c.note) lines.push(`对方 的备注：${String(c.note).slice(0, 400)}`);
+    if (c.note) lines.push(`对方的备注：${String(c.note).slice(0, 400)}`);
     if (c.existing && c.existing.length) lines.push(`页面里已经有的步骤：${clip(c.existing, 12).join('；')}`);
   } else {
     lines.push(`可用本子：${clip(c.notebooks, 20).join('、') || '（无）'}`);
