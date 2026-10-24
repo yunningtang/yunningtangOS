@@ -366,7 +366,7 @@ export function Seal() {
       ${badge > 0 && !open && html`<span class="seal-badge">${badge}</span>`}
     </button>
     <div class=${'seal-panel ' + (open ? '' : 'closed')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话">
-      <div class="seal-h"><div><b>汤圆</b><small>${aiOn ? 'AI 已接入 · 先预览再保存' : login && login.user ? '本地语法模式 · 未配置 AI' : '本地语法模式 · 登录后可用 AI'}</small></div><button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${14} /></button></div>
+      <div class="seal-h"><b>汤圆</b><small>${aiOn ? 'AI 已接入' : login && login.user ? '本地语法' : '未登录 · 本地语法'}</small><span class="flex1"></span>${msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${() => { setMsgs([]); setTxt(''); inRef.current && inRef.current.focus(); }}><${Icon} name="plus" size=${15} /></button>`}<button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button></div>
       <div class="seal-msgs" ref=${msgsRef}>
         ${msgs.length === 0 && html`<div class="sm bot">嗨，我是汤圆。随便说一句，我帮你拆成待办、时间块或笔记，你确认了我才记。</div>
           <div class="seal-hints">${HINTS.map((h) => html`<button key=${h} type="button" onClick=${() => ask(h)}>${h}</button>`)}</div>`}
@@ -386,7 +386,7 @@ export function Seal() {
       </div>
       <form class="seal-form" onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
         <input ref=${inRef} value=${txt} placeholder="和汤圆说点什么…" autocomplete="off" onInput=${(e) => setTxt(e.target.value)} />
-        <button class="btn primary sm" type="submit" disabled=${!txt.trim() || busy}>发送</button>
+        <button class="seal-send" type="submit" title="发送" disabled=${!txt.trim() || busy}><${Icon} name="up" size=${15} /></button>
       </form>
     </div>`;
 }
