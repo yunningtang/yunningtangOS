@@ -104,7 +104,7 @@ function buildSeal(THREE, cv) {
   const onHead = (x, y, z, lift = 0) => { const n = new THREE.Vector3(x, y, z).normalize(); return { p: hc.clone().add(new THREE.Vector3(n.x * 1.04, n.y * .97, n.z).multiplyScalar(HR + lift)), n }; };
   const stick = (o, s) => { o.position.copy(s.p); o.lookAt(s.p.clone().add(s.n)); headPiv.add(o); return o; };
 
-  // 脸（照着汤圆本尊）：奶白色鼓起的嘴部 + 黑鼻子 + 黑色绣线的 ω 嘴 + 纽扣眼；没有眉毛和胡子
+  // 脸（照着汤圆本尊）：奶白色鼓起的嘴部 + 黑鼻子 + 黑色绣线的 ω 嘴 + 灰色小眉毛 + 纽扣眼；没有胡子
   const FL = .075;
   const cream = new THREE.MeshPhysicalMaterial({ color: 0xeef0f3, roughness: .95, envMapIntensity: .3 });
   const patch = new THREE.Mesh(new THREE.SphereGeometry(.27, 64, 48), cream); patch.scale.set(1.18, .92, .4); stick(patch, onHead(0, -.3, .95, FL * .55)); addFur(patch, [14, 8], .025, 8, 0xd8dbe0, 0xffffff);
@@ -117,6 +117,9 @@ function buildSeal(THREE, cv) {
   const mouth = new THREE.Group(); stick(mouth, onHead(0, -.3, .96, FL * .55 + .12)); // ω 贴着鼻子下面一点点
   mouth.add(line([v3(0, .07, 0), v3(0, .0, 0)]));
   [-1, 1].forEach((sx) => mouth.add(line([v3(0, .0, 0), v3(sx * .07, -.055, -.004), v3(sx * .14, -.045, -.012), v3(sx * .19, .01, -.024)])));
+  // 眉毛：两块小灰椭圆，浮在毛面上一点，不然被毛盖住
+  const grey = new THREE.MeshStandardMaterial({ color: 0x2c313a, roughness: .95, envMapIntensity: .15 });
+  [-1, 1].forEach((sx) => { const b = new THREE.Mesh(new THREE.SphereGeometry(.07, 24, 16), grey); b.scale.set(1.45, .8, .35); b.rotation.z = sx * .12; stick(b, onHead(sx * .4, .33, .86, FL * 1.5)); });
   const eyes = [];
   [-1, 1].forEach((sx) => {
     const g = new THREE.Group(); stick(g, onHead(sx * .46, .0, .88, FL * .75));
