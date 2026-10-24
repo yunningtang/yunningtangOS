@@ -971,7 +971,9 @@ html[data-theme="dark"] .heat-col i.l1{background:#2a3d66}html[data-theme="dark"
 .cal-w{font-size:.66rem;color:var(--text-4);padding:4px 0}
 .cal-d{height:32px;border-radius:9px;font-size:.8rem;color:var(--text);position:relative}
 .cal-d:hover{background:var(--hover)}.cal-d.today{font-weight:600;color:var(--blue)}.cal-d.sel{background:var(--blue);color:#fff;font-weight:600}
-.pop.time{width:180px}
+.pop.time{width:236px}
+.time-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-top:8px}.time-h{height:28px;border-radius:7px;font-size:.78rem;font-variant-numeric:tabular-nums;color:var(--text-2)}.time-h:hover{background:var(--hover)}.time-h.sel{background:var(--blue);color:#fff}
+.time-mins{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}.time-m{height:30px;border-radius:8px;font-size:.8rem;font-variant-numeric:tabular-nums;color:var(--text-2);background:var(--hover)}.time-m:hover{background:var(--hover-2)}.time-m.sel{background:var(--blue);color:#fff}
 .time-in{margin-bottom:6px}
 .time-list{position:relative;max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:1px;scrollbar-width:thin}
 .time-i{padding:6px 10px;border-radius:8px;font-size:.84rem;text-align:left;color:var(--text);font-variant-numeric:tabular-nums}
@@ -1587,7 +1589,7 @@ html[data-theme="dark"] .si{box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
 .si.off{opacity:.45}.si.done{cursor:default}
 .si input{width:15px;height:15px;margin:0;accent-color:var(--blue);flex:none}
 .si-k{flex:none;font-size:.66rem;font-weight:600;padding:2px 6px;border-radius:6px;color:#fff;letter-spacing:.02em}
-.si-k.k-todo{background:var(--blue)}.si-k.k-block{background:#1f9d8a}.si-k.k-note{background:#c99a4a}
+.si-k.k-todo{background:var(--blue)}.si-k.k-block{background:#1f9d8a}.si-k.k-note{background:#c99a4a}.si-k.k-goal{background:#7461c9}.si-k.k-focus{background:#3b6fd6}.si-k.k-book{background:#2d8f88}.si-k.k-link{background:#8a5a44}.si-k.k-vision{background:#c9588a}
 .si-b{min-width:0;display:flex;flex-direction:column}.si-b b{font-weight:500;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.si-b small{font-size:.68rem;color:var(--text-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .si-save{align-self:flex-start;margin-top:4px}
 .si-saved{display:inline-flex;align-items:center;gap:4px;font-size:.74rem;color:var(--green);margin-top:4px}

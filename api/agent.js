@@ -34,10 +34,17 @@ const PERSONA = `你是「汤圆」，一只住在 Riley 个人 OS 里的小海�
 
 const SYSTEM_CAPTURE = `${PERSONA}
 
-你的工作：把 Riley 随手说的一句话，拆成系统能直接保存的对象。三种对象：
-- todo：一件要做的事。date（YYYY-MM-DD）、time（HH:MM）、priority（0 最紧急 … 3 最不急，默认 2）、tags。
+你的工作：把 Riley 随手说的一句话，拆成系统能直接保存的对象。系统有这些模块，每种对象对应一个：
+- todo：一件具体要做的事（待办）。date（YYYY-MM-DD）、time（HH:MM）、priority（0 最紧急 … 3 最不急，默认 2）、tags。
 - block：时间线上的一段安排，必须有 date、start、end（HH:MM）。block_kind 从「可用时间块类型」里选最贴切的名字，没有就 null。
-- note：一段想法、灵感、总结、多行内容。title 简短，body 是正文（Markdown），notebook 从「可用本子」里选最贴切的名字，不确定填 null。
+- note：一段想法、灵感、总结、多行内容（笔记）。title 简短，body 是正文（Markdown），notebook 从「可用本子」里选最贴切的名字，不确定填 null。
+- goal：月度目标（计划 → 月度目标）。Riley 说「这个月的目标」「月度目标」「本月要…」就用它。title 是目标，subitems 是 2–4 条可勾选的关键结果（具体、可判断完成），date 填该月任意一天（没说就 null = 本月）。
+- focus：本周焦点（计划 → 周计划）。「这周重点」「本周焦点」「这周就干这三件」。一条一个 focus，title 是那件事。
+- book：加入书架（阅读）。「想读 X」「把 X 加到书单」「这本书」。title 书名，author 作者（不知道就 null），body 可放一句为什么想读。
+- link：收藏一个链接。文字里有 URL 就用它，url 必填，title 是网页标题或 Riley 的描述。
+- vision：愿景里的肯定句（愿景 → 显化）。「我想成为…」「愿景是…」「肯定句」这类长期的、关于自己的话。title 就是那句话。
+
+分不清是 todo 还是 goal 时看时间尺度：几天内能做完的是 todo，要一个月持续推进的是 goal。goal 下面不要再额外生成 todo，除非 Riley 明确说了具体步骤。
 
 拆分规则：
 1. 一句话里有几件事就拆成几条，每条只做一件事；「A，然后 B」「A，顺便 B」是两条。不要凭空添加 Riley 没说的事。
@@ -71,10 +78,13 @@ const SYSTEM_BREAKDOWN = `${PERSONA}
 
 const ITEM = {
   type: 'object', additionalProperties: false,
-  required: ['kind', 'title', 'date', 'time', 'start', 'end', 'priority', 'tags', 'block_kind', 'notebook', 'body'],
+  required: ['kind', 'title', 'subitems', 'url', 'author', 'date', 'time', 'start', 'end', 'priority', 'tags', 'block_kind', 'notebook', 'body'],
   properties: {
-    kind: { type: 'string', enum: ['todo', 'block', 'note'] },
+    kind: { type: 'string', enum: ['todo', 'block', 'note', 'goal', 'focus', 'book', 'link', 'vision'] },
     title: { type: 'string' },
+    subitems: { type: 'array', items: { type: 'string' } },
+    url: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    author: { anyOf: [{ type: 'string' }, { type: 'null' }] },
     date: { anyOf: [{ type: 'string' }, { type: 'null' }] },
     time: { anyOf: [{ type: 'string' }, { type: 'null' }] },
     start: { anyOf: [{ type: 'string' }, { type: 'null' }] },
@@ -95,7 +105,7 @@ const STEP = {
 const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'steps'], properties: { reply: { type: 'string' }, steps: { type: 'array', items: STEP } } };
 
 const JSON_HINT = {
-  capture: '只输出一个 JSON 对象：{"reply": "...", "items": [...]}，每个 item 含 kind,title,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 是数组）。不要输出 JSON 之外的任何文字。',
+  capture: '只输出一个 JSON 对象：{"reply": "...", "items": [...]}，每个 item 含 kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
 };
 
@@ -111,6 +121,8 @@ function contextBlock(c = {}, mode) {
     lines.push(`可用时间块类型：${clip(c.kinds, 20).join('、') || '（无）'}`);
     lines.push(`已有标签：${clip(c.tags, 40).join('、') || '（无）'}`);
     lines.push(`今天已有的待办：${clip(c.todos, 20).join('；') || '（无）'}`);
+    if (c.goals && c.goals.length) lines.push(`本月已有的目标：${clip(c.goals, 10).join('；')}`);
+    if (c.focus) lines.push(`本周焦点：${String(c.focus).slice(0, 200)}`);
   }
   return lines.join('\n');
 }
@@ -215,6 +227,6 @@ export default async function handler(req, res) {
     const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).filter((x) => x && x.title).slice(0, 7).map((x) => ({ title: String(x.title).slice(0, 60), minutes: Number.isInteger(x.minutes) ? Math.max(5, Math.min(180, x.minutes)) : 25, kind: ['语言', '思考', '记忆', '动手'].includes(x.kind) ? x.kind : '思考', hint: typeof x.hint === 'string' ? x.hint.slice(0, 80) : '' }));
     return json(res, 200, { ...base, steps });
   }
-  const items = (Array.isArray(got.out.items) ? got.out.items : []).filter((it) => it && ['todo', 'block', 'note'].includes(it.kind) && it.title);
+  const items = (Array.isArray(got.out.items) ? got.out.items : []).filter((it) => it && ['todo', 'block', 'note', 'goal', 'focus', 'book', 'link', 'vision'].includes(it.kind) && it.title);
   json(res, 200, { ...base, items });
 }

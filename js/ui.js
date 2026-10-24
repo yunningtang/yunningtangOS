@@ -266,20 +266,23 @@ export function Select({ value, options = [], onChange, placeholder = '—', cla
   </div>`;
 }
 
-export function TimeInput({ value, onChange, placeholder = '时间', step = 30, clearable = true, class: cls = '' }) {
+export function TimeInput({ value, onChange, placeholder = '时间', clearable = true, class: cls = '' }) {
+  // 不滚动：先点小时（24 格），再点分钟（00 / 15 / 30 / 45）；也可以直接输入 9:30
   const [open, setOpen] = useState(false);
   const ref = useRef();
-  const listRef = useRef();
   const pos = usePopover(open, setOpen, ref);
-  const slots = [];
-  for (let m = 0; m < 24 * 60; m += step) slots.push(`${_pad(Math.floor(m / 60))}:${_pad(m % 60)}`);
-  useEffect(() => { if (open && listRef.current) { const el = listRef.current.querySelector('.sel') || listRef.current.querySelector(`[data-t="${(value || '09:00').slice(0, 2)}:00"]`); if (el) listRef.current.scrollTop = el.offsetTop - 80; } }, [open, pos]);
-  const commit = (v) => { const m = v.trim().match(/^(\d{1,2})[:：.]?(\d{2})?$/); if (!m) return; const h = Math.min(23, +m[1]), mm = Math.min(59, +(m[2] || 0)); onChange(`${_pad(h)}:${_pad(mm)}`); setOpen(false); };
+  const [h, m] = value ? value.split(':').map(Number) : [null, null];
+  const [hh, setHh] = useState(h);
+  useEffect(() => { if (open) setHh(h); }, [open]);
+  const commit = (v) => { const mt = v.trim().match(/^(\d{1,2})[:：.]?(\d{2})?$/); if (!mt) return; const H = Math.min(23, +mt[1]), M = Math.min(59, +(mt[2] || 0)); onChange(`${_pad(H)}:${_pad(M)}`); setOpen(false); };
+  const pickH = (H) => { setHh(H); if (m != null) { onChange(`${_pad(H)}:${_pad(m)}`); } else { onChange(`${_pad(H)}:00`); } };
+  const pickM = (M) => { const H = hh != null ? hh : (h != null ? h : 9); onChange(`${_pad(H)}:${_pad(M)}`); setOpen(false); };
   return html`<div class=${'pick ' + cls}>
     <button type="button" ref=${ref} class=${'pick-btn ' + (value ? '' : 'is-empty')} onClick=${() => setOpen(!open)}><${Icon} name="clock" size=${13} /><span>${value || placeholder}</span></button>
     ${open && pos && createPortal(html`<div class="pop time" style=${`top:${pos.top}px;left:${pos.left}px`}>
-      <input type="text" class="time-in" placeholder="输入如 9:30" autofocus onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(e.target.value); } }} />
-      <div class="time-list" ref=${listRef}>${slots.map((s) => html`<button type="button" key=${s} data-t=${s} class=${'time-i ' + (s === value ? 'sel' : '')} onClick=${() => { onChange(s); setOpen(false); }}>${s}</button>`)}</div>
+      <input type="text" class="time-in" placeholder="输入如 9:30 回车" autofocus onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(e.target.value); } }} />
+      <div class="time-grid">${Array.from({ length: 24 }, (_, H) => html`<button type="button" key=${H} class=${'time-h ' + ((hh != null ? hh : h) === H ? 'sel' : '')} onClick=${() => pickH(H)}>${_pad(H)}</button>`)}</div>
+      <div class="time-mins">${[0, 15, 30, 45].map((M) => html`<button type="button" key=${M} class=${'time-m ' + (m === M && (hh == null || hh === h) ? 'sel' : '')} onClick=${() => pickM(M)}>:${_pad(M)}</button>`)}</div>
       ${clearable && value && html`<div class="pop-f"><button type="button" class="btn ghost sm" onClick=${() => { onChange(''); setOpen(false); }}>清除</button></div>`}
     </div>`, document.body)}
   </div>`;

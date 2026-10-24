@@ -5,7 +5,8 @@ import { html, useState, useEffect, useRef } from '../vendor/preact.js';
 import { useStore, upsert, get, update } from './store.js';
 import { ctxMenu } from './ctx.js';
 import { Icon } from './ui.js';
-import { uid, todayStr, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, escapeHtml } from './util.js';
+import { uid, todayStr, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, escapeHtml, weekKey, monthKey, hostOf } from './util.js';
+import { typesOf, autoCover } from './views/reading.js';
 import { loginState } from './sync.js';
 import { detect, plan } from './capture.js';
 import { newNote } from './views/notes.js';
@@ -15,7 +16,7 @@ import { aiHeaders, aiEnabled, aiLabel, recordUsage } from './ai.js';
 import { go, toast } from './nav.js';
 
 const S = 88, M = 18; // fab size / margin
-const KIND_LABEL = { todo: '待办', block: '时间块', note: '笔记' };
+const KIND_LABEL = { todo: '待办', block: '时间块', note: '笔记', goal: '月度目标', focus: '周焦点', book: '书架', link: '收藏', vision: '愿景' };
 
 /* ---------------- three.js (vendored) ---------------- */
 let threeP;
@@ -174,7 +175,10 @@ function fromAI(it, s) {
     priority: Number.isInteger(it.priority) ? Math.max(0, Math.min(3, it.priority)) : 2,
     tags: (Array.isArray(it.tags) ? it.tags : []).map((x) => String(x).replace(/^#/, '').trim()).filter(Boolean).slice(0, 6),
     kindV: kind ? kind.v : 'focus', nb: nb ? nb.id : (it.kind === 'note' ? 'nb-inbox' : null), body: typeof it.body === 'string' ? it.body.trim() : '',
+    subitems: (Array.isArray(it.subitems) ? it.subitems : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 6),
+    url: typeof it.url === 'string' ? it.url.trim() : '', author: typeof it.author === 'string' ? it.author.trim() : '',
   };
+  if (item.kind === 'link' && !/^https?:\/\//i.test(item.url)) { const m = (item.title + ' ' + item.body).match(/https?:\/\/\S+/); if (m) item.url = m[0]; else item.kind = 'todo'; }
   if (item.kind === 'block' && !item.start) { item.kind = 'todo'; } // 没有起止时间就不是时间块
   if (item.kind === 'block') { if (!item.date) item.date = todayStr(); if (!item.end || timeToMin(item.end) <= timeToMin(item.start)) item.end = minToTime(timeToMin(item.start) + 60); }
   return item.title ? item : null;
@@ -182,14 +186,19 @@ function fromAI(it, s) {
 function fromLocal(text, s) {
   const p = plan(text, detect(text), s.notebooks);
   if (p.invalid) return [];
-  if (p.kind === 'todo') return [{ id: uid(), on: true, kind: 'todo', title: p.todo.title, date: p.todo.due || '', time: p.todo.time || '', start: '', end: '', priority: p.todo.priority, tags: p.todo.tags, kindV: 'focus', nb: null, body: '' }];
-  if (p.kind === 'block') return [{ id: uid(), on: true, kind: 'block', title: p.block.title, date: p.block.date, time: '', start: p.block.start, end: p.block.end, priority: 2, tags: [], kindV: 'focus', nb: null, body: '' }];
-  return [{ id: uid(), on: true, kind: 'note', title: p.note.title || '无标题', date: '', time: '', start: '', end: '', priority: 2, tags: p.note.tags, kindV: 'focus', nb: p.note.nb || 'nb-inbox', body: p.note.body }];
+  if (p.kind === 'todo') return [{ id: uid(), on: true, kind: 'todo', title: p.todo.title, date: p.todo.due || '', time: p.todo.time || '', start: '', end: '', priority: p.todo.priority, tags: p.todo.tags, kindV: 'focus', nb: null, body: '', subitems: [], url: '', author: '' }];
+  if (p.kind === 'block') return [{ id: uid(), on: true, kind: 'block', title: p.block.title, date: p.block.date, time: '', start: p.block.start, end: p.block.end, priority: 2, tags: [], kindV: 'focus', nb: null, body: '', subitems: [], url: '', author: '' }];
+  return [{ id: uid(), on: true, kind: 'note', title: p.note.title || '无标题', date: '', time: '', start: '', end: '', priority: 2, tags: p.note.tags, kindV: 'focus', nb: p.note.nb || 'nb-inbox', body: p.note.body, subitems: [], url: '', author: '' }];
 }
 function metaOf(it, s) {
   const d = it.date ? (it.date === todayStr() ? '今天' : it.date === todayStr(new Date(Date.now() + 864e5)) ? '明天' : it.date.slice(5).replace('-', '/')) : '';
   if (it.kind === 'todo') return [d || '无日期', it.time, 'P' + it.priority, ...it.tags.map((t) => '#' + t)].filter(Boolean).join(' · ');
   if (it.kind === 'block') { const k = allKinds().find((x) => x.v === it.kindV); return [d, `${it.start}–${it.end}`, k && k.name].filter(Boolean).join(' · '); }
+  if (it.kind === 'goal') { const mk = it.date ? it.date.slice(0, 7) : monthKey(); return [`${+mk.slice(5)} 月`, it.subitems.length ? `${it.subitems.length} 个关键结果：${it.subitems.join('；')}` : '没有关键结果'].join(' · '); }
+  if (it.kind === 'focus') return `本周（${weekKey()}）`;
+  if (it.kind === 'book') return [it.author || '作者未知', '想读', ...it.tags.map((t) => '#' + t)].filter(Boolean).join(' · ');
+  if (it.kind === 'link') return [hostOf(it.url), ...it.tags.map((t) => '#' + t)].filter(Boolean).join(' · ');
+  if (it.kind === 'vision') return '显化 · 肯定句';
   const nb = s.notebooks.find((b) => b.id === it.nb);
   return [nb ? nb.name : '收件箱', ...it.tags.map((t) => '#' + t), it.body && `${it.body.length} 字`].filter(Boolean).join(' · ');
 }
@@ -199,6 +208,11 @@ function saveItems(items) {
     if (!it.on) continue;
     if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; }
     else if (it.kind === 'block') { const b = { id: uid(), date: it.date, start: it.start, end: it.end, title: it.title, kind: it.kindV, note: it.body }; upsert('blocks', b); last = 'plan/day?d=' + b.date; }
+    else if (it.kind === 'goal') { const mk = it.date ? it.date.slice(0, 7) : monthKey(); const g = { id: uid(), title: it.title, area: '', why: it.body || '', krs: it.subitems.map((text) => ({ id: uid(), text, done: false })), progress: 0 }; update((d) => { d.goals[mk] = d.goals[mk] || []; d.goals[mk].push(g); }); last = 'plan/month'; }
+    else if (it.kind === 'focus') { const key = weekKey(); update((d) => { d.weeks[key] = d.weeks[key] || { focus: '', items: {}, review: '' }; const lines = (d.weeks[key].focus || '').split('\n').filter((x) => x.trim()); if (lines.length < 3) lines.push(it.title); else lines[2] = it.title; d.weeks[key].focus = lines.join('\n'); }); last = 'plan/week'; }
+    else if (it.kind === 'book') { const st = get(); const b = { id: uid(), title: it.title, author: it.author, type: typesOf(st)[0][0], status: 'want', progress: 0, total: 0, rating: 0, cover: '', link: '', note: it.body, tags: it.tags, color: ['#2d8f88', '#3b6fd6', '#7461c9', '#c9588a', '#c7873a'][st.books.length % 5], started: '', finished: '', created: todayStr() }; upsert('books', b); autoCover(b, true); last = 'reading?open=' + b.id; }
+    else if (it.kind === 'link') { const l = { id: uid(), url: it.url, host: hostOf(it.url), title: it.title || hostOf(it.url), note: it.body, tags: it.tags, fav: false, read: false, created: todayStr() }; upsert('links', l); last = 'links'; }
+    else if (it.kind === 'vision') { update((d) => { d.vision.statements.push({ id: uid(), text: it.title, created: todayStr() }); }); last = 'vision'; }
     else { const nn = newNote({ title: it.title, body: it.body, tags: it.tags, nb: it.nb || 'nb-inbox', blocks: mdToBlocks(it.body) }); last = 'notes/' + nn.id; }
     n++;
   }
@@ -215,10 +229,12 @@ function buildContext(s) {
     notebooks: s.notebooks.map((b) => b.name), kinds: allKinds().map((k) => k.name),
     tags: Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([k]) => k),
     todos: s.todos.filter((t) => !t.done && (!t.due || t.due <= today)).slice(0, 20).map((t) => t.title),
+    goals: (s.goals[monthKey()] || []).map((g) => g.title),
+    focus: (s.weeks[weekKey()] || {}).focus || '',
   };
 }
 
-const HINTS = ['明天下午两点开组会，会后把纪要整理到研究本子', '周五前把论文初稿发给导师，很急', '今晚 20:00-21:30 跑步', '今天的一个想法：把复习卡片按遗忘曲线排序'];
+const HINTS = ['明天下午两点开组会，会后把纪要整理到研究本子', '这个月的目标：考完雅思 G 类，每周两套真题', '想读《纳瓦尔宝典》，还有把这篇文章收藏 https://example.com', '我想成为一个每天都在创造的人'];
 
 /* ---------------- 组件 ---------------- */
 export function Seal() {
