@@ -1883,13 +1883,13 @@ html[data-skin="liquid"] .todo,html[data-skin="liquid"] .lk{border-radius:14px}
 html[data-skin="liquid"] .page-h h1,html[data-skin="liquid"] .hero .greet h1{letter-spacing:-.02em;font-weight:700}
 
 /* ============ macOS 原生（Golden Gate）============
-   照系统自带软件的样子：侧栏贴着窗口边缘，没有圆角和阴影，只靠一层浅浅的底色和正文分开（浅色下比正文深一点、深色下浅一点）。
-   配色用 Apple 的系统色，字体用 SF（-apple-system），控件是系统控件的尺寸和圆角。 */
+   照 macOS 26 以后系统自带软件的样子：侧栏贴着窗口边缘，没有圆角和阴影，只靠一层浅浅的底色和正文分开（浅色下比正文深一点、深色下浅一点）。
+   配色用 Apple 的系统色，字体用 SF（-apple-system），控件是胶囊形的系统按钮和分段控件，卡片和弹窗圆角更大。 */
 html[data-skin="mac"]{
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue","PingFang SC","Hiragino Sans GB","Noto Sans SC",system-ui,sans-serif;
   --serif:"New York","Songti SC","STSong","Noto Serif SC",Georgia,serif;
   --mono:"SF Mono",ui-monospace,Menlo,monospace;
-  --r:10px;--r2:6px;--r3:5px;--blur:0px;
+  --r:18px;--r2:11px;--r3:9px;--blur:0px;
   --bg:#ffffff;--side:#f3f3f5;--paper:#ffffff;--card-bg:#ffffff;
   --ink:#000000;--text:rgba(0,0,0,.85);--text-2:rgba(0,0,0,.7);--text-3:rgba(0,0,0,.5);--text-4:rgba(0,0,0,.3);
   --g1:#000;--g2:#3a3a3c;--g3:#636366;--g4:#8e8e93;--g5:#aeaeb2;--g6:#d1d1d6;--g7:#e5e5ea;
@@ -1919,11 +1919,11 @@ html[data-skin="mac"] h1,html[data-skin="mac"] h2,html[data-skin="mac"] h3,html[
 /* 侧栏：贴边、方角、无阴影，只有一层底色；分隔线也去掉 */
 html[data-skin="mac"] .side{background:var(--side);border-right:0;box-shadow:none;padding:10px 10px 12px}
 html[data-skin="mac"] .splitter::after{left:0;width:1px;border-radius:0}
-html[data-skin="mac"] .nav a{border-radius:5px;min-height:28px;padding:3px 8px;font-size:13px}
-html[data-skin="mac"] .nav>.liq{border-radius:5px;background:var(--blue)}
+html[data-skin="mac"] .nav a{border-radius:9px;min-height:28px;padding:3px 9px;font-size:13px}
+html[data-skin="mac"] .nav>.liq{border-radius:9px;background:var(--blue)}
 html[data-skin="mac"] .nav a.active,html[data-skin="mac"] .nav a.active .ic,html[data-skin="mac"] .nav a.active .cnt{color:#fff}
-html[data-skin="mac"] .side.mini .nav a,html[data-skin="mac"] .side.mini .nav>.liq{border-radius:7px}
-html[data-skin="mac"] .side-user,html[data-skin="mac"] .side-user.active{border-radius:5px}
+html[data-skin="mac"] .side.mini .nav a,html[data-skin="mac"] .side.mini .nav>.liq{border-radius:12px}
+html[data-skin="mac"] .side-user,html[data-skin="mac"] .side-user.active{border-radius:9px}
 /* 笔记的两栏：笔记本栏和页面列表栏也是贴边的平面，正文才是白纸 */
 html[data-skin="mac"] .nb-layout{gap:0;margin-top:-8px}
 html[data-skin="mac"] .card.nb-col,html[data-skin="mac"] .card.list-col{border-radius:0;box-shadow:none;top:52px;height:calc(100vh - 52px);max-height:calc(100vh - 52px)}
@@ -1934,35 +1934,35 @@ html[data-skin="mac"] .nb-layout .splitter::after{background:var(--line)}
 html[data-skin="mac"] .nb-layout .splitter:hover::after,html[data-skin="mac"] body.resizing .nb-layout .splitter::after{background:rgba(var(--ac),.6)}
 html[data-skin="mac"] .nb-col::after,html[data-skin="mac"] .list-col::after{display:none}
 html[data-skin="mac"] .card.notes-main{box-shadow:none;border-radius:0;background:var(--paper)}
-html[data-skin="mac"] .nb-list>.liq,html[data-skin="mac"] .lc-list>.liq{border-radius:5px}
+html[data-skin="mac"] .nb-list>.liq,html[data-skin="mac"] .lc-list>.liq{border-radius:9px}
 /* 顶栏：和正文同色，滚动后只有一道发丝线 */
 html[data-skin="mac"] .topbar{--tb-bg:var(--bg)}
 html[data-skin="mac"] .topbar::after{height:1px;background:var(--line)}
 /* 卡片：平面分组框，发丝边，无阴影，无高光 */
 html[data-skin="mac"] .card{background:var(--card-bg);box-shadow:0 0 0 1px var(--glass-edge)}
 html[data-skin="mac"] .card::after{display:none}
-html[data-skin="mac"] .bcol{border-radius:8px;background:var(--side);box-shadow:none}
-html[data-skin="mac"] .bcard{border-radius:6px;box-shadow:0 0 0 1px var(--line),0 1px 1px rgba(0,0,0,.04)}
-html[data-skin="mac"] .tl .blk,html[data-skin="mac"] .mt-b{border-radius:6px}
-html[data-skin="mac"] .todo,html[data-skin="mac"] .lk{border-radius:5px}
+html[data-skin="mac"] .bcol{border-radius:16px;background:var(--side);box-shadow:none}
+html[data-skin="mac"] .bcard{border-radius:12px;box-shadow:0 0 0 1px var(--line),0 1px 1px rgba(0,0,0,.04)}
+html[data-skin="mac"] .tl .blk,html[data-skin="mac"] .mt-b{border-radius:10px}
+html[data-skin="mac"] .todo,html[data-skin="mac"] .lk{border-radius:10px}
 /* 控件：系统按钮（白底发丝边、浅阴影）、蓝色主按钮、分段控件、圆角 6 的输入框 */
-html[data-skin="mac"] .btn{height:28px;padding:0 11px;border-radius:6px;font-size:13px;font-weight:400;background:var(--paper);border:1px solid var(--line-2);box-shadow:0 .5px 1px rgba(0,0,0,.08)}
+html[data-skin="mac"] .btn{height:28px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:400;background:var(--paper);border:1px solid var(--line-2);box-shadow:0 .5px 1px rgba(0,0,0,.08)}
 html[data-skin="mac"] .btn:hover{background:var(--hover)}
 html[data-skin="mac"][data-theme="dark"] .btn{background:#3a3a3c;border-color:rgba(255,255,255,.12);box-shadow:0 .5px 1px rgba(0,0,0,.3)}
 html[data-skin="mac"][data-theme="dark"] .btn:hover{background:#454547}
 html[data-skin="mac"] .btn.primary,html[data-skin="mac"][data-theme="dark"] .btn.primary{color:#fff;background:linear-gradient(180deg,rgba(var(--ac),1),color-mix(in srgb,rgb(var(--ac)) 88%,#000));border-color:transparent;box-shadow:0 .5px 1px rgba(0,0,0,.2)}
 html[data-skin="mac"] .btn.ghost,html[data-skin="mac"][data-theme="dark"] .btn.ghost{background:transparent;border-color:transparent;box-shadow:none}
 html[data-skin="mac"] .btn.sm{height:24px;font-size:12px}
-html[data-skin="mac"] .ibtn{border-radius:6px}
-html[data-skin="mac"] .seg{height:28px;padding:2px;border-radius:7px;background:var(--hover)}
-html[data-skin="mac"] .seg button{height:24px;border-radius:5px;font-size:12px}
-html[data-skin="mac"] .seg>.liq{border-radius:5px;background:var(--paper);box-shadow:0 0 0 .5px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.12)}
+html[data-skin="mac"] .ibtn{border-radius:999px}
+html[data-skin="mac"] .seg{height:28px;padding:2px;border-radius:999px;background:var(--hover)}
+html[data-skin="mac"] .seg button{height:24px;border-radius:999px;font-size:12px}
+html[data-skin="mac"] .seg>.liq{border-radius:999px;background:var(--paper);box-shadow:0 0 0 .5px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.12)}
 html[data-skin="mac"][data-theme="dark"] .seg>.liq{background:#5a5a5e;box-shadow:0 1px 2px rgba(0,0,0,.3)}
-html[data-skin="mac"] input[type=text],html[data-skin="mac"] input[type=url],html[data-skin="mac"] input[type=number],html[data-skin="mac"] input[type=search],html[data-skin="mac"] select,html[data-skin="mac"] textarea,html[data-skin="mac"] .quickadd,html[data-skin="mac"] .searchin{border-radius:6px;background:var(--paper);border:1px solid var(--line-2);box-shadow:none}
+html[data-skin="mac"] input[type=text],html[data-skin="mac"] input[type=url],html[data-skin="mac"] input[type=number],html[data-skin="mac"] input[type=search],html[data-skin="mac"] select,html[data-skin="mac"] textarea,html[data-skin="mac"] .quickadd,html[data-skin="mac"] .searchin{border-radius:10px;background:var(--paper);border:1px solid var(--line-2);box-shadow:none}
 html[data-skin="mac"][data-theme="dark"] input[type=text],html[data-skin="mac"][data-theme="dark"] input[type=url],html[data-skin="mac"][data-theme="dark"] input[type=number],html[data-skin="mac"][data-theme="dark"] input[type=search],html[data-skin="mac"][data-theme="dark"] select,html[data-skin="mac"][data-theme="dark"] textarea,html[data-skin="mac"][data-theme="dark"] .quickadd,html[data-skin="mac"][data-theme="dark"] .searchin{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14)}
-html[data-skin="mac"] .tag,html[data-skin="mac"] .chip{border-radius:5px;box-shadow:none}
-html[data-skin="mac"] .subnav a{border-radius:5px}html[data-skin="mac"] .subnav>.liq{border-radius:5px}
+html[data-skin="mac"] .tag,html[data-skin="mac"] .chip{border-radius:999px;box-shadow:none}
+html[data-skin="mac"] .subnav a{border-radius:999px}html[data-skin="mac"] .subnav>.liq{border-radius:999px}
 /* 浮层：系统弹窗和菜单，圆角 10，发丝边加柔和阴影；菜单底色不透明 */
-html[data-skin="mac"] .modal,html[data-skin="mac"] .pop,html[data-skin="mac"] .popmenu,html[data-skin="mac"] .cap,html[data-skin="mac"] .seal-panel,html[data-skin="mac"] .ctx{border-radius:10px;background:var(--paper);box-shadow:var(--pop)}
+html[data-skin="mac"] .modal,html[data-skin="mac"] .pop,html[data-skin="mac"] .popmenu,html[data-skin="mac"] .cap,html[data-skin="mac"] .seal-panel,html[data-skin="mac"] .ctx{border-radius:18px;background:var(--paper);box-shadow:var(--pop)}
 html[data-skin="mac"][data-theme="dark"] .modal,html[data-skin="mac"][data-theme="dark"] .pop,html[data-skin="mac"][data-theme="dark"] .popmenu,html[data-skin="mac"][data-theme="dark"] .cap,html[data-skin="mac"][data-theme="dark"] .seal-panel,html[data-skin="mac"][data-theme="dark"] .ctx{background:#2a2a2c}
-html[data-skin="mac"] .seal-form,html[data-skin="mac"] .ac{border-radius:8px}
+html[data-skin="mac"] .seal-form,html[data-skin="mac"] .ac{border-radius:14px}html[data-skin="mac"] .seal-send,html[data-skin="mac"] .quickadd{border-radius:999px}html[data-skin="mac"] .popmenu,html[data-skin="mac"] .ctx{border-radius:12px}
