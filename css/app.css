@@ -260,7 +260,7 @@ html[data-theme="dark"] .card::after{box-shadow:inset 0 0 0 1px var(--glass-line
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:200;padding:8px 14px;border-radius:var(--r2);background:var(--ink);color:var(--bg);font-size:.8rem;box-shadow:var(--pop);animation:pop .15s}
 
 /* ===== Dashboard ===== */
-.dash3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start;grid-auto-flow:row dense}
+.dash3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch;grid-auto-flow:row dense}
 .widget{position:relative;min-width:0;display:flex;flex-direction:column}
 .widget>.card{min-height:var(--wh,auto);flex:1;display:flex;flex-direction:column}
 .widget[data-span-preview="1"]{grid-column:span 1!important}.widget[data-span-preview="2"]{grid-column:span 2!important}.widget[data-span-preview="3"]{grid-column:1 / -1!important}
@@ -1774,3 +1774,14 @@ html[data-theme="dark"] .seal-form{box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .goal .krs li.dragging{opacity:.4}.goal .krs li.drop-before{box-shadow:inset 0 2px 0 var(--blue)}.goal .krs li.drop-after{box-shadow:inset 0 -2px 0 var(--blue)}
 .goal .krs .kr-new{padding:2px 4px;cursor:default}.goal .krs .kr-new:hover{background:transparent}.goal .krs .kr-new button{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;color:var(--text-4);padding:2px 4px;border-radius:6px}.goal .krs .kr-new button:hover{color:var(--text-2);background:var(--hover)}
 .goal .krs li:not(.done) .cb{color:transparent}
+
+/* 总览：会变长的卡内部滚动，不把同一行的卡撑高 */
+.dash3 .todo-card .tlist{max-height:560px;overflow:auto}
+/* 汤圆对话窗：头部 / 消息 / 输入框共用同一条左右边线 */
+.seal-h{padding:12px 16px 4px 16px}.seal-hc{display:flex;align-items:center;gap:4px;width:100%}
+.seal-panel.big .seal-h{padding:14px 28px 6px}.seal-panel.big .seal-hc{max-width:720px}
+.seal-msgs{padding:8px 16px 10px}.seal-cw{padding:0 16px 14px}
+.seal-panel.big .seal-msgs{padding:12px 28px 16px}.seal-panel.big .seal-cw{padding:0 28px 22px}
+.seal-hints{margin:0 -10px}.seal-intro{padding:8px 0 0}.sm.bot{padding:0}
+.seal-ava{border-radius:50%;object-fit:cover}img.seal-ava{background:color-mix(in srgb,var(--hover) 60%,transparent)}
+.seal-panel.big .seal-col.seal-cw{max-width:776px}

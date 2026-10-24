@@ -302,6 +302,8 @@ export function Seal() {
   const openRef = useRef(false); openRef.current = open;
   const bigRef = useRef(false); bigRef.current = big;
   const undoRef = useRef({}); // 每条已保存消息的撤销函数
+  const [ava, setAva] = useState(() => { try { return sessionStorage.getItem('ytos.seal.ava') || ''; } catch { return ''; } });
+  api.current.setAvatar = (u) => { setAva(u); try { sessionStorage.setItem('ytos.seal.ava', u); } catch {} };
   const [pinnedPos, setPinnedPos] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.panelpos') || 'null'); } catch { return null; } });
   api.current.pinnedPos = pinnedPos;
   const savePos = (v) => { setPinnedPos(v); api.current.pinnedPos = v; try { v ? localStorage.setItem('ytos.seal.panelpos', JSON.stringify(v)) : localStorage.removeItem('ytos.seal.panelpos'); } catch {} api.current.posPanel && api.current.posPanel(); };
@@ -457,7 +459,21 @@ export function Seal() {
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    loadThree().then((THREE) => { if (dead) return; try { model = buildSeal(THREE, cv); } catch (err) { console.error(err); fab.classList.add('nogl'); } }).catch(() => fab.classList.add('nogl'));
+    // 头像：模型加载好后正脸渲染一帧，抠出头部存成小图（对话窗头部用）
+    const snapshot = () => {
+      if (!model) return; const { renderer, scene, camera, seal, headPiv, eyes } = model;
+      const keep = { ry: seal.rotation.y, rx: seal.rotation.x, rz: seal.rotation.z, hx: headPiv.rotation.x, hy: headPiv.rotation.y, sc: seal.scale.clone(), py: seal.position.y, ey: eyes.map((g) => g.scale.y) };
+      seal.rotation.set(0, 0, 0); headPiv.rotation.set(-.04, 0, 0); seal.scale.set(1, 1, 1); seal.position.y = 0; eyes.forEach((g) => { g.scale.y = 1; });
+      renderer.render(scene, camera);
+      try {
+        const src = document.createElement('canvas'); src.width = cv.width; src.height = cv.height; const g = src.getContext('2d'); g.drawImage(cv, 0, 0);
+        const d = g.getImageData(0, 0, src.width, src.height).data; let minX = src.width, maxX = 0, minY = src.height;
+        for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) { if (d[(y * src.width + x) * 4 + 3] > 200) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; } }
+        if (maxX > minX) { const w = (maxX - minX) * .62, cx = (minX + maxX) / 2; const out = document.createElement('canvas'); out.width = out.height = 96; out.getContext('2d').drawImage(src, cx - w / 2, minY - w * .14, w, w, 0, 0, 96, 96); api.current.setAvatar && api.current.setAvatar(out.toDataURL('image/png')); }
+      } catch {}
+      seal.rotation.set(keep.rx, keep.ry, keep.rz); headPiv.rotation.set(keep.hx, keep.hy, 0); seal.scale.copy(keep.sc); seal.position.y = keep.py; eyes.forEach((g, i) => { g.scale.y = keep.ey[i]; });
+    };
+    loadThree().then((THREE) => { if (dead) return; try { model = buildSeal(THREE, cv); setTimeout(snapshot, 250); } catch (err) { console.error(err); fab.classList.add('nogl'); } }).catch(() => fab.classList.add('nogl'));
 
     return () => {
       dead = true; cancelAnimationFrame(raf); if (model) model.dispose();
@@ -634,14 +650,16 @@ export function Seal() {
     <div class=${'seal-panel ' + (open ? '' : 'closed ') + (mode ? 'big ' + mode : '') + (size && !big ? ' sized' : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size && !big ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
       <div class="seal-rz" title="拖动调整大小" onPointerDown=${resizeStart}></div>
       <div class=${'seal-h ' + (pinnedPos && !big ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && !big && { label: '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, !pinnedPos && !big && { label: '拖动顶部可以把对话窗放到任意位置', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${big ? '' : pinnedPos ? '拖动移动 · 双击吸回汤圆旁边' : '拖动可以把对话窗放到别处'}>
+        <div class="seal-col seal-hc">
         ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
-          : html`<span class="seal-id"><span class="seal-avw">${AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b><small>${status.text}</small></span>`}
+          : html`<span class="seal-id"><span class="seal-avw">${ava ? html`<img class="seal-ava" src=${ava} alt="" />` : AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b><small>${status.text}</small></span>`}
         <span class="flex1"></span>
         ${view === 'chat' && html`<button class=${'ibtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
         ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
         <button class="ibtn seal-big" title=${mode === 'big' ? '恢复浮窗' : '展开'} onClick=${() => setModeKeep(mode === 'big' ? '' : 'big')}><${Icon} name=${mode === 'big' ? 'minus' : 'maximize'} size=${15} /></button>
         <button class="ibtn seal-full" title=${mode === 'full' ? '退出全屏' : '全屏'} onClick=${() => setModeKeep(mode === 'full' ? 'big' : 'full')}><${Icon} name=${mode === 'full' ? 'minus' : 'frame'} size=${15} /></button>
         <button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button>
+        </div>
       </div>
       ${view === 'history' ? html`<div class="seal-msgs seal-hist"><div class="seal-col">
         ${threads.length === 0 && html`<div class="seal-empty">还没有历史对话</div>`}
