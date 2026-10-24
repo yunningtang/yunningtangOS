@@ -6,7 +6,7 @@ import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
 import { get as storeGet } from './store.js';
-import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc, structureScore, TEXT_COLORS, TEXT_COLOR_NAMES, TEXT_SIZES, TEXT_FONTS } from './blocks.js';
+import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc, structureScore, TEXT_COLORS, TEXT_COLOR_NAMES, TEXT_SIZES, TEXT_FONTS, isSize } from './blocks.js';
 import { todayStr, escapeHtml, imageToDataUrl, pickFile } from './util.js';
 import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './files.js';
 import { fetchAttachment } from './sync.js';
@@ -20,9 +20,9 @@ let vclock = 1;
 
 const SLASH_EXTRA = [
   { k: 'ai', label: '让汤圆写…', hint: '先占位，写好后替换' },
-  { k: 'size:l', label: '字号：大', hint: '这一块的文字放大' },
-  { k: 'size:xl', label: '字号：特大', hint: '这一块的文字更大' },
-  { k: 'size:s', label: '字号：小', hint: '这一块的文字缩小' },
+  { k: 'size:20', label: '字号：大', hint: '这一块 20px' },
+  { k: 'size:28', label: '字号：特大', hint: '这一块 28px' },
+  { k: 'size:12', label: '字号：小', hint: '这一块 12px' },
   { k: 'size:', label: '字号：标准', hint: '恢复默认大小' },
   { k: 'color', label: '文字颜色…', hint: '这一块的颜色' },
   { k: 'font', label: '字体…', hint: '这一块用衬线 / 等宽 / 手写' },
@@ -214,6 +214,12 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const [mdEdit, setMdEdit] = useState(null);
   const [tb, setTb] = useState(null); // selection toolbar { x, y }
   const [tbPop, setTbPop] = useState(false); // 工具栏里的样式面板（颜色 / 字号 / 字体）
+  // 字号：像 Google Docs 那样 − [16] +。读当前选区的字号（行内 span 的 fs-N，否则是算出来的像素值）
+  const curSize = () => { const s0 = sel(); if (!s0 || !s0.rangeCount) return 16; let n = s0.anchorNode; if (n && n.nodeType !== 1) n = n.parentElement; const sp = n && n.closest && n.closest('span[class*="fs-"]'); const m = sp && sp.className.match(/\bfs-(\d{1,2})\b/); if (m) return +m[1]; return Math.round(parseFloat(getComputedStyle(n || root.current).fontSize)) || 16; };
+  const savedSel = useRef(null); // 点进字号输入框时编辑器的选区会丢，先记下来，应用时再放回去
+  const inText = (s0) => { if (!s0 || !s0.rangeCount || !s0.anchorNode) return false; const n = s0.anchorNode.nodeType === 1 ? s0.anchorNode : s0.anchorNode.parentElement; return !!(n && n.closest && n.closest('.b-text')); };
+  const setSize = (n) => { n = Math.max(8, Math.min(72, Math.round(n))); let s0 = sel(); if (savedSel.current && !inText(s0)) { s0.removeAllRanges(); s0.addRange(savedSel.current); s0 = sel(); } if (s0 && !s0.isCollapsed) { applyInline('fs', String(n)); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } else { const c = curBlock(); if (c) update(c.b.id, { size: String(n) }); } };
+  const stepSize = (d) => setSize(curSize() + d);
   const [lp, setLp] = useState(null); // link popover: { x, y, href, el }
   const lpRef = useRef(null); lpRef.current = lp;
   const hist = useRef({ past: [], future: [], lock: false });
@@ -314,7 +320,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   };
   // 块级：文字颜色 / 字号 / 字体 的子菜单
   const colorItems = (b) => [{ label: '默认', icon: !b.color ? 'check' : '', onClick: () => update(b.id, { color: undefined }) }, ...TEXT_COLORS.map((c) => ({ label: TEXT_COLOR_NAMES[c], icon: b.color === c ? 'check' : '', color: `var(--tc-${c})`, onClick: () => update(b.id, { color: c }) }))];
-  const sizeItems = (b) => TEXT_SIZES.map(([v, n]) => ({ label: n, icon: (b.size || '') === v ? 'check' : '', onClick: () => update(b.id, { size: v || undefined }) }));
+  const sizeItems = (b) => [['', '标准'], ['12', '小 12'], ['14', '14'], ['18', '18'], ['20', '大 20'], ['24', '24'], ['28', '特大 28'], ['36', '36']].map(([v, n]) => ({ label: n, icon: (b.size || '') === v ? 'check' : '', onClick: () => update(b.id, { size: v || undefined }) }));
   const fontItems = (b) => TEXT_FONTS.map(([v, n]) => ({ label: n, icon: (b.font || '') === v ? 'check' : '', onClick: () => update(b.id, { font: v || undefined }) }));
   const CELL_BG = [['gray', '灰'], ['red', '红'], ['orange', '橙'], ['yellow', '黄'], ['green', '绿'], ['blue', '蓝'], ['purple', '紫']];
   const tableMenu = (b, cell) => { const ri = cell ? cell.parentElement.rowIndex : 0, ci = cell ? cell.cellIndex : 0; const curBg = (b.bg || {})[ri + ',' + ci] || ''; return [
@@ -392,6 +398,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (lpRef.current) { setLp(null); if (e.key === 'Escape') { e.preventDefault(); return; } }
     if (mod && !e.altKey && k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (mod && !e.altKey && k === 'y') { e.preventDefault(); redo(); return; }
+    if (mod && e.shiftKey && !e.altKey && (e.key === '.' || e.key === '>' || e.key === ',' || e.key === '<')) { e.preventDefault(); stepSize(e.key === '.' || e.key === '>' ? 1 : -1); return; }
     if (mod && e.shiftKey && !e.altKey && k === 'v') { forceMd.current = true; setTimeout(() => { forceMd.current = false; }, 500); } // 浏览器随后触发 paste（纯文本），走 Markdown 解析
     // selection across blocks: structure changes are ours
     if (rowsInSelection(root.current).length >= 2) {
@@ -518,7 +525,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
         const inside = !!(el && r0.contains(el));
         const prevCur = r0.querySelector('.b-row.cur'); const row = inside && s.isCollapsed ? el.closest('.b-row') : null;
         if (prevCur && prevCur !== row) prevCur.classList.remove('cur'); if (row && row !== prevCur) row.classList.add('cur');
-        if (!inside || s.isCollapsed || el.closest('pre')) { setTb((x) => (x ? null : x)); setTbPop(false); return; }
+        if (!inside || s.isCollapsed || el.closest('pre')) { if (!(document.activeElement && document.activeElement.classList.contains('tp-num'))) { setTb((x) => (x ? null : x)); setTbPop(false); } return; }
+        savedSel.current = s.getRangeAt(0).cloneRange();
         if (lpRef.current) setLp(null);
         const rect = s.getRangeAt(0).getBoundingClientRect(); if (!rect.width && !rect.height) { setTb((x) => (x ? null : x)); return; }
         const rr = r0.getBoundingClientRect();
@@ -751,7 +759,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       ${tbBtn('清除格式', () => { exec('removeFormat'); applyInline('tc', ''); applyInline('fs', ''); applyInline('ff', ''); }, html`<${Icon} name="x" size=${13} />`)}
       ${tbPop && html`<div class="tb-pop" onMouseDown=${(e) => e.preventDefault()}>
         <div class="tp-row"><span>颜色</span>${tbBtn('默认颜色', () => applyInline('tc', ''), html`<i class="tp-dot none"></i>`, 'tp-b')}${TEXT_COLORS.map((c) => tbBtn(TEXT_COLOR_NAMES[c], () => applyInline('tc', c), html`<i class="tp-dot" style=${`background:var(--tc-${c})`}></i>`, 'tp-b'))}</div>
-        <div class="tp-row"><span>字号</span>${TEXT_SIZES.map(([v, n]) => tbBtn('字号 ' + n, () => applyInline('fs', v), n, 'tp-t' + (v ? ' fs-' + v : '')))}</div>
+        <div class="tp-row"><span>字号</span><button class="tp-t tp-step" title="减小（⌘⇧,）" onMouseDown=${(e) => e.preventDefault()} onClick=${() => stepSize(-1)}>−</button><input class="tp-num" type="number" min="8" max="72" value=${curSize()} onMouseDown=${(e) => e.stopPropagation()} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); setSize(+e.target.value); } }} onChange=${(e) => setSize(+e.target.value)} /><button class="tp-t tp-step" title="增大（⌘⇧.）" onMouseDown=${(e) => e.preventDefault()} onClick=${() => stepSize(1)}>+</button>${[['12', '小'], ['', '标准'], ['20', '大'], ['28', '特大']].map(([v, n]) => tbBtn('字号 ' + n, () => applyInline('fs', v), n, 'tp-t tp-preset'))}</div>
         <div class="tp-row"><span>字体</span>${TEXT_FONTS.map(([v, n]) => tbBtn('字体 ' + n, () => applyInline('ff', v), n, 'tp-t' + (v ? ' ff-' + v : '')))}</div>
       </div>`}
       ${onComment && tbBtn('评论选中的文字', () => { const s0 = sel(); const q = s0 ? s0.toString().trim().slice(0, 160) : ''; const c = curBlock(); if (c) onComment(c.b.id, q); setTb(null); }, html`<${Icon} name="chat" size=${13} />`)}

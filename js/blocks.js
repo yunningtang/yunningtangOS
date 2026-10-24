@@ -70,7 +70,8 @@ export const TEXT_COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'blue', 
 export const TEXT_COLOR_NAMES = { gray: '灰', red: '红', orange: '橙', yellow: '黄', green: '绿', blue: '蓝', purple: '紫', pink: '粉' };
 export const TEXT_SIZES = [['s', '小'], ['', '标准'], ['l', '大'], ['xl', '特大']];
 export const TEXT_FONTS = [['', '默认'], ['serif', '衬线'], ['mono', '等宽'], ['hand', '手写']];
-const INLINE_CLASS = /^(tc-(gray|red|orange|yellow|green|blue|purple|pink)|fs-(s|l|xl)|ff-(serif|mono|hand))$/;
+const INLINE_CLASS = /^(tc-(gray|red|orange|yellow|green|blue|purple|pink)|fs-(s|l|xl|[89]|[1-6]\d|7[0-2])|ff-(serif|mono|hand))$/;
+export const isSize = (v) => ['s', 'l', 'xl'].includes(v) || /^([89]|[1-6]\d|7[0-2])$/.test(String(v));
 export function sanitize(html) {
   const t = document.createElement('template');
   t.innerHTML = html || '';
@@ -146,7 +147,7 @@ export function sanitizeBlocks(blocks) {
     else if (x.type === 'code') { x.html = escapeHtml(textOf(String(x.html ?? ''))).replace(/\n/g, '<br>'); }
     else if (typeof x.html === 'string' && x.html && /[<&]/.test(x.html)) x.html = sanitize(x.html);
     if (typeof x.url === 'string' && x.url && !/^(https?:|data:image\/)/i.test(x.url.trim())) x.url = '';
-    if (x.size && !['s', 'l', 'xl'].includes(x.size)) delete x.size; if (x.color && !TEXT_COLORS.includes(x.color)) delete x.color; if (x.font && !['serif', 'mono', 'hand'].includes(x.font)) delete x.font;
+    if (x.size != null) { x.size = String(x.size); if (!isSize(x.size)) delete x.size; } if (x.color && !TEXT_COLORS.includes(x.color)) delete x.color; if (x.font && !['serif', 'mono', 'hand'].includes(x.font)) delete x.font;
     if (x.type === 'pending') { x.intent = textOf(String(x.intent ?? '')).slice(0, 500); x.error = textOf(String(x.error ?? '')).slice(0, 300); x.html = ''; if (x.status === 'writing') x.status = 'idle'; }
     return x;
   });
