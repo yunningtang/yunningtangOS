@@ -462,20 +462,38 @@ export function Seal() {
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    // 头像：模型加载好后正脸渲染一帧，抠出头部存成小图（对话窗头部用）
-    const snapshot = () => {
-      if (!model) return; const { renderer, scene, camera, seal, headPiv, eyes } = model;
-      const keep = { ry: seal.rotation.y, rx: seal.rotation.x, rz: seal.rotation.z, hx: headPiv.rotation.x, hy: headPiv.rotation.y, sc: seal.scale.clone(), py: seal.position.y, ey: eyes.map((g) => g.scale.y) };
-      seal.rotation.set(0, 0, 0); headPiv.rotation.set(-.04, 0, 0); seal.scale.set(1, 1, 1); seal.position.y = 0; eyes.forEach((g) => { g.scale.y = 1; });
+    // 渲染一张静态图：摆好姿势 → 渲染一帧 → 从画布抠出来。头像用脸的中心对齐（不受尾巴 / 鳍的影响），也能导整只
+    //   opts: { ry, rx, hx, hy（身体 / 头的转角）, happy（眯眼）, full（整只而不是只要脸）, size（输出边长） }
+    const shot = (opts = {}) => {
+      if (!model) return ''; const { renderer, scene, camera, seal, headPiv, tailPiv, flips, eyes, shadowMesh } = model;
+      const keep = { ry: seal.rotation.y, rx: seal.rotation.x, rz: seal.rotation.z, hx: headPiv.rotation.x, hy: headPiv.rotation.y, sc: seal.scale.clone(), py: seal.position.y, ey: eyes.map((g) => g.scale.y), tail: tailPiv.rotation.y, fl: flips.map(({ piv }) => piv.rotation.z), sh: shadowMesh.visible };
+      seal.rotation.set(opts.rx || 0, opts.ry || 0, 0); headPiv.rotation.set(opts.hx ?? -.04, opts.hy || 0, 0); seal.scale.set(1, 1, 1); seal.position.y = 0;
+      tailPiv.rotation.y = 0; flips.forEach(({ piv }) => { piv.rotation.z = 0; }); eyes.forEach((g) => { g.scale.y = opts.happy ? .25 : 1; }); shadowMesh.visible = !!opts.full && opts.shadow !== false;
       renderer.render(scene, camera);
+      let url = '';
       try {
-        const src = document.createElement('canvas'); src.width = cv.width; src.height = cv.height; const g = src.getContext('2d'); g.drawImage(cv, 0, 0);
-        const d = g.getImageData(0, 0, src.width, src.height).data; let minX = src.width, maxX = 0, minY = src.height;
-        for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) { if (d[(y * src.width + x) * 4 + 3] > 200) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; } }
-        if (maxX > minX) { const w = (maxX - minX) * .86, cx = (minX + maxX) / 2; const out = document.createElement('canvas'); out.width = out.height = 192; out.getContext('2d').drawImage(src, cx - w / 2, minY - w * .08, w, w, 0, 0, 192, 192); api.current.setAvatar && api.current.setAvatar(out.toDataURL('image/png')); }
+        const W = cv.width, H = cv.height; const src = document.createElement('canvas'); src.width = W; src.height = H; const g = src.getContext('2d'); g.drawImage(cv, 0, 0);
+        const d = g.getImageData(0, 0, W, H).data; const A = (x, y) => d[(y * W + x) * 4 + 3];
+        let minX = W, maxX = 0, minY = H, maxY = 0;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (A(x, y) > 200) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        const size = opts.size || 192; const out = document.createElement('canvas'); out.width = out.height = size; const og = out.getContext('2d');
+        if (maxX > minX) {
+          if (opts.full) { const bw = maxX - minX, bh = maxY - minY, side = Math.max(bw, bh) * 1.12; og.drawImage(src, (minX + maxX) / 2 - side / 2, (minY + maxY) / 2 - side / 2, side, side, 0, 0, size, size); }
+          else {
+            // 脸的中心：只看最上面那段（头），不让尾巴和鳍把中心带偏
+            const hEnd = minY + (maxY - minY) * .38; let hx0 = W, hx1 = 0;
+            for (let y = minY; y < hEnd; y++) for (let x = 0; x < W; x++) if (A(x, y) > 200) { if (x < hx0) hx0 = x; if (x > hx1) hx1 = x; }
+            const w = (hx1 - hx0) * 1.06, cx = (hx0 + hx1) / 2; og.drawImage(src, cx - w / 2, minY - w * .06, w, w, 0, 0, size, size);
+          }
+          url = out.toDataURL('image/png');
+        }
       } catch {}
       seal.rotation.set(keep.rx, keep.ry, keep.rz); headPiv.rotation.set(keep.hx, keep.hy, 0); seal.scale.copy(keep.sc); seal.position.y = keep.py; eyes.forEach((g, i) => { g.scale.y = keep.ey[i]; });
+      tailPiv.rotation.y = keep.tail; flips.forEach(({ piv }, i) => { piv.rotation.z = keep.fl[i]; }); shadowMesh.visible = keep.sh;
+      return url;
     };
+    api.current.shot = shot; window.tangyuanShot = shot; // 控制台 / 脚本可以调：tangyuanShot({ ry: .5, full: true, size: 1024 })
+    const snapshot = () => { const u = shot(); if (u) api.current.setAvatar && api.current.setAvatar(u); };
     loadThree().then((THREE) => { if (dead) return; try { model = buildSeal(THREE, cv); setTimeout(snapshot, 250); } catch (err) { console.error(err); fab.classList.add('nogl'); } }).catch(() => fab.classList.add('nogl'));
 
     return () => {
