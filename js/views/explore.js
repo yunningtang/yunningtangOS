@@ -8,32 +8,61 @@ import { Splitter } from '../resize.js';
 import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
 import { dragProps, dropProps } from '../dnd.js';
+import { searchPlace } from '../weather.js';
+import { toast } from '../nav.js';
+
+// 地点搜索：打字就出候选（Open-Meteo 地名库，中文可搜），选一个自动填省 / 国家 / 经纬度
+function PlaceSearch({ value, onInput, onPick, hasCoords }) {
+  const [list, setList] = useState([]); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [hi, setHi] = useState(0);
+  const timer = useRef(); const seq = useRef(0);
+  const run = (q) => {
+    clearTimeout(timer.current); if (!q.trim() || q.trim().length < 2) { setList([]); setOpen(false); return; }
+    timer.current = setTimeout(async () => { const my = ++seq.current; setBusy(true); try { const r = await searchPlace(q.trim()); if (my === seq.current) { setList(r); setOpen(true); setHi(0); } } catch { if (my === seq.current) setList([]); } finally { if (my === seq.current) setBusy(false); } }, 280);
+  };
+  const pick = (r) => { onPick(r); setOpen(false); setList([]); };
+  return html`<div class="pl-wrap">
+    <input type="text" autofocus value=${value} placeholder="输入城市或地名，比如 多伦多 / Kanas / 冰岛" autocomplete="off" onInput=${(e) => { onInput(e.target.value); run(e.target.value); }} onFocus=${() => list.length && setOpen(true)} onBlur=${() => setTimeout(() => setOpen(false), 150)}
+      onKeyDown=${(e) => { if (!open || !list.length) return; if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => (h + 1) % list.length); } else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => (h - 1 + list.length) % list.length); } else if (e.key === 'Enter') { e.preventDefault(); pick(list[hi]); } else if (e.key === 'Escape') setOpen(false); }} />
+    ${busy && html`<span class="pl-busy"></span>`}
+    ${!busy && hasCoords && html`<span class="pl-ok" title="已有坐标"><${Icon} name="check" size=${12} /></span>`}
+    ${open && list.length > 0 && html`<div class="pl-list">${list.map((r, i) => html`<button type="button" key=${i} class=${i === hi ? 'on' : ''} onMouseDown=${(e) => e.preventDefault()} onClick=${() => pick(r)}><b>${r.name}</b><small>${r.sub}</small></button>`)}</div>`}
+  </div>`;
+}
 
 export function TripModal({ open, trip, onClose }) {
   const [f, setF] = useState(null);
-  useEffect(() => { if (open) setF(trip ? { ...trip } : { id: uid(), place: '', region: '', country: '', lat: '', lng: '', date: todayStr(), end: '', note: '', photos: [], rating: 0, tags: [], kind: 'trip' }); }, [open, trip]);
+  const [showXY, setShowXY] = useState(false);
+  useEffect(() => { if (open) { setF(trip ? { ...trip } : { id: uid(), place: '', region: '', country: '', lat: '', lng: '', date: todayStr(), end: '', note: '', photos: [], rating: 0, tags: [], kind: 'trip' }); setShowXY(false); } }, [open, trip]);
   if (!open || !f) return null;
   const set = (k, v) => setF({ ...f, [k]: v });
-  const save = () => {
+  const hasXY = f.lat !== '' && f.lng !== '' && !Number.isNaN(parseFloat(f.lat)) && !Number.isNaN(parseFloat(f.lng));
+  const save = async () => {
     if (!f.place.trim()) return;
-    const lat = parseFloat(f.lat), lng = parseFloat(f.lng);
-    if (Number.isNaN(lat) || Number.isNaN(lng)) { alert('请填写经纬度（在地图里右键一个点可以复制坐标）。'); return; }
-    upsert('trips', { ...f, place: f.place.trim(), lat, lng, photos: (Array.isArray(f.photos) ? f.photos : String(f.photos).split('\n')).map((x) => x.trim()).filter(Boolean) });
+    let lat = parseFloat(f.lat), lng = parseFloat(f.lng), extra = {};
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      // 没选候选就直接保存：拿第一个搜索结果
+      try { const r = await searchPlace(f.place.trim()); if (r.length) { lat = r[0].lat; lng = r[0].lng; extra = { region: f.region || r[0].region, country: f.country || r[0].country }; } } catch {}
+      if (Number.isNaN(lat) || Number.isNaN(lng)) { toast('没找到这个地方，换个写法试试，或者展开「坐标」手动填'); setShowXY(true); return; }
+    }
+    upsert('trips', { ...f, ...extra, place: f.place.trim(), lat, lng, photos: (Array.isArray(f.photos) ? f.photos : String(f.photos).split('\n')).map((x) => x.trim()).filter(Boolean) });
     onClose();
   };
   return html`<${Modal} open=${open} onClose=${onClose} title=${trip ? '编辑足迹' : '记录一个地方'} foot=${html`
     ${trip && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { removeUndo('trips', trip.id, trip.title || trip.place || trip.url); onClose(); }}>删除<//>`}
     <span class="flex1"></span><${Btn} kind="ghost" onClick=${onClose}>取消<//><${Btn} kind="primary" icon="check" onClick=${save}>保存<//>`}>
     <div class="form">
-      <div class="grid3">
-        <${Field} label="地点"><input type="text" autofocus value=${f.place} placeholder="喀纳斯 / Toronto" onInput=${(e) => set('place', e.target.value)} /><//>
+      <${Field} label="地点" hint="打两个字就出候选，选中自动填省 / 国家 / 坐标；不选也行，保存时按第一个结果">
+        <${PlaceSearch} value=${f.place} hasCoords=${hasXY} onInput=${(v) => set('place', v)} onPick=${(r) => setF({ ...f, place: r.name, region: r.region, country: r.country, lat: r.lat, lng: r.lng })} />
+      <//>
+      <div class="grid2">
         <${Field} label="省 / 州"><input type="text" value=${f.region} onInput=${(e) => set('region', e.target.value)} /><//>
         <${Field} label="国家 / 地区"><input type="text" value=${f.country} placeholder="中国" onInput=${(e) => set('country', e.target.value)} /><//>
       </div>
-      <div class="grid2">
+      <button type="button" class="xy-tg" onClick=${() => setShowXY(!showXY)}><${Icon} name=${showXY ? 'down' : 'right'} size=${11} /> 坐标${hasXY ? ` · ${(+f.lat).toFixed(4)}, ${(+f.lng).toFixed(4)}` : '（还没有）'}</button>
+      ${showXY && html`<div class="grid2">
         <${Field} label="纬度 lat" hint="北纬为正"><input type="number" step="0.0001" value=${f.lat} placeholder="43.65" onInput=${(e) => set('lat', e.target.value)} /><//>
         <${Field} label="经度 lng" hint="东经为正"><input type="number" step="0.0001" value=${f.lng} placeholder="-79.38" onInput=${(e) => set('lng', e.target.value)} /><//>
-      </div>
+      </div>`}
       <div class="grid3">
         <${Field} label="开始"><${DateInput} value=${f.date} onChange=${(v) => set('date', v)} /><//>
         <${Field} label="结束"><${DateInput} value=${f.end} onChange=${(v) => set('end', v)} /><//>

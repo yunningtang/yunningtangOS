@@ -40,10 +40,10 @@ export async function reverseGeo(lat, lng) {
 }
 
 export async function searchPlace(q) {
-  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=zh&format=json`);
+  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=zh&format=json`);
   if (!r.ok) throw new Error('搜索失败');
   const j = await r.json();
-  return (j.results || []).map((x) => ({ name: x.name, sub: [x.admin1, x.country].filter(Boolean).join(' · '), lat: x.latitude, lng: x.longitude }));
+  return (j.results || []).map((x) => ({ name: x.name, sub: [x.admin1, x.country].filter(Boolean).join(' · '), region: x.admin1 || '', country: x.country || '', cc: x.country_code || '', lat: x.latitude, lng: x.longitude }));
 }
 
 export async function fetchWeather(lat, lng, force = false) {
