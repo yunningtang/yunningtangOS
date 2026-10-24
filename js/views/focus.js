@@ -125,19 +125,21 @@ function Ruler({ phase, workLen, breakLen, rem, total, full }) {
   const now = new Date();
   const startAt = running ? new Date(now.getTime() - (total - rem) * 1000) : now;
   const endAt = new Date(startAt.getTime() + mins * 60000);
-  const pos = (m) => (m / MAX) * 100;
+  // 点距按实际宽度算：每个点至少 9px 间隔，位置取整，点才清楚不糊
+  const [w, setW] = useState(0);
+  useEffect(() => { const el = ref.current; if (!el) return; const ro = new ResizeObserver(() => setW(el.querySelector('.rl-track').clientWidth)); ro.observe(el); setW(el.querySelector('.rl-track').clientWidth); return () => ro.disconnect(); }, []);
+  const pos = (m) => (w ? Math.round((m / MAX) * w) + 'px' : (m / MAX) * 100 + '%');
   const set = (m) => { const v = Math.max(MIN, Math.min(MAX, Math.round(m / STEP) * STEP)); if (v !== workLen) pomo.setLens(v, breakLen && breakLen !== breakFor(workLen) ? breakLen : breakFor(v)); };
   const fromEvent = (e) => { const r = ref.current.getBoundingClientRect(); return ((e.clientX - r.left) / r.width) * MAX; };
   const down = (e) => { if (running) return; e.preventDefault(); ref.current.setPointerCapture(e.pointerId); ref.current.classList.add('turning'); set(fromEvent(e)); const mv = (ev) => set(fromEvent(ev)); const up = () => { ref.current.classList.remove('turning'); ref.current.removeEventListener('pointermove', mv); ref.current.removeEventListener('pointerup', up); ref.current.removeEventListener('pointercancel', up); }; ref.current.addEventListener('pointermove', mv); ref.current.addEventListener('pointerup', up); ref.current.addEventListener('pointercancel', up); };
-  const dotStep = full ? 1 : 2;
+  const dotStep = [1, 2, 5, 10].find((st) => (w || 600) / (MAX / st) >= 9) || 10;
   const dots = []; for (let m = 0; m <= MAX; m += dotStep) dots.push(m);
   return html`<div class=${'ruler ' + (running ? 'running' : '')} ref=${ref} onPointerDown=${down} onWheel=${(e) => { if (running) return; e.preventDefault(); set(workLen + (e.deltaY > 0 ? -STEP : STEP)); }} tabindex=${running ? -1 : 0} onKeyDown=${(e) => { if (running) return; if (e.key === 'ArrowLeft') { e.preventDefault(); set(workLen - STEP); } if (e.key === 'ArrowRight') { e.preventDefault(); set(workLen + STEP); } }} role="slider" aria-valuemin=${MIN} aria-valuemax=${MAX} aria-valuenow=${mins} aria-label="专注时长">
     <div class="rl-track">
-      ${dots.map((m) => html`<i key=${m} class=${'rl-dot ' + (m % 30 === 0 ? 'big ' : m % 15 === 0 ? 'mid ' : m % 5 === 0 ? 'five ' : '') + (running ? (m <= elapsed ? 'lit' : m <= mins ? 'in' : '') : (m <= mins ? 'in' : ''))} style=${`left:${pos(m)}%`}></i>`)}
-      <span class="rl-start">${hhmm(startAt)}</span>
-      <div class="rl-flag" style=${`left:${pos(mins)}%`}><${Icon} name="flag" size=${13} />${hhmm(endAt)}</div>
-      <div class="rl-knob" style=${`left:${pos(mins)}%`}></div>
-      <div class="rl-min" style=${`left:${pos(mins)}%`}>${running ? `${hhmm(startAt)} → ${hhmm(endAt)}` : `${mins} 分钟`}</div>
+      ${dots.map((m) => html`<i key=${m} class=${'rl-dot ' + (m % 30 === 0 ? 'big ' : m % 15 === 0 ? 'mid ' : m % 5 === 0 ? 'five ' : '') + (running ? (m <= elapsed ? 'lit' : m <= mins ? 'in' : '') : (m <= mins ? 'in' : ''))} style=${`left:${pos(m)}`}></i>`)}
+      <div class="rl-flag" style=${`left:${pos(mins)}`}><${Icon} name="flag" size=${13} />${hhmm(endAt)}</div>
+      <div class="rl-knob" style=${`left:${pos(mins)}`}></div>
+      <div class="rl-min" style=${`left:${pos(mins)}`}>${running ? `${hhmm(startAt)} → ${hhmm(endAt)}` : `${mins} 分钟`}</div>
     </div>
   </div>`;
 }
