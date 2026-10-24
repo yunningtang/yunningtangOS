@@ -1476,67 +1476,68 @@ html[data-skin="steam"] .dchip.on{background:#66c0f4;color:#1b2838;border-radius
 html[data-skin="steam"] .side-user{border-top:1px solid #000}
 html[data-skin="steam"] .now-w.no-sky{color:var(--text)}
 
-/* ---------- skin: Retro Windows (95-style bevels) ---------- */
-html[data-skin="win95"],html[data-skin="win95"][data-theme="light"],html[data-skin="win95"][data-theme="dark"]{
-  --font:Tahoma,"MS Sans Serif",Verdana,"PingFang SC","Microsoft YaHei","SimSun",sans-serif;
-  --r:0px;--r2:0px;--r3:0px;--blur:0px;
-  --bg:#008080;--side:#c0c0c0;--paper:#ffffff;--card-bg:#c0c0c0;
-  --ink:#000000;--text:#000000;--text-2:#000000;--text-3:#404040;--text-4:#808080;
-  --line:#808080;--line-2:#404040;--hover:rgba(0,0,0,.08);--hover-2:rgba(0,0,0,.14);
-  --input:#ffffff;--tag-bg:#dfdfdf;--sel:#000080;--cal-bg:#ffffff;--code-bg:#ffffff;
-  --blue:#000080;--ac:0,0,128;--liq:rgba(0,0,0,.1);
-  --red:#c00000;--amber:#c08000;--green:#008000;--teal:#008080;--violet:#800080;--rose:#c00060;--orange:#c04000;
-  --shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;--shadow-h:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;--pop:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf,4px 4px 0 rgba(0,0,0,.4);
-  --glass:#c0c0c0;--glass-side:#c0c0c0;--glass-line:transparent;--glass-edge:transparent;--glass-edge-h:transparent;--glass-hl:transparent;--glass-shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;--glass-shadow-h:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;
-  --mist-top:#008080;--mist-mid:#008080;--mist-bot:#008080;--blob1:transparent;--blob2:transparent;--blob3:transparent;--blob4:transparent;
-  --serif:"Times New Roman","SimSun",serif;
+/* ---------- skin: Windows XP (Luna) ---------- */
+html[data-skin="xp"],html[data-skin="xp"][data-theme="light"],html[data-skin="xp"][data-theme="dark"]{
+  --font:Tahoma,"Trebuchet MS",Verdana,"PingFang SC","Microsoft YaHei",sans-serif;
+  --r:8px;--r2:4px;--r3:3px;--blur:0px;
+  --bg:#5a9ee0;--side:#ece9d8;--paper:#ffffff;--card-bg:#ece9d8;
+  --ink:#000000;--text:#000000;--text-2:#1a1a1a;--text-3:#4a4a4a;--text-4:#7f7f7f;
+  --line:#aca899;--line-2:#7f9db9;--hover:rgba(49,106,197,.1);--hover-2:rgba(49,106,197,.18);
+  --input:#ffffff;--tag-bg:#e3e1d4;--sel:#316ac5;--cal-bg:#ffffff;--code-bg:#ffffff;
+  --blue:#0a5fd6;--ac:10,95,214;--liq:rgba(49,106,197,.12);
+  --red:#c8302a;--amber:#d08a00;--green:#3c8a2e;--teal:#1f7d8c;--violet:#6b3fa0;--rose:#c4367a;--orange:#d9641c;
+  --shadow:0 0 0 1px #0831d9,inset 0 0 0 2px #fff;--shadow-h:0 0 0 1px #0831d9,inset 0 0 0 2px #fff,0 6px 16px -8px rgba(0,30,90,.5);--pop:0 0 0 1px #0831d9,0 8px 24px rgba(0,20,80,.45);
+  --glass:#ece9d8;--glass-side:#ece9d8;--glass-line:transparent;--glass-edge:transparent;--glass-edge-h:transparent;--glass-hl:transparent;--glass-shadow:0 0 0 1px #0831d9,inset 0 0 0 2px #fff,0 4px 14px -8px rgba(0,30,90,.45);--glass-shadow-h:0 0 0 1px #0831d9,inset 0 0 0 2px #fff,0 8px 20px -8px rgba(0,30,90,.5);
+  --mist-top:#5a9ee0;--mist-mid:#5a9ee0;--mist-bot:#5a9ee0;--blob1:transparent;--blob2:transparent;--blob3:transparent;--blob4:transparent;
 }
-html[data-skin="win95"] body{letter-spacing:0}
-html[data-skin="win95"] body::before{background:#008080}
-html[data-skin="win95"] *{border-radius:0!important;transition:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;text-shadow:none!important}
-html[data-skin="win95"] .card::after{display:none}
-html[data-skin="win95"] .card.pad{padding-top:0}
-html[data-skin="win95"] .card>.card-h{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;margin:4px 4px 10px;padding:3px 8px;min-height:22px;align-items:center}
-html[data-skin="win95"] .card.pad>.card-h{margin:-14px -16px 12px}
-html[data-skin="win95"] .card-h h3{color:#fff;font-weight:700;font-size:.8rem}html[data-skin="win95"] .card-h .card-sub,html[data-skin="win95"] .card-h small,html[data-skin="win95"] .card-h .muted{color:#dfe7ff!important}
-html[data-skin="win95"] .card-h .more,html[data-skin="win95"] .card-h .ibtn,html[data-skin="win95"] .card-h .btn{color:#000;background:#c0c0c0;box-shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080;padding:0 6px;height:18px;font-size:.72rem}
-html[data-skin="win95"] .side{background:#c0c0c0;border-right:0;box-shadow:inset -1px 0 0 #808080,inset -2px 0 0 #dfdfdf}
-html[data-skin="win95"] body.scrolled .topbar,html[data-skin="win95"] .topbar{background:#c0c0c0;box-shadow:inset 0 -1px 0 #808080,inset 0 -2px 0 #dfdfdf}
-html[data-skin="win95"] .topbar{margin-bottom:12px}
-html[data-skin="win95"] .btn,html[data-skin="win95"] .ibtn,html[data-skin="win95"] .seg button,html[data-skin="win95"] .pick-btn,html[data-skin="win95"] .chip,html[data-skin="win95"] .fw-go,html[data-skin="win95"] .pf-btn,html[data-skin="win95"] .fp-go,html[data-skin="win95"] .cap-btn,html[data-skin="win95"] .dchip,html[data-skin="win95"] .gbtn,html[data-skin="win95"] .tab-cap{background:#c0c0c0;color:#000;border:0;box-shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff,inset -2px -2px 0 #808080,inset 2px 2px 0 #dfdfdf;font-weight:400}
-html[data-skin="win95"] .btn:active,html[data-skin="win95"] .ibtn:active,html[data-skin="win95"] .seg button.on,html[data-skin="win95"] .chip.on,html[data-skin="win95"] .dchip.on{box-shadow:inset 1px 1px 0 #000,inset -1px -1px 0 #fff,inset 2px 2px 0 #808080,inset -2px -2px 0 #dfdfdf;background:#dfdfdf;color:#000}
-html[data-skin="win95"] .btn.primary,html[data-skin="win95"] .fw-go,html[data-skin="win95"] .fp-go,html[data-skin="win95"] .cap-btn{background:#c0c0c0;color:#000;outline:1px solid #000;outline-offset:-1px}
-html[data-skin="win95"] .seg{background:transparent;padding:0;gap:0}html[data-skin="win95"] .seg>.liq,html[data-skin="win95"] .nav>.liq,html[data-skin="win95"] .liq{display:none}
-html[data-skin="win95"] .nav>a.active,html[data-skin="win95"] .nb-i.active,html[data-skin="win95"] .li-i.active,html[data-skin="win95"] .pt-row.active{background:#000080;color:#fff}
-html[data-skin="win95"] .nav>a.active .ic,html[data-skin="win95"] .nav>a.active .cnt{color:#fff}
-html[data-skin="win95"] input[type=text],html[data-skin="win95"] input[type=url],html[data-skin="win95"] input[type=number],html[data-skin="win95"] input[type=password],html[data-skin="win95"] input[type=search],html[data-skin="win95"] textarea,html[data-skin="win95"] .searchin,html[data-skin="win95"] .quickadd,html[data-skin="win95"] .fw-start input,html[data-skin="win95"] .cap-in{background:#fff;border:0;box-shadow:inset 1px 1px 0 #000,inset -1px -1px 0 #fff,inset 2px 2px 0 #808080,inset -2px -2px 0 #dfdfdf;color:#000}
-html[data-skin="win95"] .pop,html[data-skin="win95"] .popmenu,html[data-skin="win95"] .modal,html[data-skin="win95"] .cap,html[data-skin="win95"] .ctx{background:#c0c0c0;box-shadow:var(--pop)}
-html[data-skin="win95"] .modal-h{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;margin:3px;padding:4px 8px}html[data-skin="win95"] .modal-h h3{color:#fff;font-size:.8rem}html[data-skin="win95"] .modal-h .ibtn{height:16px;width:16px}
-html[data-skin="win95"] .pm.on,html[data-skin="win95"] .pm:hover,html[data-skin="win95"] .time-i.sel,html[data-skin="win95"] .time-i:hover{background:#000080;color:#fff}
-html[data-skin="win95"] .tag{background:#dfdfdf;color:#000;box-shadow:inset -1px -1px 0 #808080,inset 1px 1px 0 #fff}html[data-skin="win95"] .tag.tc,html[data-skin="win95"] .tag.th{color:#000;background:#dfdfdf}
-html[data-skin="win95"] .todo .cb,html[data-skin="win95"] .fp-i .cb,html[data-skin="win95"] .nt-row .cb{background:#fff;border:0;box-shadow:inset 1px 1px 0 #000,inset -1px -1px 0 #fff,inset 2px 2px 0 #808080;color:#000}html[data-skin="win95"] .todo.done .cb{background:#fff;color:#000}
-html[data-skin="win95"] .prog{background:#fff;box-shadow:inset 1px 1px 0 #808080,inset -1px -1px 0 #fff;height:14px}html[data-skin="win95"] .prog i{background:repeating-linear-gradient(90deg,#000080 0 8px,transparent 8px 10px)}
-html[data-skin="win95"] .tl .blk,html[data-skin="win95"] .mblk{box-shadow:inset -1px -1px 0 #808080,inset 1px 1px 0 #fff;background:#dfdfdf;color:#000}
-html[data-skin="win95"] .now-w,html[data-skin="win95"] .now-w .sky{color:#000;--wtx:#000;--wmute:#404040;--wglass:#dfdfdf;--wline:#808080;text-shadow:none}
-html[data-skin="win95"] .now-w .sky{background:#c0c0c0!important}html[data-skin="win95"] .now-w .sky>*{display:none}
-html[data-skin="win95"] .fw-hero{background:#c0c0c0}html[data-skin="win95"] .dial3 svg{filter:grayscale(.2)}
-html[data-skin="win95"] .side-user{box-shadow:inset 0 1px 0 #808080,inset 0 2px 0 #fff}
-html[data-skin="win95"] .skin-opt.on{outline:1px dotted #000;outline-offset:-4px;border-color:#000}
-html[data-skin="win95"] ::selection{background:#000080;color:#fff}
-html[data-skin="win95"] .heat i,html[data-skin="win95"] .fs-chart rect{rx:0}
+html[data-skin="xp"] body::before{background:radial-gradient(120% 70% at 50% 110%,#5aa83a 0%,#3f8f32 22%,transparent 46%),linear-gradient(180deg,#2a63c9 0%,#4c8fe0 35%,#8fc0f0 60%,#cfe5fb 78%,#8fc26a 100%)}
+html[data-skin="xp"] *{transition:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;text-shadow:none!important}
+html[data-skin="xp"] .card::after{display:none}
+html[data-skin="xp"] .card{border-radius:8px 8px 4px 4px;overflow:hidden}
+/* window title bar */
+html[data-skin="xp"] .card>.card-h,html[data-skin="xp"] .card.pad>.card-h{margin:0 0 10px;padding:0 6px 0 10px;min-height:28px;align-items:center;background:linear-gradient(180deg,#0a5fd6 0%,#2f80f0 12%,#0f5fe0 45%,#0b4fc8 100%);color:#fff;border-radius:7px 7px 0 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+html[data-skin="xp"] .card.pad{padding-top:0!important}
+html[data-skin="xp"] .card.pad>.card-h{margin:0 -16px 12px -16px}
+html[data-skin="xp"] .widget>.card{padding-top:0}
+html[data-skin="xp"] .card-h h3{color:#fff;font-weight:700;font-size:.82rem;text-shadow:0 1px 1px rgba(0,0,0,.45)!important}
+html[data-skin="xp"] .card-h .card-sub,html[data-skin="xp"] .card-h small,html[data-skin="xp"] .card-h .muted,html[data-skin="xp"] .card-h h3 .muted,html[data-skin="xp"] .card-h h3 span{color:#dce8ff!important}
+html[data-skin="xp"] .card-h .more,html[data-skin="xp"] .card-h .ibtn,html[data-skin="xp"] .card-h .btn{height:20px;min-width:20px;padding:0 6px;border-radius:3px;color:#fff;background:linear-gradient(180deg,#3d8cf6,#1b5fd8);box-shadow:inset 0 0 0 1px rgba(255,255,255,.55),0 0 0 1px #0a3fa8;font-size:.72rem}
+html[data-skin="xp"] .card-h .more:hover,html[data-skin="xp"] .card-h .ibtn:hover{background:linear-gradient(180deg,#5aa0ff,#2a6fe6)}
+/* chrome */
+html[data-skin="xp"] .side{background:linear-gradient(180deg,#f2f0e4,#e6e3d2);border-right:1px solid #aca899}
+html[data-skin="xp"] .topbar,html[data-skin="xp"] body.scrolled .topbar{background:transparent;box-shadow:none;margin-bottom:14px}
+html[data-skin="xp"] .topbar .ttl,html[data-skin="xp"] .topbar .ttl a,html[data-skin="xp"] .topbar .ttl b{color:#fff;text-shadow:0 1px 2px rgba(0,30,90,.6)!important}
+html[data-skin="xp"] .topbar .searchbox{background:#fff;color:#4a4a4a;box-shadow:0 0 0 1px #7f9db9}
+html[data-skin="xp"] .topbar .theme-glass{color:#fff}
+html[data-skin="xp"] body.scrolled .topbar{background:rgba(236,233,216,.92);box-shadow:0 1px 0 #aca899}html[data-skin="xp"] body.scrolled .topbar .ttl,html[data-skin="xp"] body.scrolled .topbar .ttl a,html[data-skin="xp"] body.scrolled .topbar .ttl b,html[data-skin="xp"] body.scrolled .topbar .theme-glass{color:#000;text-shadow:none!important}
+/* controls */
+html[data-skin="xp"] .btn,html[data-skin="xp"] .ibtn,html[data-skin="xp"] .seg button,html[data-skin="xp"] .pick-btn,html[data-skin="xp"] .chip,html[data-skin="xp"] .pf-btn,html[data-skin="xp"] .dchip,html[data-skin="xp"] .gbtn{background:linear-gradient(180deg,#ffffff,#ecebe5 86%,#d8d5c8);color:#000;border:1px solid #003c74;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.8);font-weight:400}
+html[data-skin="xp"] .btn:hover,html[data-skin="xp"] .ibtn:hover,html[data-skin="xp"] .seg button:hover,html[data-skin="xp"] .chip:hover{box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),inset 0 0 0 2px #f8b330,inset 0 -2px 0 2px #e59700}
+html[data-skin="xp"] .seg button.on,html[data-skin="xp"] .chip.on,html[data-skin="xp"] .dchip.on{background:linear-gradient(180deg,#d8d5c8,#e9e7dc);box-shadow:inset 1px 1px 2px rgba(0,0,0,.25);color:#000}
+html[data-skin="xp"] .btn.primary,html[data-skin="xp"] .fw-go,html[data-skin="xp"] .fp-go,html[data-skin="xp"] .cap-btn{background:linear-gradient(180deg,#5fbf4a 0%,#3d9a2c 60%,#2f7f24 100%);color:#fff;border:1px solid #1f5a18;border-radius:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,.5);text-shadow:0 1px 1px rgba(0,0,0,.35)!important}
+html[data-skin="xp"] .btn.primary:hover,html[data-skin="xp"] .fw-go:hover,html[data-skin="xp"] .cap-btn:hover{background:linear-gradient(180deg,#72d05a,#49ab36 60%,#3a8f2c);filter:none}
+html[data-skin="xp"] .seg{background:transparent;padding:0;gap:2px}html[data-skin="xp"] .seg>.liq,html[data-skin="xp"] .nav>.liq,html[data-skin="xp"] .liq{display:none}
+html[data-skin="xp"] .nav>a.active,html[data-skin="xp"] .nb-i.active,html[data-skin="xp"] .li-i.active,html[data-skin="xp"] .pt-row.active{background:#316ac5;color:#fff;border-radius:3px}
+html[data-skin="xp"] .nav>a.active .ic,html[data-skin="xp"] .nav>a.active .cnt{color:#fff}
+html[data-skin="xp"] input[type=text],html[data-skin="xp"] input[type=url],html[data-skin="xp"] input[type=number],html[data-skin="xp"] input[type=password],html[data-skin="xp"] input[type=search],html[data-skin="xp"] textarea,html[data-skin="xp"] .searchin,html[data-skin="xp"] .quickadd,html[data-skin="xp"] .fw-start input,html[data-skin="xp"] .cap-in{background:#fff;border:1px solid #7f9db9;border-radius:0;box-shadow:none;color:#000}
+html[data-skin="xp"] input.page-title,html[data-skin="xp"] .nb-rename,html[data-skin="xp"] .mtag-in,html[data-skin="xp"] .fp-add input{background:transparent;border:0}
+html[data-skin="xp"] .pop,html[data-skin="xp"] .popmenu,html[data-skin="xp"] .cap,html[data-skin="xp"] .ctx{background:#fff;border-radius:3px;box-shadow:0 0 0 1px #7f9db9,2px 2px 6px rgba(0,0,0,.3)}
+html[data-skin="xp"] .modal{background:#ece9d8;border-radius:8px 8px 4px 4px;box-shadow:0 0 0 1px #0831d9,inset 0 0 0 3px #0a5fd6,0 10px 30px rgba(0,20,80,.5);overflow:hidden}
+html[data-skin="xp"] .modal-h{background:linear-gradient(180deg,#0a5fd6 0%,#2f80f0 12%,#0f5fe0 45%,#0b4fc8 100%);color:#fff;margin:0;padding:0 6px 0 12px;min-height:30px;align-items:center}html[data-skin="xp"] .modal-h h3{color:#fff;font-size:.86rem;font-weight:700;text-shadow:0 1px 1px rgba(0,0,0,.45)!important}
+html[data-skin="xp"] .modal-h .ibtn{background:linear-gradient(180deg,#e8775b,#c93b22);border:1px solid #fff;color:#fff;width:21px;height:21px;box-shadow:0 0 0 1px #8a2412}
+html[data-skin="xp"] .pm.on,html[data-skin="xp"] .pm:hover,html[data-skin="xp"] .time-i.sel,html[data-skin="xp"] .time-i:hover{background:#316ac5;color:#fff}
+html[data-skin="xp"] .tag{border-radius:3px}
+html[data-skin="xp"] .todo .cb,html[data-skin="xp"] .fp-i .cb,html[data-skin="xp"] .nt-row .cb,html[data-skin="xp"] .bcard .cb{background:#fff;border:1px solid #1c5180;border-radius:2px;color:transparent;box-shadow:inset 1px 1px 2px rgba(0,0,0,.15)}
+html[data-skin="xp"] .todo.done .cb,html[data-skin="xp"] .fp-i.done .cb,html[data-skin="xp"] .nt-row.done .cb,html[data-skin="xp"] .bcard.done .cb{color:#21a121;background:#fff}
+html[data-skin="xp"] .prog{background:#fff;border:1px solid #7f9db9;height:14px;border-radius:2px}html[data-skin="xp"] .prog i{background:repeating-linear-gradient(90deg,#2fd127 0 8px,transparent 8px 10px);border-radius:0}
+html[data-skin="xp"] .now-w .sky{display:none}html[data-skin="xp"] .now-w{color:#000;--wtx:#000;--wmute:#4a4a4a;--wglass:#fff;--wline:#d8d5c8}
+html[data-skin="xp"] .fw-hero{background:transparent}
+html[data-skin="xp"] .w-tools{background:#ece9d8;box-shadow:0 0 0 1px #7f9db9}
+html[data-skin="xp"] .bcol{background:#f6f5ef;box-shadow:0 0 0 1px #d8d5c8}
+html[data-skin="xp"] .side-user{border-top:1px solid #aca899}
+html[data-skin="xp"] ::selection{background:#316ac5;color:#fff}
 .skin-pick{grid-template-columns:repeat(5,1fr)}
 @media(max-width:720px){.skin-pick{grid-template-columns:repeat(2,1fr)}}
-/* win95 fixes: widget headers as title bars, checkboxes blank until done, widget tools flat */
-html[data-skin="win95"] .card>.card-h,html[data-skin="win95"] .card.pad>.card-h{margin:0 0 10px;padding:3px 8px}
-html[data-skin="win95"] .card.pad{padding-top:0!important}
-html[data-skin="win95"] .card.pad>.card-h{margin:0 -16px 12px -16px}
-html[data-skin="win95"] .widget>.card{padding-top:0}
-html[data-skin="win95"] .card-h h3 .muted,html[data-skin="win95"] .card-h h3 span{color:#dfe7ff!important}
-html[data-skin="win95"] .todo .cb,html[data-skin="win95"] .fp-i .cb,html[data-skin="win95"] .nt-row .cb,html[data-skin="win95"] .bcard .cb{color:transparent}
-html[data-skin="win95"] .todo.done .cb,html[data-skin="win95"] .fp-i.done .cb,html[data-skin="win95"] .nt-row.done .cb,html[data-skin="win95"] .bcard.done .cb{color:#000;background:#fff}
-html[data-skin="win95"] .w-tools{background:#c0c0c0;box-shadow:inset -1px -1px 0 #000,inset 1px 1px 0 #fff}
-html[data-skin="win95"] .hero,html[data-skin="win95"] .profile{padding-top:14px!important}
-html[data-skin="win95"] input.page-title,html[data-skin="win95"] .nb-rename,html[data-skin="win95"] .mtag-in,html[data-skin="win95"] .fp-add input{background:transparent;box-shadow:none}
 
 /* list view: priority = coloured checkbox + a small tinted label, no stripes */
 .todo .meta .pri{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;font-size:.66rem;font-weight:600;color:var(--pc);background:color-mix(in srgb,var(--pc) 12%,transparent)}

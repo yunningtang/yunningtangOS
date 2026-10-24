@@ -66,7 +66,7 @@ export function useRoute() {
 export function applyTheme(t, skin) {
   const real = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
   document.documentElement.dataset.theme = real;
-  if (skin !== undefined) document.documentElement.dataset.skin = skin || 'glass';
+  if (skin !== undefined) document.documentElement.dataset.skin = (skin === 'win95' ? 'xp' : skin) || 'glass';
 }
 
 function App() {
