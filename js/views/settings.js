@@ -72,10 +72,7 @@ export default function Settings() {
   };
   const counts = [['待办', s.todos.length], ['时间块', s.blocks.length], ['书', s.books.length], ['收藏', s.links.length], ['笔记', s.notes.length], ['足迹', s.trips.length]];
 
-  const SECTIONS = [['profile', '个人', 'home'], ['look', '外观', 'sun'], ['sync', '云端同步', 'cloud'], ['seal', '汤圆助手', 'sparkle'], ['data', '数据与备份', 'archive'], ['keys', '快捷键', 'key']];
-  const jump = (id) => { const el = document.getElementById('set-' + id); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } };
-  return html`<div class="settings-wrap">
-    <nav class="set-nav">${SECTIONS.map(([id, n, ic]) => html`<button key=${id} type="button" onClick=${() => jump(id)}><${Icon} name=${ic} size=${14} /><span>${n}</span></button>`)}</nav>
+  return html`<div>
     <div class="settings">
       <${Card} title="个人" id="set-profile" sub="名字和头像会出现在总览问候和侧栏。">
         <div class="row" style="gap:16px;align-items:flex-start">
