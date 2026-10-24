@@ -64,10 +64,12 @@ export function useRoute() {
   return r;
 }
 
-export function applyTheme(t, skin) {
+export // 先下线的风格：样式还在，选择器里不显示，已选的人退回「玻璃」
+const HIDDEN_SKINS = new Set(['liquid', 'mac']);
+function applyTheme(t, skin) {
   const real = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
   document.documentElement.dataset.theme = real;
-  if (skin !== undefined) document.documentElement.dataset.skin = (skin === 'win95' ? 'xp' : skin) || 'glass';
+  if (skin !== undefined) document.documentElement.dataset.skin = HIDDEN_SKINS.has(skin) ? 'glass' : (skin === 'win95' ? 'xp' : skin) || 'glass';
 }
 
 function App() {
