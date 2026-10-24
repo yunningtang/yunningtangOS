@@ -142,8 +142,12 @@ body.resizing .splitter{pointer-events:auto}
 
 .main{min-width:0;padding:0 28px 60px 24px;overflow-x:clip}
 .shell{overflow-x:clip}
-.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:8px;height:52px;margin:0 -28px 8px -24px;padding:0 28px 0 16px;background:transparent;transition:background .2s,box-shadow .2s}
-body.scrolled .topbar{background:color-mix(in srgb,var(--bg) 70%,transparent);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);box-shadow:0 1px 0 var(--line)}
+.topbar{--tb-bg:color-mix(in srgb,var(--bg) 72%,transparent);position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:8px;height:52px;margin:0 -28px 8px -24px;padding:0 28px 0 16px;background:transparent;transition:background .2s,transform .3s var(--ease)}
+/* 往下滚时顶栏让路，往上滚一点就回来；下沿用一段渐变过渡，不画硬线 */
+body.tb-hide .topbar{transform:translateY(-110%)}
+.topbar::after{content:'';position:absolute;left:0;right:0;top:100%;height:18px;pointer-events:none;background:linear-gradient(var(--tb-bg),transparent);opacity:0;transition:opacity .2s}
+body.scrolled .topbar::after{opacity:1}
+body.scrolled .topbar{background:var(--tb-bg);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
 .topbar .ttl{font-size:.875rem;color:var(--text);display:flex;align-items:center;gap:2px;min-width:0;white-space:nowrap;overflow:hidden}
 .topbar .ttl b{font-weight:500}
 .crumb-top a{text-decoration:none;color:var(--text-3);padding:3px 6px;border-radius:var(--r3)}.crumb-top a:hover{background:var(--hover);color:var(--text)}.crumb-top span{color:var(--text-4);margin:0 2px}.crumb-top b{padding:3px 6px}
@@ -1211,7 +1215,7 @@ html[data-skin="notion"][data-theme="dark"]{
 }
 html[data-skin="notion"] .card,html[data-skin="notion"] .side,html[data-skin="notion"] .topbar,html[data-skin="notion"] .pop,html[data-skin="notion"] .popmenu,html[data-skin="notion"] .modal,html[data-skin="notion"] .cap{-webkit-backdrop-filter:none;backdrop-filter:none}
 html[data-skin="notion"] .card::after{display:none}
-html[data-skin="notion"] body.scrolled .topbar{background:var(--bg)}
+html[data-skin="notion"] .topbar{--tb-bg:var(--bg)}
 html[data-skin="notion"] .side{background:var(--side)}
 html[data-skin="notion"] .pop,html[data-skin="notion"] .popmenu,html[data-skin="notion"] .modal,html[data-skin="notion"] .cap{background:var(--paper)}
 html[data-skin="notion"] body::before,html[data-skin="notion"] .tag{box-shadow:none}
@@ -1239,7 +1243,7 @@ html[data-skin="claude"][data-theme="dark"]{
 }
 html[data-skin="claude"] .card,html[data-skin="claude"] .side,html[data-skin="claude"] .topbar,html[data-skin="claude"] .pop,html[data-skin="claude"] .popmenu,html[data-skin="claude"] .modal,html[data-skin="claude"] .cap{-webkit-backdrop-filter:none;backdrop-filter:none}
 html[data-skin="claude"] .card::after{display:none}
-html[data-skin="claude"] body.scrolled .topbar{background:var(--bg)}
+html[data-skin="claude"] .topbar{--tb-bg:var(--bg)}
 html[data-skin="claude"] .side{background:var(--side)}
 html[data-skin="claude"] .pop,html[data-skin="claude"] .popmenu,html[data-skin="claude"] .modal,html[data-skin="claude"] .cap{background:var(--paper)}
 html[data-skin="claude"] .page-h h1,html[data-skin="claude"] .hero .greet h1,html[data-skin="claude"] input.page-title,html[data-skin="claude"] .card-h h3,html[data-skin="claude"] .beditor .b-h1,html[data-skin="claude"] .beditor .b-h2,html[data-skin="claude"] .beditor .b-h3{font-family:var(--serif);font-weight:600;letter-spacing:0}
@@ -1458,7 +1462,7 @@ html[data-skin="steam"],html[data-skin="steam"][data-theme="light"],html[data-sk
 html[data-skin="steam"] body::before{background:linear-gradient(180deg,#1b2838 0%,#1b2838 100%),radial-gradient(60% 40% at 50% -10%,rgba(102,192,244,.14),transparent)}
 html[data-skin="steam"] .card,html[data-skin="steam"] .side,html[data-skin="steam"] .topbar,html[data-skin="steam"] .pop,html[data-skin="steam"] .popmenu,html[data-skin="steam"] .modal,html[data-skin="steam"] .cap{-webkit-backdrop-filter:none;backdrop-filter:none}
 html[data-skin="steam"] .card::after{display:none}
-html[data-skin="steam"] body.scrolled .topbar{background:#171d25}
+html[data-skin="steam"] .topbar{--tb-bg:#171d25}
 html[data-skin="steam"] .side{background:#171d25;border-right:1px solid #000}
 html[data-skin="steam"] .pop,html[data-skin="steam"] .popmenu,html[data-skin="steam"] .modal,html[data-skin="steam"] .cap{background:#1f2f41}
 html[data-skin="steam"] .btn{background:linear-gradient(90deg,#3d4450,#2e3540);border:0;color:#d2e1ef;border-radius:2px}
@@ -1507,11 +1511,11 @@ html[data-skin="xp"] .card-h .more,html[data-skin="xp"] .card-h .ibtn,html[data-
 html[data-skin="xp"] .card-h .more:hover,html[data-skin="xp"] .card-h .ibtn:hover{background:linear-gradient(180deg,#5aa0ff,#2a6fe6)}
 /* chrome */
 html[data-skin="xp"] .side{background:linear-gradient(180deg,#f2f0e4,#e6e3d2);border-right:1px solid #aca899}
-html[data-skin="xp"] .topbar,html[data-skin="xp"] body.scrolled .topbar{background:transparent;box-shadow:none;margin-bottom:14px}
+html[data-skin="xp"] .topbar,html[data-skin="xp"] body.scrolled .topbar{--tb-bg:transparent;background:transparent;box-shadow:none;margin-bottom:14px}html[data-skin="xp"] .topbar::after{display:none}
 html[data-skin="xp"] .topbar .ttl,html[data-skin="xp"] .topbar .ttl a,html[data-skin="xp"] .topbar .ttl b{color:#fff;text-shadow:0 1px 2px rgba(0,30,90,.6)!important}
 html[data-skin="xp"] .topbar .searchbox{background:#fff;color:#4a4a4a;box-shadow:0 0 0 1px #7f9db9}
 html[data-skin="xp"] .topbar .theme-glass{color:#fff}
-html[data-skin="xp"] body.scrolled .topbar{background:rgba(236,233,216,.92);box-shadow:0 1px 0 #aca899}html[data-skin="xp"] body.scrolled .topbar .ttl,html[data-skin="xp"] body.scrolled .topbar .ttl a,html[data-skin="xp"] body.scrolled .topbar .ttl b,html[data-skin="xp"] body.scrolled .topbar .theme-glass{color:#000;text-shadow:none!important}
+html[data-skin="xp"] body.scrolled .topbar{background:#ece9d8;box-shadow:0 1px 0 #aca899}html[data-skin="xp"] body.scrolled .topbar .ttl,html[data-skin="xp"] body.scrolled .topbar .ttl a,html[data-skin="xp"] body.scrolled .topbar .ttl b,html[data-skin="xp"] body.scrolled .topbar .theme-glass{color:#000;text-shadow:none!important}
 /* controls */
 html[data-skin="xp"] .btn,html[data-skin="xp"] .ibtn,html[data-skin="xp"] .seg button,html[data-skin="xp"] .pick-btn,html[data-skin="xp"] .chip,html[data-skin="xp"] .pf-btn,html[data-skin="xp"] .dchip,html[data-skin="xp"] .gbtn{background:linear-gradient(180deg,#ffffff,#ecebe5 86%,#d8d5c8);color:#000;border:1px solid #003c74;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.8);font-weight:400}
 html[data-skin="xp"] .btn:hover,html[data-skin="xp"] .ibtn:hover,html[data-skin="xp"] .seg button:hover,html[data-skin="xp"] .chip:hover{box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),inset 0 0 0 2px #f8b330,inset 0 -2px 0 2px #e59700}

@@ -171,7 +171,20 @@ function App() {
 }
 
 seedIfEmpty();
-(() => { const h = () => document.body.classList.toggle('scrolled', window.scrollY > 6); window.addEventListener('scroll', h, { passive: true }); h(); })();
+(() => {
+  // topbar: frosted once scrolled; slides away while scrolling down, comes back on the first scroll up or near the top
+  let last = window.scrollY, hidden = false;
+  const h = () => {
+    const y = window.scrollY, dy = y - last; last = y;
+    document.body.classList.toggle('scrolled', y > 6);
+    const want = y > 120 && dy > 3 ? true : dy < -3 || y < 60 ? false : hidden;
+    if (want !== hidden) { hidden = want; document.body.classList.toggle('tb-hide', hidden); }
+  };
+  window.addEventListener('scroll', h, { passive: true }); h();
+  window.addEventListener('hashchange', () => { hidden = false; document.body.classList.remove('tb-hide'); });
+  // nudging the mouse to the very top brings it back too
+  window.addEventListener('pointermove', (e) => { if (hidden && e.clientY < 8) { hidden = false; document.body.classList.remove('tb-hide'); } }, { passive: true });
+})();
 setExtraKinds(get().settings.kinds);
 subscribe(() => setExtraKinds(get().settings.kinds));
 applySizes();
