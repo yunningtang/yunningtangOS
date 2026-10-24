@@ -6,7 +6,7 @@ import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
 import { get as storeGet } from './store.js';
-import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc } from './blocks.js';
+import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc, structureScore } from './blocks.js';
 import { todayStr, escapeHtml, imageToDataUrl, pickFile } from './util.js';
 import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './files.js';
 import { fetchAttachment } from './sync.js';
@@ -195,6 +195,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const emitTimer = useRef();
   const composing = useRef(false);
   const downAt = useRef(null);
+  const forceMd = useRef(false); // ⌘⇧V：忽略富文本，把剪贴板的纯文本当 Markdown 粘贴
   const api = useRef({}); // stable object handed to rows; fields refreshed every render
 
   const cleanCache = useRef(new Map()); // raw html -> sanitized html, so unchanged blocks are not re-parsed
@@ -359,6 +360,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (lpRef.current) { setLp(null); if (e.key === 'Escape') { e.preventDefault(); return; } }
     if (mod && !e.altKey && k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (mod && !e.altKey && k === 'y') { e.preventDefault(); redo(); return; }
+    if (mod && e.shiftKey && !e.altKey && k === 'v') { forceMd.current = true; setTimeout(() => { forceMd.current = false; }, 500); } // 浏览器随后触发 paste（纯文本），走 Markdown 解析
     // selection across blocks: structure changes are ours
     if (rowsInSelection(root.current).length >= 2) {
       if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); deleteAcross(); return; }
@@ -552,10 +554,18 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const parseClipboard = async ({ text, rich, files }, curType) => {
     if (files.length) return filesToBlocks(files);
     if (lastCopy && text && text === lastCopy.text) return lastCopy.blocks.map(cloneBlock);
-    if (rich && /<(p|div|h[1-6]|li|ul|ol|blockquote|pre|table|img|br|span|b|i|u|strong|em|a|mark|s|strike|code)\b/i.test(rich)) { const parsed = htmlToBlocks(rich); if (parsed.length) return parsed; }
-    if (!text) return [];
-    if (curType === 'code' || curType === 'md') return [block(curType, escapeHtml(text))];
-    return mdToBlocks(text);
+    if (curType === 'code' || curType === 'md') return text ? [block(curType, escapeHtml(text))] : [];
+    // 富文本和纯文本两条路都解析，谁保留的结构多（表格 / 列表 / 待办 / 标题）就用谁：
+    // 从 Claude Docs、聊天窗口复制出来的 HTML 常是一堆 div，列表和表格只在纯文本（Markdown）里还完整
+    const fromHtml = rich && /<(p|div|h[1-6]|li|ul|ol|blockquote|pre|table|img|br|span|b|i|u|strong|em|a|mark|s|strike|code)\b/i.test(rich) ? htmlToBlocks(rich) : [];
+    const fromText = text && !forceMd.current ? mdToBlocks(text) : [];
+    if (forceMd.current) { forceMd.current = false; return text ? mdToBlocks(text) : fromHtml; }
+    if (!fromHtml.length) return fromText;
+    if (!text) return fromHtml;
+    const hs = structureScore(fromHtml), ts = structureScore(fromText);
+    // HTML 几乎没结构、而纯文本按 Markdown 能解出更多：用 Markdown；否则保留 HTML（它带着粗体、链接、图片）
+    if (ts > hs && (ts >= 2 || fromHtml.length === 1)) return fromText;
+    return fromHtml;
   };
   // images become image blocks; everything else (PDF, docs, …) is stored in IndexedDB and shown as a file block
   const filesToBlocks = async (files) => {

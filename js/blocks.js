@@ -144,11 +144,29 @@ export function sanitizeBlocks(blocks) {
   });
 }
 
+// 一段解析结果里有多少「结构」：标题、列表、待办、表格（按行算）、代码、引用、分割线。粘贴时用来挑更好的那条解析路径。
+export function structureScore(blocks) {
+  return (blocks || []).reduce((n, b) => n + (b.type === 'table' ? 2 + (b.rows || []).length : ['h1', 'h2', 'h3', 'bullet', 'number', 'todo', 'quote', 'code', 'divider', 'toggle', 'callout'].includes(b.type) ? 1 : 0), 0);
+}
+// 一段只是普通段落、但开头带着 Markdown 记号（- [ ] / - / 1. / # / >）：按记号转成对应的块。
+// 从别的编辑器（Claude Docs、聊天窗口）复制出来的 HTML 常常是一堆 div，列表和待办只剩文字记号，这一步把它们找回来。
+function promote(h) {
+  if (!h || /^\s*</.test(h)) return { type: 'p', html: h };
+  let m;
+  if ((m = h.match(/^(?:\s|&nbsp;)*(?:[-*+]\s+)?\[( |x|X)\](?:\s|&nbsp;)+/))) return { type: 'todo', html: h.slice(m[0].length), checked: m[1] !== ' ' };
+  if ((m = h.match(/^(?:\s|&nbsp;)*[-*•·]\s+/))) return { type: 'bullet', html: h.slice(m[0].length) };
+  if ((m = h.match(/^(?:\s|&nbsp;)*\d{1,3}[.)]\s+/))) return { type: 'number', html: h.slice(m[0].length) };
+  if ((m = h.match(/^(?:\s|&nbsp;)*(#{1,3})\s+/))) return { type: 'h' + m[1].length, html: h.slice(m[0].length) };
+  if ((m = h.match(/^(?:\s|&nbsp;)*&gt;\s+/))) return { type: 'quote', html: h.slice(m[0].length) };
+  return { type: 'p', html: h };
+}
+const checkedOf = (el) => { const a = el.getAttribute && (el.getAttribute('aria-checked') || el.getAttribute('data-checked')); if (a != null) return a === 'true' || a === '1'; const rc = el.querySelector && el.querySelector('[role=checkbox]'); if (rc) { const v = rc.getAttribute('aria-checked') || rc.getAttribute('data-checked'); if (v != null) return v === 'true' || v === '1'; } const cb = el.querySelector && el.querySelector('input[type=checkbox]'); if (cb) return !!cb.checked; return /\b(checked|done|completed)\b/.test(el.className || ''); };
+const looksTask = (el) => !!(el.querySelector && el.querySelector(':scope > input[type=checkbox], :scope > * > input[type=checkbox], :scope > [role=checkbox], :scope > * > [role=checkbox]')) || /\b(task|todo|checkbox|check-list|checklist)\b/i.test((el.className || '') + ' ' + (el.getAttribute && el.getAttribute('data-type') || '')) || el.getAttribute && el.getAttribute('aria-checked') != null;
 export function htmlToBlocks(html) {
   const t = document.createElement('template');
   t.innerHTML = html || '';
   const out = []; let buf = [];
-  const flush = () => { if (!buf.length) return; const h = sanitize(buf.join('')).replace(/^(<br>)+|(<br>)+$/g, '').trim(); buf = []; if (textOf(h).trim() || /<img/.test(h)) out.push(block('p', h)); };
+  const flush = () => { if (!buf.length) return; const h = sanitize(buf.join('')).replace(/^(<br>)+|(<br>)+$/g, '').trim(); buf = []; if (textOf(h).trim() || /<img/.test(h)) { const pr = promote(h); out.push(block(pr.type, pr.html, pr.checked != null ? { checked: pr.checked } : {})); } };
   const inlineOf = (el, skip = (n) => false) => { let h = ''; for (const c of el.childNodes) { if (c.nodeType === 1 && skip(c)) continue; h += c.nodeType === 1 ? c.outerHTML : escapeHtml(c.nodeValue); } return sanitize(h).replace(/^(<br>)+|(<br>)+$/g, '').trim(); };
   const isList = (n) => n.tagName === 'UL' || n.tagName === 'OL';
   const BLOCK = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'HR', 'TABLE', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'NAV', 'ASIDE', 'MAIN', 'FIGURE', 'FIGCAPTION', 'DL', 'DT', 'DD', 'TR', 'BODY', 'HTML', 'IMG', 'FORM', 'CENTER']);
@@ -157,10 +175,11 @@ export function htmlToBlocks(html) {
     const ordered = el.tagName === 'OL';
     for (const li of el.children) {
       if (li.tagName !== 'LI') { if (isList(li)) list(li, indent + 1); continue; }
-      const cb = li.querySelector(':scope > input[type=checkbox], :scope > p > input[type=checkbox], :scope > label > input[type=checkbox]');
-      const h = inlineOf(li, (n) => isList(n) || n.tagName === 'INPUT');
-      const type = cb ? 'todo' : ordered ? 'number' : 'bullet';
-      if (h || !li.querySelector('ul,ol')) out.push(block(type, h, { indent: Math.min(3, indent), checked: !!(cb && cb.checked) }));
+      const task = looksTask(li);
+      let h = inlineOf(li, (n) => isList(n) || n.tagName === 'INPUT' || (n.getAttribute && n.getAttribute('role') === 'checkbox'));
+      let type = task ? 'todo' : ordered ? 'number' : 'bullet'; let checked = task && checkedOf(li);
+      const m = h.match(/^(?:\s|&nbsp;)*\[( |x|X)\](?:\s|&nbsp;)+/); if (m) { type = 'todo'; checked = m[1] !== ' '; h = h.slice(m[0].length); }
+      if (h || !li.querySelector('ul,ol')) out.push(block(type, h, { indent: Math.min(3, indent), checked }));
       for (const sub of li.children) if (isList(sub)) list(sub, indent + 1);
     }
   };
@@ -171,6 +190,22 @@ export function htmlToBlocks(html) {
     const w = Math.max(...rows.map((r) => r.length));
     const header = !!(trs[0] && [...trs[0].children].every((c) => c.tagName === 'TH'));
     out.push(block('table', '', { rows: rows.map((r) => Array.from({ length: w }, (_, i) => r[i] || '')), header }));
+  };
+  // div 搭的表格 / 列表（role="table" / "row" / "cell"，role="list" / "listitem"）
+  const roleTable = (el) => {
+    const rows = [...el.querySelectorAll('[role=row]')].filter((r) => r.closest('[role=table],[role=grid]') === el).map((r) => [...r.querySelectorAll('[role=cell],[role=gridcell],[role=columnheader],[role=rowheader]')].filter((x) => x.closest('[role=row]') === r).map((x) => inlineOf(x)));
+    if (!rows.length) return; const w = Math.max(...rows.map((r) => r.length));
+    const header = !!el.querySelector('[role=columnheader]');
+    out.push(block('table', '', { rows: rows.map((r) => Array.from({ length: w }, (_, i) => r[i] || '')), header }));
+  };
+  const roleList = (el, indent) => {
+    for (const li of el.children) {
+      if (li.getAttribute('role') !== 'listitem') { if (li.getAttribute('role') === 'list') roleList(li, indent + 1); continue; }
+      const task = looksTask(li); let h = inlineOf(li, (n) => (n.getAttribute && (n.getAttribute('role') === 'list' || n.getAttribute('role') === 'checkbox')) || n.tagName === 'INPUT');
+      const pr = task ? { type: 'todo', html: h, checked: checkedOf(li) } : promote(h); if (pr.type === 'p') pr.type = 'bullet';
+      out.push(block(pr.type, pr.html, { indent: Math.min(3, indent), checked: !!pr.checked }));
+      for (const sub of li.children) if (sub.getAttribute && sub.getAttribute('role') === 'list') roleList(sub, indent + 1);
+    }
   };
   const walk = (node) => {
     for (const c of node.childNodes) {
@@ -188,9 +223,12 @@ export function htmlToBlocks(html) {
       else if (tag === 'HR') out.push(block('divider'));
       else if (tag === 'IMG') { const src = c.getAttribute('src') || ''; if (/^(https?:|data:image\/)/.test(src)) out.push(block('image', escapeHtml(c.getAttribute('alt') || ''), { url: src })); }
       else if (tag === 'TABLE') table(c);
+      else if (c.getAttribute('role') === 'table' || c.getAttribute('role') === 'grid') roleTable(c);
+      else if (c.getAttribute('role') === 'list') roleList(c, 0);
       else if (tag === 'FIGURE') { const img = c.querySelector('img'); if (img) { const src = img.getAttribute('src') || ''; if (/^(https?:|data:image\/)/.test(src)) out.push(block('image', escapeHtml((c.querySelector('figcaption') || {}).textContent || img.getAttribute('alt') || ''), { url: src })); } else walk(c); }
+      else if (c.getAttribute('role') === 'listitem' || looksTask(c)) { const task = looksTask(c); const h = inlineOf(c, (n) => n.tagName === 'INPUT' || (n.getAttribute && n.getAttribute('role') === 'checkbox')); const pr = task ? { type: 'todo', html: h, checked: checkedOf(c) } : promote(h); if (pr.type === 'p') pr.type = 'bullet'; if (h) out.push(block(pr.type, pr.html, { checked: !!pr.checked })); }
       else if (hasBlockKids(c)) walk(c);
-      else { const h = inlineOf(c); if (h) out.push(block('p', h)); }
+      else { const h = inlineOf(c); if (h) { const pr = promote(h); out.push(block(pr.type, pr.html, pr.checked != null ? { checked: pr.checked } : {})); } }
     }
   };
   walk(t.content); flush();
