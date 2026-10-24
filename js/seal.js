@@ -235,11 +235,25 @@ export function Seal() {
     let dragging = false, moved = false, sx0, sy0, ox, oy, lastX, lastY;
     // 闲时贴边：面板关着、鼠标不在附近超过几秒，就缩到屏幕边上只露一截，不压在内容上
     let tucked = false, nearT = performance.now();
-    const tuckOn = () => sRef.current.settings.sealTuck !== false;
+    // 趴在卡片上：松手时下面有卡片，就趴到它的上沿，跟着页面一起滚；每个页面分别记住趴在哪
+    const PERCH_DY = 34;
+    let perch = null; // { el, key, ox, lastLeft, lastTop }
+    const routeKey = () => location.hash.split('?')[0] || '#/home';
+    const cards = () => [...document.querySelectorAll('.widget'), ...[...document.querySelectorAll('.card')].filter((c) => !c.closest('.widget'))];
+    const keyOf = (el) => el.dataset.id ? 'w:' + el.dataset.id : 'c:' + ((el.querySelector('h3') || {}).textContent || '').trim().slice(0, 24) + ':' + cards().indexOf(el);
+    const savePerch = () => { try { const all = JSON.parse(localStorage.getItem('ytos.seal.perch') || '{}'); if (perch) all[routeKey()] = { key: perch.key, ox: perch.ox }; else delete all[routeKey()]; localStorage.setItem('ytos.seal.perch', JSON.stringify(all)); } catch {} };
+    const restorePerch = () => { perch = null; try { const all = JSON.parse(localStorage.getItem('ytos.seal.perch') || '{}'); const pp = all[routeKey()]; if (!pp) return false; const el = cards().find((e) => keyOf(e) === pp.key); if (el) { const r = el.getBoundingClientRect(); perch = { el, key: pp.key, ox: pp.ox, lastLeft: r.left, lastTop: r.top }; } } catch {} return !!perch; };
+    const edgeTarget = () => { tx = (x + S / 2 < innerWidth / 2) ? M : innerWidth - S - M; ty = Math.min(Math.max(M, y), innerHeight - S - M - bottomPad()); };
+    let restoreT = 0;
+    // 页面渲染有先后，找不到就再等等（最多几次）
+    const tryRestore = (n, toEdge) => { clearTimeout(restoreT); if (restorePerch()) return; if (n <= 0) { if (toEdge) edgeTarget(); return; } restoreT = setTimeout(() => tryRestore(n - 1, toEdge), 400); };
+    const onRoute = () => { perch = null; edgeTarget(); tryRestore(4, false); };
+    window.addEventListener('hashchange', onRoute); restoreT = setTimeout(() => tryRestore(4, false), 300);
+    const tuckOn = () => sRef.current.settings.sealTuck === true;
     let lookX = 0, lookY = 0, squash = 0, sqv = 0, hop = 0, hopV = 0, flap = 0, happy = 0;
     let tuckK = 0; // 0 露出 → 1 贴边，缓动
     const place = () => { const want = tucked && !dragging && !openRef.current ? 1 : 0; tuckK += (want - tuckK) * .12; if (Math.abs(want - tuckK) < .005) tuckK = want; const off = (tx === M ? -(S - 34) : (S - 34)) * tuckK; fab.style.transform = `translate(${x + off}px,${y}px)`; fab.style.opacity = String(1 - tuckK * .25); };
-    api.current.reset = () => { try { localStorage.removeItem('ytos.seal'); } catch {} tx = innerWidth - S - M; ty = innerHeight - S - M - bottomPad(); tucked = false; sqv += .1; };
+    api.current.reset = () => { try { localStorage.removeItem('ytos.seal'); } catch {} perch = null; savePerch(); tx = innerWidth - S - M; ty = innerHeight - S - M - bottomPad(); tucked = false; sqv += .1; };
     place();
     const posPanel = () => {
       const panel = panelRef.current; if (!panel || !openRef.current || bigRef.current) return;
@@ -265,9 +279,18 @@ export function Seal() {
     const end = () => {
       if (!dragging) return; dragging = false; fab.classList.remove('turning');
       if (moved) {
-        tx = (x + S / 2 < innerWidth / 2) ? M : innerWidth - S - M; ty = Math.min(Math.max(M, y), innerHeight - S - M - bottomPad()); svx = vx; svy = vy;
-        try { localStorage.setItem('ytos.seal', JSON.stringify({ side: tx === M ? 'l' : 'r', y: ty / innerHeight })); } catch {}
-        sqv += .12;
+        svx = vx; svy = vy; sqv += .12;
+        const under = document.elementsFromPoint(Math.max(0, Math.min(innerWidth - 1, x + S / 2)), Math.max(0, Math.min(innerHeight - 1, y + S - 6))).filter((e) => e !== fab && !fab.contains(e) && !panelRef.current?.contains(e));
+        const card = under.map((e) => e.closest && (e.closest('.widget') || e.closest('.card'))).find(Boolean);
+        if (card) {
+          const r = card.getBoundingClientRect();
+          perch = { el: card, key: keyOf(card), ox: Math.max(.08, Math.min(.92, (x + S / 2 - r.left) / r.width)), lastLeft: r.left, lastTop: r.top };
+          happy = 1.2;
+        } else {
+          perch = null; edgeTarget();
+          try { localStorage.setItem('ytos.seal', JSON.stringify({ side: tx === M ? 'l' : 'r', y: ty / innerHeight })); } catch {}
+        }
+        savePerch();
       } else { hopV = .09; flap = 1; toggle(); }
     };
     const key = (e) => { const k = { ArrowLeft: [-24, 0], ArrowRight: [24, 0], ArrowUp: [0, -24], ArrowDown: [0, 24] }[e.key]; if (k) { e.preventDefault(); tx = Math.min(Math.max(M, tx + k[0]), innerWidth - S - M); ty = Math.min(Math.max(M, ty + k[1]), innerHeight - S - M - bottomPad()); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hopV = .09; flap = 1; toggle(); } };
@@ -280,14 +303,14 @@ export function Seal() {
         { label: openRef.current ? '关闭对话' : '打开对话', icon: 'maximize', onClick: () => setOpen((o) => !o) },
         'sep',
         { label: tuckOn() ? '闲时贴边：开' : '闲时贴边：关', icon: 'right', hint: '没人理时缩到屏幕边上', onClick: () => update((d) => { d.settings.sealTuck = !(d.settings.sealTuck !== false); }) },
-        { label: '回到右下角', icon: 'refresh', onClick: () => api.current.reset() },
+        { label: '回到右下角', icon: 'refresh', hint: '从卡片上下来', onClick: () => api.current.reset() },
         { label: '设置…', icon: 'settings', onClick: () => go('settings') },
         'sep',
         { label: '隐藏汤圆', icon: 'eye', danger: true, hint: '设置里可再打开', onClick: () => { update((d) => { d.settings.seal = false; }); toast('汤圆藏起来了', { label: '再见到它', onClick: () => update((d) => { d.settings.seal = true; }) }); } },
       ], '汤圆');
     };
     fab.addEventListener('contextmenu', ctx);
-    const resize = () => { tx = (x + S / 2 < innerWidth / 2) ? M : innerWidth - S - M; ty = Math.min(Math.max(M, ty), innerHeight - S - M - bottomPad()); };
+    const resize = () => { if (perch) return; tx = (x + S / 2 < innerWidth / 2) ? M : innerWidth - S - M; ty = Math.min(Math.max(M, ty), innerHeight - S - M - bottomPad()); };
     fab.addEventListener('pointerdown', down); fab.addEventListener('pointermove', move); fab.addEventListener('pointerup', end); fab.addEventListener('pointercancel', end); fab.addEventListener('keydown', key);
     window.addEventListener('pointermove', look, { passive: true }); window.addEventListener('resize', resize);
 
@@ -296,8 +319,12 @@ export function Seal() {
     const frame = (now) => {
       if (dead) return;
       const dt = Math.min(.05, (now - t0) / 1000); t0 = now; idleT += dt;
-      if (!dragging && !openRef.current && tuckOn() && !tucked && now - nearT > 4000 && Math.abs(tx - x) < 1) { tucked = true; }
-      if (tucked && (openRef.current || !tuckOn())) tucked = false;
+      if (perch) {
+        if (!perch.el.isConnected) { if (!restorePerch()) edgeTarget(); }
+        if (perch) { const r = perch.el.getBoundingClientRect(); if (!dragging) { x += r.left - perch.lastLeft; y += r.top - perch.lastTop; } perch.lastLeft = r.left; perch.lastTop = r.top; tx = r.left + perch.ox * r.width - S / 2; ty = r.top - S + PERCH_DY; }
+      }
+      if (!dragging && !perch && !openRef.current && tuckOn() && !tucked && now - nearT > 4000 && Math.abs(tx - x) < 1) { tucked = true; }
+      if (tucked && (perch || openRef.current || !tuckOn())) tucked = false;
       if (!dragging) {
         if (reduce) { x = tx; y = ty; svx = svy = 0; }
         else { svx = (svx + (tx - x) * .12) * .74; svy = (svy + (ty - y) * .12) * .74; x += svx; y += svy; if (Math.abs(tx - x) < .1 && Math.abs(svx) < .1) x = tx; if (Math.abs(ty - y) < .1 && Math.abs(svy) < .1) y = ty; }
@@ -340,7 +367,7 @@ export function Seal() {
     return () => {
       dead = true; cancelAnimationFrame(raf); if (model) model.dispose();
       fab.removeEventListener('contextmenu', ctx); fab.removeEventListener('pointerdown', down); fab.removeEventListener('pointermove', move); fab.removeEventListener('pointerup', end); fab.removeEventListener('pointercancel', end); fab.removeEventListener('keydown', key);
-      window.removeEventListener('pointermove', look); window.removeEventListener('resize', resize);
+      window.removeEventListener('pointermove', look); window.removeEventListener('resize', resize); window.removeEventListener('hashchange', onRoute); clearTimeout(restoreT);
     };
   }, []);
 

@@ -128,8 +128,8 @@ export default function Settings() {
       <${Card} title="汤圆助手" sub=${login && login.ai ? `AI 已接入（${login.aiModel || '模型由 AGENT_MODEL 决定'}）。` : '角落里的小海豹。说一句话，拆成待办 / 时间块 / 笔记，预览后再保存。'}>
         <div class="form">
           <div class="grid2">
-            <${Field} label="显示海豹" hint="右键海豹也能隐藏、贴边、回到角落。"><${Seg} options=${[{ v: 'on', label: '显示' }, { v: 'off', label: '隐藏' }]} value=${s.settings.seal === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.seal = v === 'on'; })} /><//>
-            <${Field} label="闲时贴边" hint="几秒没人理，就缩到屏幕边上只露一截，不压在内容上；鼠标靠近就出来。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealTuck === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.sealTuck = v === 'on'; })} /><//>
+            <${Field} label="显示海豹" hint="拖到任意卡片上松手，它会趴在卡片上沿跟着页面滚；拖到空白处就吸到屏幕边。右键有更多选项。"><${Seg} options=${[{ v: 'on', label: '显示' }, { v: 'off', label: '隐藏' }]} value=${s.settings.seal === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.seal = v === 'on'; })} /><//>
+            <${Field} label="闲时贴边" hint="几秒没人理，就缩到屏幕边上只露一截，不压在内容上；鼠标靠近就出来。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealTuck === true ? 'on' : 'off'} onChange=${(v) => update((d) => { d.settings.sealTuck = v === 'on'; })} /><//>
           </div>
           ${login && login.ai
             ? html`<p class="small muted">每次只把你说的那句话和少量上下文（今天的日期、本子名、常用标签、今日待办标题）发给模型；拆出来的内容你确认后才写入。在随手记里也可以点「问汤圆」。</p>`
