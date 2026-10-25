@@ -2329,3 +2329,21 @@ html:not([data-glow="0"]) .seal-hints button:hover .sh-i{box-shadow:0 0 0 1px co
 html:not([data-glow="0"]) .seal-avw .dot.on{animation:seal-breathe 2.8s ease-in-out infinite}
 html:not([data-glow="0"]) .seal-hero.docked::before{inset:4%;background:radial-gradient(closest-side,color-mix(in srgb,var(--ink) 10%,transparent),transparent 72%)}
 @media (prefers-reduced-motion:reduce){.seal-form:focus-within,.seal-avw .dot.on,.seal-hints button:hover::after{animation:none!important}}
+
+/* ---- 汤圆强调色：青绿 / 冰蓝 / 无（设置 → 汤圆强调色）。只用在发送键、保存键、状态点和光晕 ---- */
+html[data-accent="teal"]{--seal-ac:#139f88;--seal-ac-on:#fff}
+html[data-accent="teal"][data-theme="dark"]{--seal-ac:#5dd6c0;--seal-ac-on:#06221d}
+html[data-accent="ice"]{--seal-ac:#2f7fe0;--seal-ac-on:#fff}
+html[data-accent="ice"][data-theme="dark"]{--seal-ac:#7fb3ff;--seal-ac-on:#061a33}
+html[data-accent]:not([data-accent="none"]) .seal-send{background:var(--seal-ac);color:var(--seal-ac-on)}
+html[data-accent]:not([data-accent="none"]) .seal-send:hover:not(:disabled){background:var(--seal-ac);opacity:.9}
+html[data-accent]:not([data-accent="none"]) .ac-save{background:var(--seal-ac);color:var(--seal-ac-on);box-shadow:none}
+html[data-accent]:not([data-accent="none"]) .ac-save:hover:not(:disabled){background:var(--seal-ac);opacity:.9}
+html[data-accent]:not([data-accent="none"]) .seal-id .dot.on,html[data-accent]:not([data-accent="none"]) .seal-avw .dot.on{background:var(--seal-ac);box-shadow:0 0 0 3px color-mix(in srgb,var(--seal-ac) 22%,transparent)}
+html[data-accent]:not([data-accent="none"]) .ac-ok{color:var(--seal-ac)}
+html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-avw .dot.on{--sg3:var(--seal-ac)}
+html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-intro::before{background:radial-gradient(circle at center,color-mix(in srgb,var(--seal-ac) 14%,transparent),color-mix(in srgb,var(--seal-ac) 4%,transparent) 40%,transparent 70%),radial-gradient(circle,color-mix(in srgb,var(--ink) 16%,transparent) 1px,transparent 1.2px) 0 0/14px 14px}
+html[data-accent]:not([data-accent="none"])[data-theme="dark"]:not([data-glow="0"]) .seal-intro::before{background:radial-gradient(circle at center,color-mix(in srgb,var(--seal-ac) 22%,transparent),color-mix(in srgb,var(--seal-ac) 6%,transparent) 40%,transparent 70%),radial-gradient(circle,rgba(255,255,255,.26) 1px,transparent 1.2px) 0 0/14px 14px}
+html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-form:focus-within{background:linear-gradient(var(--paper),var(--paper)) padding-box,conic-gradient(from var(--seal-ang),var(--line) 0 62%,var(--seal-ac) 78%,var(--line) 92%) border-box;box-shadow:0 10px 30px -20px color-mix(in srgb,var(--seal-ac) 60%,transparent)}
+html[data-accent]:not([data-accent="none"])[data-theme="dark"]:not([data-glow="0"]) .seal-form:focus-within{background:linear-gradient(#171b2a,#171b2a) padding-box,conic-gradient(from var(--seal-ang),rgba(255,255,255,.1) 0 62%,var(--seal-ac) 78%,rgba(255,255,255,.1) 92%) border-box;box-shadow:0 0 30px -8px color-mix(in srgb,var(--seal-ac) 40%,transparent)}
+html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-hero.docked::before{background:radial-gradient(closest-side,color-mix(in srgb,var(--seal-ac) 16%,transparent),transparent 72%)}
