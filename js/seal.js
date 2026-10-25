@@ -4,7 +4,7 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact.js';
 import { useStore, upsert, get, update, remove } from './store.js';
 import { ctxMenu } from './ctx.js';
-import { Icon, DateInput, TimeInput } from './ui.js';
+import { Icon, DateInput, TimeInput, Seg } from './ui.js';
 import * as pomo from './pomo.js';
 import { greeting, uid, todayStr, relDay, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, weekKey, monthKey, hostOf, addDays, parseDate } from './util.js';
 import { typesOf, autoCover } from './views/reading.js';
@@ -310,7 +310,11 @@ export function Seal() {
   api.current.setAvatar = (u) => { setAva(u); try { sessionStorage.setItem('ytos.seal.ava', u); } catch {} };
   const [hero, setHero] = useState(() => { try { return sessionStorage.getItem('ytos.seal.hero') || ''; } catch { return ''; } });
   api.current.setHero = (u) => { setHero(u); try { sessionStorage.setItem('ytos.seal.hero', u); } catch {} };
-  const [cmode, setCmode] = useState(''); // 输入框的模式胶囊：'' 自动 | breakdown 拆解 | plan 规划
+  const [cmode, setCmode] = useState(''); // 输入框的模式：'' 记录 | breakdown 拆解 | plan 规划
+  const heroRef = useRef();
+  const nogl = !!(fabRef.current && fabRef.current.classList.contains('nogl'));
+  const docked = !!mode && open && view === 'chat' && msgs.length === 0 && !nogl;
+  useEffect(() => { api.current.dockEl = docked ? heroRef.current : null; return () => { api.current.dockEl = null; }; }, [docked, mode, open, view, msgs.length]);
   const [pinnedPos, setPinnedPos] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.panelpos') || 'null'); } catch { return null; } });
   api.current.pinnedPos = pinnedPos;
   const savePos = (v) => { setPinnedPos(v); api.current.pinnedPos = v; try { v ? localStorage.setItem('ytos.seal.panelpos', JSON.stringify(v)) : localStorage.removeItem('ytos.seal.panelpos'); } catch {} api.current.posPanel && api.current.posPanel(); };
@@ -332,6 +336,7 @@ export function Seal() {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const bottomPad = () => (matchMedia('(max-width:900px)').matches ? 76 : 24);
     let x = innerWidth - S - M, y = innerHeight - S - M - bottomPad(), tx = x, ty = y, vx = 0, vy = 0, svx = 0, svy = 0;
+    let docked0 = null, dockK = 1; // 停进对话框前的位置；停进去时的缩放
     try { const sp = JSON.parse(localStorage.getItem('ytos.seal')); if (sp) { tx = x = sp.side === 'l' ? M : innerWidth - S - M; ty = y = Math.min(Math.max(M, sp.y * innerHeight), innerHeight - S - M - bottomPad()); } } catch {}
     let dragging = false, moved = false, sx0, sy0, ox, oy, lastX, lastY;
     // 闲时贴边：面板关着、鼠标不在附近超过几秒，就缩到屏幕边上只露一截，不压在内容上
@@ -354,7 +359,7 @@ export function Seal() {
     let lookX = 0, lookY = 0, squash = 0, sqv = 0, hop = 0, hopV = 0, flap = 0, happy = 0;
     let tuckK = 0; // 0 露出 → 1 贴边，缓动
     let lastTf = '';
-    const place = () => { const want = tucked && !dragging && !openRef.current ? 1 : 0; tuckK += (want - tuckK) * .12; if (Math.abs(want - tuckK) < .005) tuckK = want; const off = (tx === M ? -(S - 34) : (S - 34)) * tuckK; const tf = `translate(${x + off}px,${y}px)`; if (tf !== lastTf) { lastTf = tf; fab.style.transform = tf; } fab.style.opacity = String(1 - tuckK * .25); };
+    const place = () => { const want = tucked && !dragging && !openRef.current ? 1 : 0; tuckK += (want - tuckK) * .12; if (Math.abs(want - tuckK) < .005) tuckK = want; const off = (tx === M ? -(S - 34) : (S - 34)) * tuckK; const wantK = api.current.dockEl && openRef.current ? .8 : 1; dockK += (wantK - dockK) * .12; if (Math.abs(wantK - dockK) < .003) dockK = wantK; const tf = `translate(${x + off}px,${y}px)` + (dockK !== 1 ? ` scale(${dockK.toFixed(3)})` : ''); if (tf !== lastTf) { lastTf = tf; fab.style.transform = tf; } fab.style.opacity = String(1 - tuckK * .25); };
     api.current.reset = () => { try { localStorage.removeItem('ytos.seal'); } catch {} perch = null; savePerch(); tx = innerWidth - S - M; ty = innerHeight - S - M - bottomPad(); tucked = false; sqv += .1; };
     place();
     const posPanel = () => {
@@ -396,7 +401,7 @@ export function Seal() {
           try { localStorage.setItem('ytos.seal', JSON.stringify({ side: tx === M ? 'l' : 'r', y: ty / innerHeight })); } catch {}
         }
         savePerch();
-      } else { hopV = .09; flap = 1; toggle(); }
+      } else if (api.current.dockEl && openRef.current) { hopV = .09; flap = 1; api.current.happy && api.current.happy(1.4); } else { hopV = .09; flap = 1; toggle(); }
     };
     const key = (e) => { const k = { ArrowLeft: [-24, 0], ArrowRight: [24, 0], ArrowUp: [0, -24], ArrowDown: [0, 24] }[e.key]; if (k) { e.preventDefault(); tx = Math.min(Math.max(M, tx + k[0]), innerWidth - S - M); ty = Math.min(Math.max(M, ty + k[1]), innerHeight - S - M - bottomPad()); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hopV = .09; flap = 1; toggle(); } };
     const look = (e) => { const cx = x + S / 2, cy = y + S / 2; lookX = Math.max(-1, Math.min(1, (e.clientX - cx) / 350)); lookY = Math.max(-1, Math.min(1, (e.clientY - cy) / 350)); if (Math.hypot(e.clientX - cx, e.clientY - cy) < 150) { nearT = performance.now(); if (tucked) { tucked = false; sqv += .05; } } };
@@ -428,6 +433,10 @@ export function Seal() {
         if (!perch.el.isConnected) { if (!restorePerch()) edgeTarget(); }
         if (perch) { const r = perch.el.getBoundingClientRect(); if (!dragging) { x += r.left - perch.lastLeft; y += r.top - perch.lastTop; } perch.lastLeft = r.left; perch.lastTop = r.top; tx = r.left + perch.ox * r.width - S / 2; ty = r.top - S + PERCH_DY; }
       }
+      // 对话框是空的且展开着：汤圆本尊停到中间的占位格里（活的 3D，还会转头看鼠标）；有了对话就回原位
+      const dockEl = api.current.dockEl;
+      if (dockEl && openRef.current && !dragging && dockEl.isConnected) { if (!docked0) docked0 = { tx, ty }; const r = dockEl.getBoundingClientRect(); tx = r.left + r.width / 2 - S / 2; ty = r.top + r.height / 2 - S / 2 + 4; tucked = false; }
+      else if (docked0 && !dragging) { tx = docked0.tx; ty = docked0.ty; docked0 = null; }
       if (!dragging && !perch && !openRef.current && tuckOn() && !tucked && now - nearT > 4000 && Math.abs(tx - x) < 1) { tucked = true; }
       if (tucked && (perch || openRef.current || !tuckOn())) tucked = false;
       if (!dragging) {
@@ -702,13 +711,23 @@ export function Seal() {
         ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
           : html`<span class="seal-id"><span class="seal-avw">${ava ? html`<img class="seal-ava" src=${ava} alt="" />` : AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b><small>${status.text}</small></span>`}
         <span class="flex1"></span>
-        ${view === 'chat' && html`<button class=${'ibtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
+        ${view === 'chat' && !big && html`<button class=${'ibtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
         ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
         <button class="ibtn seal-big" title=${mode === 'big' ? '恢复浮窗' : '展开'} onClick=${() => setModeKeep(mode === 'big' ? '' : 'big')}><${Icon} name=${mode === 'big' ? 'minus' : 'maximize'} size=${15} /></button>
         <button class="ibtn seal-full" title=${mode === 'full' ? '退出全屏' : '全屏'} onClick=${() => setModeKeep(mode === 'full' ? 'big' : 'full')}><${Icon} name=${mode === 'full' ? 'minus' : 'frame'} size=${15} /></button>
         <button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button>
         </div>
       </div>
+      <div class="seal-body">
+      ${big && html`<aside class="seal-side">
+        <button class="ss-new" type="button" onClick=${newThread}><${Icon} name="plus" size=${14} /> 新对话</button>
+        ${threads.length === 0 ? html`<div class="ss-empty">还没有历史对话</div>` : (() => {
+          const day = (ts) => { const d = new Date(ts), n = new Date(); const dd = Math.floor((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5); return dd <= 0 ? '今天' : dd === 1 ? '昨天' : dd < 7 ? '最近一周' : '更早'; };
+          const groups = []; threads.forEach((t) => { const g = day(t.updated); let x = groups.find((y) => y[0] === g); if (!x) { x = [g, []]; groups.push(x); } x[1].push(t); });
+          return groups.map(([g, list]) => html`<div class="ss-g" key=${g}><div class="ss-h">${g}</div>${list.map((t) => html`<div key=${t.id} class=${'ss-row ' + (t.id === tid ? 'cur' : '')} onClick=${() => openThread(t)}><span class="ss-t">${t.title}</span><button class="ibtn ss-del" title="删除" onClick=${(e) => { e.stopPropagation(); delThread(t.id); }}><${Icon} name="x" size=${12} /></button></div>`)}</div>`);
+        })()}
+      </aside>`}
+      <div class="seal-main">
       ${view === 'history' ? html`<div class="seal-msgs seal-hist"><div class="seal-col">
         ${threads.length === 0 && html`<div class="seal-empty">还没有历史对话</div>`}
         ${threads.map((t) => html`<div key=${t.id} class=${'sh-row ' + (t.id === tid ? 'cur' : '')} onClick=${() => openThread(t)}>
@@ -717,7 +736,7 @@ export function Seal() {
         </div>`)}
       </div></div>` : html`<div class="seal-msgs" ref=${msgsRef}><div class="seal-col">
         ${msgs.length === 0 && html`<div class="seal-intro">
-            <div class="seal-hero">${hero ? html`<img src=${hero} alt="汤圆" draggable="false" />` : AVATAR}</div>
+            <div class=${'seal-hero ' + (docked ? 'docked' : '')} ref=${heroRef}>${hero ? html`<img src=${hero} alt="汤圆" draggable="false" />` : AVATAR}</div>
             <h3>${greeting()}，${(sRef.current.profile && sRef.current.profile.name) || '妈妈'}。今天想做点什么？</h3>
             <p>说一句话，我整理成待办、时间块、笔记或目标；也能把一件大事拆成几步、排进时间线。你确认了才会写进去。</p>
             <div class="seal-hints">${HINTS.map((h) => html`<button key=${h.t} type="button" onClick=${() => ask(h.t)}><span class="sh-q">${h.t}</span><span class="sh-k">${h.k.map((k) => html`<i key=${k}>${k}</i>`)}</span></button>`)}</div>
@@ -765,11 +784,16 @@ export function Seal() {
             </label>`)}
             ${plan.length > 0 && html`<div class="sp-tl">
               <div class="sp-h">时间线预览<small>从现在起避开已有安排，只排 8:00–22:00</small></div>
-              ${plan.map((p, i) => html`<div key=${p.stepId} class="sp-row">
-                ${(i === 0 || plan[i - 1].date !== p.date) ? html`<span class="sp-day">${p.date === todayStr() ? '今天' : relDay(p.date)}</span>` : html`<span class="sp-day"></span>`}
-                <span class="sp-time">${p.start}–${p.end}</span>
-                <span class="sp-track"><i class="sp-bar" style=${`width:${Math.max(12, Math.round(p.minutes / maxLen * 100))}%`}><b>${i + 1}</b>${p.title}</i></span>
-              </div>`)}
+              <div class="sp-metro">
+                ${plan.map((p, i) => html`<div key=${p.stepId}>
+                  ${(i === 0 || plan[i - 1].date !== p.date) && html`<div class="sp-dayrow"><span class="sp-t"></span><span class="sp-node day"></span><span class="sp-daylbl">${p.date === todayStr() ? '今天' : relDay(p.date)}</span></div>`}
+                  <div class="sp-stop">
+                    <span class="sp-t">${p.start}</span>
+                    <span class="sp-node"><i>${i + 1}</i></span>
+                    <span class="sp-lbl"><b>${p.title}</b><small>${p.minutes} 分钟 · 到 ${p.end}</small></span>
+                  </div>
+                </div>`)}
+              </div>
             </div>`}
             <div class="ac-f">
               ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> ${m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已加为「${m.todo.title}」的 ${m.saved} 步`}</span><span class="flex1"></span>${m.open && html`<button class="btn sm ghost" onClick=${() => go(m.open)}>${m.scheduled ? '看时间线' : '去看看'}</button>`}`
@@ -783,12 +807,12 @@ export function Seal() {
         <textarea ref=${inRef} rows="1" maxlength="2000" value=${txt} placeholder="问汤圆任何事：记一件事、拆解一个任务，或者随便聊聊" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
         <div class="sf-bar">
           <button type="button" class="sf-b" title="示例句子" onClick=${(e) => ctxMenu(e, HINTS.map((h) => ({ label: h.t, hint: h.k.join(' · '), onClick: () => { setTxt(h.t); setTimeout(() => inRef.current && inRef.current.focus(), 0); } })), '提示词')}><${Icon} name="sparkle" size=${13} /> 提示词</button>
-          <button type="button" class=${'sf-b ' + (cmode === 'breakdown' ? 'on' : '')} title="把一件大事拆成几步，并预览排期" onClick=${() => setCmode(cmode === 'breakdown' ? '' : 'breakdown')}><${Icon} name="layers" size=${13} /> 拆解</button>
-          <button type="button" class=${'sf-b ' + (cmode === 'plan' ? 'on' : '')} title="让汤圆给出安排建议" onClick=${() => setCmode(cmode === 'plan' ? '' : 'plan')}><${Icon} name="calendar" size=${13} /> 规划</button>
+          <span class="sf-seg"><${Seg} options=${[{ v: '', label: '记录' }, { v: 'breakdown', label: '拆解' }, { v: 'plan', label: '规划' }]} value=${cmode} onChange=${setCmode} /></span>
           <span class="flex1"></span>
           <span class=${'sf-cnt ' + (txt.length > 1800 ? 'warn' : '')}>${txt.length} / 2000</span>
-          <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="send" size=${15} />`}</button>
+          <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${14} /><span>发送</span>`}</button>
         </div>
       </form><div class="sf-note">汤圆可能会出错，写进去之前看一眼。</div></div>
+      </div></div>
     </div>`;
 }

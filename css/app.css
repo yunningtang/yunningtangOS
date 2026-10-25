@@ -2036,7 +2036,8 @@ html[data-fx="lite"] .card,html[data-fx="lite"] .side,html[data-fx="lite"] body.
 html[data-fx="lite"][data-skin="glass"][data-theme="light"]{--glass:rgba(255,255,255,.84);--glass-side:rgba(246,247,250,.9)}
 html[data-fx="lite"][data-skin="glass"][data-theme="dark"]{--glass:rgba(28,31,38,.86);--glass-side:rgba(18,20,25,.92)}
 html[data-fx="lite"] .topbar{--tb-bg:color-mix(in srgb,var(--bg) 94%,transparent)}
-html[data-fx="lite"] .seal-panel{background:color-mix(in srgb,var(--paper) 97%,transparent)}
+html[data-fx="lite"] .seal-panel{background:var(--paper)}
+html[data-fx="lite"][data-theme="dark"] .seal-panel{background:#141826}
 html[data-fx="lite"] .modal,html[data-fx="lite"] .pop,html[data-fx="lite"] .popmenu,html[data-fx="lite"] .cap{-webkit-backdrop-filter:none;backdrop-filter:none;background:color-mix(in srgb,var(--paper) 97%,transparent)}
 .splitter-guide{position:fixed;left:0;width:2px;border-radius:2px;background:rgba(var(--ac),.7);z-index:200;pointer-events:none}
 
@@ -2200,3 +2201,41 @@ html[data-theme="dark"] .seal-form:focus-within{background:linear-gradient(#171b
 .seal-hints .sh-k{display:none}
 .seal-panel:not(.big):not(.full) .seal-hints{grid-template-columns:none}
 .sf-b.on{border-color:var(--ink);color:var(--text);background:transparent}
+
+/* ============ 汤圆对话框：侧边栏 / 活的汤圆 / 地铁式时间线 / 发送胶囊 ============ */
+.seal-body{display:flex;flex:1;min-height:0}
+.seal-main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+.seal-side{width:208px;flex:none;display:flex;flex-direction:column;gap:6px;padding:6px 10px 12px 14px;border-right:1px solid var(--line);overflow:auto;scrollbar-width:thin}
+.ss-new{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;border-radius:999px;background:var(--ink);color:var(--bg);font-size:.8rem;font-weight:500;margin:4px 0 8px}
+.ss-new:hover{opacity:.88}
+.ss-h{font-size:.66rem;letter-spacing:.04em;color:var(--text-4);padding:8px 6px 4px}
+.ss-row{display:flex;align-items:center;gap:4px;min-height:32px;padding:4px 6px 4px 10px;border-radius:10px;cursor:pointer;color:var(--text-2);font-size:.78rem;transition:background .15s}
+.ss-row:hover{background:var(--hover)}.ss-row.cur{background:var(--hover-2);color:var(--text)}
+.ss-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-del{width:22px;height:22px;opacity:0;color:var(--text-4)}.ss-row:hover .ss-del{opacity:1}
+.ss-empty{padding:20px 8px;font-size:.76rem;color:var(--text-4);text-align:center}
+.seal-panel:not(.big) .seal-side{display:none}
+@media (max-width:900px){.seal-side{display:none}}
+/* 活的汤圆停在占位格里：格子本身留空，截图藏掉 */
+.seal-hero.docked img,.seal-hero.docked svg{visibility:hidden}
+.seal-hero.docked{animation:none}
+.seal-panel.big .seal-hero,.seal-panel.full .seal-hero{width:150px;height:150px}
+/* 发送：墨色胶囊，带文字 */
+.seal-send{width:auto;height:32px;padding:0 13px 0 11px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:500}
+.seal-send .ic{stroke-width:2}
+.sf-seg{display:inline-flex;margin-left:2px}.sf-seg .seg{height:28px;padding:2px}.sf-seg .seg button{height:24px;padding:0 10px;font-size:.74rem}
+/* 地铁式时间线：左边时间，中间一条竖线和站点，右边站名 */
+.sp-metro{position:relative;display:flex;flex-direction:column}
+.sp-stop,.sp-dayrow{display:grid;grid-template-columns:48px 22px minmax(0,1fr);align-items:center;gap:0 10px;position:relative}
+.sp-stop{min-height:40px}.sp-dayrow{min-height:24px}
+.sp-stop::before,.sp-dayrow::before{content:"";position:absolute;left:calc(48px + 10px + 11px - 1px);top:0;bottom:0;width:2px;background:var(--line-2)}
+.sp-metro>div:first-child .sp-dayrow::before{top:50%}.sp-metro>div:last-child .sp-stop::before{bottom:50%}
+.sp-t{font-size:.76rem;color:var(--text-2);text-align:right;font-variant-numeric:tabular-nums}
+.sp-node{position:relative;z-index:1;width:22px;height:22px;border-radius:50%;background:var(--paper);border:2px solid var(--ink);display:grid;place-items:center}
+.sp-node i{font-style:normal;font-size:.62rem;font-weight:600;color:var(--text)}
+.sp-node.day{width:10px;height:10px;margin:0 auto;border-width:2px;background:var(--ink)}
+.sp-daylbl{font-size:.7rem;color:var(--text-4);letter-spacing:.03em}
+.sp-lbl{display:flex;flex-direction:column;gap:1px;min-width:0}.sp-lbl b{font-weight:500;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sp-lbl small{font-size:.7rem;color:var(--text-4)}
+html[data-theme="dark"] .sp-node{background:#171b2a}
+/* 数字不用等宽字体 */
+.ac-m,.sf-cnt,.ac-n,.sp-time{font-family:inherit}
