@@ -222,8 +222,22 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const startNode = (s0) => { if (!s0 || !s0.rangeCount) return null; const r = s0.getRangeAt(0); let n = r.startContainer; if (n.nodeType === 1 && n.childNodes.length) n = n.childNodes[Math.min(r.startOffset, n.childNodes.length - 1)]; while (n && n.nodeType === 1 && n.firstChild && !s0.isCollapsed) n = n.firstChild; return n; };
   const curSize = () => { const s0 = sel(); if (!s0 || !s0.rangeCount) return 16; let n = startNode(s0); if (n && n.nodeType !== 1) n = n.parentElement; const bt = n && n.closest && n.closest('.b-text'); const bm = bt && bt.className.match(/\bbs-(\d{1,2})\b/); if (bm && !(n.closest('span[class*="fs-"]'))) return +bm[1]; const sp = n && n.closest && n.closest('span[class*="fs-"]'); const m = sp && sp.className.match(/\bfs-(\d{1,2})\b/); if (m) return +m[1]; return Math.round(parseFloat(getComputedStyle(n || root.current).fontSize)) || 16; };
   const savedSel = useRef(null); // 点进字号输入框时编辑器的选区会丢，先记下来，应用时再放回去
+  // 没选中文字时，像 Google Docs：光标在一个词里（或词尾）就改这个词，在词首 / 空白处就只影响接下来打的字
+  const wordRangeAt = (s0) => {
+    if (!s0 || !s0.rangeCount) return null; const r = s0.getRangeAt(0); let tn = r.startContainer, off = r.startOffset;
+    // 光标落在元素上（比如刚套完样式的 span 末尾）：换算到旁边的文本节点
+    if (tn.nodeType === 1) { const prev = off > 0 ? tn.childNodes[off - 1] : null, next = tn.childNodes[off]; if (prev && prev.nodeType === 3) { tn = prev; off = prev.length; } else if (next && next.nodeType === 3) { tn = next; off = 0; } else if (prev && prev.nodeType === 1 && prev.lastChild && prev.lastChild.nodeType === 3) { tn = prev.lastChild; off = tn.length; } else return null; }
+    if (tn.nodeType !== 3 || !tn.parentElement.closest('.b-text')) return null;
+    const text = tn.nodeValue; let seg; try { seg = new Intl.Segmenter('zh', { granularity: 'word' }); } catch { return null; }
+    for (const x of seg.segment(text)) { const a = x.index, z = x.index + x.segment.length; if (x.isWordLike && off > a && off <= z) { const wr = document.createRange(); wr.setStart(tn, a); wr.setEnd(tn, z); return wr; } }
+    return null;
+  };
+  // 光标处插一个带样式的空 span（零宽空格占位），之后打的字就在里面；保存时零宽空格会去掉
+  const typingSpan = (prefix, v) => { const s0 = sel(); if (!s0 || !s0.rangeCount) return; const r = s0.getRangeAt(0); let n = r.startContainer; if (n.nodeType !== 1) n = n.parentElement; const cur = n.closest('span[class]'); const re = new RegExp('^' + prefix + '-'); if (cur && cur.closest('.b-text') && cur.textContent === '\u200b') { const keep = [...cur.classList].filter((k) => !re.test(k)); if (v) keep.push(prefix + '-' + v); cur.className = keep.join(' '); return; } const el = document.createElement('span'); el.className = prefix + '-' + v; el.textContent = '\u200b'; r.insertNode(el); const nr = document.createRange(); nr.setStart(el.firstChild, 1); nr.collapse(true); s0.removeAllRanges(); s0.addRange(nr); };
+  // 对光标处的词应用样式；没有词就只影响接下来打的字。返回 true 表示处理了
+  const applyAtCaret = (prefix, v) => { const s0 = sel(); if (!s0 || !s0.isCollapsed || !inText(s0)) return false; const wr = wordRangeAt(s0); if (wr) { s0.removeAllRanges(); s0.addRange(wr); const ok = applyInline(prefix, v); if (ok) { const s1 = sel(); if (s1.rangeCount) s1.collapseToEnd(); return true; } } typingSpan(prefix, v); return true; };
   const inText = (s0) => { if (!s0 || !s0.rangeCount || !s0.anchorNode) return false; const n = s0.anchorNode.nodeType === 1 ? s0.anchorNode : s0.anchorNode.parentElement; return !!(n && n.closest && n.closest('.b-text')); };
-  const setSize = (n) => { n = Math.max(8, Math.min(72, Math.round(n))); let s0 = sel(); if (savedSel.current && !inText(s0)) { s0.removeAllRanges(); s0.addRange(savedSel.current); s0 = sel(); } if (s0 && !s0.isCollapsed && applyInline('fs', String(n))) { setTimeout(() => emit(syncFromDom(bsRef.current)), 0); return; } const rows = rowsInSelection(root.current).map((r) => r.dataset.id); const ids = new Set(rows.length ? rows : [(curBlock() || { b: {} }).b.id]); emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { size: String(n) }) : b))); setTimeout(refreshFmt, 30); };
+  const setSize = (n) => { n = Math.max(8, Math.min(72, Math.round(n))); let s0 = sel(); if (savedSel.current && !inText(s0)) { s0.removeAllRanges(); s0.addRange(savedSel.current); s0 = sel(); } if (s0 && !s0.isCollapsed && applyInline('fs', String(n))) { setTimeout(() => emit(syncFromDom(bsRef.current)), 0); return; } if (applyAtCaret('fs', String(n))) { setTimeout(() => { emit(syncFromDom(bsRef.current)); refreshFmt(); }, 0); return; } const rows = rowsInSelection(root.current).map((r) => r.dataset.id); const ids = new Set(rows.length ? rows : [(curBlock() || { b: {} }).b.id]); emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { size: String(n) }) : b))); setTimeout(refreshFmt, 30); };
   const stepSize = (d) => setSize(curSize() + d);
   const [lp, setLp] = useState(null); // link popover: { x, y, href, el }
   const lpRef = useRef(null); lpRef.current = lp;
@@ -387,7 +401,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     const empty = !el.textContent.trim();
     if (empty && (LIST_TYPES.includes(b.type) || b.type === 'quote' || b.type === 'callout')) { update(b.id, b.indent > 0 ? { indent: b.indent - 1 } : { type: 'p', html: '' }, 'start'); return; }
     const s0 = sel(); if (s0 && !s0.isCollapsed && el.contains(s0.anchorNode) && el.contains(s0.focusNode)) s0.deleteFromDocument();
-    const [before, after] = splitAtCaret(el);
+    let [before, after] = splitAtCaret(el);
+    if (!textOf(after).trim()) after = ''; else after = after.replace(/^(?:<(span|b|i|u|s|mark)[^>]*>\s*<\/\1>)+/g, '');
     const nt = LIST_TYPES.includes(b.type) ? b.type : 'p';
     const list = syncFromDom(bsRef.current).map((x) => (x.id === b.id ? bump(x, { html: before }) : x));
     const i = list.findIndex((x) => x.id === b.id);
@@ -773,7 +788,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const selRows = () => { const rows = rowsInSelection(root.current); if (rows.length) return rows.map((r) => r.dataset.id); const b = curB(); return b ? [b.id] : []; };
   const setTypeFor = (t) => { restoreSel(); const ids = new Set(selRows()); if (!ids.size) return; const list = syncFromDom(bsRef.current); emit(list.map((b) => (ids.has(b.id) && (TEXT_TYPES.includes(b.type) || t === 'p') ? bump(b, { type: b.type === t && LIST_TYPES.includes(t) ? 'p' : t, checked: false }) : b))); if (ids.size === 1) setFocusReq({ id: [...ids][0], pos: 'end' }); setTimeout(refreshFmt, 30); };
   const indentBy = (d) => { restoreSel(); const ids = new Set(selRows()); if (!ids.size) return; emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { indent: Math.max(0, Math.min(3, (b.indent || 0) + d)) }) : b))); };
-  const inlineOrBlock = (prefix, key, v) => { restoreSel(); const s0 = sel(); if (!(s0 && !s0.isCollapsed && applyInline(prefix, v))) { const ids = new Set(selRows()); emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { [key]: v || undefined }) : b))); } setTimeout(() => { emit(syncFromDom(bsRef.current)); refreshFmt(); }, 0); };
+  const inlineOrBlock = (prefix, key, v) => { restoreSel(); const s0 = sel(); if (applyAtCaret(prefix, v)) { setTimeout(() => { emit(syncFromDom(bsRef.current)); refreshFmt(); }, 0); return; } if (!(s0 && !s0.isCollapsed && applyInline(prefix, v))) { const ids = new Set(selRows()); emit(syncFromDom(bsRef.current).map((b) => (ids.has(b.id) ? bump(b, { [key]: v || undefined }) : b))); } setTimeout(() => { emit(syncFromDom(bsRef.current)); refreshFmt(); }, 0); };
   const typeLabel = fmt && TYPES[fmt.type] ? TYPES[fmt.type].label : '文本';
   const bar = fmtHost && fmtHost.current && createPortal(html`<div class="fmt-bar" onMouseDown=${(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}>
     ${fb('撤销 ⌘Z', () => undo(), html`<${Icon} name="undo" size=${15} />`)}${fb('重做 ⌘⇧Z', () => redo(), html`<${Icon} name="redo" size=${15} />`)}
@@ -806,7 +821,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     ${fb('待办列表', () => setTypeFor('todo'), html`<${Icon} name="checksq" size=${14} />`, fmt && fmt.type === 'todo' ? 'on' : '')}${fb('无序列表', () => setTypeFor('bullet'), html`<${Icon} name="list" size=${14} />`, fmt && fmt.type === 'bullet' ? 'on' : '')}${fb('有序列表', () => setTypeFor('number'), html`<${Icon} name="listol" size=${15} />`, fmt && fmt.type === 'number' ? 'on' : '')}
     ${fb('减少缩进 ⇧Tab', () => indentBy(-1), html`<${Icon} name="outdent" size=${15} />`, 'fb-ind fb-opt')}${fb('增加缩进 Tab', () => indentBy(1), html`<${Icon} name="indent" size=${15} />`, 'fb-ind fb-opt')}
     <span class="fb-sep"></span>
-    ${fb('清除格式', () => { exec('removeFormat'); applyInline('tc', ''); applyInline('fs', ''); applyInline('ff', ''); const b = curB(); if (b) update(b.id, { color: undefined, size: undefined, font: undefined }); }, html`<${Icon} name="x" size=${14} />`)}
+    ${fb('清除格式', () => { const s0 = sel(); if (s0 && s0.isCollapsed) { const wr = wordRangeAt(s0); if (wr) { s0.removeAllRanges(); s0.addRange(wr); } } exec('removeFormat'); applyInline('tc', ''); applyInline('fs', ''); applyInline('ff', ''); applyMark(null); const b = curB(); if (b) update(b.id, { color: undefined, size: undefined, font: undefined }); }, html`<${Icon} name="x" size=${14} />`)}
   </div>`, fmtHost.current);
   return html`${bar}<div class=${'beditor font-' + (pageFont || 'default') + (pageSize ? ' ps-' + pageSize : '')} ref=${root} contenteditable="true" spellcheck="false"
     onKeyDown=${onKey} onInput=${onInput} onPaste=${onPaste} onCopy=${onCopy} onCut=${onCut} onClick=${onClick} onContextMenu=${onCtx} onDrop=${onDrop} onDragOver=${onDragOverRoot}
