@@ -274,11 +274,12 @@ const renderBot = (t) => sanitizeDoc(marked.parse(String(t || '')));
 
 // 示例句子，右边标出会落到哪些模块
 const HINTS = [
-  { t: '明天下午两点开组会，会后把纪要整理到研究本子', k: ['时间块', '待办'] },
-  { t: '这个月的目标：考完雅思 G 类，每周两套真题', k: ['月度目标'] },
-  { t: '想读《纳瓦尔宝典》，还有把这篇文章收藏 https://example.com', k: ['书架', '收藏'] },
-  { t: '我想成为一个每天都在创造的人', k: ['愿景'] },
-  { t: '拆解：准备年终汇报', k: ['子任务'] },
+  { i: 'calendar', h: '记一场会', t: '明天下午两点开组会，会后把纪要整理到研究本子', k: ['时间块', '待办'] },
+  { i: 'target', h: '定本月目标', t: '这个月的目标：考完雅思 G 类，每周两套真题', k: ['月度目标'] },
+  { i: 'book', h: '加一本书和一个链接', t: '想读《纳瓦尔宝典》，还有把这篇文章收藏 https://example.com', k: ['书架', '收藏'] },
+  { i: 'star', h: '写一句愿景', t: '我想成为一个每天都在创造的人', k: ['愿景'] },
+  { i: 'layers', h: '把大事拆成几步', t: '拆解：准备年终汇报', k: ['子任务'] },
+  { i: 'clock', h: '排进今天的时间线', t: '帮我安排一下：下午写周报、跑步、整理书桌', k: ['时间块'] },
 ];
 // 头部的小头像：一只简笔海豹
 const AVATAR = html`<svg class="seal-ava" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="18" rx="12" ry="10" fill="#e9edf3"/><ellipse cx="16" cy="17" rx="9.5" ry="7.5" fill="#f7f8fa"/><circle cx="12" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="20" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="12.5" cy="15" r=".5" fill="#fff"/><circle cx="20.5" cy="15" r=".5" fill="#fff"/><ellipse cx="16" cy="19.2" rx="1.6" ry="1.1" fill="#0b0b0d"/><path d="M14.6 20.6q1.4 1.2 2.8 0" stroke="#0b0b0d" stroke-width=".9" fill="none" stroke-linecap="round"/></svg>`;
@@ -307,6 +308,10 @@ export function Seal() {
   const bigRef = useRef(false); bigRef.current = big; api.current.mode = mode;
   const undoRef = useRef({}); // 每条已保存消息的撤销函数
   const [, setCfgV] = useState(0); // 换了 AI 来源后重算状态
+  const [sideOpen, setSideOpen] = useState(() => { try { return localStorage.getItem('ytos.seal.side') !== '0'; } catch { return true; } });
+  const toggleSide = () => { setSideOpen((v) => { try { localStorage.setItem('ytos.seal.side', v ? '0' : '1'); } catch {} return !v; }); };
+  const [sq, setSq] = useState('');
+  const shown = sq.trim() ? threads.filter((t) => (t.title + ' ' + t.msgs.map((m) => m.text).join(' ')).toLowerCase().includes(sq.trim().toLowerCase())) : threads;
   const [ava, setAva] = useState(() => { try { return sessionStorage.getItem('ytos.seal.ava') || ''; } catch { return ''; } });
   api.current.setAvatar = (u) => { setAva(u); try { sessionStorage.setItem('ytos.seal.ava', u); } catch {} };
   const [hero, setHero] = useState(() => { try { return sessionStorage.getItem('ytos.seal.hero') || ''; } catch { return ''; } });
@@ -700,9 +705,23 @@ export function Seal() {
     if (it.kind === 'note') { const nb = s.notebooks.find((b) => b.id === it.nb); return [{ t: nb ? nb.name : '收件箱', i: inf.includes('nb') }, ...it.tags.map((t) => ({ t: '#' + t })), it.body && { t: `${it.body.length} 字` }].filter(Boolean); }
     return [{ t: metaOf(it, s) }];
   };
+  const introShown = view === 'chat' && msgs.length === 0;
+  const composer = html`
+  <div class="seal-col seal-cw"><form class=${'seal-form ' + (busy ? 'busy' : '')} onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
+    <textarea ref=${inRef} rows="1" maxlength="2000" value=${txt} placeholder="问汤圆任何事：记一件事、拆解一个任务，或者随便聊聊" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
+    <div class="sf-bar">
+      <button type="button" class="sf-b" title="示例句子" onClick=${(e) => ctxMenu(e, HINTS.map((h) => ({ label: h.t, hint: h.k.join(' · '), onClick: () => { setTxt(h.t); setTimeout(() => inRef.current && inRef.current.focus(), 0); } })), '提示词')}><${Icon} name="sparkle" size=${13} /> 提示词</button>
+      <span class="sf-seg"><${Seg} options=${[{ v: '', label: '记录' }, { v: 'breakdown', label: '拆解' }, { v: 'plan', label: '规划' }]} value=${cmode} onChange=${setCmode} /></span>
+      <span class="flex1"></span>
+      <span class=${'sf-cnt ' + (txt.length > 1800 ? 'warn' : '')}>${txt.length} / 2000</span>
+      <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${14} /><span>发送</span>`}</button>
+    </div>
+  </form><div class="sf-note">汤圆可能会出错，写进去之前看一眼。</div></div>
+  `;
   const header = html`
   <div class=${'seal-h ' + (pinnedPos && mode !== 'full' ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && mode !== 'full' && { label: big ? '回到屏幕中央' : '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, size && { label: '恢复默认大小', icon: 'maximize', onClick: () => { const next = { ...sizes }; delete next[modeKey]; setSizes(next); try { localStorage.setItem('ytos.seal.size2', JSON.stringify(next)); } catch {} } }, !pinnedPos && mode !== 'full' && { label: '拖动顶部可以移动，拖边缘可以改大小', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${mode === 'full' ? '' : pinnedPos ? '拖动移动 · 双击回到默认位置' : '拖动可以把对话窗放到别处'}>
     <div class="seal-col seal-hc">
+    ${big && html`<button class="ibtn seal-sidebtn" title=${sideOpen ? '收起侧栏' : '展开侧栏'} onClick=${toggleSide}><${Icon} name="kanban" size=${15} /></button>`}
     ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
       : html`<span class="seal-id"><span class="seal-avw">${ava ? html`<img class="seal-ava" src=${ava} alt="" />` : AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b>${busy ? html`<small>正在整理…</small>` : html`<button type="button" class="seal-agent" title="换一个脑子：服务器配置 / 自己的密钥 / 不用 AI" onClick=${pickAgent}>${aiLabel(login)}<${Icon} name="down" size=${11} /></button>`}</span>`}
     <span class="flex1"></span>
@@ -723,11 +742,12 @@ export function Seal() {
       ${mode !== 'full' && RZ.map((d) => html`<div key=${d} class=${'seal-rz rz-' + d} onPointerDown=${(e) => resizeStart(e, d)}></div>`)}
       ${!big && header}
       <div class="seal-body">
-      ${big && html`<aside class="seal-side">
+      ${big && sideOpen && html`<aside class="seal-side">
+        <label class="ss-search"><${Icon} name="search" size=${13} /><input type="search" value=${sq} placeholder="搜历史对话" onInput=${(e) => setSq(e.target.value)} /></label>
         <div class="ss-list">
-        ${threads.length === 0 ? html`<div class="ss-empty">还没有历史对话</div>` : (() => {
+        ${threads.length === 0 ? html`<div class="ss-empty">还没有历史对话</div>` : shown.length === 0 ? html`<div class="ss-empty">没有找到「${sq}」</div>` : (() => {
           const day = (ts) => { const d = new Date(ts), n = new Date(); const dd = Math.floor((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5); return dd <= 0 ? '今天' : dd === 1 ? '昨天' : dd < 7 ? '最近一周' : '更早'; };
-          const groups = []; threads.forEach((t) => { const g = day(t.updated); let x = groups.find((y) => y[0] === g); if (!x) { x = [g, []]; groups.push(x); } x[1].push(t); });
+          const groups = []; shown.forEach((t) => { const g = day(t.updated); let x = groups.find((y) => y[0] === g); if (!x) { x = [g, []]; groups.push(x); } x[1].push(t); });
           return groups.map(([g, list]) => html`<div class="ss-g" key=${g}><div class="ss-h">${g}</div>${list.map((t) => html`<div key=${t.id} class=${'ss-row ' + (t.id === tid ? 'cur' : '')} onClick=${() => openThread(t)}><span class="ss-t">${t.title}</span><button class="ibtn ss-del" title="删除" onClick=${(e) => { e.stopPropagation(); delThread(t.id); }}><${Icon} name="x" size=${12} /></button></div>`)}</div>`);
         })()}
         </div>
@@ -746,7 +766,8 @@ export function Seal() {
             <div class=${'seal-hero ' + (docked ? 'docked' : '')} ref=${heroRef}>${hero ? html`<img src=${hero} alt="汤圆" draggable="false" />` : AVATAR}</div>
             <h3>${greeting()}，${(sRef.current.profile && sRef.current.profile.name) || '妈妈'}。今天想做点什么？</h3>
             <p>说一句话，我整理成待办、时间块、笔记或目标；也能把一件大事拆成几步、排进时间线。你确认了才会写进去。</p>
-            <div class="seal-hints">${HINTS.map((h) => html`<button key=${h.t} type="button" onClick=${() => ask(h.t)}><span class="sh-q">${h.t}</span><span class="sh-k">${h.k.map((k) => html`<i key=${k}>${k}</i>`)}</span></button>`)}</div>
+            ${big && composer}
+            <div class="seal-hints">${HINTS.map((h) => html`<button key=${h.t} type="button" title=${'落到：' + h.k.join(' · ')} onClick=${() => { setTxt(h.t); setTimeout(() => inRef.current && inRef.current.focus(), 0); }}><span class="sh-i"><${Icon} name=${h.i} size=${15} /></span><span class="sh-b"><span class="sh-h">${h.h}</span><span class="sh-q">${h.t}</span></span></button>`)}</div>
           </div>`}
         ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who}>
           ${m.who === 'bot' ? html`<div class="sm-t md" dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : html`<div class="sm-t">${m.text}</div>`}
@@ -826,16 +847,7 @@ export function Seal() {
         </div>`)}
         ${busy && html`<div class="sm bot typing"><i></i><i></i><i></i></div>`}
       </div></div>`}
-      <div class="seal-col seal-cw"><form class=${'seal-form ' + (busy ? 'busy' : '')} onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
-        <textarea ref=${inRef} rows="1" maxlength="2000" value=${txt} placeholder="问汤圆任何事：记一件事、拆解一个任务，或者随便聊聊" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
-        <div class="sf-bar">
-          <button type="button" class="sf-b" title="示例句子" onClick=${(e) => ctxMenu(e, HINTS.map((h) => ({ label: h.t, hint: h.k.join(' · '), onClick: () => { setTxt(h.t); setTimeout(() => inRef.current && inRef.current.focus(), 0); } })), '提示词')}><${Icon} name="sparkle" size=${13} /> 提示词</button>
-          <span class="sf-seg"><${Seg} options=${[{ v: '', label: '记录' }, { v: 'breakdown', label: '拆解' }, { v: 'plan', label: '规划' }]} value=${cmode} onChange=${setCmode} /></span>
-          <span class="flex1"></span>
-          <span class=${'sf-cnt ' + (txt.length > 1800 ? 'warn' : '')}>${txt.length} / 2000</span>
-          <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${14} /><span>发送</span>`}</button>
-        </div>
-      </form><div class="sf-note">汤圆可能会出错，写进去之前看一眼。</div></div>
+      ${!(big && introShown) && composer}
       </div></div>
     </div>`;
 }

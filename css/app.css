@@ -2279,3 +2279,31 @@ html[data-theme="dark"] .sp-node{background:#171b2a}
 .ac.sup .ac-h{padding:4px 8px}
 .ac.steps .ac-row{align-items:center}.ac.steps .ac-m{margin-top:0}
 .sp-tl{margin:6px 8px 0;padding:10px 0 0;border-top:1px solid var(--line);background:transparent}
+
+/* ---- 汤圆空状态：整组竖向居中，输入框贴在问候下面，示例改成卡片网格；侧栏搜索 / 收起；头部分隔线 ---- */
+.seal-panel.big .seal-col{max-width:760px}.seal-panel.big .seal-col.seal-cw{max-width:816px}
+.seal-panel.big .seal-main .seal-h{border-bottom:1px solid var(--line);padding-bottom:10px}
+.seal-panel.big .seal-msgs{padding-top:18px}
+.seal-panel.big .seal-msgs .seal-col:has(.seal-intro){min-height:100%;justify-content:center}
+.seal-panel.big .seal-intro,.seal-panel.full .seal-intro{padding:12px 0 8px}
+.seal-panel.big .seal-hero,.seal-panel.full .seal-hero{width:120px;height:120px;margin-bottom:2px}
+.seal-panel.big .seal-intro h3,.seal-panel.full .seal-intro h3{font-size:1.7rem;font-weight:700;letter-spacing:-.02em;margin:4px 0 6px}
+.seal-panel.big .seal-intro p{max-width:none;font-size:.84rem;margin-bottom:18px}
+.seal-intro .seal-cw{width:100%;max-width:none!important;padding:0!important;margin:0 0 14px}
+.seal-intro .seal-cw .sf-note{display:none}
+.seal-panel.big .seal-hints,.seal-panel.full .seal-hints{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;max-width:none;margin:0}
+.seal-panel.big .seal-hints button,.seal-panel.full .seal-hints button{flex-direction:row;align-items:flex-start;gap:10px;height:auto;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:transparent;white-space:normal;text-align:left;color:var(--text-2);transform:none}
+.seal-panel.big .seal-hints button:hover{border-color:var(--text-4);background:color-mix(in srgb,var(--hover) 50%,transparent);transform:none}
+.sh-i{width:26px;height:26px;border-radius:8px;background:var(--hover);display:grid;place-items:center;color:var(--text-2);flex:none}
+.sh-b{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sh-h{font-size:.78rem;font-weight:600;color:var(--text);line-height:1.3}
+.seal-hints .sh-q{font-size:.72rem;color:var(--text-4);white-space:normal;max-width:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.45;text-overflow:clip}
+.seal-panel:not(.big) .seal-hints{display:flex;flex-direction:column;gap:4px;max-width:none;align-self:stretch}
+.seal-panel:not(.big) .seal-hints button{height:auto;padding:7px 10px;border-radius:10px;gap:8px;white-space:normal;text-align:left;justify-content:flex-start}
+.seal-panel:not(.big) .seal-hints .sh-q{display:none}
+.seal-panel:not(.big) .sh-i{width:22px;height:22px}
+@media (max-width:900px){.seal-panel.big .seal-hints{grid-template-columns:1fr 1fr}}
+.ss-search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:9px;background:var(--hover);color:var(--text-4);margin-bottom:8px;flex:none}
+.ss-search input{flex:1;min-width:0;border:0;background:transparent;font-size:.78rem;color:var(--text);outline:0;font-family:inherit}
+.ss-search input::-webkit-search-cancel-button{-webkit-appearance:none}
+.seal-sidebtn{margin-right:2px;color:var(--text-3)}
