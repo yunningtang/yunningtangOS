@@ -15,9 +15,11 @@ function moveTo(c, el, instant = false) {
   const cr = c.getBoundingClientRect(), r = el.getBoundingClientRect();
   if (instant) { p.style.transition = 'none'; requestAnimationFrame(() => { p.style.transition = ''; }); }
   p.style.opacity = '1';
-  p.style.transform = `translate(${r.left - cr.left + c.scrollLeft}px, ${r.top - cr.top + c.scrollTop}px)`;
-  p.style.width = r.width + 'px';
-  p.style.height = r.height + 'px';
+  // 外层在做缩放动画（弹窗、对话框打开时）量出来的是缩放后的尺寸，除回去才对得上
+  const k = c.offsetWidth && cr.width ? cr.width / c.offsetWidth : 1;
+  p.style.transform = `translate(${(r.left - cr.left) / k + c.scrollLeft}px, ${(r.top - cr.top) / k + c.scrollTop}px)`;
+  p.style.width = r.width / k + 'px';
+  p.style.height = r.height / k + 'px';
 }
 
 function settle(c, instant) { if (!hovered.has(c)) moveTo(c, activeOf(c), instant); }

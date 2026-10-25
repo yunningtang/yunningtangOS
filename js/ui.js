@@ -82,6 +82,7 @@ const ICONS = {
   type: '<path d="M5 7V4h14v3M9 20h6M12 4v16"/>',
   pen: '<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.6 7.6"/><circle cx="11" cy="11" r="2"/>',
   eraser: '<path d="M20 20H8.5L3 14.5 12.5 5l7 7-6 6"/><path d="M6 11.5l6.5 6.5"/>',
+  sidebar: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>',
   kanban: '<rect x="3" y="3" width="5" height="18" rx="1.5"/><rect x="10" y="3" width="5" height="12" rx="1.5"/><rect x="17" y="3" width="4" height="8" rx="1.5"/>',
   frame: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 8h4v4H8zM14 13h3v3h-3zM12 10l2 3"/>',
   maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',

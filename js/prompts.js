@@ -85,45 +85,45 @@ export function pageContext(route = parseRoute(), s = get()) {
 // 每条 { i 图标, h 短标题, t 发出去的话, k 会落到的模块, mode? 'breakdown'|'plan' }
 export function contextPrompts(route = parseRoute(), s = get()) {
   const ctx = pageContext(route, s); const out = [];
-  const add = (i, h, t, k, mode) => out.push({ i, h, t, k: [].concat(k || []), mode });
+  const add = (i, h, t, k, mode, d) => out.push({ i, h, t, k: [].concat(k || []), mode, d, ctx: true });
   const od = overdue(s), td = dueToday(s), free = freeSlots(s);
   if (ctx && ctx.kind === 'note') {
-    add('note', '总结这页', '用几句话总结我正在看的这页笔记，列出要点', '回答');
-    add('checksq', '把这页的待办变成真正的待办', '把我正在看的这页笔记里提到要做的事，整理成待办（带日期的就填上日期）', '待办');
-    add('calendar', '按这页排时间', '根据这页笔记里要做的事，帮我排进接下来几天的时间线', '时间块', 'plan');
-    add('sparkle', '下一步做什么', '看这页笔记，告诉我接下来最该做的三件事', '回答');
+    add('note', '总结这页', '用几句话总结我正在看的这页笔记，列出要点', '回答', undefined, '几句话列出要点');
+    add('checksq', '把这页的待办变成真正的待办', '把我正在看的这页笔记里提到要做的事，整理成待办（带日期的就填上日期）', '待办', undefined, '提取成待办，带上日期');
+    add('calendar', '按这页排时间', '根据这页笔记里要做的事，帮我排进接下来几天的时间线', '时间块', 'plan', '排进接下来几天');
+    add('sparkle', '下一步做什么', '看这页笔记，告诉我接下来最该做的三件事', '回答', undefined, '挑出最该做的三件');
   } else if (ctx && ctx.kind === 'todo') {
-    add('layers', '拆成步骤', '拆解：' + ctx.title, '子任务', 'breakdown');
-    add('clock', '排进时间线', '帮我把「' + ctx.title + '」排进最近的空档', '时间块', 'plan');
-    add('sparkle', '怎么开始', '「' + ctx.title + '」我不知道从哪下手，给我第一个 15 分钟能做的动作', '回答');
+    add('layers', '拆成步骤', '拆解：' + ctx.title, '子任务', 'breakdown', '拆成 3–7 步');
+    add('clock', '排进时间线', '帮我把「' + ctx.title + '」排进最近的空档', '时间块', 'plan', '放进最近的空档');
+    add('sparkle', '怎么开始', '「' + ctx.title + '」我不知道从哪下手，给我第一个 15 分钟能做的动作', '回答', undefined, '给第一个 15 分钟的动作');
   } else if (ctx && ctx.kind === 'book') {
-    add('book', '记一条读书笔记', '帮我给《' + ctx.title + '》建一页读书笔记，放到读书相关的本子里', '笔记');
-    add('calendar', '排阅读计划', '帮我安排读完《' + ctx.title + '》：每天固定一段时间，排进接下来几天', '时间块', 'plan');
+    add('book', '记一条读书笔记', '帮我给《' + ctx.title + '》建一页读书笔记，放到读书相关的本子里', '笔记', undefined, '建一页读书笔记');
+    add('calendar', '排阅读计划', '帮我安排读完《' + ctx.title + '》：每天固定一段时间，排进接下来几天', '时间块', 'plan', '每天一段，排进几天');
   } else if (ctx && ctx.kind === 'day') {
-    if (free.length && ctx.date === todayStr()) add('clock', '填满今天的空档', `今天还空着 ${free.map(([a, b]) => fmtMin(a) + '–' + fmtMin(b)).join('、')}，从我的待办里挑合适的排进去`, '时间块', 'plan');
-    add('sparkle', '复盘这一天', '看这一天的时间线，帮我简单复盘：完成了什么、哪里超时了、明天怎么调', '回答');
+    if (free.length && ctx.date === todayStr()) add('clock', '填满今天的空档', `今天还空着 ${free.map(([a, b]) => fmtMin(a) + '–' + fmtMin(b)).join('、')}，从我的待办里挑合适的排进去`, '时间块', 'plan', `还空着 ${free.length} 段`);
+    add('sparkle', '复盘这一天', '看这一天的时间线，帮我简单复盘：完成了什么、哪里超时了、明天怎么调', '回答', undefined, '完成了什么、明天怎么调');
   } else if (ctx && ctx.kind === 'week') {
-    add('target', '按本周焦点排一排', '按本周焦点和我的待办，帮我把这周剩下几天排一下', '时间块', 'plan');
-    add('sparkle', '本周还剩什么', '这周还剩哪些重要的事没做？按优先级列出来', '回答');
+    add('target', '按本周焦点排一排', '按本周焦点和我的待办，帮我把这周剩下几天排一下', '时间块', 'plan', '把剩下几天排一下');
+    add('sparkle', '本周还剩什么', '这周还剩哪些重要的事没做？按优先级列出来', '回答', undefined, '按优先级列出来');
   } else if (ctx && ctx.kind === 'goals') {
     const g = (s.goals[monthKey()] || []).find((x) => (x.progress || 0) < 100);
-    if (g) add('layers', '把目标拆成本周的事', '拆解：' + g.title + '（拆成这周能做完的几件事）', '待办', 'breakdown');
-    add('sparkle', '目标进度怎么样', '看本月目标的进度，告诉我哪个落后了、这周该补什么', '回答');
+    if (g) add('layers', '把目标拆成本周的事', '拆解：' + g.title + '（拆成这周能做完的几件事）', '待办', 'breakdown', '拆成这周能做完的几件');
+    add('sparkle', '目标进度怎么样', '看本月目标的进度，告诉我哪个落后了、这周该补什么', '回答', undefined, '哪个落后了、该补什么');
   } else if (ctx && ctx.kind === 'reading') {
     const rd = s.books.filter((b) => b.status === 'reading').sort((a, b) => daysSince(lastRead(b)) - daysSince(lastRead(a)))[0] || null;
     const stale = s.books.filter((b) => b.status === 'reading').sort((a, b) => daysSince(lastRead(b)) - daysSince(lastRead(a)));
-    if (stale[0]) add('book', '继续读《' + stale[0].title + '》', `《${stale[0].title}》${daysSince(lastRead(stale[0]))} 天没读了，帮我在今天或明天排 30 分钟`, '时间块', 'plan');
-    add('sparkle', '下一本读什么', '从我想读的书里挑一本下一本读，说说理由', '回答');
+    if (stale[0]) add('book', '继续读《' + stale[0].title + '》', `《${stale[0].title}》${daysSince(lastRead(stale[0]))} 天没读了，帮我在今天或明天排 30 分钟`, '时间块', 'plan', '今天或明天排 30 分钟');
+    add('sparkle', '下一本读什么', '从我想读的书里挑一本下一本读，说说理由', '回答', undefined, '从想读里挑一本');
   } else if (ctx && ctx.kind === 'vision') {
-    add('star', '把愿景落到这周', '看我的愿景和长期目标，给我这周能做的一件小事，加成待办', '待办');
+    add('star', '把愿景落到这周', '看我的愿景和长期目标，给我这周能做的一件小事，加成待办', '待办', undefined, '一件这周能做的小事');
   } else if (ctx && ctx.kind === 'todos') {
-    if (od.length) add('refresh', `处理 ${od.length} 件过期的`, `这些过期的待办：${od.slice(0, 8).map((t) => t.title).join('、')}，帮我重新排日期（能今天做的放今天，其他往后排）`, '待办');
+    if (od.length) add('refresh', `处理 ${od.length} 件过期的`, `这些过期的待办：${od.slice(0, 8).map((t) => t.title).join('、')}，帮我重新排日期（能今天做的放今天，其他往后排）`, '待办', undefined, '能今天做的放今天');
     const big = openTodos(s).find((t) => !(t.steps || []).length && (t.priority ?? 2) <= 1);
-    if (big) add('layers', '拆「' + clip(big.title, 12) + '」', '拆解：' + big.title, '子任务', 'breakdown');
+    if (big) add('layers', '拆「' + clip(big.title, 12) + '」', '拆解：' + big.title, '子任务', 'breakdown', '高优先级，还没拆');
   }
   // 跟页面无关、但看数据有意义的
-  if (td.length && out.length < 5) add('clock', `今天还有 ${td.length} 件没做`, `今天到期还没做的：${td.slice(0, 8).map((t) => t.title).join('、')}，帮我排进今天剩下的空档`, '时间块', 'plan');
-  if (od.length && out.length < 5 && !(ctx && ctx.kind === 'todos')) add('refresh', `${od.length} 件过期了`, `这些待办过期了：${od.slice(0, 8).map((t) => t.title).join('、')}，帮我把日期重新排一下`, '待办');
+  if (td.length && out.length < 5) add('clock', `今天还有 ${td.length} 件没做`, `今天到期还没做的：${td.slice(0, 8).map((t) => t.title).join('、')}，帮我排进今天剩下的空档`, '时间块', 'plan', td.slice(0, 3).map((t) => t.title).join('、'));
+  if (od.length && out.length < 5 && !(ctx && ctx.kind === 'todos')) add('refresh', `${od.length} 件过期了`, `这些待办过期了：${od.slice(0, 8).map((t) => t.title).join('、')}，帮我把日期重新排一下`, '待办', undefined, '让汤圆重新排日期');
   return out.slice(0, 6);
 }
 

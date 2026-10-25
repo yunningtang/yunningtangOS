@@ -2356,7 +2356,7 @@ html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-hero.dock
 .seal-form .sf-ctx+textarea{padding-top:8px}
 .sh-lbl{align-self:flex-start;font-size:.7rem;color:var(--text-4);margin:0 0 8px 2px;letter-spacing:.02em}
 .seal-panel:not(.big) .sh-lbl{margin:2px 0 4px 10px}
-.seal-hints button.ctx .sh-i{background:var(--ink);color:var(--bg)}
+.seal-hints button.ctx .sh-h::after{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--ink);opacity:.55;margin-left:6px;vertical-align:middle}
 .side-ai{margin-top:auto;display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border-radius:var(--r2);color:var(--text-2);font-size:.86rem;text-align:left;transition:background .15s}
 .side-ai:hover{background:var(--hover)}
 .side-ai-ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--ink);color:var(--bg);flex:none}
@@ -2391,3 +2391,22 @@ html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-hero.dock
 .pr-vars{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .pr-vars button{font-size:.68rem;padding:2px 7px;border-radius:6px;background:var(--hover);color:var(--text-3)}.pr-vars button:hover{color:var(--text);background:var(--hover-2)}
 .pr-prev{margin-top:6px}
+
+/* ---- 汤圆对话框对齐细节：头部和侧栏同一条左边线、空状态左对齐、单行卡片说明 ---- */
+.seal-panel.big .seal-main .seal-h{padding-left:16px}
+.seal-panel.big .seal-side{padding-left:14px}
+.ss-empty{text-align:left;padding:10px 8px;font-size:.72rem}
+.seal-panel.big .seal-hints .sh-q,.seal-panel.full .seal-hints .sh-q{-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis;display:block}
+.seal-panel.big .seal-hints button,.seal-panel.full .seal-hints button{align-items:center}
+@media (max-width:900px){
+  .seal-panel.big .seal-hints,.seal-panel.full .seal-hints{grid-template-columns:1fr;gap:6px}
+  .seal-panel.big .seal-hints button:nth-child(n+5){display:none}
+  .seal-panel.big .seal-intro h3,.seal-panel.full .seal-intro h3{font-size:1.3rem}
+  .seal-panel.big .seal-hero,.seal-panel.full .seal-hero{width:90px;height:90px}
+  .seal-panel.big .seal-main .seal-h{padding-left:12px}
+  html:not([data-glow="0"]) .seal-intro::before{width:320px;height:320px;top:52px}
+}
+@media (min-width:901px){.seal-panel.big .seal-histbtn{display:none}}
+@media (max-width:900px){.seal-sidebtn{display:none}}
+body.sp-full.sp-cover .seal-fab{opacity:0!important;pointer-events:none}
+@media (max-width:900px){body.sp-cover .seal-fab{opacity:0!important;pointer-events:none}.si-more{display:none}}
