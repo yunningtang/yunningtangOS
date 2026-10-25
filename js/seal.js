@@ -11,7 +11,8 @@ import { typesOf, autoCover } from './views/reading.js';
 import { loginState } from './sync.js';
 import { detect, plan } from './capture.js';
 import { newNote } from './views/notes.js';
-import { mdToBlocks } from './blocks.js';
+import { mdToBlocks, sanitizeDoc } from './blocks.js';
+import { marked } from '../vendor/marked.js';
 import { aiHeaders, aiEnabled, aiLabel, recordUsage } from './ai.js';
 import { stepsOf, addSteps, clampMin } from './steps.js';
 import { go, toast } from './nav.js';
@@ -246,7 +247,8 @@ function calendarText() {
 }
 // Tiimo 式：把拆出来的步骤从现在起依次排进时间线，避开已有的时间块；只排在清醒时段（08:00–22:00），半夜操作就排到明天早上
 const DAY_START = 8 * 60, DAY_END = 22 * 60;
-function scheduleSteps(steps, todo) {
+// 只算不写：每一步排在哪天几点（从现在起避开已有安排，只排 8:00–22:00，步骤之间留 10 分钟）
+export function planSteps(steps) {
   const st = get(); let date = todayStr(); const now = new Date();
   let cur = Math.ceil((now.getHours() * 60 + now.getMinutes() + 5) / 15) * 15;
   if (cur < DAY_START) cur = 9 * 60; else if (cur >= DAY_END) { date = addDays(date, 1); cur = 9 * 60; }
@@ -260,11 +262,15 @@ function scheduleSteps(steps, todo) {
       if (hit) { cur = Math.ceil(hit[1] / 15) * 15; continue; }
       break;
     }
-    const b = { id: uid(), date, start: minToTime(cur), end: minToTime(cur + len), title: sp.title, kind: 'focus', note: `「${todo.title}」的一步`, todoId: todo.id, stepId: sp.id };
-    upsert('blocks', b); made.push(b); cur += len + 10; // 步骤之间留 10 分钟
+    made.push({ date, start: minToTime(cur), end: minToTime(cur + len), minutes: len, title: sp.title, stepId: sp.id }); cur += len + 10;
   }
   return made;
 }
+function scheduleSteps(steps, todo) {
+  return planSteps(steps).map((p) => { const b = { id: uid(), date: p.date, start: p.start, end: p.end, title: p.title, kind: 'focus', note: `「${todo.title}」的一步`, todoId: todo.id, stepId: p.stepId }; upsert('blocks', b); return b; });
+}
+// 汤圆的回复按 Markdown 渲染（表格、列表、粗体），整段过一遍块级消毒
+const renderBot = (t) => sanitizeDoc(marked.parse(String(t || '')));
 
 // 示例句子，右边标出会落到哪些模块
 const HINTS = [
@@ -640,6 +646,8 @@ export function Seal() {
     window.addEventListener('seal:ask', h); window.addEventListener('seal:breakdown', hb); return () => { window.removeEventListener('seal:ask', h); window.removeEventListener('seal:breakdown', hb); };
   }, []);
 
+  // 重新生成：删掉这条回复和它前面那句话，再问一遍
+  const regen = (m) => { const list = msgsR.current; const i = list.indexOf(m); const me = i > 0 && list[i - 1].who === 'me' ? list[i - 1] : null; if (!me) return; setMsgs((l) => l.filter((x) => x !== m && x !== me)); setTimeout(() => ask(me.text), 0); };
   const toggleItem = (mid, iid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, on: !it.on } : it) }));
   const editItem = (mid, iid, patch) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, ...patch, inferred: (it.inferred || []).filter((k) => !(k in patch) && !(k === 'end' && 'start' in patch)) } : it) }));
   // 步骤：排进时间线 / 开始第一步（番茄钟）
@@ -704,11 +712,16 @@ export function Seal() {
         </div>`)}
       </div></div>` : html`<div class="seal-msgs" ref=${msgsRef}><div class="seal-col">
         ${msgs.length === 0 && html`<div class="seal-intro">
-            <p>说一句话，我整理成待办、时间块、笔记或目标。你确认了才会写进去。</p>
+            <h3>嗨，我是汤圆</h3>
+            <p>说一句话，我整理成待办、时间块、笔记或目标；也可以把一件大事拆成几步、排进时间线。你确认了才会写进去。</p>
             <div class="seal-hints">${HINTS.map((h) => html`<button key=${h.t} type="button" onClick=${() => ask(h.t)}><span class="sh-q">${h.t}</span><span class="sh-k">${h.k.map((k) => html`<i key=${k}>${k}</i>`)}</span></button>`)}</div>
           </div>`}
-        ${msgs.map((m) => html`<div key=${m.id} class=${'sm ' + m.who}>
-          <div class="sm-t">${m.text}</div>
+        ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who}>
+          ${m.who === 'bot' ? html`<div class="sm-t md" dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : html`<div class="sm-t">${m.text}</div>`}
+          ${m.who === 'bot' && !m.items?.length && !m.steps?.length && !busy && html`<div class="sm-acts">
+            <button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button>
+            ${mi > 0 && msgs[mi - 1].who === 'me' && html`<button type="button" title="重新生成" onClick=${() => regen(m)}><${Icon} name="refresh" size=${13} /></button>`}
+          </div>`}
           ${m.via === 'fallback' && html`<div class="sm-warn">${m.items && m.items.length ? '下面是按本地规则识别的，请仔细检查。' : ''}<button class="sm-retry" onClick=${() => { setMsgs((list) => list.filter((x) => x.id !== m.id && !(x.who === 'me' && x.text === m.ask && list.indexOf(x) === list.indexOf(m) - 1))); ask(m.ask); }}><${Icon} name="refresh" size=${11} /> 重试</button></div>`}
           ${m.items && m.items.length > 0 && (() => {
             const on = m.items.filter((it) => it.on).length, saved = m.saved != null;
@@ -734,15 +747,24 @@ export function Seal() {
           </div>`; })()}
           ${m.steps && m.steps.length > 0 && (() => {
             const on = m.steps.filter((x) => x.on), saved = m.saved != null, total = on.reduce((a, x) => a + (x.minutes || 25), 0);
+            const plan = saved ? [] : planSteps(on); const maxLen = Math.max(15, ...plan.map((p) => p.minutes));
             return html`<div class=${'ac steps ' + (saved ? 'saved' : '')}>
-            <div class="ac-h"><span>「${m.todo.title}」拆成 ${m.steps.length} 步</span><small>约 ${fmtMin(total)}</small></div>
+            <div class="ac-h"><span>「${m.todo.title}」拆成 ${m.steps.length} 步</span><small>约 ${fmtMin(total)}${plan.length ? ` · ${plan[0].date === todayStr() ? '今天' : relDay(plan[0].date)} ${plan[0].start} 起` : ''}</small></div>
             ${m.steps.map((x, i) => html`<label key=${x.id} class=${'ac-row ' + (x.on ? '' : 'off')}>
               <input type="checkbox" checked=${x.on} disabled=${saved} onChange=${() => toggleStep(m.id, x.id)} />
               <span class="ac-n">${i + 1}</span>
               <span class="ac-b"><span class="ac-t">${x.title}</span>${x.hint && html`<span class="ac-k">${x.hint}</span>`}</span>
-              <span class="ac-m"><span>${x.kind}</span><span>${x.minutes || 25} 分</span></span>
+              <span class="ac-m"><span class="ac-tag">${x.kind}</span><span>${x.minutes || 25} 分</span></span>
               <button class="ac-go" title=${`开始这一步 · ${x.minutes || 25} 分钟番茄钟`} onClick=${(e) => { e.preventDefault(); e.stopPropagation(); startStep(m, x); }}><${Icon} name="play" size=${11} /></button>
             </label>`)}
+            ${plan.length > 0 && html`<div class="sp-tl">
+              <div class="sp-h">时间线预览<small>从现在起避开已有安排，只排 8:00–22:00</small></div>
+              ${plan.map((p, i) => html`<div key=${p.stepId} class="sp-row">
+                ${(i === 0 || plan[i - 1].date !== p.date) ? html`<span class="sp-day">${p.date === todayStr() ? '今天' : relDay(p.date)}</span>` : html`<span class="sp-day"></span>`}
+                <span class="sp-time">${p.start}–${p.end}</span>
+                <span class="sp-track"><i class="sp-bar" style=${`width:${Math.max(12, Math.round(p.minutes / maxLen * 100))}%`}><b>${i + 1}</b>${p.title}</i></span>
+              </div>`)}
+            </div>`}
             <div class="ac-f">
               ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> ${m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已加为「${m.todo.title}」的 ${m.saved} 步`}</span><span class="flex1"></span>${m.open && html`<button class="btn sm ghost" onClick=${() => go(m.open)}>${m.scheduled ? '看时间线' : '去看看'}</button>`}`
                 : html`<span class="ac-hint">子任务会挂在这条待办下面</span><span class="flex1"></span><button class="btn sm ghost" disabled=${!on.length} title="加为子任务，并从现在起依次排进时间线（避开已有安排，只排 8:00–22:00）" onClick=${() => scheduleMsg(m)}>排进时间线</button><button class="btn primary sm ac-save" disabled=${!on.length} onClick=${() => saveSteps(m)}>加为子任务</button>`}
@@ -752,8 +774,14 @@ export function Seal() {
         ${busy && html`<div class="sm bot typing"><i></i><i></i><i></i></div>`}
       </div></div>`}
       <div class="seal-col seal-cw"><form class=${'seal-form ' + (busy ? 'busy' : '')} onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
-        <textarea ref=${inRef} rows="1" value=${txt} placeholder="说一句话，比如「周三下午三点和导师开会」" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
-        <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${15} />`}</button>
-      </form></div>
+        <textarea ref=${inRef} rows="1" maxlength="2000" value=${txt} placeholder="问汤圆任何事：记一件事、拆解一个任务，或者随便聊聊" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
+        <div class="sf-bar">
+          <button type="button" class="sf-b" title="示例句子" onClick=${(e) => ctxMenu(e, HINTS.map((h) => ({ label: h.t, hint: h.k.join(' · '), onClick: () => { setTxt(h.t); setTimeout(() => inRef.current && inRef.current.focus(), 0); } })), '提示词')}><${Icon} name="sparkle" size=${13} /> 提示词</button>
+          <button type="button" class="sf-b" title="把一件大事拆成几步" onClick=${() => { setTxt(/^拆解[:：]/.test(txt) ? txt : '拆解：' + txt); setTimeout(() => inRef.current && inRef.current.focus(), 0); }}><${Icon} name="layers" size=${13} /> 拆解</button>
+          <span class="flex1"></span>
+          <span class=${'sf-cnt ' + (txt.length > 1800 ? 'warn' : '')}>${txt.length} / 2000</span>
+          <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="send" size=${15} />`}</button>
+        </div>
+      </form><div class="sf-note">汤圆可能会出错，写进去之前看一眼。</div></div>
     </div>`;
 }
