@@ -2246,7 +2246,7 @@ html[data-theme="dark"] .sp-node{background:#171b2a}
 .seal-panel.big .seal-side .ss-new{margin:0 0 10px}
 .seal-panel.big .seal-main .seal-h{padding:14px 18px 6px 28px}
 .seal-panel.big .seal-main .seal-hc{max-width:none}
-.seal-agent{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px 0 9px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text-3);font-size:.72rem;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.seal-agent{display:inline-flex;align-items:center;gap:2px;height:24px;padding:0 5px 0 7px;margin-left:-2px;border-radius:8px;border:0;background:transparent;color:var(--text-3);font-size:.76rem;font-weight:500;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.seal-h.pinned .seal-id b::after{display:none}
 .seal-agent:hover{background:var(--hover);color:var(--text)}
-.seal-agent .dot{width:6px;height:6px;border-radius:50%;background:var(--s2);flex:none}.seal-agent .dot.on{background:var(--sg3,#5cc083)}
 .seal-agent svg{opacity:.6}

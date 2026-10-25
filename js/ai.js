@@ -31,7 +31,7 @@ export function aiHeaders() {
 }
 // 能不能用 AI：服务器配了，或者本机填了密钥；都要先登录
 export function aiEnabled(login) { const c = aiConfig(); if (c.provider === 'local') return false; return !!(login && login.user && ((c.provider === 'server' && login.ai) || (c.provider !== 'server' && c.key))); }
-export function aiLabel(login) { const c = aiConfig(); if (c.provider === 'local') return '本地规则'; if (c.provider !== 'server') return c.provider === 'deepseek' ? 'DeepSeek' : 'Claude'; return login && login.aiModel ? (/deepseek/i.test(login.aiModel) ? 'DeepSeek' : 'Claude') : 'AI'; }
+export function aiLabel(login) { const c = aiConfig(); if (c.provider === 'local') return '不用 AI'; if (c.provider !== 'server') return c.provider === 'deepseek' ? 'DeepSeek' : 'Claude'; return login && login.aiModel ? (/deepseek/i.test(login.aiModel) ? 'DeepSeek' : 'Claude') : 'AI'; }
 // 可选的「谁来当汤圆的脑子」：给对话框头部和设置页用
 export function aiOptions(login) {
   const c = aiConfig(); const serverName = login && login.aiModel ? (/deepseek/i.test(login.aiModel) ? 'DeepSeek' : 'Claude') : '';
