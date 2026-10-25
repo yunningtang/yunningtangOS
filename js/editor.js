@@ -462,9 +462,14 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       const s = sel(); if (!s.isCollapsed) return;
       if (caretOffset(el) !== 0) return;
       e.preventDefault();
+      const list0 = syncFromDom(bsRef.current); const i0 = list0.findIndex((x) => x.id === b.id); const prev0 = list0[i0 - 1];
+      // 上一块是空段落：把它删掉，这一块（标题、列表都一样）原样留着并顶上去——不要先把标题降成文本
+      if (prev0 && TEXT_TYPES.includes(prev0.type) && !textOf(prev0.html).trim()) { const pos0 = caretOffset(el); list0.splice(i0 - 1, 1); emit(list0); setFocusReq({ id: b.id, pos: pos0 || 'start' }); return; }
+      // 第一块是空的、后面还有内容：删掉这一空行，光标到下一块开头
+      if (i0 === 0 && !el.textContent.trim() && list0.length > 1) { list0.splice(0, 1); emit(list0); setFocusReq({ id: list0[0].id, pos: 'start' }); return; }
       if (b.type !== 'p') { update(b.id, { type: 'p' }, 'start'); return; }
       if (b.indent > 0) { update(b.id, { indent: b.indent - 1 }, 'start'); return; }
-      const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id);
+      const list = list0; const i = i0;
       if (i === 0) { if (!el.textContent && onExitTop) onExitTop(); return; }
       const prev = list[i - 1];
       if (!TEXT_TYPES.includes(prev.type)) { if (!el.textContent) { list.splice(i, 1); emit(list); setFocusReq({ id: prev.id, pos: 'end' }); } else setFocusReq({ id: prev.id, pos: 'end' }); return; }
@@ -476,7 +481,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       if (caretOffset(el) !== el.textContent.length) return;
       e.preventDefault();
       const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); const next = list[i + 1];
-      if (!next || !TEXT_TYPES.includes(next.type)) return;
+      if (!next) return;
+      if (!el.textContent.trim() && TEXT_TYPES.includes(b.type)) { list.splice(i, 1); emit(list); setFocusReq({ id: next.id, pos: 'start' }); return; }
+      if (!TEXT_TYPES.includes(next.type)) return;
       const pos = el.textContent.length;
       list[i] = bump(list[i], { html: el.innerHTML + next.html }); list.splice(i + 1, 1); emit(list); setFocusReq({ id: b.id, pos }); return;
     }
