@@ -402,6 +402,14 @@ export function NotesBack() { const href = notesBackHref(); return html`<a class
 
 function Page({ note, notes, notebooks = [], onCreateChild }) {
   useEffect(() => { try { localStorage.setItem('ytos.notes.last', note.id); } catch {} ensureNoteFonts(note); }, [note.id]);
+  // 刷新 / 前进后退回到这一页时，滚回上次的位置（像 Google Docs）；从列表点进来还是从头开始
+  useEffect(() => {
+    const key = 'ytos.scroll.' + note.id; let restored = false;
+    try { const nav = performance.getEntriesByType('navigation')[0]; const back = nav && (nav.type === 'reload' || nav.type === 'back_forward'); const y = +sessionStorage.getItem(key); if (back && y > 0 && !sessionStorage.getItem(key + '.used')) { sessionStorage.setItem(key + '.used', '1'); restored = true; requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: y }))); } } catch {}
+    let t = 0; const onScroll = () => { cancelAnimationFrame(t); t = requestAnimationFrame(() => { try { sessionStorage.setItem(key, String(Math.round(window.scrollY))); } catch {} }); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); cancelAnimationFrame(t); try { sessionStorage.removeItem(key + '.used'); } catch {} };
+  }, [note.id]);
   const [moveOpen, setMoveOpen] = useState(false);
   // 评论：面板开关、新评论草稿（哪一块、引用的文字）、要定位的线程
   const [cmOpen, setCmOpen] = useState(false); const [cmDraft, setCmDraft] = useState(null); const [cmFocus, setCmFocus] = useState(null);

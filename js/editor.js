@@ -58,8 +58,8 @@ function setCaret(el, pos) {
   }
   if (!done) { if (!el.textContent.length) { r.setStart(el, 0); r.collapse(true); } else { r.selectNodeContents(el); r.collapse(false); } } else r.collapse(true);
   s.removeAllRanges(); s.addRange(r);
-  const rect = el.getBoundingClientRect();
-  if (rect.bottom > innerHeight - 40 || rect.top < 60) el.scrollIntoView({ block: 'nearest' });
+  let rect = null; try { rect = r.getBoundingClientRect(); } catch {} if (!rect || (!rect.height && !rect.width)) rect = el.getBoundingClientRect();
+  if (rect.bottom > innerHeight - 40 || rect.top < 100) { const top = window.scrollY + rect.top - (rect.top < 100 ? 120 : innerHeight - 120); window.scrollTo({ top: Math.max(0, top) }); }
 }
 function serialize(frag) { const d = document.createElement('div'); d.appendChild(frag); return d.innerHTML; }
 function splitAtCaret(el) {
@@ -277,6 +277,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   useLayoutEffect(() => {
     if (!focusReq) return;
     const el = refs.current.get(focusReq.id);
+    // 行组件可能还没把新内容写进 DOM（撤销 / 重做时）：先把内容换好再放光标，免得光标被随后的重画冲回开头
+    const tb = bsRef.current.find((x) => x.id === focusReq.id); if (el && tb && tb.type !== 'table' && typeof tb.html === 'string' && el.innerHTML !== tb.html) el.innerHTML = tb.html;
     if (el) setCaret(el, focusReq.pos);
     const then = focusReq.then; setFocusReq(null);
     if (then) then();
@@ -367,15 +369,26 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   Object.assign(api.current, { tableOp, tableMenu, imgResize });
 
   /* --- undo / redo across block operations --- */
-  const restore = (snap) => { const next = snap.map((b) => ({ ...b, v: ++vclock })); hist.current.lock = true; emit(next); hist.current.lock = false; return next; };
-  const focusDiff = (next, cur) => { const i = next.findIndex((b, k) => !cur[k] || cur[k].id !== b.id || cur[k].html !== b.html); const t = next[Math.max(0, Math.min(next.length - 1, i < 0 ? next.length - 1 : i))]; if (t && TEXT_TYPES.includes(t.type)) setFocusReq({ id: t.id, pos: 'end' }); };
+  const sameBlock = (a, b) => !!a && !!b && a.id === b.id && a.type === b.type && a.html === b.html && (a.indent || 0) === (b.indent || 0) && !!a.checked === !!b.checked && a.size === b.size && a.color === b.color && a.font === b.font && a.url === b.url && a.lang === b.lang && JSON.stringify(a.rows || null) === JSON.stringify(b.rows || null) && JSON.stringify(a.bg || null) === JSON.stringify(b.bg || null) && a.header === b.header && !!a.open === !!b.open;
+  const restore = (snap) => {
+    const curMap = new Map(bsRef.current.map((b) => [b.id, b]));
+    const next = snap.map((b) => { const c = curMap.get(b.id); return c && sameBlock(c, b) ? c : { ...b, v: ++vclock }; });
+    hist.current.lock = true; emit(next); hist.current.lock = false; return next;
+  };
+  const focusDiff = (next, cur, caret) => {
+    const i = next.findIndex((b, k) => !sameBlock(cur[k], b)); if (i < 0) return; // 什么都没变（比如只是块属性撤回了但内容一样）：光标别动
+    const t = next[Math.min(next.length - 1, i)]; if (!t || !TEXT_TYPES.includes(t.type)) return;
+    const pos = caret && caret.id === t.id && caret.off != null ? Math.min(caret.off, textOf(t.html).length) : 'end';
+    setFocusReq({ id: t.id, pos });
+  };
   const undo = () => {
     const cur = syncFromDom(bsRef.current); const h = hist.current;
     if (!sameDoc(cur, bsRef.current)) { h.past.push(bsRef.current); bsRef.current = cur; }
     const prev = h.past.pop(); if (!prev) return;
-    h.future.push(cur); focusDiff(restore(prev), cur);
+    const c = curBlock(); const caret = c && c.el ? { id: c.b.id, off: caretOffset(c.el) } : null;
+    h.future.push(cur); focusDiff(restore(prev), cur, caret);
   };
-  const redo = () => { const h = hist.current; const nxt = h.future.pop(); if (!nxt) return; const cur = syncFromDom(bsRef.current); h.past.push(cur); focusDiff(restore(nxt), cur); };
+  const redo = () => { const h = hist.current; const nxt = h.future.pop(); if (!nxt) return; const cur = syncFromDom(bsRef.current); const c = curBlock(); const caret = c && c.el ? { id: c.b.id, off: caretOffset(c.el) } : null; h.past.push(cur); focusDiff(restore(nxt), cur, caret); };
 
   /* --- selection spanning several blocks --- */
   const deleteAcross = (then) => {
