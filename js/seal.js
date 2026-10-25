@@ -4,7 +4,7 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact.js';
 import { useStore, upsert, get, update, remove } from './store.js';
 import { ctxMenu } from './ctx.js';
-import { Icon, DateInput, TimeInput, Seg } from './ui.js';
+import { Icon, DateInput, TimeInput, Seg, Select } from './ui.js';
 import * as pomo from './pomo.js';
 import { greeting, uid, todayStr, relDay, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, weekKey, monthKey, hostOf, addDays, parseDate } from './util.js';
 import { typesOf, autoCover } from './views/reading.js';
@@ -327,7 +327,6 @@ export function Seal() {
     const up = (ev) => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); panel.classList.remove('moving'); api.current.moving = false; if (moved) { const rr = panel.getBoundingClientRect(); savePos({ x: rr.left / innerWidth, y: rr.top / innerHeight }); } };
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   };
-  const [editing, setEditing] = useState(null); // 手机上点元信息才展开日期 / 时间编辑
   const sRef = useRef(s); sRef.current = s;
   const msgsR = useRef(msgs); msgsR.current = msgs;
 
@@ -762,17 +761,33 @@ export function Seal() {
             if (m.superseded) return html`<div class="ac sup"><div class="ac-h"><span>这版草稿已被下面的新版本替代</span><small>${m.items.length} 项</small></div></div>`;
             return html`<div class=${'ac ' + (saved ? 'saved' : '')}>
             <div class="ac-h"><span>${m.intent === 'plan' ? '建议的安排' : m.intent === 'modify' ? '改好的草稿' : '识别到的安排'}</span><small>${m.items.length} 项</small></div>
-            ${m.items.map((it) => html`<label key=${it.id} class=${'ac-row ' + (it.on ? '' : 'off') + (editing === it.id ? ' editing' : '')}>
+            ${m.items.map((it) => { const ed = !saved, inf = it.inferred || []; const chip = (t, i) => html`<span class=${'ac-chip ' + (i ? 'inf' : '')} title=${i ? '汤圆补的建议值' : ''}>${t}</span>`;
+              return html`<div key=${it.id} class=${'ac-row ' + (it.on ? '' : 'off')}>
               <input type="checkbox" checked=${it.on} disabled=${saved} onChange=${() => toggleItem(m.id, it.id)} />
-              <span class="ac-b"><span class="ac-t">${it.title}</span><span class="ac-k">${KIND_LABEL[it.kind]}</span></span>
-              <span class="ac-m" onClick=${!saved && ['todo', 'block', 'goal'].includes(it.kind) ? (e) => { e.preventDefault(); e.stopPropagation(); setEditing(editing === it.id ? null : it.id); } : undefined}>${metaParts(it).map((x, i) => html`<span key=${i} class=${x.i ? 'inf' : ''} title=${x.i ? '汤圆补的建议值，点下面的日期 / 时间可以改' : ''}>${x.t}</span>`)}</span>
-              ${!saved && ['todo', 'block', 'goal'].includes(it.kind) && html`<span class="ac-edit" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                <${DateInput} short value=${it.date} placeholder=${it.kind === 'goal' ? '月份' : '日期'} clearable=${it.kind !== 'block'} onChange=${(v) => editItem(m.id, it.id, { date: v })} />
-                ${it.kind === 'todo' && html`<${TimeInput} value=${it.time} placeholder="时间" onChange=${(v) => editItem(m.id, it.id, { time: v })} />`}
-                ${it.kind === 'block' && html`<${TimeInput} value=${it.start} placeholder="开始" clearable=${false} onChange=${(v) => editItem(m.id, it.id, { start: v, end: minToTime(timeToMin(v) + Math.max(15, timeToMin(it.end) - timeToMin(it.start))) })} /><span class="ac-dash">–</span><${TimeInput} value=${it.end} placeholder="结束" clearable=${false} onChange=${(v) => { if (timeToMin(v) > timeToMin(it.start)) editItem(m.id, it.id, { end: v }); }} />`}
-                <button class="ac-done" type="button" title="完成" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); setEditing(null); }}><${Icon} name="check" size=${12} /></button>
-              </span>`}
-            </label>`)}
+              <span class="ac-b">
+                <span class="ac-t" contenteditable=${ed} spellcheck="false" title=${ed ? '点一下直接改' : ''} onBlur=${ed ? (e) => { const v = e.target.textContent.trim(); if (v && v !== it.title) editItem(m.id, it.id, { title: v }); else e.target.textContent = it.title; } : undefined} onKeyDown=${ed ? (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { e.target.textContent = it.title; e.target.blur(); } } : undefined}>${it.title}</span>
+                <span class="ac-k">${KIND_LABEL[it.kind]}</span>
+                ${it.kind === 'goal' && html`<span class="ac-subs">${(it.subitems || []).map((x, i) => html`<span key=${i} class="ac-sub"><span contenteditable=${ed} spellcheck="false" onBlur=${ed ? (e) => { const v = e.target.textContent.trim(); const subs = [...it.subitems]; if (v) subs[i] = v; else subs.splice(i, 1); editItem(m.id, it.id, { subitems: subs }); } : undefined} onKeyDown=${ed ? (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } } : undefined}>${x}</span>${ed && html`<button type="button" class="ac-x" title="去掉这条" onClick=${() => editItem(m.id, it.id, { subitems: it.subitems.filter((_, j) => j !== i) })}>×</button>`}</span>`)}${ed && html`<button type="button" class="ac-add" onClick=${(e) => { editItem(m.id, it.id, { subitems: [...(it.subitems || []), '新的关键结果'] }); setTimeout(() => { const el = e.target.closest('.ac-subs'); const last = el && el.querySelector('.ac-sub:last-of-type [contenteditable]'); if (last) { last.focus(); getSelection().selectAllChildren(last); } }, 0); }}>+ 关键结果</button>`}</span>`}
+              </span>
+              ${!ed ? html`<span class="ac-m">${metaParts(it).map((x, i) => html`<span key=${i} class=${x.i ? 'inf' : ''}>${x.t}</span>`)}</span>`
+              : it.kind === 'todo' ? html`<span class="ac-m">
+                  <${DateInput} short value=${it.date} placeholder="日期" onChange=${(v) => editItem(m.id, it.id, { date: v })} />
+                  <${TimeInput} value=${it.time} placeholder="时间" onChange=${(v) => editItem(m.id, it.id, { time: v })} />
+                  <button type="button" class=${'ac-chip btn-chip ' + (inf.includes('priority') ? 'inf' : '')} title="点一下换优先级" onClick=${() => editItem(m.id, it.id, { priority: (it.priority % 3) + 1 })}>P${it.priority}</button>
+                  ${it.tags.map((t) => chip('#' + t))}
+                </span>`
+              : it.kind === 'block' ? html`<span class="ac-m">
+                  <${DateInput} short value=${it.date} placeholder="日期" clearable=${false} class=${inf.includes('date') ? 'inf' : ''} onChange=${(v) => editItem(m.id, it.id, { date: v })} />
+                  <${TimeInput} value=${it.start} placeholder="开始" clearable=${false} onChange=${(v) => editItem(m.id, it.id, { start: v, end: minToTime(timeToMin(v) + Math.max(15, timeToMin(it.end) - timeToMin(it.start))) })} /><span class="ac-dash">–</span><${TimeInput} value=${it.end} placeholder="结束" clearable=${false} class=${inf.includes('end') ? 'inf' : ''} onChange=${(v) => { if (timeToMin(v) > timeToMin(it.start)) editItem(m.id, it.id, { end: v }); }} />
+                  <${Select} value=${it.kindV} options=${allKinds().map((k) => ({ v: k.v, label: k.name }))} class=${inf.includes('kindV') ? 'inf' : ''} onChange=${(v) => editItem(m.id, it.id, { kindV: v })} />
+                </span>`
+              : it.kind === 'goal' ? html`<span class="ac-m"><${Select} value=${(it.date || monthKey() + '-01').slice(0, 7) + '-01'} options=${Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + i); const k = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; return { v: k + '-01', label: (i === 0 ? '本月 · ' : '') + +k.slice(5) + ' 月' }; })} onChange=${(v) => editItem(m.id, it.id, { date: v })} /></span>`
+              : it.kind === 'note' ? html`<span class="ac-m">
+                  <${Select} value=${it.nb} options=${sRef.current.notebooks.map((b) => ({ v: b.id, label: b.name }))} placeholder="收件箱" clearable class=${inf.includes('nb') ? 'inf' : ''} onChange=${(v) => editItem(m.id, it.id, { nb: v })} />
+                  ${it.tags.map((t) => chip('#' + t))}${it.body && chip(`${it.body.length} 字`)}
+                </span>`
+              : html`<span class="ac-m">${metaParts(it).map((x, i) => html`<span key=${i} class=${x.i ? 'inf' : ''}>${x.t}</span>`)}</span>`}
+            </div>`; })}
             <div class="ac-f">
               ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> 已保存 ${m.saved} 项</span><span class="flex1"></span>${m.open && html`<button class="btn sm ghost" onClick=${() => go(m.open)}>打开</button>`}${undoRef.current[m.id] && html`<button class="btn sm ghost" onClick=${() => unsave(m)}>撤销</button>`}`
                 : html`<span class=${'ac-hint ' + (needCheck ? 'warn' : '')}>${needCheck ? (m.items.some((it) => it.on && (it.inferred || []).includes('end')) ? '结束时间是按一小时估的（橙色点线），不对就改' : '橙色点线是建议值，请看一眼') : on ? '确认后写进对应模块' : '至少勾选一项'}</span><span class="flex1"></span><button class="btn primary sm ac-save" disabled=${!on} onClick=${() => save(m)}>保存 ${on} 项</button>`}

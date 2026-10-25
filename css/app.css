@@ -2251,3 +2251,31 @@ html[data-theme="dark"] .sp-node{background:#171b2a}
 .seal-h.pinned .seal-id b::after{display:none}
 .seal-agent:hover{background:var(--hover);color:var(--text)}
 .seal-agent svg{opacity:.6}
+
+/* ---- 汤圆确认卡：去掉外框，变成一段轻列表；每一行都能直接改 ---- */
+.ac,html[data-theme="dark"] .ac{margin:10px -6px 0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
+.ac-h{padding:2px 8px 6px;font-size:.7rem;font-weight:500;letter-spacing:.02em;color:var(--text-4)}.ac-h small{color:var(--text-4)}
+.ac-row{padding:7px 8px;min-height:38px;border-top:0;border-radius:10px;cursor:default;align-items:flex-start}
+.ac-row:hover{background:color-mix(in srgb,var(--hover) 70%,transparent)}
+.ac-row input[type=checkbox]{margin-top:3px}
+.ac-b{flex-wrap:wrap;row-gap:4px;align-items:baseline}
+.ac-t{white-space:normal;overflow:visible;text-overflow:clip;border-radius:5px;padding:1px 4px;margin:-1px -4px;outline:0;min-width:2em}
+.ac-t[contenteditable=true]:hover{background:var(--hover-2)}.ac-t[contenteditable=true]:focus{background:var(--paper);box-shadow:0 0 0 1.5px var(--ink)}
+.ac-subs{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:2px}
+.ac-sub{display:inline-flex;align-items:center;gap:2px;font-size:.72rem;color:var(--text-3);border-radius:6px;padding:1px 2px 1px 6px;background:var(--hover)}
+.ac-sub [contenteditable]{outline:0;border-radius:4px;padding:0 2px}.ac-sub [contenteditable]:focus{background:var(--paper);box-shadow:0 0 0 1.5px var(--ink);color:var(--text)}
+.ac-x{width:16px;height:16px;border-radius:4px;color:var(--text-4);font-size:.8rem;line-height:1;display:grid;place-items:center}.ac-x:hover{background:var(--hover-2);color:var(--text)}
+.ac-add{font-size:.7rem;color:var(--text-4);padding:1px 6px;border-radius:6px;border:1px dashed var(--line-2)}.ac-add:hover{color:var(--text);border-color:var(--text-4)}
+.ac-m{align-items:center;gap:2px;margin-top:2px;font-family:inherit;font-variant-numeric:tabular-nums}
+.ac-row .ac-m{display:flex}
+.ac-chip{display:inline-flex;align-items:center;height:22px;padding:0 6px;border-radius:6px;font-size:.72rem;color:var(--text-3)}
+.btn-chip{cursor:pointer}.btn-chip:hover{background:var(--hover-2);color:var(--text)}
+.ac-row .pick{display:inline-block}
+.ac-row .pick-btn{height:22px;width:auto;padding:0 6px;gap:4px;border:0;background:transparent;font-size:.72rem;color:var(--text-3);border-radius:6px;font-variant-numeric:tabular-nums}
+.ac-row .pick-btn:hover{background:var(--hover-2);color:var(--text)}.ac-row .pick-btn.is-empty{color:var(--text-4)}
+.ac-row .pick-btn>svg:not(.caret){display:none}.ac-row .pick-btn .caret{opacity:.5}
+.ac-row .pick.inf .pick-btn,.ac-chip.inf{color:var(--sw-);text-decoration:underline dotted;text-underline-offset:3px}
+.ac-f{margin:6px 8px 0;padding:10px 0 0;border-top:1px solid var(--line);background:transparent}
+.ac.sup .ac-h{padding:4px 8px}
+.ac.steps .ac-row{align-items:center}.ac.steps .ac-m{margin-top:0}
+.sp-tl{margin:6px 8px 0;padding:10px 0 0;border-top:1px solid var(--line);background:transparent}
