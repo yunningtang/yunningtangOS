@@ -68,11 +68,12 @@ export function useRoute() {
 
 export // 先下线的风格：样式还在，选择器里不显示，已选的人退回「玻璃」
 const HIDDEN_SKINS = new Set(['liquid', 'mac']);
-function applyTheme(t, skin, fx) {
+function applyTheme(t, skin, fx, glow) {
   const real = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
   document.documentElement.dataset.theme = real;
   // 质感：lite 不给卡片和侧栏加毛玻璃（backdrop-filter 很吃 GPU，鼠标一动就重算，是卡顿的主因）；full 才开
   if (fx !== undefined) document.documentElement.dataset.fx = fx === 'full' ? 'full' : 'lite';
+  if (glow !== undefined) document.documentElement.dataset.glow = glow === false ? '0' : '1';
   if (skin !== undefined) document.documentElement.dataset.skin = HIDDEN_SKINS.has(skin) ? 'glass' : (skin === 'win95' ? 'xp' : skin) || 'glass';
 }
 
@@ -95,7 +96,7 @@ function App() {
   const View = active.view;
 
   useEffect(() => {
-    applyTheme(s.settings.theme, s.settings.skin || 'glass', s.settings.fx || 'lite');
+    applyTheme(s.settings.theme, s.settings.skin || 'glass', s.settings.fx || 'lite', s.settings.sealGlow !== false);
     const mq = matchMedia('(prefers-color-scheme: dark)');
     const h = () => s.settings.theme === 'auto' && applyTheme('auto');
     mq.addEventListener('change', h);
