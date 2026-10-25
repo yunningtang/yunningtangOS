@@ -159,6 +159,7 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
         step && { label: `打开待办「${stepTodo.title}」`, icon: 'checksq', onClick: () => { location.hash = '#/todos?open=' + stepTodo.id; } },
         step && 'sep',
         { label: '编辑', icon: 'edit', onClick: () => onEdit && onEdit(b) },
+        timeToMin(b.end) - timeToMin(b.start) >= 30 && { label: '让汤圆拆成几段', icon: 'sparkle', hint: '在原时间里切开', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: { src: { kind: 'block', id: b.id } } })) },
         { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(b.date, 1) }) },
         { label: '复制一份（+1h）', icon: 'layers', onClick: () => upsert('blocks', { ...b, id: uid(), start: minToTime(timeToMin(b.start) + 60), end: minToTime(timeToMin(b.end) + 60) }) },
         'sep',
@@ -332,10 +333,11 @@ function MonthGoals({ openId }) {
     ${goals.length === 0 ? html`<${Card}><${Empty} icon="target" text="这个月还没有目标。定三个就好，少即是多。" /><//>` : html`<div class="goals">${goals.map((g) => {
       const pct = goalPct(g);
       return html`<${Card} class=${'goal ' + (pct >= 100 ? 'done-all' : '')} key=${g.id} ...${dragProps('goal', { id: g.id })} ...${dropProps('goal', (d, { after }) => { if (d.id === g.id) return; update((dd) => { const list = dd.goals[month]; const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === g.id); if (after) to++; list.splice(to, 0, mv); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, [{ label: '编辑', icon: 'edit', onClick: () => { setEditing(g); setModal(true); } }, { label: '复制到下个月', icon: 'calendar', onClick: () => update((d) => { const nm = shiftMonth(month, 1); d.goals[nm] = d.goals[nm] || []; d.goals[nm].push({ ...g, id: uid(), progress: 0, krs: g.krs.map((k) => ({ ...k, id: uid(), done: false })) }); }) }, { label: '全部关键结果标为完成', icon: 'check', disabled: !g.krs.length, onClick: () => update((d) => { d.goals[month].find((x) => x.id === g.id).krs.forEach((k) => { k.done = true; }); }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => { update((d) => { d.goals[month] = d.goals[month].filter((x) => x.id !== g.id); }); toast(`已删除「${g.title}」`, { label: '撤销', onClick: () => update((d) => { d.goals[month] = [...(d.goals[month] || []), g]; }) }); } }], g.title)}>
-        <div class="gh"><div class="flex1"><${GoalTitle} g=${g} month=${month} />${g.area && html`<${Tag}>${g.area}<//>`}</div><span class="pct">${pct}%</span><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => { setEditing(g); setModal(true); }} /></div>
+        <div class="gh" onContextMenu=${(e) => ctxMenu(e, [{ label: '让汤圆拆成本周待办', icon: 'sparkle', hint: '每一步一件待办', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: { src: { kind: 'goal', mk: month, id: g.id } } })) }, { label: '编辑', icon: 'edit', onClick: () => { setEditing(g); setModal(true); } }], g.title)}><div class="flex1"><${GoalTitle} g=${g} month=${month} />${g.area && html`<${Tag}>${g.area}<//>`}</div><span class="pct">${pct}%</span><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => { setEditing(g); setModal(true); }} /></div>
         <div style="margin-top:10px"><${Progress} value=${pct} /></div>
         ${g.why && html`<p class="small muted" style="margin-top:8px">${g.why}</p>`}
         <${KrList} g=${g} month=${month} />
+        ${(() => { const lt = s.todos.filter((t) => t.src && t.src.kind === 'goal' && t.src.id === g.id); return lt.length > 0 ? html`<a class="goal-todos" href="#/todos" title="汤圆从这个目标拆出来的待办"><${Icon} name="checksq" size=${12} /> 拆出的待办 ${lt.filter((t) => t.done).length}/${lt.length}</a>` : html`<button class="goal-todos ghost" onClick=${() => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: { src: { kind: 'goal', mk: month, id: g.id } } }))}><${Icon} name="sparkle" size=${12} /> 让汤圆拆成本周待办</button>`; })()}
       <//>`;
     })}</div>`}
     <${GoalModal} open=${modal} goal=${editing} month=${month} onClose=${() => setModal(false)} />

@@ -176,7 +176,7 @@ function contextBlock(c, mode) {
   }
   if (mode === 'breakdown') {
     if (c.due) lines.push(`截止日期：${c.due}`);
-    if (c.note) lines.push(`对方的备注：${String(c.note).slice(0, 400)}`);
+    if (c.note) lines.push(`说明 / 备注：${String(c.note).slice(0, 900)}`);
     if (c.existing && c.existing.length) lines.push(`页面里已经有的步骤：${clip(c.existing, 12).join('；')}`);
   } else {
     lines.push(`可用本子：${clip(c.notebooks, 20).join('、') || '（无）'}`);

@@ -2365,3 +2365,29 @@ html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-hero.dock
 .side-ai~.side-user{margin-top:2px}
 .side.mini .side-ai{width:44px;height:44px;padding:0;justify-content:center;border-radius:13px}
 .seal-fab.ghost{display:none!important}
+
+/* ---- 首页「汤圆今天的建议」、待办上的来源、目标拆出的待办、我的提示词 ---- */
+.sugg-card .card-h h3{display:flex;align-items:center;gap:8px}
+.sugg-dot{width:7px;height:7px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 12%,transparent)}
+.sugg-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.widget.span-1 .sugg-list,.widget.span-2 .sugg-list{grid-template-columns:1fr}
+.sugg{display:flex;align-items:flex-start;gap:10px;padding:10px 10px 10px 12px;border-radius:12px;background:color-mix(in srgb,var(--hover) 60%,transparent);min-width:0}
+.sugg-ic{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:var(--paper);color:var(--text-2);flex:none;box-shadow:0 0 0 1px var(--line)}
+.sugg-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sugg-b b{font-size:.84rem;font-weight:600;line-height:1.35}
+.sugg-b small{font-size:.72rem;color:var(--text-3);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sugg-a{display:flex;align-items:center;gap:2px;flex:none;align-self:center}
+.sugg-x{width:22px;height:22px;opacity:0;color:var(--text-4)}.sugg:hover .sugg-x{opacity:1}
+.sugg-none{padding:4px 2px}
+@media (max-width:900px){.sugg-list{grid-template-columns:1fr}.sugg-x{opacity:1}}
+.src-chip{display:inline-flex;align-items:center;gap:3px;max-width:160px;padding:0 6px;border-radius:6px;background:var(--hover);color:var(--text-3);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.src-chip:hover{color:var(--text);background:var(--hover-2)}
+.goal-todos{display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:.74rem;color:var(--text-3);text-decoration:none;padding:3px 8px;border-radius:7px;background:var(--hover)}
+.goal-todos.ghost{background:transparent;border:1px dashed var(--line-2)}.goal-todos:hover{color:var(--text)}
+.pr-list{display:flex;flex-direction:column;gap:10px}
+.pr-row{padding:10px 12px;border-radius:12px;border:1px solid var(--line)}
+.pr-title{flex:0 1 220px;min-width:120px;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);font-size:.84rem}
+.pr-text{width:100%;margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--input);font-size:.84rem;resize:vertical;font-family:inherit;line-height:1.5}
+.pr-vars{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.pr-vars button{font-size:.68rem;padding:2px 7px;border-radius:6px;background:var(--hover);color:var(--text-3)}.pr-vars button:hover{color:var(--text);background:var(--hover-2)}
+.pr-prev{margin-top:6px}

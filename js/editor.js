@@ -5,9 +5,9 @@ import { marked } from '../vendor/marked.js';
 import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
-import { get as storeGet } from './store.js';
+import { get as storeGet, upsert as storeUpsert, remove as storeRemove } from './store.js';
 import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc, structureScore, TEXT_COLORS, TEXT_COLOR_NAMES, TEXT_SIZES, TEXT_FONTS, isSize } from './blocks.js';
-import { todayStr, escapeHtml, imageToDataUrl, pickFile } from './util.js';
+import { todayStr, escapeHtml, imageToDataUrl, pickFile, uid } from './util.js';
 import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './files.js';
 import { fetchAttachment } from './sync.js';
 import { toast } from './nav.js';
@@ -793,7 +793,24 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     if (d.replacement) list.splice(i, 1, ...d.replacement.map((x) => ({ ...x, v }))); else list[i] = bump(list[i], d.patch || {});
     emit(list); return true;
   };
-  Object.assign(api.current, { refs, dragRef, update, removeBlock, insertAfter, addBelow, setDragId, setDropAt, onDropRow, setMdEdit, convert, startPending, editPending, colorItems, sizeItems, fontItems, onComment: (bid, quote, view) => onComment && onComment(bid, quote, view) });
+  // 笔记 → 待办：右键列表块，把连在一起的那一串列表项变成待办（本地，不调模型），待办上挂「来自笔记」
+  const noteTitleOf = () => { const n = allNotes().find((x) => x.id === noteId); return (n && n.title) || '无标题'; };
+  const listToTodos = (b) => {
+    const i = bs.findIndex((x) => x.id === b.id); if (i < 0) return;
+    const ok = (x) => x && ['bullet', 'number', 'todo'].includes(x.type);
+    let a = i, z = i; while (ok(bs[a - 1])) a--; while (ok(bs[z + 1])) z++;
+    const items = bs.slice(a, z + 1).filter((x) => !(x.type === 'todo' && x.checked)).map((x) => textOf(x.html || '').trim()).filter(Boolean);
+    if (!items.length) { toast('这一串里没有要做的事'); return; }
+    const src = { kind: 'note', id: noteId, title: noteTitleOf() };
+    const made = items.map((title) => { const t = { id: uid(), title: title.slice(0, 120), done: false, priority: 2, due: '', time: '', tags: [], area: '', note: '', created: todayStr(), steps: [], src }; storeUpsert('todos', t); return t; });
+    toast(`变成了 ${made.length} 条待办`, { label: '撤销', onClick: () => made.forEach((t) => storeRemove('todos', t.id)) });
+  };
+  const breakToSteps = (b) => {
+    const t = textOf(b.html || '').trim(); if (!t) { toast('这一块是空的'); return; }
+    const i = bs.findIndex((x) => x.id === b.id); const around = bs.slice(Math.max(0, i - 3), i + 4).map((x) => textOf(x.html || '')).filter(Boolean).join(' / ').slice(0, 500);
+    window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: { title: t.slice(0, 80), note: '上下文：' + around, src: { kind: 'note', id: noteId, title: noteTitleOf() } } }));
+  };
+  Object.assign(api.current, { listToTodos, breakToSteps, refs, dragRef, update, removeBlock, insertAfter, addBelow, setDragId, setDropAt, onDropRow, setMdEdit, convert, startPending, editPending, colorItems, sizeItems, fontItems, onComment: (bid, quote, view) => onComment && onComment(bid, quote, view) });
   const items = menuItems();
   const tbBtn = (title, fn, child, cls = '') => html`<button title=${title} class=${cls} onMouseDown=${(e) => e.preventDefault()} onClick=${() => { fn(); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); }}>${child}</button>`;
 
@@ -935,6 +952,8 @@ class Row extends Component {
         { label: '字号', icon: 'type', sub: api.sizeItems(b) },
         { label: '字体', icon: 'type', sub: api.fontItems(b) },
         'sep',
+        ['bullet', 'number', 'todo'].includes(b.type) && { label: '变成待办', icon: 'checksq', hint: '这一串列表', onClick: () => api.listToTodos(b) },
+        { label: '让汤圆拆成步骤', icon: 'sparkle', onClick: () => api.breakToSteps(b) },
         { label: '评论这一块…', icon: 'chat', onClick: () => api.onComment(b.id, '') },
         { label: '在下方添加块', icon: 'plus', onClick: () => addBelow(b.id) },
         { label: '复制一份', icon: 'layers', hint: '⌘D', onClick: () => insertAfter(b.id, cloneBlock(b)) },

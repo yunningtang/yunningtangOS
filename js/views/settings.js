@@ -9,6 +9,7 @@ import { askConfirm, askPrompt } from '../confirm.js';
 import { aiConfig, setAiConfig, aiHeaders, usageOf, clearUsage, estimateCost } from '../ai.js';
 import { ctxMenu } from '../ctx.js';
 import { trashPages } from './notes.js';
+import { PROMPT_VARS, newPrompt, fillVars } from '../prompts.js';
 
 export async function uploadAvatar(file) {
   try {
@@ -38,8 +39,34 @@ export function AvatarPicker({ size = 60, class: cls = '' }) {
 
 const GOOGLE_SVG = '<svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.8 6C12.3 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-2.8-.4-4H24v7.6h12.7c-.3 2.1-1.7 5.2-4.8 7.3l7.4 5.7c4.4-4.1 7.2-10.1 7.2-16.6z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.3.8-4.7l-7.8-6C1 16.5 0 20.1 0 24s1 7.5 2.6 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2 1.4-4.7 2.4-8.5 2.4-6.3 0-11.7-4.1-13.6-9.9l-7.8 6C6.5 42.6 14.6 48 24 48z"/></svg>';
 
+// 我的提示词：存常用的话，输入框「提示词」里一点就填进去；{{变量}} 发出前换成当下的值。跟着数据一起同步
+function PromptsCard({ s }) {
+  const list = s.settings.prompts || [];
+  const save = (fn) => update((d) => { d.settings.prompts = d.settings.prompts || []; fn(d.settings.prompts); });
+  const patch = (id, p) => save((arr) => { const it = arr.find((x) => x.id === id); if (it) Object.assign(it, p); });
+  const add = () => { const p = { ...newPrompt(), title: '', text: '' }; save((arr) => arr.push(p)); setTimeout(() => { const el = document.querySelector(`[data-pid="${p.id}"] input`); el && el.focus(); }, 50); };
+  const ins = (id, k) => { const el = document.querySelector(`[data-pid="${id}"] textarea`); const it = list.find((x) => x.id === id); if (!it) return; const at = el ? el.selectionStart : it.text.length; patch(id, { text: it.text.slice(0, at) + `{{${k}}}` + it.text.slice(at) }); };
+  return html`<${Card} title="我的提示词" id="set-prompts" sub=${list.length ? `${list.length} 条 · 在汤圆输入框的「提示词」里最上面` : '存几句常用的话，汤圆输入框「提示词」里一点就填进去'}>
+    <div class="pr-list">
+      ${list.map((p) => html`<div class="pr-row" key=${p.id} data-pid=${p.id}>
+        <div class="row" style="gap:8px;align-items:center">
+          <input class="pr-title" value=${p.title} placeholder="名字，比如：周五复盘" onInput=${(e) => patch(p.id, { title: e.target.value })} />
+          <${Seg} options=${[{ v: '', label: '记录' }, { v: 'breakdown', label: '拆解' }, { v: 'plan', label: '规划' }]} value=${p.mode || ''} onChange=${(v) => patch(p.id, { mode: v })} />
+          <span class="flex1"></span>
+          <button class="ibtn" title="删除" onClick=${() => save((arr) => { const i = arr.findIndex((x) => x.id === p.id); if (i >= 0) arr.splice(i, 1); })}><${Icon} name="trash" size=${14} /></button>
+        </div>
+        <textarea class="pr-text" rows="2" value=${p.text} placeholder="比如：看我这周 {{本周}} 的时间线和待办，帮我复盘：完成了什么、拖延了什么、下周怎么调" onInput=${(e) => patch(p.id, { text: e.target.value })}></textarea>
+        <div class="pr-vars">${PROMPT_VARS.map(([k, d]) => html`<button type="button" key=${k} title=${d} onClick=${() => ins(p.id, k)}>{{${k}}}</button>`)}</div>
+        ${/\{\{/.test(p.text) && html`<p class="small muted pr-prev">现在会变成：${fillVars(p.text, { s })}</p>`}
+      </div>`)}
+    </div>
+    <div class="row" style="gap:8px;margin-top:10px"><${Btn} small icon="plus" onClick=${add}>新建提示词<//>${list.length === 0 && html`<${Btn} small kind="ghost" onClick=${() => save((arr) => arr.push({ ...newPrompt(), title: '周五复盘', mode: '', text: '看我这周（{{本周}}）的时间线和完成的待办，帮我复盘：完成了什么、拖延了什么、下周怎么调' }, { ...newPrompt(), title: '明天怎么过', mode: 'plan', text: '看我明天（{{明天}}）的待办和已有安排，帮我排一下明天' }, { ...newPrompt(), title: '这页写成待办', mode: '', text: '把「{{当前页}}」里要做的事整理成待办' }))}>放几条示例<//>`}</div>
+  <//>`;
+}
+
 export default function Settings() {
   const s = useStore();
+  useEffect(() => { const m = location.hash.match(/[?&]sec=(\w+)/); if (m) setTimeout(() => { const el = document.getElementById('set-' + m[1]); el && el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120); }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [login, setLogin] = useState(loginState());
@@ -189,6 +216,7 @@ export default function Settings() {
           <p class="small muted">每次只把你说的那句话和少量上下文（今天的日期、本子名、常用标签、今日待办标题）发给模型，拆出来的内容你确认后才写入。待办右键「拆解成步骤」会把一件大事拆成 3–7 步写进它的关联页面。</p>
         </div>
       <//>
+      <${PromptsCard} s=${s} />
       <${Card} title="数据与备份" id="set-data" sub=${counts.map(([k, n]) => `${k} ${n}`).join(' · ')}>
         <div class="row wrap">
           <${Btn} icon="download" onClick=${() => download(`ytos-${todayStr()}.json`, exportJSON())}>导出 JSON<//>

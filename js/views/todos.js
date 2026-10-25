@@ -207,6 +207,7 @@ export function TodoItem({ t, onEdit, compact }) {
         ${ls && html`<button class=${'defer ' + ls} title="推迟到…" onClick=${(e) => postponeMenu(e, t)}>${lateTxt} · 推迟 <${Icon} name="down" size=${9} /></button>`}
         ${!ls && !t.done && t.deferred > 0 && html`<span class=${'deferred ' + (t.deferred >= 3 ? 'many' : '')} title=${`推迟过 ${t.deferred} 次` + (t.deferred >= 3 ? '，要不要拆开或者放弃？' : '')}><${Icon} name="right" size=${9} /> 推迟 ×${t.deferred}</span>`}
         ${chip}
+        ${t.src && t.src.id && html`<a class="src-chip" href=${'#/' + (t.src.kind === 'goal' ? 'plan/month?open=' + t.src.id : t.src.kind === 'book' ? 'reading?open=' + t.src.id : 'notes/' + t.src.id)} title="汤圆从这里拆出来的，点开回到原处" onClick=${(e) => e.stopPropagation()}><${Icon} name=${t.src.kind === 'goal' ? 'target' : t.src.kind === 'book' ? 'book' : 'note'} size=${10} />${t.src.title || ''}</a>`}
         ${t.area && html`<span>${t.area}</span>`}
         ${t.tags.map((x) => html`<${Tag}>#${x}<//>`)}
         ${t.note && html`<span title=${t.note}>· ${t.note.slice(0, 40)}${t.note.length > 40 ? '…' : ''}</span>`}

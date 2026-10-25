@@ -14,6 +14,8 @@ import { ancestors, noteTitle, isBlank, newNote, nbOf } from './notes.js';
 import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
 import { NowWidget } from './now.js';
+import { dailySuggestions } from '../prompts.js';
+import { lsGet, lsSet } from '../util.js';
 
 const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
 
@@ -49,6 +51,28 @@ function Spark({ points, color = 'var(--blue)' }) {
   const d = pts.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' ');
   const area = d + ` L${w} ${h} L0 ${h} Z`;
   return html`<svg class="spark" viewBox=${`0 0 ${w} ${h}`} preserveAspectRatio="none"><path d=${area} fill=${color} opacity=".12" /><path d=${d} fill="none" stroke=${color} stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" /></svg>`;
+}
+
+// 汤圆今天的建议：看数据算出最多三条（过期、空档、没拆的大事、没读的书、落后的目标…），每条一个按钮直接交给汤圆
+function SuggestWidget({ s }) {
+  const today = todayStr();
+  const [off, setOff] = useState(() => { try { const v = JSON.parse(lsGet('ytos.sugg.off', '{}')); return v.d === today ? v.ids || [] : []; } catch { return []; } });
+  const list = dailySuggestions(s).filter((x) => !off.includes(x.id));
+  const dismiss = (id) => { const ids = [...off, id]; setOff(ids); lsSet('ytos.sugg.off', JSON.stringify({ d: today, ids })); };
+  const run = (a) => {
+    if (a.go) return go(a.go);
+    if (a.breakdown) return window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: a.breakdown }));
+    if (a.goal) return window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: { src: { kind: 'goal', ...a.goal } } }));
+    if (a.ask) window.dispatchEvent(new CustomEvent('seal:ask', { detail: a.ask }));
+  };
+  return html`<${Card} class="sugg-card">
+    <div class="card-h"><h3><span class="sugg-dot"></span>汤圆今天的建议</h3><div class="card-act"><button class="ibtn" title="问汤圆" onClick=${() => window.dispatchEvent(new CustomEvent('seal:open', { detail: { mode: 'big' } }))}><${Icon} name="chat" size=${15} /></button></div></div>
+    ${list.length === 0 ? html`<p class="muted small sugg-none">今天的建议都处理过了。</p>` : html`<div class="sugg-list">${list.map((x) => html`<div class="sugg" key=${x.id}>
+      <span class="sugg-ic"><${Icon} name=${x.i} size=${15} /></span>
+      <div class="sugg-b"><b>${x.t}</b>${x.sub && html`<small>${x.sub}</small>`}</div>
+      <div class="sugg-a">${x.act && html`<button class="btn sm" onClick=${() => run(x.act)}>${x.act.label}</button>`}<button class="ibtn sugg-x" title="今天不再提" onClick=${() => dismiss(x.id)}><${Icon} name="x" size=${12} /></button></div>
+    </div>`)}</div>`}
+  <//>`;
 }
 
 export default function Dashboard() {
@@ -117,8 +141,8 @@ export default function Dashboard() {
 
   // 一行三张卡等高。高度不会变的（此刻 / 月历 / 专注）放一行，内容会长的（今天 / 待办 / 笔记）放一行，
   // 这样一张卡变长不会把不相干的卡拉得空一截。
-  const SPAN = { profile: 3, now: 1, calendar: 1, focus: 1, timeline: 1, todos: 1, notes: 1, pages: 2, links: 1, goals: 2, week: 1, focusweek: 3 };
-  const ORDER = ['profile', 'now', 'calendar', 'focus', 'timeline', 'todos', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek'];
+  const SPAN = { profile: 3, now: 1, ai: 1, calendar: 1, focus: 1, timeline: 1, todos: 1, notes: 1, pages: 2, links: 1, goals: 2, week: 1, focusweek: 3 };
+  const ORDER = ['profile', 'now', 'ai', 'calendar', 'focus', 'timeline', 'todos', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek'];
   const OLD_ORDER = ['profile', 'now', 'timeline', 'todos', 'focus', 'calendar', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek'];
   const DEFAULT = { v: 3, order: ORDER, hidden: [], sizes: {} };
   const layout = useMemo(() => {
@@ -131,6 +155,7 @@ export default function Dashboard() {
     const used = new Set([...base, ...hidden]);
     let order = base.filter((id) => known.has(id)).concat(ORDER.filter((id) => !used.has(id) && id !== 'now'));
     if (!used.has('now')) order.splice(Math.min(1, order.length), 0, 'now'); // new widget lands right under the profile card
+    if (!used.has('ai')) order.splice(Math.min(order.indexOf('now') + 1 || 1, order.length), 0, 'ai'); // 汤圆的建议：放在「此刻」后面
     return { order, hidden, sizes: l.sizes || {} };
   }, [s.settings.dash]);
   const setLayout = (next) => update((d) => { d.settings.dash = { ...next, v: 3 }; });
@@ -179,6 +204,7 @@ export default function Dashboard() {
         <button class=${'btn ghost sm ' + (custom ? 'on' : '')} onClick=${() => setCustom(!custom)}><${Icon} name="grid" size=${14} /> ${custom ? '完成' : '自定义'}</button>
       <//>` },
     now: { title: '此刻', span: 1, el: html`<${NowWidget} />` },
+    ai: { title: '汤圆的建议', span: 1, el: html`<${SuggestWidget} s=${s} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl-wrap" ref=${tlRef} onScroll=${onTlScroll}>

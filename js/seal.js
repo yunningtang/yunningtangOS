@@ -6,7 +6,7 @@ import { useStore, upsert, get, update, remove } from './store.js';
 import { ctxMenu } from './ctx.js';
 import { Icon, DateInput, TimeInput, Seg, Select } from './ui.js';
 import * as pomo from './pomo.js';
-import { greeting, uid, todayStr, relDay, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, weekKey, monthKey, hostOf, addDays, parseDate } from './util.js';
+import { greeting, uid, todayStr, relDay, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, weekKey, weekStart, monthKey, hostOf, addDays, parseDate } from './util.js';
 import { typesOf, autoCover } from './views/reading.js';
 import { loginState } from './sync.js';
 import { detect, plan } from './capture.js';
@@ -327,6 +327,7 @@ export function Seal({ ghost = false } = {}) {
   // 当前页面：输入框上方的上下文胶囊，发出去时把这页的摘要一起带给模型；点 × 摘掉（换页后自动恢复）
   const [route, setRoute] = useState(parseRoute);
   useEffect(() => { const h = () => setRoute(parseRoute()); window.addEventListener('hashchange', h); return () => window.removeEventListener('hashchange', h); }, []);
+  useEffect(() => { if (ghost && open && !mode) setMode('big'); }, [ghost, open, mode]); // 隐藏了汤圆：没有角落可以吸附，打开就用展开的大窗
   const [ctxOff, setCtxOff] = useState('');
   const pctx = pageContext(route, s); const ctxOn = pctx && ctxOff !== pctx.key ? pctx : null;
   const cprompts = contextPrompts(route, s);
@@ -598,8 +599,23 @@ export function Seal({ ghost = false } = {}) {
   const RZ = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
   const push = (m) => setMsgs((list) => [...list, { id: uid(), ...m }]);
   // 前额叶：把一条大待办拆成步骤。拆出来的步骤写进这条待办的关联页面，作为可勾选的待办块
-  const breakdown = async (t) => {
+  // 拆解的来源：待办（默认）/ 月度目标 / 书 / 时间块 / 笔记里的一段。拆完的结果挂回来源上
+  // 「本周」：周末才拆的话剩不了几天，顺延到下周日
+  const weekEndFor = () => { const today = todayStr(); let end = addDays(weekStart(), 6); if (end < addDays(today, 2)) end = addDays(end, 7); return end; };
+  const resolveSrc = (t) => {
+    const st = sRef.current, src = t && t.src; if (!src) return t;
+    if (src.kind === 'goal') { const g = (st.goals[src.mk] || []).find((x) => x.id === src.id); if (!g) return null; const krs = (g.krs || []).map((k) => (k.done ? '（已完成）' : '') + k.text);
+      return { title: g.title, due: weekEndFor(), note: `这是一个月度目标，现在进度 ${g.progress || 0}%。${g.why ? '为什么：' + g.why.replace(/[。.]\s*$/, '') + '。' : ''}${krs.length ? '关键结果：' + krs.join('；') + '。' : ''}只拆从今天到 ${weekEndFor()} 能做完的 3–5 件事，每件是一个可以独立完成的待办，跳过已完成的关键结果。`, src: { kind: 'goal', mk: src.mk, id: g.id, title: g.title } }; }
+    if (src.kind === 'book') { const b = st.books.find((x) => x.id === src.id); if (!b) return null; const max = b.total > 0 ? b.total : 100, left = max - (b.progress || 0);
+      return { title: `读完《${b.title}》`, note: `书《${b.title}》${b.author ? '（' + b.author + '）' : ''}，读到 ${b.progress || 0}${b.total ? ' / ' + b.total + ' 页' : '%'}，还剩 ${left}${b.total ? ' 页' : '%'}。拆成几次阅读，每次 25–45 分钟，步骤标题写清读到哪（比如「读第 120–160 页」），最后一步是写读书笔记。`, src: { kind: 'book', id: b.id, title: b.title } }; }
+    if (src.kind === 'block') { const b = st.blocks.find((x) => x.id === src.id); if (!b) return null; const len = timeToMin(b.end) - timeToMin(b.start);
+      return { title: b.title || '这段时间', note: `这是 ${b.date} ${b.start}–${b.end} 的一段时间块，共 ${len} 分钟。拆成 2–5 段，每段的分钟数加起来正好 ${len} 分钟，中间可以留 5–10 分钟休息算在里面。`, src: { kind: 'block', id: b.id, title: b.title, len } }; }
+    if (src.kind === 'note') return { title: t.title, note: `来自笔记「${src.title || ''}」。${t.note || ''}`, src: { kind: 'note', id: src.id, title: src.title } };
+    return t;
+  };
+  const breakdown = async (t0) => {
     if (busy) return;
+    const t = resolveSrc(t0); if (!t) { toast('找不到要拆的对象了'); return; }
     const st = sRef.current, login = loginState();
     push({ who: 'me', text: `拆解：${t.title}` }); setBusy(true); api.current.flap && api.current.flap();
     if (!aiEnabled(login)) { setBusy(false); push({ who: 'bot', text: login && login.user ? '拆解需要接上 AI。去设置里填一个密钥，或者在 Vercel 配置后再来。' : '登录后才能用 AI 拆解。' }); return; }
@@ -612,7 +628,7 @@ export function Seal({ ghost = false } = {}) {
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       recordUsage(j);
       setBusy(false);
-      push({ who: 'bot', text: j.reply || '拆好了，看看这样行不行：', steps: (j.steps || []).map((x) => ({ ...x, id: uid(), on: true })), todo: { id: t.id || '', title: t.title, due: t.due || '' } });
+      push({ who: 'bot', text: j.reply || '拆好了，看看这样行不行：', steps: (j.steps || []).map((x) => ({ ...x, id: uid(), on: true })), todo: { id: t.id || '', title: t.title, due: t.due || '' }, src: t.src || null });
     } catch (e) { setBusy(false); push({ who: 'bot', text: `拆不动（${e.message}）。` }); }
     if (!openRef.current) setBadge((b) => b + 1);
     api.current.happy && api.current.happy(1.2);
@@ -620,10 +636,35 @@ export function Seal({ ghost = false } = {}) {
   // 把勾选的步骤挂到待办上；拆的是一句话（还没有待办）就先建一条待办
   const ensureTodo = (m) => {
     let t = m.todo.id ? sRef.current.todos.find((x) => x.id === m.todo.id) : null;
-    if (!t) { t = { id: uid(), title: m.todo.title, done: false, priority: 2, due: m.todo.due || '', time: '', tags: [], area: '', note: '', created: todayStr(), steps: [] }; upsert('todos', t); setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, todo: { ...x.todo, id: t.id } } : x)); }
+    if (!t) { t = { id: uid(), title: m.todo.title, done: false, priority: 2, due: m.todo.due || '', time: '', tags: [], area: '', note: '', created: todayStr(), steps: [], ...(m.src && m.src.kind !== 'block' ? { src: { kind: m.src.kind, id: m.src.id, mk: m.src.mk, title: m.src.title } } : {}) }; upsert('todos', t); setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, todo: { ...x.todo, id: t.id } } : x)); }
     return t;
   };
+  // 目标拆出来的是这周的几件独立待办：从今天起往后分散到本周剩下的日子，每条带「来自目标」
+  const saveAsTodos = (m, schedule) => {
+    const steps = m.steps.filter((x) => x.on); if (!steps.length) return;
+    const today = todayStr(), end = weekEndFor(); const days = []; for (let d = today; d <= end; d = addDays(d, 1)) days.push(d); if (!days.length) days.push(today);
+    const made = steps.map((x, i) => { const t = { id: uid(), title: x.title, done: false, priority: 2, due: days[Math.min(days.length - 1, Math.floor(i * days.length / steps.length))], time: '', tags: [], area: '', note: x.hint || '', created: today, steps: [], src: { kind: m.src.kind, id: m.src.id, mk: m.src.mk, title: m.src.title } }; upsert('todos', t); return { t, x }; });
+    let blocks = [];
+    if (schedule) blocks = planSteps(steps).map((p, i) => { const b = { id: uid(), date: p.date, start: p.start, end: p.end, title: p.title, kind: 'focus', note: `目标「${m.src.title}」的一步`, todoId: made[i].t.id }; upsert('blocks', b); return b; });
+    undoRef.current[m.id] = () => { made.forEach(({ t }) => remove('todos', t.id)); blocks.forEach((b) => remove('blocks', b.id)); };
+    setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: made.length, scheduled: blocks.length || undefined, open: blocks.length ? 'plan/day?d=' + blocks[0].date : 'todos' } : x));
+    toast(`加了 ${made.length} 件本周待办${blocks.length ? '，也排进了时间线' : ''}`, { label: '去看看', onClick: () => go(blocks.length ? 'plan/day?d=' + blocks[0].date : 'todos') });
+    api.current.happy && api.current.happy(1.6); api.current.flap && api.current.flap();
+  };
+  // 时间块拆成几段：在原来的起止时间里按比例切开，替换原来那一块
+  const splitBlock = (m) => {
+    const steps = m.steps.filter((x) => x.on); const b0 = get().blocks.find((x) => x.id === m.src.id); if (!steps.length || !b0) return;
+    const a = timeToMin(b0.start), len = timeToMin(b0.end) - a, sum = steps.reduce((n, x) => n + (x.minutes || 25), 0);
+    let cur = a; const made = steps.map((x, i) => { const mins = i === steps.length - 1 ? a + len - cur : Math.max(5, Math.round((x.minutes || 25) * len / sum / 5) * 5); const b = { ...b0, id: uid(), start: minToTime(cur), end: minToTime(cur + mins), title: x.title, note: `「${b0.title || ''}」的一段` }; cur += mins; upsert('blocks', b); return b; });
+    remove('blocks', b0.id);
+    undoRef.current[m.id] = () => { made.forEach((b) => remove('blocks', b.id)); upsert('blocks', b0); };
+    setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: made.length, scheduled: made.length, open: 'plan/day?d=' + b0.date } : x));
+    toast(`「${b0.title || '这段时间'}」切成了 ${made.length} 段`, { label: '看时间线', onClick: () => go('plan/day?d=' + b0.date) });
+    api.current.happy && api.current.happy(1.6);
+  };
   const saveSteps = (m) => {
+    if (m.src && m.src.kind === 'goal') return saveAsTodos(m, false);
+    if (m.src && m.src.kind === 'block') return splitBlock(m);
     const steps = m.steps.filter((x) => x.on); if (!steps.length) return;
     const t = ensureTodo(m);
     const added = addSteps(t.id, steps.map((x) => ({ id: x.id, title: x.title, minutes: x.minutes, kind: x.kind })));
@@ -696,6 +737,7 @@ export function Seal({ ghost = false } = {}) {
   const editItem = (mid, iid, patch) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.map((it) => it.id === iid ? { ...it, ...patch, inferred: (it.inferred || []).filter((k) => !(k in patch) && !(k === 'end' && 'start' in patch)) } : it) }));
   // 步骤：排进时间线 / 开始第一步（番茄钟）
   const scheduleMsg = (m) => {
+    if (m.src && m.src.kind === 'goal') return saveAsTodos(m, true);
     const steps = m.steps.filter((x) => x.on); if (!steps.length) return;
     const t = ensureTodo(m); addSteps(t.id, steps.map((x) => ({ id: x.id, title: x.title, minutes: x.minutes, kind: x.kind })));
     const made = scheduleSteps(steps, t);
@@ -842,8 +884,8 @@ export function Seal({ ghost = false } = {}) {
             </div>
           </div>`; })()}
           ${m.steps && m.steps.length > 0 && (() => {
-            const on = m.steps.filter((x) => x.on), saved = m.saved != null, total = on.reduce((a, x) => a + (x.minutes || 25), 0);
-            const plan = saved ? [] : planSteps(on); const maxLen = Math.max(15, ...plan.map((p) => p.minutes));
+            const sk = m.src ? m.src.kind : 'todo'; const on = m.steps.filter((x) => x.on), saved = m.saved != null, total = on.reduce((a, x) => a + (x.minutes || 25), 0);
+            const plan = saved || sk === 'block' ? [] : planSteps(on); const maxLen = Math.max(15, ...plan.map((p) => p.minutes));
             return html`<div class=${'ac steps ' + (saved ? 'saved' : '')}>
             <div class="ac-h"><span>「${m.todo.title}」拆成 ${m.steps.length} 步</span><small>约 ${fmtMin(total)}${plan.length ? ` · ${plan[0].date === todayStr() ? '今天' : relDay(plan[0].date)} ${plan[0].start} 起` : ''}</small></div>
             ${m.steps.map((x, i) => html`<label key=${x.id} class=${'ac-row ' + (x.on ? '' : 'off')}>
@@ -867,8 +909,10 @@ export function Seal({ ghost = false } = {}) {
               </div>
             </div>`}
             <div class="ac-f">
-              ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> ${m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已加为「${m.todo.title}」的 ${m.saved} 步`}</span><span class="flex1"></span>${m.open && html`<button class="btn sm ghost" onClick=${() => go(m.open)}>${m.scheduled ? '看时间线' : '去看看'}</button>`}`
-                : html`<span class="ac-hint">子任务会挂在这条待办下面</span><span class="flex1"></span><button class="btn sm ghost" disabled=${!on.length} title="加为子任务，并从现在起依次排进时间线（避开已有安排，只排 8:00–22:00）" onClick=${() => scheduleMsg(m)}>排进时间线</button><button class="btn primary sm ac-save" disabled=${!on.length} onClick=${() => saveSteps(m)}>加为子任务</button>`}
+              ${saved ? html`<span class="ac-ok"><${Icon} name="check" size=${13} /> ${sk === 'block' ? `切成了 ${m.saved} 段` : sk === 'goal' ? `加了 ${m.saved} 件本周待办${m.scheduled ? '，排进了时间线' : ''}` : m.scheduled ? `已排进时间线 ${m.scheduled} 段` : `已加为「${m.todo.title}」的 ${m.saved} 步`}</span><span class="flex1"></span>${m.open && html`<button class="btn sm ghost" onClick=${() => go(m.open)}>${m.scheduled ? '看时间线' : '去看看'}</button>`}${undoRef.current[m.id] && html`<button class="btn sm ghost" onClick=${() => unsave(m)}>撤销</button>`}`
+                : sk === 'block' ? html`<span class="ac-hint">在原来的 ${m.src.len} 分钟里按比例切开，替换原来那一块</span><span class="flex1"></span><button class="btn primary sm ac-save" disabled=${!on.length} onClick=${() => saveSteps(m)}>切成 ${on.length} 段</button>`
+                : sk === 'goal' ? html`<span class="ac-hint">每一步变成一件本周待办，挂着「来自目标」</span><span class="flex1"></span><button class="btn sm ghost" disabled=${!on.length} title="加为本周待办，并从现在起依次排进时间线" onClick=${() => scheduleMsg(m)}>也排进时间线</button><button class="btn primary sm ac-save" disabled=${!on.length} onClick=${() => saveSteps(m)}>加为本周待办</button>`
+                : html`<span class="ac-hint">${sk === 'book' ? '会建一条「读完这本书」的待办，步骤挂在下面' : sk === 'note' ? '会建一条待办（链接回这页笔记），步骤挂在下面' : '子任务会挂在这条待办下面'}</span><span class="flex1"></span><button class="btn sm ghost" disabled=${!on.length} title="加为子任务，并从现在起依次排进时间线（避开已有安排，只排 8:00–22:00）" onClick=${() => scheduleMsg(m)}>排进时间线</button><button class="btn primary sm ac-save" disabled=${!on.length} onClick=${() => saveSteps(m)}>加为子任务</button>`}
             </div>
           </div>`; })()}
         </div>`)}
