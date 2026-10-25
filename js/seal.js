@@ -6,7 +6,7 @@ import { useStore, upsert, get, update, remove } from './store.js';
 import { ctxMenu } from './ctx.js';
 import { Icon, DateInput, TimeInput } from './ui.js';
 import * as pomo from './pomo.js';
-import { uid, todayStr, relDay, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, weekKey, monthKey, hostOf, addDays, parseDate } from './util.js';
+import { greeting, uid, todayStr, relDay, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, weekKey, monthKey, hostOf, addDays, parseDate } from './util.js';
 import { typesOf, autoCover } from './views/reading.js';
 import { loginState } from './sync.js';
 import { detect, plan } from './capture.js';
@@ -308,6 +308,9 @@ export function Seal() {
   const undoRef = useRef({}); // 每条已保存消息的撤销函数
   const [ava, setAva] = useState(() => { try { return sessionStorage.getItem('ytos.seal.ava') || ''; } catch { return ''; } });
   api.current.setAvatar = (u) => { setAva(u); try { sessionStorage.setItem('ytos.seal.ava', u); } catch {} };
+  const [hero, setHero] = useState(() => { try { return sessionStorage.getItem('ytos.seal.hero') || ''; } catch { return ''; } });
+  api.current.setHero = (u) => { setHero(u); try { sessionStorage.setItem('ytos.seal.hero', u); } catch {} };
+  const [cmode, setCmode] = useState(''); // 输入框的模式胶囊：'' 自动 | breakdown 拆解 | plan 规划
   const [pinnedPos, setPinnedPos] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.panelpos') || 'null'); } catch { return null; } });
   api.current.pinnedPos = pinnedPos;
   const savePos = (v) => { setPinnedPos(v); api.current.pinnedPos = v; try { v ? localStorage.setItem('ytos.seal.panelpos', JSON.stringify(v)) : localStorage.removeItem('ytos.seal.panelpos'); } catch {} api.current.posPanel && api.current.posPanel(); };
@@ -495,7 +498,7 @@ export function Seal() {
       return url;
     };
     api.current.shot = shot; window.tangyuanShot = shot; // 控制台 / 脚本可以调：tangyuanShot({ ry: .5, full: true, size: 1024 })
-    const snapshot = () => { const u = shot(); if (u) api.current.setAvatar && api.current.setAvatar(u); };
+    const snapshot = () => { const u = shot(); if (u) api.current.setAvatar && api.current.setAvatar(u); const h = shot({ full: true, shadow: true, size: 420, ry: -.35, hy: .25, hx: -.02 }); if (h) api.current.setHero && api.current.setHero(h); };
     loadThree().then((THREE) => { if (dead) return; try { model = buildSeal(THREE, cv); setTimeout(snapshot, 250); } catch (err) { console.error(err); fab.classList.add('nogl'); } }).catch(() => fab.classList.add('nogl'));
 
     return () => {
@@ -595,6 +598,8 @@ export function Seal() {
 
   const ask = async (text) => {
     text = (text || '').trim(); if (!text || busy) return;
+    if (cmode === 'breakdown' && !/^(?:帮我)?(?:拆解|拆一下|拆分|分解|拆)/.test(text)) text = '拆解：' + text;
+    if (cmode === 'plan' && !/^(帮我|请)?(安排|规划|排一下)/.test(text)) text = '帮我安排一下：' + text;
     // 「拆解 X」「把 X 拆成步骤」：直接走拆解，X 是已有待办就挂到它上面，不是就先建一条
     const bm = text.match(/^(?:帮我)?(?:拆解|拆一下|拆分|分解|拆)[:：\s]*(.+?)(?:拆成步骤|拆开)?$/) || text.match(/^(?:把|将)?(.+?)拆(?:成|开|分|解)(?:步骤|几步|一下)?$/);
     if (bm && bm[1] && bm[1].length <= 40) { setTxt(''); const title = bm[1].trim(); const t = sRef.current.todos.find((x) => !x.done && (x.title === title || x.title.includes(title))); return breakdown(t || { title }); }
@@ -712,8 +717,9 @@ export function Seal() {
         </div>`)}
       </div></div>` : html`<div class="seal-msgs" ref=${msgsRef}><div class="seal-col">
         ${msgs.length === 0 && html`<div class="seal-intro">
-            <h3>嗨，我是汤圆</h3>
-            <p>说一句话，我整理成待办、时间块、笔记或目标；也可以把一件大事拆成几步、排进时间线。你确认了才会写进去。</p>
+            <div class="seal-hero">${hero ? html`<img src=${hero} alt="汤圆" draggable="false" />` : AVATAR}</div>
+            <h3>${greeting()}，${(sRef.current.profile && sRef.current.profile.name) || '妈妈'}。今天想做点什么？</h3>
+            <p>说一句话，我整理成待办、时间块、笔记或目标；也能把一件大事拆成几步、排进时间线。你确认了才会写进去。</p>
             <div class="seal-hints">${HINTS.map((h) => html`<button key=${h.t} type="button" onClick=${() => ask(h.t)}><span class="sh-q">${h.t}</span><span class="sh-k">${h.k.map((k) => html`<i key=${k}>${k}</i>`)}</span></button>`)}</div>
           </div>`}
         ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who}>
@@ -777,7 +783,8 @@ export function Seal() {
         <textarea ref=${inRef} rows="1" maxlength="2000" value=${txt} placeholder="问汤圆任何事：记一件事、拆解一个任务，或者随便聊聊" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
         <div class="sf-bar">
           <button type="button" class="sf-b" title="示例句子" onClick=${(e) => ctxMenu(e, HINTS.map((h) => ({ label: h.t, hint: h.k.join(' · '), onClick: () => { setTxt(h.t); setTimeout(() => inRef.current && inRef.current.focus(), 0); } })), '提示词')}><${Icon} name="sparkle" size=${13} /> 提示词</button>
-          <button type="button" class="sf-b" title="把一件大事拆成几步" onClick=${() => { setTxt(/^拆解[:：]/.test(txt) ? txt : '拆解：' + txt); setTimeout(() => inRef.current && inRef.current.focus(), 0); }}><${Icon} name="layers" size=${13} /> 拆解</button>
+          <button type="button" class=${'sf-b ' + (cmode === 'breakdown' ? 'on' : '')} title="把一件大事拆成几步，并预览排期" onClick=${() => setCmode(cmode === 'breakdown' ? '' : 'breakdown')}><${Icon} name="layers" size=${13} /> 拆解</button>
+          <button type="button" class=${'sf-b ' + (cmode === 'plan' ? 'on' : '')} title="让汤圆给出安排建议" onClick=${() => setCmode(cmode === 'plan' ? '' : 'plan')}><${Icon} name="calendar" size=${13} /> 规划</button>
           <span class="flex1"></span>
           <span class=${'sf-cnt ' + (txt.length > 1800 ? 'warn' : '')}>${txt.length} / 2000</span>
           <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="send" size=${15} />`}</button>
