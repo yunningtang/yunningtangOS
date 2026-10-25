@@ -725,12 +725,14 @@ export function Seal() {
       ${!big && header}
       <div class="seal-body">
       ${big && html`<aside class="seal-side">
-        <button class="ss-new" type="button" onClick=${newThread}><${Icon} name="plus" size=${14} /> 新对话</button>
+        <div class="ss-list">
         ${threads.length === 0 ? html`<div class="ss-empty">还没有历史对话</div>` : (() => {
           const day = (ts) => { const d = new Date(ts), n = new Date(); const dd = Math.floor((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5); return dd <= 0 ? '今天' : dd === 1 ? '昨天' : dd < 7 ? '最近一周' : '更早'; };
           const groups = []; threads.forEach((t) => { const g = day(t.updated); let x = groups.find((y) => y[0] === g); if (!x) { x = [g, []]; groups.push(x); } x[1].push(t); });
           return groups.map(([g, list]) => html`<div class="ss-g" key=${g}><div class="ss-h">${g}</div>${list.map((t) => html`<div key=${t.id} class=${'ss-row ' + (t.id === tid ? 'cur' : '')} onClick=${() => openThread(t)}><span class="ss-t">${t.title}</span><button class="ibtn ss-del" title="删除" onClick=${(e) => { e.stopPropagation(); delThread(t.id); }}><${Icon} name="x" size=${12} /></button></div>`)}</div>`);
         })()}
+        </div>
+        <button class="ss-new" type="button" onClick=${newThread}><${Icon} name="plus" size=${14} /> 新对话</button>
       </aside>`}
       <div class="seal-main">
       ${big && header}
