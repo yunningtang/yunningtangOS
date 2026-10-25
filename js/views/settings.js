@@ -165,7 +165,7 @@ export default function Settings() {
           <div class="grid2">
             <${Field} label="显示海豹" hint="拖到任意卡片上松手，它会趴在卡片上沿跟着页面滚；拖到空白处就吸到屏幕边。右键有更多选项。"><${Seg} options=${[{ v: 'on', label: '显示' }, { v: 'off', label: '隐藏' }]} value=${s.settings.seal === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.seal = v === 'on'; })} /><//>
             <${Field} label="汤圆光效" hint="对话框里的微光：汤圆背后的光晕和点阵、输入框聚焦时流过的一圈光、示例卡片悬停的扫光、状态点的呼吸。都是黑白的，不加颜色；觉得花就关掉。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealGlow === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.sealGlow = v === 'on'; })} /><//>
-            <${Field} label="汤圆强调色" hint="黑白之外唯一的一点颜色，只用在发送键、保存键、状态点和光晕上。"><${Seg} options=${[{ v: 'teal', label: '青绿' }, { v: 'ice', label: '冰蓝' }, { v: 'none', label: '不要' }]} value=${s.settings.sealAccent || 'teal'} onChange=${(v) => update((d) => { d.settings.sealAccent = v; })} /><//>
+            <${Field} label="汤圆强调色" hint="黑白之外唯一的一点颜色，只用在发送键、保存键、状态点和光晕上。"><${Seg} options=${[{ v: 'none', label: '不要（黑白）' }, { v: 'ice', label: '冰蓝' }, { v: 'teal', label: '青绿' }]} value=${s.settings.sealAccent || 'none'} onChange=${(v) => update((d) => { d.settings.sealAccent = v; })} /><//>
             <${Field} label="闲时贴边" hint="几秒没人理，就缩到屏幕边上只露一截，不压在内容上；鼠标靠近就出来。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealTuck === true ? 'on' : 'off'} onChange=${(v) => update((d) => { d.settings.sealTuck = v === 'on'; })} /><//>
           </div>
           <${Field} label="AI 密钥" hint="服务器配置 = 用 Vercel 环境变量里的密钥。选 DeepSeek / Claude 可以直接在这里填自己的密钥（两家各存一份）：只存在这台浏览器里，不进同步数据和备份，每次请求发给你自己的后端转发。「不用 AI」就只按本地语法识别。对话框头部也能切换。">

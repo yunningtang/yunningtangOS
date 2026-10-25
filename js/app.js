@@ -74,7 +74,7 @@ function applyTheme(t, skin, fx, glow, accent) {
   // 质感：lite 不给卡片和侧栏加毛玻璃（backdrop-filter 很吃 GPU，鼠标一动就重算，是卡顿的主因）；full 才开
   if (fx !== undefined) document.documentElement.dataset.fx = fx === 'full' ? 'full' : 'lite';
   if (glow !== undefined) document.documentElement.dataset.glow = glow === false ? '0' : '1';
-  if (accent !== undefined) document.documentElement.dataset.accent = accent || 'teal';
+  if (accent !== undefined) document.documentElement.dataset.accent = accent || 'none';
   if (skin !== undefined) document.documentElement.dataset.skin = HIDDEN_SKINS.has(skin) ? 'glass' : (skin === 'win95' ? 'xp' : skin) || 'glass';
 }
 
@@ -97,7 +97,7 @@ function App() {
   const View = active.view;
 
   useEffect(() => {
-    applyTheme(s.settings.theme, s.settings.skin || 'glass', s.settings.fx || 'lite', s.settings.sealGlow !== false, s.settings.sealAccent || 'teal');
+    applyTheme(s.settings.theme, s.settings.skin || 'glass', s.settings.fx || 'lite', s.settings.sealGlow !== false, s.settings.sealAccent || 'none');
     const mq = matchMedia('(prefers-color-scheme: dark)');
     const h = () => s.settings.theme === 'auto' && applyTheme('auto');
     mq.addEventListener('change', h);
