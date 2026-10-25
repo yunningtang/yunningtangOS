@@ -318,6 +318,14 @@ export function Seal({ ghost = false } = {}) {
   const [sideOpen, setSideOpen] = useState(() => { try { return localStorage.getItem('ytos.seal.side') !== '0'; } catch { return true; } });
   const toggleSide = () => { setSideOpen((v) => { try { localStorage.setItem('ytos.seal.side', v ? '0' : '1'); } catch {} return !v; }); };
   const [sq, setSq] = useState('');
+  const [scrolled, setScrolled] = useState(false); const scrolledRef = useRef(false); // 消息往上滚了：顶栏变成半透明磨砂
+  // 历史侧栏的宽度：拖右边缘调，200–420，记住
+  const [sideW, setSideW] = useState(() => { const v = +(localStorage.getItem('ytos.seal.sidew') || 0); return v >= 200 && v <= 420 ? v : 240; });
+  const saveSideW = (w) => { setSideW(w); try { localStorage.setItem('ytos.seal.sidew', String(w)); } catch {} };
+  const sideResize = (e) => { if (e.button !== 0) return; e.preventDefault(); const x0 = e.clientX, w0 = sideW; let w = w0; const side = e.currentTarget.parentElement;
+    const mv = (ev) => { w = Math.max(120, Math.min(420, w0 + ev.clientX - x0)); side.style.setProperty('--ssw', Math.max(200, w) + 'px'); side.classList.toggle('will-close', w < 180); };
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); document.body.classList.remove('resizing'); side.classList.remove('will-close'); if (w < 180) { side.style.setProperty('--ssw', w0 + 'px'); toggleSide(); } else saveSideW(w); };
+    document.body.classList.add('resizing'); window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); };
   const shown = sq.trim() ? threads.filter((t) => (t.title + ' ' + t.msgs.map((m) => m.text).join(' ')).toLowerCase().includes(sq.trim().toLowerCase())) : threads;
   const [ava, setAva] = useState(() => { try { return sessionStorage.getItem('ytos.seal.ava') || ''; } catch { return ''; } });
   api.current.setAvatar = (u) => { setAva(u); try { sessionStorage.setItem('ytos.seal.ava', u); } catch {} };
@@ -790,7 +798,6 @@ export function Seal({ ghost = false } = {}) {
   const header = html`
   <div class=${'seal-h ' + (pinnedPos && mode !== 'full' ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && mode !== 'full' && { label: big ? '回到屏幕中央' : '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, size && { label: '恢复默认大小', icon: 'maximize', onClick: () => { const next = { ...sizes }; delete next[modeKey]; setSizes(next); try { localStorage.setItem('ytos.seal.size2', JSON.stringify(next)); } catch {} } }, !pinnedPos && mode !== 'full' && { label: '拖动顶部可以移动，拖边缘可以改大小', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${mode === 'full' ? '' : pinnedPos ? '拖动移动 · 双击回到默认位置' : '拖动可以把对话窗放到别处'}>
     <div class="seal-col seal-hc">
-    ${big && html`<button class="ibtn seal-sidebtn" title=${sideOpen ? '收起侧栏' : '展开侧栏'} onClick=${toggleSide}><${Icon} name="sidebar" size=${15} /></button>`}
     ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
       : html`<span class="seal-id"><span class="seal-avw">${ava ? html`<img class="seal-ava" src=${ava} alt="" />` : AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b>${busy ? html`<small>正在整理…</small>` : html`<button type="button" class="seal-agent" title="换一个脑子：服务器配置 / 自己的密钥 / 不用 AI" onClick=${pickAgent}>${aiLabel(login)}<${Icon} name="down" size=${11} /></button>`}</span>`}
     <span class="flex1"></span>
@@ -811,7 +818,14 @@ export function Seal({ ghost = false } = {}) {
       ${mode !== 'full' && RZ.map((d) => html`<div key=${d} class=${'seal-rz rz-' + d} onPointerDown=${(e) => resizeStart(e, d)}></div>`)}
       ${!big && header}
       <div class="seal-body">
-      ${big && sideOpen && html`<aside class="seal-side">
+      ${big && !sideOpen && html`<aside class="seal-rail">
+        <button class="ibtn" title="展开侧栏" onClick=${toggleSide}><${Icon} name="sidebar" size=${16} /></button>
+        <button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${16} /></button>
+        <button class="ibtn" title="搜历史对话" onClick=${() => { toggleSide(); setTimeout(() => { const el = panelRef.current && panelRef.current.querySelector('.ss-search input'); el && el.focus(); }, 60); }}><${Icon} name="search" size=${16} /></button>
+        <button class=${'ibtn ' + (threads.length ? '' : 'dim')} title=${threads.length ? `历史对话 ${threads.length} 段` : '还没有历史对话'} onClick=${toggleSide}><${Icon} name="clock" size=${16} /></button>
+      </aside>`}
+      ${big && sideOpen && html`<aside class="seal-side" style=${`--ssw:${sideW}px`}>
+        <div class="ss-top"><button class="ibtn" title="收起侧栏" onClick=${toggleSide}><${Icon} name="sidebar" size=${16} /></button><span class="ss-ttl">历史对话</span><span class="flex1"></span><button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="edit" size=${15} /></button></div>
         <label class="ss-search"><${Icon} name="search" size=${13} /><input type="search" value=${sq} placeholder="搜历史对话" onInput=${(e) => setSq(e.target.value)} /></label>
         <div class="ss-list">
         ${threads.length === 0 ? html`<div class="ss-empty">还没有历史对话</div>` : shown.length === 0 ? html`<div class="ss-empty">没有找到「${sq}」</div>` : (() => {
@@ -821,8 +835,9 @@ export function Seal({ ghost = false } = {}) {
         })()}
         </div>
         <button class="ss-new" type="button" onClick=${newThread}><${Icon} name="plus" size=${14} /> 新对话</button>
+        <div class="ss-rz" title="拖动调宽 · 双击恢复" onPointerDown=${sideResize} onDblClick=${() => saveSideW(240)}></div>
       </aside>`}
-      <div class="seal-main">
+      <div class=${'seal-main ' + (scrolled && view === 'chat' ? 'scrolled' : '')}>
       ${big && header}
       ${view === 'history' ? html`<div class="seal-msgs seal-hist"><div class="seal-col">
         ${threads.length === 0 && html`<div class="seal-empty">还没有历史对话</div>`}
@@ -830,7 +845,7 @@ export function Seal({ ghost = false } = {}) {
           <span class="sh-t">${t.title}</span><small>${relTime(t.updated)} · ${t.msgs.filter((m) => m.who === 'me').length} 句</small>
           <button class="ibtn sh-del" title="删除" onClick=${(e) => { e.stopPropagation(); delThread(t.id); }}><${Icon} name="x" size=${13} /></button>
         </div>`)}
-      </div></div>` : html`<div class="seal-msgs" ref=${msgsRef}><div class="seal-col">
+      </div></div>` : html`<div class="seal-msgs" ref=${msgsRef} onScroll=${(e) => { const on = e.currentTarget.scrollTop > 4; if (on !== scrolledRef.current) { scrolledRef.current = on; setScrolled(on); } }}><div class="seal-col">
         ${msgs.length === 0 && html`<div class="seal-intro">
             <div class=${'seal-hero ' + (docked ? 'docked' : '')} ref=${heroRef}>${hero ? html`<img src=${hero} alt="汤圆" draggable="false" />` : AVATAR}</div>
             <h3>${greeting()}，${(sRef.current.profile && sRef.current.profile.name) || '妈妈'}。今天想做点什么？</h3>
