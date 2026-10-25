@@ -2128,7 +2128,7 @@ body.focus-mode .fmt-bar{border-radius:0;justify-content:center}
 
 /* ============ 汤圆对话框：高级感（细线、低对比描边、渐变点睛、微光） ============ */
 .seal-panel{--sg1:#5b8cff;--sg2:#9b6bff;--sg3:#36c3c9;--seal-grad:linear-gradient(135deg,var(--sg1),var(--sg2));border-radius:22px;box-shadow:0 0 0 1px rgba(255,255,255,.9),0 1px 0 rgba(255,255,255,.6) inset,0 30px 80px -30px rgba(40,60,120,.35),0 2px 8px -2px rgba(20,30,50,.06)}
-html[data-theme="dark"] .seal-panel{--sg1:#7aa2ff;--sg2:#b48cff;--sg3:#4fd8de;background:color-mix(in srgb,#141826 94%,transparent);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 1px 0 rgba(255,255,255,.06) inset,0 40px 90px -30px rgba(0,0,0,.8)}
+html[data-theme="dark"] .seal-panel{--sg1:#7aa2ff;--sg2:#b48cff;--sg3:#4fd8de;background:color-mix(in srgb,#141826 98%,transparent);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 1px 0 rgba(255,255,255,.06) inset,0 40px 90px -30px rgba(0,0,0,.8)}
 .seal-panel .ic{stroke-width:1.5}
 .seal-h b{font-weight:600;letter-spacing:-.01em}
 .seal-h small{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;letter-spacing:.02em;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--text-3)}
