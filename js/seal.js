@@ -771,6 +771,7 @@ export function Seal({ ghost = false } = {}) {
   const login = loginState();
   const aiOn = aiEnabled(login);
   const pickAgent = (e) => ctxMenu(e, [...aiOptions(login).map((o) => ({ label: o.label, hint: o.hint, icon: o.v === aiConfig().provider ? 'check' : '', onClick: () => { if (!o.ok) { go('settings'); toast(o.v === 'server' ? '在 Vercel 环境变量里配 DEEPSEEK_API_KEY 或 ANTHROPIC_API_KEY' : '先在设置里填这家的密钥', { label: '去设置' }); return; } setAiConfig({ provider: o.v }); setCfgV((x) => x + 1); toast('汤圆现在用：' + o.label + (o.v === 'local' ? '' : '（' + o.hint + '）')); } })), 'sep', { label: 'AI 设置…', icon: 'settings', onClick: () => go('settings') }], '谁来当汤圆的脑子');
+  const lastFail = (() => { const b = [...msgs].reverse().find((m) => m.who === 'bot'); return !!(b && b.via === 'fallback'); })();
   const status = busy ? { cls: 'busy', text: '正在整理…' } : aiOn ? { cls: 'on', text: aiLabel(login) + ' · 已连接' } : login && login.user ? { cls: 'off', text: '本地规则 · 未接 AI' } : { cls: 'off', text: '未登录 · 本地规则' };
   const metaParts = (it) => {
     // 预览行右侧的元信息：日期 / 时间 / 其他；标出推断的字段
@@ -799,7 +800,7 @@ export function Seal({ ghost = false } = {}) {
   <div class=${'seal-h ' + (pinnedPos && mode !== 'full' ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && mode !== 'full' && { label: big ? '回到屏幕中央' : '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, size && { label: '恢复默认大小', icon: 'maximize', onClick: () => { const next = { ...sizes }; delete next[modeKey]; setSizes(next); try { localStorage.setItem('ytos.seal.size2', JSON.stringify(next)); } catch {} } }, !pinnedPos && mode !== 'full' && { label: '拖动顶部可以移动，拖边缘可以改大小', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${mode === 'full' ? '' : pinnedPos ? '拖动移动 · 双击回到默认位置' : '拖动可以把对话窗放到别处'}>
     <div class="seal-col seal-hc">
     ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
-      : html`<span class="seal-id"><span class="seal-avw">${ava ? html`<img class="seal-ava" src=${ava} alt="" />` : AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b>${busy ? html`<small>正在整理…</small>` : html`<button type="button" class="seal-agent" title="换一个脑子：服务器配置 / 自己的密钥 / 不用 AI" onClick=${pickAgent}>${aiLabel(login)}<${Icon} name="down" size=${11} /></button>`}</span>`}
+      : html`<button type="button" class="seal-id seal-agent" title="换一个脑子：服务器配置 / 自己的密钥 / 不用 AI" onClick=${pickAgent}><b>汤圆</b><span class="sa-sep">·</span><span class="sa-m">${aiOn ? aiLabel(login) : '本地规则'}</span>${busy ? html`<span class="sa-busy" aria-label="正在整理"><i></i><i></i><i></i></span>` : lastFail ? html`<span class="sa-warn">· 上次没连上</span>` : ''}<${Icon} name="down" size=${12} /></button>`}
     <span class="flex1"></span>
     ${view === 'chat' && html`<button class=${'ibtn seal-histbtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
     ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
