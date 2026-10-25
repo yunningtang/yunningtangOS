@@ -13,7 +13,7 @@ import { detect, plan } from './capture.js';
 import { newNote } from './views/notes.js';
 import { mdToBlocks, sanitizeDoc } from './blocks.js';
 import { marked } from '../vendor/marked.js';
-import { aiHeaders, aiEnabled, aiLabel, recordUsage } from './ai.js';
+import { aiHeaders, aiEnabled, aiLabel, aiOptions, aiConfig, setAiConfig, recordUsage } from './ai.js';
 import { stepsOf, addSteps, clampMin } from './steps.js';
 import { go, toast } from './nav.js';
 
@@ -306,6 +306,7 @@ export function Seal() {
   const openRef = useRef(false); openRef.current = open;
   const bigRef = useRef(false); bigRef.current = big; api.current.mode = mode;
   const undoRef = useRef({}); // 每条已保存消息的撤销函数
+  const [, setCfgV] = useState(0); // 换了 AI 来源后重算状态
   const [ava, setAva] = useState(() => { try { return sessionStorage.getItem('ytos.seal.ava') || ''; } catch { return ''; } });
   api.current.setAvatar = (u) => { setAva(u); try { sessionStorage.setItem('ytos.seal.ava', u); } catch {} };
   const [hero, setHero] = useState(() => { try { return sessionStorage.getItem('ytos.seal.hero') || ''; } catch { return ''; } });
@@ -689,6 +690,7 @@ export function Seal() {
 
   const login = loginState();
   const aiOn = aiEnabled(login);
+  const pickAgent = (e) => ctxMenu(e, [...aiOptions(login).map((o) => ({ label: o.label, hint: o.hint, icon: o.v === aiConfig().provider ? 'check' : '', onClick: () => { if (!o.ok) { go('settings'); toast(o.v === 'server' ? '在 Vercel 环境变量里配 DEEPSEEK_API_KEY 或 ANTHROPIC_API_KEY' : '先在设置里填这家的密钥', { label: '去设置' }); return; } setAiConfig({ provider: o.v }); setCfgV((x) => x + 1); toast('汤圆现在用：' + o.label + (o.v === 'local' ? '' : '（' + o.hint + '）')); } })), 'sep', { label: 'AI 设置…', icon: 'settings', onClick: () => go('settings') }], '谁来当汤圆的脑子');
   const status = busy ? { cls: 'busy', text: '正在整理…' } : aiOn ? { cls: 'on', text: aiLabel(login) + ' · 已连接' } : login && login.user ? { cls: 'off', text: '本地规则 · 未接 AI' } : { cls: 'off', text: '未登录 · 本地规则' };
   const metaParts = (it) => {
     // 预览行右侧的元信息：日期 / 时间 / 其他；标出推断的字段
@@ -699,6 +701,20 @@ export function Seal() {
     if (it.kind === 'note') { const nb = s.notebooks.find((b) => b.id === it.nb); return [{ t: nb ? nb.name : '收件箱', i: inf.includes('nb') }, ...it.tags.map((t) => ({ t: '#' + t })), it.body && { t: `${it.body.length} 字` }].filter(Boolean); }
     return [{ t: metaOf(it, s) }];
   };
+  const header = html`
+  <div class=${'seal-h ' + (pinnedPos && mode !== 'full' ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && mode !== 'full' && { label: big ? '回到屏幕中央' : '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, size && { label: '恢复默认大小', icon: 'maximize', onClick: () => { const next = { ...sizes }; delete next[modeKey]; setSizes(next); try { localStorage.setItem('ytos.seal.size2', JSON.stringify(next)); } catch {} } }, !pinnedPos && mode !== 'full' && { label: '拖动顶部可以移动，拖边缘可以改大小', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${mode === 'full' ? '' : pinnedPos ? '拖动移动 · 双击回到默认位置' : '拖动可以把对话窗放到别处'}>
+    <div class="seal-col seal-hc">
+    ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
+      : html`<span class="seal-id"><span class="seal-avw">${ava ? html`<img class="seal-ava" src=${ava} alt="" />` : AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b>${busy ? html`<small>正在整理…</small>` : html`<button type="button" class="seal-agent" title="换一个脑子：服务器配置 / 自己的密钥 / 不用 AI" onClick=${pickAgent}><i class=${'dot ' + status.cls}></i>${aiLabel(login)}<${Icon} name="down" size=${11} /></button>`}</span>`}
+    <span class="flex1"></span>
+    ${view === 'chat' && !big && html`<button class=${'ibtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
+    ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
+    <button class="ibtn seal-big" title=${mode === 'big' ? '恢复浮窗' : '展开'} onClick=${() => setModeKeep(mode === 'big' ? '' : 'big')}><${Icon} name=${mode === 'big' ? 'minus' : 'maximize'} size=${15} /></button>
+    <button class="ibtn seal-full" title=${mode === 'full' ? '退出全屏' : '全屏'} onClick=${() => setModeKeep(mode === 'full' ? 'big' : 'full')}><${Icon} name=${mode === 'full' ? 'minus' : 'frame'} size=${15} /></button>
+    <button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button>
+    </div>
+  </div>
+  `;
   return html`
     <button class="seal-fab" ref=${fabRef} aria-label="汤圆助手（可拖动）" aria-expanded=${open} title="汤圆：说一句话，帮你拆成待办 / 时间块 / 笔记">
       <canvas ref=${cvRef} width="300" height="300"></canvas>
@@ -706,18 +722,7 @@ export function Seal() {
     </button>
     <div class=${'seal-panel ' + (open ? '' : 'closed ') + (mode ? 'big ' + mode : '') + (size ? ' sized' : '') + (pinnedPos && mode !== 'full' ? ' pinned' : '')} ref=${panelRef} role="dialog" aria-label="汤圆助手对话" style=${size ? `--sw:${size.w}px;--sh:${size.h}px` : ''}>
       ${mode !== 'full' && RZ.map((d) => html`<div key=${d} class=${'seal-rz rz-' + d} onPointerDown=${(e) => resizeStart(e, d)}></div>`)}
-      <div class=${'seal-h ' + (pinnedPos && mode !== 'full' ? 'pinned' : '')} onPointerDown=${moveStart} onDblClick=${() => pinnedPos && savePos(null)} onContextMenu=${(e) => ctxMenu(e, [pinnedPos && mode !== 'full' && { label: big ? '回到屏幕中央' : '吸回汤圆旁边', icon: 'refresh', onClick: () => savePos(null) }, size && { label: '恢复默认大小', icon: 'maximize', onClick: () => { const next = { ...sizes }; delete next[modeKey]; setSizes(next); try { localStorage.setItem('ytos.seal.size2', JSON.stringify(next)); } catch {} } }, !pinnedPos && mode !== 'full' && { label: '拖动顶部可以移动，拖边缘可以改大小', icon: 'cursor', disabled: true }, 'sep', { label: '新对话', icon: 'plus', onClick: newThread }, { label: '历史对话', icon: 'clock', onClick: () => setView('history') }], '对话窗')} title=${mode === 'full' ? '' : pinnedPos ? '拖动移动 · 双击回到默认位置' : '拖动可以把对话窗放到别处'}>
-        <div class="seal-col seal-hc">
-        ${view === 'history' ? html`<button class="ibtn" title="返回对话" onClick=${() => setView('chat')}><${Icon} name="left" size=${15} /></button><b>历史对话</b><small>${threads.length} 段</small>`
-          : html`<span class="seal-id"><span class="seal-avw">${ava ? html`<img class="seal-ava" src=${ava} alt="" />` : AVATAR}<i class=${'dot ' + status.cls}></i></span><b>汤圆</b><small>${status.text}</small></span>`}
-        <span class="flex1"></span>
-        ${view === 'chat' && !big && html`<button class=${'ibtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
-        ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
-        <button class="ibtn seal-big" title=${mode === 'big' ? '恢复浮窗' : '展开'} onClick=${() => setModeKeep(mode === 'big' ? '' : 'big')}><${Icon} name=${mode === 'big' ? 'minus' : 'maximize'} size=${15} /></button>
-        <button class="ibtn seal-full" title=${mode === 'full' ? '退出全屏' : '全屏'} onClick=${() => setModeKeep(mode === 'full' ? 'big' : 'full')}><${Icon} name=${mode === 'full' ? 'minus' : 'frame'} size=${15} /></button>
-        <button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button>
-        </div>
-      </div>
+      ${!big && header}
       <div class="seal-body">
       ${big && html`<aside class="seal-side">
         <button class="ss-new" type="button" onClick=${newThread}><${Icon} name="plus" size=${14} /> 新对话</button>
@@ -728,6 +733,7 @@ export function Seal() {
         })()}
       </aside>`}
       <div class="seal-main">
+      ${big && header}
       ${view === 'history' ? html`<div class="seal-msgs seal-hist"><div class="seal-col">
         ${threads.length === 0 && html`<div class="seal-empty">还没有历史对话</div>`}
         ${threads.map((t) => html`<div key=${t.id} class=${'sh-row ' + (t.id === tid ? 'cur' : '')} onClick=${() => openThread(t)}>

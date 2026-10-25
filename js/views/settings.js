@@ -166,12 +166,12 @@ export default function Settings() {
             <${Field} label="显示海豹" hint="拖到任意卡片上松手，它会趴在卡片上沿跟着页面滚；拖到空白处就吸到屏幕边。右键有更多选项。"><${Seg} options=${[{ v: 'on', label: '显示' }, { v: 'off', label: '隐藏' }]} value=${s.settings.seal === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.seal = v === 'on'; })} /><//>
             <${Field} label="闲时贴边" hint="几秒没人理，就缩到屏幕边上只露一截，不压在内容上；鼠标靠近就出来。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealTuck === true ? 'on' : 'off'} onChange=${(v) => update((d) => { d.settings.sealTuck = v === 'on'; })} /><//>
           </div>
-          <${Field} label="AI 密钥" hint="服务器配置 = 用 Vercel 环境变量里的密钥。选 DeepSeek / Claude 可以直接在这里填自己的密钥：只存在这台浏览器里，不进同步数据和备份，每次请求发给你自己的后端转发。">
+          <${Field} label="AI 密钥" hint="服务器配置 = 用 Vercel 环境变量里的密钥。选 DeepSeek / Claude 可以直接在这里填自己的密钥（两家各存一份）：只存在这台浏览器里，不进同步数据和备份，每次请求发给你自己的后端转发。「不用 AI」就只按本地语法识别。对话框头部也能切换。">
             <div class="row wrap" style="gap:8px;align-items:center">
-              <${Seg} options=${[{ v: 'server', label: '服务器配置' }, { v: 'deepseek', label: 'DeepSeek' }, { v: 'anthropic', label: 'Claude' }]} value=${ai.provider} onChange=${(v) => saveAi({ provider: v })} />
-              ${ai.provider !== 'server' && html`<input type="password" style="flex:1;min-width:200px" value=${ai.key} placeholder=${ai.provider === 'deepseek' ? 'sk-…（platform.deepseek.com）' : 'sk-ant-…'} autocomplete="off" onInput=${(e) => saveAi({ key: e.target.value.trim() })} />`}
-              ${ai.provider !== 'server' && html`<input type="text" style="width:150px" value=${ai.model} placeholder=${ai.provider === 'deepseek' ? '模型，默认 deepseek-chat' : '模型，默认 claude-opus-5-5'} onInput=${(e) => saveAi({ model: e.target.value.trim() })} />`}
-              <${Btn} small onClick=${testAi} disabled=${!(login && login.user)}>测试连接<//>
+              <${Seg} options=${[{ v: 'server', label: '服务器配置' }, { v: 'deepseek', label: 'DeepSeek' }, { v: 'anthropic', label: 'Claude' }, { v: 'local', label: '不用 AI' }]} value=${ai.provider} onChange=${(v) => saveAi({ provider: v })} />
+              ${(ai.provider === 'deepseek' || ai.provider === 'anthropic') && html`<input type="password" style="flex:1;min-width:200px" value=${ai.key} placeholder=${ai.provider === 'deepseek' ? 'sk-…（platform.deepseek.com）' : 'sk-ant-…'} autocomplete="off" onInput=${(e) => saveAi({ key: e.target.value.trim() })} />`}
+              ${(ai.provider === 'deepseek' || ai.provider === 'anthropic') && html`<input type="text" style="width:150px" value=${ai.model} placeholder=${ai.provider === 'deepseek' ? '模型，默认 deepseek-chat' : '模型，默认 claude-opus-5-5'} onInput=${(e) => saveAi({ model: e.target.value.trim() })} />`}
+              ${ai.provider !== 'local' && html`<${Btn} small onClick=${testAi} disabled=${!(login && login.user)}>测试连接<//>`}
             </div>
             ${aiMsg && html`<p class=${'small ' + (aiMsg.startsWith('失败') ? '' : 'muted')} style=${aiMsg.startsWith('失败') ? 'color:var(--red);margin-top:6px' : 'margin-top:6px'}>${aiMsg}</p>`}
             ${!(login && login.user) && html`<p class="small muted" style="margin-top:6px">先用 GitHub 登录，汤圆只给登录用户用。</p>`}

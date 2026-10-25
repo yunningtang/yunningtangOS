@@ -5,8 +5,24 @@ import { lsGet, lsSet } from './util.js';
 const CFG_KEY = 'ytos.ai', USE_KEY = 'ytos.ai.usage';
 const read = (k, d) => { try { return JSON.parse(lsGet(k, 'null')) || d; } catch { return d; } };
 
-export function aiConfig() { return { provider: 'server', key: '', model: '', ...read(CFG_KEY, {}) }; }
-export function setAiConfig(patch) { const next = { ...aiConfig(), ...patch }; lsSet(CFG_KEY, JSON.stringify(next)); return next; }
+// provider：server 用 Vercel 环境变量 | deepseek / anthropic 用本机填的密钥 | local 不用 AI，只按本地规则
+// 密钥按家各存一份（keys），切换时不会把 DeepSeek 的密钥发给 Claude
+export function aiConfig() {
+  const c = { provider: 'server', key: '', model: '', keys: {}, models: {}, ...read(CFG_KEY, {}) };
+  if (!c.keys || typeof c.keys !== 'object') c.keys = {};
+  if (!c.models || typeof c.models !== 'object') c.models = {};
+  if (c.provider === 'deepseek' || c.provider === 'anthropic') { if (c.key && !c.keys[c.provider]) c.keys[c.provider] = c.key; if (c.model && !c.models[c.provider]) c.models[c.provider] = c.model; } // 旧版只有一份 key / model
+  c.key = c.keys[c.provider] || ''; c.model = c.models[c.provider] || '';
+  return c;
+}
+export function setAiConfig(patch) {
+  const cur = aiConfig(); const next = { ...cur, ...patch };
+  if (patch.key !== undefined) next.keys = { ...cur.keys, [cur.provider]: patch.key };
+  if (patch.model !== undefined) next.models = { ...cur.models, [cur.provider]: patch.model };
+  lsSet(CFG_KEY, JSON.stringify({ provider: next.provider, keys: next.keys, models: next.models }));
+  return aiConfig();
+}
+export function hasKey(provider) { return !!aiConfig().keys[provider]; }
 // 请求头：填了自己的密钥才带，否则由服务器的环境变量决定
 export function aiHeaders() {
   const c = aiConfig(); const h = {};
@@ -14,8 +30,18 @@ export function aiHeaders() {
   return h;
 }
 // 能不能用 AI：服务器配了，或者本机填了密钥；都要先登录
-export function aiEnabled(login) { const c = aiConfig(); return !!(login && login.user && ((login.ai) || (c.provider !== 'server' && c.key))); }
-export function aiLabel(login) { const c = aiConfig(); if (c.provider !== 'server' && c.key) return c.provider === 'deepseek' ? 'DeepSeek' : 'Claude'; return login && login.aiModel ? (/deepseek/i.test(login.aiModel) ? 'DeepSeek' : 'Claude') : 'AI'; }
+export function aiEnabled(login) { const c = aiConfig(); if (c.provider === 'local') return false; return !!(login && login.user && ((c.provider === 'server' && login.ai) || (c.provider !== 'server' && c.key))); }
+export function aiLabel(login) { const c = aiConfig(); if (c.provider === 'local') return '本地规则'; if (c.provider !== 'server') return c.provider === 'deepseek' ? 'DeepSeek' : 'Claude'; return login && login.aiModel ? (/deepseek/i.test(login.aiModel) ? 'DeepSeek' : 'Claude') : 'AI'; }
+// 可选的「谁来当汤圆的脑子」：给对话框头部和设置页用
+export function aiOptions(login) {
+  const c = aiConfig(); const serverName = login && login.aiModel ? (/deepseek/i.test(login.aiModel) ? 'DeepSeek' : 'Claude') : '';
+  return [
+    { v: 'server', label: '服务器配置', hint: login && login.ai ? 'Vercel · ' + serverName : '没配密钥', ok: !!(login && login.ai) },
+    { v: 'deepseek', label: 'DeepSeek', hint: c.keys.deepseek ? '我的密钥' : '没填密钥', ok: !!c.keys.deepseek },
+    { v: 'anthropic', label: 'Claude', hint: c.keys.anthropic ? '我的密钥' : '没填密钥', ok: !!c.keys.anthropic },
+    { v: 'local', label: '不用 AI', hint: '本地语法', ok: true },
+  ];
+}
 
 /* ---- 用量：按月累计，本机 ---- */
 const month = () => new Date().toISOString().slice(0, 7);
