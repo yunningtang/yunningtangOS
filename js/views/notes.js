@@ -19,6 +19,7 @@ import { NoteTasksView } from './ntasks.js';
 import { CanvasView, canvasesOf, newCanvas } from './canvas.js';
 import { CommentsPanel, openCounts } from '../comments.js';
 import { snapshot, listHistory, restoreSnapshot, fmtSnapTime } from '../history.js';
+import { FONTS, FONT_GROUPS, ensureFont, ensureNoteFonts } from '../fonts.js';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -400,7 +401,7 @@ export function notesBackHref() { try { const id = localStorage.getItem('ytos.no
 export function NotesBack() { const href = notesBackHref(); return html`<a class="crumb-back" href=${href} title=${href === '#/notes' ? '返回本子' : '返回上次打开的页面'}><${Icon} name="left" size=${14} /> 笔记</a>`; }
 
 function Page({ note, notes, notebooks = [], onCreateChild }) {
-  useEffect(() => { try { localStorage.setItem('ytos.notes.last', note.id); } catch {} }, [note.id]);
+  useEffect(() => { try { localStorage.setItem('ytos.notes.last', note.id); } catch {} ensureNoteFonts(note); }, [note.id]);
   const [moveOpen, setMoveOpen] = useState(false);
   // 评论：面板开关、新评论草稿（哪一块、引用的文字）、要定位的线程
   const [cmOpen, setCmOpen] = useState(false); const [cmDraft, setCmDraft] = useState(null); const [cmFocus, setCmFocus] = useState(null);
@@ -449,10 +450,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
     ...pageMenu(note, notes, { move: () => setMoveOpen(true), notebooks, cover: () => upsert('notes', { id: note.id, cover: nextCover(note.cover || '') }) }).filter((it) => !(it && (it.label === '打开' || it.label === '新建子页面'))),
     'sep',
     { label: note.wide ? '标准宽度' : '全宽显示', icon: 'grid', onClick: () => upsert('notes', { id: note.id, wide: !note.wide }) },
-    { label: '字体：默认', icon: !note.font || note.font === 'default' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'default' }) },
-    { label: '字体：衬线', icon: note.font === 'serif' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'serif' }) },
-    { label: '字体：等宽', icon: note.font === 'mono' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'mono' }) },
-    { label: '字体：手写', icon: note.font === 'hand' ? 'check' : 'note', onClick: () => upsert('notes', { id: note.id, font: 'hand' }) },
+    { label: '整页字体', icon: 'type', hint: (FONTS.find((f) => f.id === (note.font || 'default')) || FONTS[0]).n, sub: FONT_GROUPS.map((g) => ({ label: g, sub: FONTS.filter((f) => f.g === g).map((f) => ({ label: f.n, icon: (note.font || 'default') === f.id ? 'check' : '', onClick: () => { ensureFont(f.id); upsert('notes', { id: note.id, font: f.id }); } })) })) },
     'sep',
     { label: '整页字号', icon: 'type', sub: [['s', '小'], ['', '标准'], ['l', '大'], ['xl', '特大']].map(([v, n]) => ({ label: n, icon: (note.size || '') === v ? 'check' : '', onClick: () => upsert('notes', { id: note.id, size: v }) })) },
     'sep',

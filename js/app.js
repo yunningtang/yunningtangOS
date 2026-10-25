@@ -22,6 +22,8 @@ import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
 import { Splitter, applySizes } from './resize.js';
 import { detectLogin, autoSync } from './sync.js';
+import { injectFontCss } from './fonts.js';
+injectFontCss();
 import { subscribe } from './store.js';
 export { go, toast };
 

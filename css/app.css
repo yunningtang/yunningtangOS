@@ -2089,3 +2089,4 @@ body.focus-mode .fmt-bar{border-radius:0;justify-content:center}
 .fmt-bar .fb-hl.none::after{background:var(--line-2)}.fmt-bar .fb-hl.hl-y::after{background:#f7d774}.fmt-bar .fb-hl.hl-g::after{background:#8fd6a5}.fmt-bar .fb-hl.hl-b::after{background:#9cc0ff}.fmt-bar .fb-hl.hl-p::after{background:#d4b8ff}.fmt-bar .fb-hl.hl-r::after{background:#ffb3b3}
 .fmt-bar .fb-a{border-color:var(--text-3)}
 @container (max-width:780px){.fmt-bar .fb-ins .fb-lbl{display:none}.fmt-bar .fb-ins{padding:0 3px 0 5px}}
+.fmt-bar .fb-font{max-width:120px}.fmt-bar .fb-font .fb-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

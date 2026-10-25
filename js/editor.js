@@ -12,6 +12,7 @@ import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './file
 import { fetchAttachment } from './sync.js';
 import { toast } from './nav.js';
 import { fillPending, isRunning } from './docai.js';
+import { FONTS, FONT_GROUPS, ensureFont } from './fonts.js';
 import { TEMPLATES, templateBlocks } from './templates.js';
 
 // Last thing copied from any editor in this tab: lets paste keep block types (lists, headings, todos) intact.
@@ -220,6 +221,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   const [tbPop, setTbPop] = useState(false); // 工具栏里的样式面板（颜色 / 字号 / 字体）
   // 字号：像 Google Docs 那样 − [16] +。读当前选区的字号（行内 span 的 fs-N，否则是算出来的像素值）
   const startNode = (s0) => { if (!s0 || !s0.rangeCount) return null; const r = s0.getRangeAt(0); let n = r.startContainer; if (n.nodeType === 1 && n.childNodes.length) n = n.childNodes[Math.min(r.startOffset, n.childNodes.length - 1)]; while (n && n.nodeType === 1 && n.firstChild && !s0.isCollapsed) n = n.firstChild; return n; };
+  const curFont = () => { const s0 = sel(); let n = startNode(s0); if (n && n.nodeType !== 1) n = n.parentElement; const sp = n && n.closest && n.closest('span[class*="ff-"]'); const m = sp && sp.className.match(/\bff-([a-z0-9-]+)/); if (m) return m[1]; const bt = n && n.closest && n.closest('.b-text'); const bm = bt && bt.className.match(/\bbf-([a-z0-9-]+)/); if (bm) return bm[1]; return pageFont && pageFont !== 'default' ? pageFont : ''; };
   const curSize = () => { const s0 = sel(); if (!s0 || !s0.rangeCount) return 16; let n = startNode(s0); if (n && n.nodeType !== 1) n = n.parentElement; const bt = n && n.closest && n.closest('.b-text'); const bm = bt && bt.className.match(/\bbs-(\d{1,2})\b/); if (bm && !(n.closest('span[class*="fs-"]'))) return +bm[1]; const sp = n && n.closest && n.closest('span[class*="fs-"]'); const m = sp && sp.className.match(/\bfs-(\d{1,2})\b/); if (m) return +m[1]; return Math.round(parseFloat(getComputedStyle(n || root.current).fontSize)) || 16; };
   const savedSel = useRef(null); // 点进字号输入框时编辑器的选区会丢，先记下来，应用时再放回去
   // 没选中文字时，像 Google Docs：光标在一个词里（或词尾）就改这个词，在词首 / 空白处就只影响接下来打的字
@@ -340,7 +342,9 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
   // 块级：文字颜色 / 字号 / 字体 的子菜单
   const colorItems = (b) => [{ label: '默认', icon: !b.color ? 'check' : '', onClick: () => update(b.id, { color: undefined }) }, ...TEXT_COLORS.map((c) => ({ label: TEXT_COLOR_NAMES[c], icon: b.color === c ? 'check' : '', color: `var(--tc-${c})`, onClick: () => update(b.id, { color: c }) }))];
   const sizeItems = (b) => [['', '标准'], ['12', '小 12'], ['14', '14'], ['18', '18'], ['20', '大 20'], ['24', '24'], ['28', '特大 28'], ['36', '36']].map(([v, n]) => ({ label: n, icon: (b.size || '') === v ? 'check' : '', onClick: () => update(b.id, { size: v || undefined }) }));
-  const fontItems = (b) => TEXT_FONTS.map(([v, n]) => ({ label: n, icon: (b.font || '') === v ? 'check' : '', onClick: () => update(b.id, { font: v || undefined }) }));
+  // 字体菜单：按「系统 / 中文 / 中文开源 / 英文开源」分组，选到开源字体时按需加载
+  const fontMenu = (cur, pick) => FONT_GROUPS.map((g) => ({ label: g, icon: FONTS.some((f) => f.g === g && (f.id === cur || (!cur && f.id === 'default'))) ? 'check' : '', sub: FONTS.filter((f) => f.g === g).map((f) => ({ label: f.n, icon: (cur || 'default') === f.id ? 'check' : '', onClick: () => { ensureFont(f.id); pick(f.id === 'default' ? '' : f.id); } })) }));
+  const fontItems = (b) => fontMenu(b.font || '', (v) => update(b.id, { font: v || undefined }));
   const CELL_BG = [['gray', '灰'], ['red', '红'], ['orange', '橙'], ['yellow', '黄'], ['green', '绿'], ['blue', '蓝'], ['purple', '紫']];
   const tableMenu = (b, cell) => { const ri = cell ? cell.parentElement.rowIndex : 0, ci = cell ? cell.cellIndex : 0; const curBg = (b.bg || {})[ri + ',' + ci] || ''; return [
     { label: '单元格底色', icon: 'tag', sub: [{ label: '无', icon: curBg ? '' : 'check', onClick: () => tableOp(b, 'bg', ri, ci, '') }, ...CELL_BG.map(([k, n]) => ({ label: n, icon: curBg === k ? 'check' : '', color: `var(--cbg-${k}-dot)`, onClick: () => tableOp(b, 'bg', ri, ci, k) }))] },
@@ -557,7 +561,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
           const q = (c) => { try { return document.queryCommandState(c); } catch { return false; } };
           const sn = (() => { let n = startNode(s); if (n && n.nodeType !== 1) n = n.parentElement; return n; })();
           const tcm = sn && sn.closest && sn.closest('span[class*="tc-"]'); const mk = sn && sn.closest && sn.closest('mark');
-          const nf = b ? { type: b.type, indent: b.indent || 0, size: curSize(), bold: q('bold'), italic: q('italic'), underline: q('underline'), strike: q('strikeThrough'), sel: !s.isCollapsed, color: tcm ? (tcm.className.match(/\btc-(\w+)/) || [])[1] : (b.color || ''), mark: mk ? ((mk.className.match(/\bhl-([ygbpr])\b/) || [])[1] || 'y') : '' } : null;
+          const nf = b ? { type: b.type, indent: b.indent || 0, size: curSize(), bold: q('bold'), italic: q('italic'), underline: q('underline'), strike: q('strikeThrough'), sel: !s.isCollapsed, font: curFont(), color: tcm ? (tcm.className.match(/\btc-(\w+)/) || [])[1] : (b.color || ''), mark: mk ? ((mk.className.match(/\bhl-([ygbpr])\b/) || [])[1] || 'y') : '' } : null;
           setFmt((o) => (JSON.stringify(o) === JSON.stringify(nf) ? o : nf));
         }
         if (prevCur && prevCur !== row) prevCur.classList.remove('cur'); if (row && row !== prevCur) row.classList.add('cur');
@@ -794,7 +798,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     ${fb('撤销 ⌘Z', () => undo(), html`<${Icon} name="undo" size=${15} />`)}${fb('重做 ⌘⇧Z', () => redo(), html`<${Icon} name="redo" size=${15} />`)}
     <span class="fb-sep"></span>
     ${fb('块类型', (e) => ctxMenu(e, CONVERT_TYPES.map((t) => ({ label: TYPES[t].label, icon: fmt && fmt.type === t ? 'check' : '', onClick: () => setTypeFor(t) })), '块类型'), html`${typeLabel}<${Icon} name="down" size=${11} />`, 'fb-dd')}
-    ${fb('字体', (e) => ctxMenu(e, TEXT_FONTS.map(([v, n]) => ({ label: n, onClick: () => inlineOrBlock('ff', 'font', v) })), '字体'), html`字体<${Icon} name="down" size=${11} />`, 'fb-dd')}
+    ${fb('字体', (e) => ctxMenu(e, fontMenu(curFont(), (v) => inlineOrBlock('ff', 'font', v)), '字体'), html`<span class="fb-lbl">${(FONTS.find((f) => f.id === (curFont() || 'default')) || FONTS[0]).n}</span><${Icon} name="down" size=${11} />`, 'fb-dd fb-font')}
     <span class="fb-sep"></span>
     ${fb('减小字号 ⌘⇧,', () => stepSize(-1), '−', 'fb-step')}<input class="fb-num" type="number" min="8" max="72" value=${fmt ? fmt.size : 16} onMouseDown=${(e) => e.stopPropagation()} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); setSize(+e.target.value); e.target.blur(); } }} onChange=${(e) => setSize(+e.target.value)} />${fb('增大字号 ⌘⇧.', () => stepSize(1), '+', 'fb-step')}
     <span class="fb-sep"></span>
@@ -847,7 +851,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       ${tbPop && html`<div class="tb-pop" onMouseDown=${(e) => e.preventDefault()}>
         <div class="tp-row"><span>颜色</span>${tbBtn('默认颜色', () => applyInline('tc', ''), html`<i class="tp-dot none"></i>`, 'tp-b')}${TEXT_COLORS.map((c) => tbBtn(TEXT_COLOR_NAMES[c], () => applyInline('tc', c), html`<i class="tp-dot" style=${`background:var(--tc-${c})`}></i>`, 'tp-b'))}</div>
         <div class="tp-row"><span>字号</span><button class="tp-t tp-step" title="减小（⌘⇧,）" onMouseDown=${(e) => e.preventDefault()} onClick=${() => stepSize(-1)}>−</button><input class="tp-num" type="number" min="8" max="72" value=${curSize()} onMouseDown=${(e) => e.stopPropagation()} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); setSize(+e.target.value); } }} onChange=${(e) => setSize(+e.target.value)} /><button class="tp-t tp-step" title="增大（⌘⇧.）" onMouseDown=${(e) => e.preventDefault()} onClick=${() => stepSize(1)}>+</button>${[['12', '小'], ['', '标准'], ['20', '大'], ['28', '特大']].map(([v, n]) => tbBtn('字号 ' + n, () => applyInline('fs', v), n, 'tp-t tp-preset'))}</div>
-        <div class="tp-row"><span>字体</span>${TEXT_FONTS.map(([v, n]) => tbBtn('字体 ' + n, () => applyInline('ff', v), n, 'tp-t' + (v ? ' ff-' + v : '')))}</div>
+        <div class="tp-row"><span>字体</span>${tbBtn('字体', (e) => ctxMenu(e, fontMenu(curFont(), (v) => inlineOrBlock('ff', 'font', v)), '字体'), html`${(FONTS.find((f) => f.id === (curFont() || 'default')) || FONTS[0]).n} ›`, 'tp-t')}</div>
       </div>`}
       ${onComment && tbBtn('评论选中的文字', () => { const s0 = sel(); const q = s0 ? s0.toString().trim().slice(0, 160) : ''; const c = curBlock(); if (c) onComment(c.b.id, q); setTb(null); }, html`<${Icon} name="chat" size=${13} />`)}
     </div>`}
