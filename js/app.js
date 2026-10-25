@@ -155,6 +155,7 @@ function App() {
             </div>`}`;
         }); })()}
       </nav>
+      <button class="side-ai" data-tip="汤圆" title="和汤圆聊聊（全屏）" onClick=${() => { setMenu(false); window.dispatchEvent(new CustomEvent('seal:open', { detail: { mode: 'full' } })); }}><span class="side-ai-ic"><${Icon} name="chat" size=${15} /></span><span class="nl">汤圆</span><kbd class="nl">⌘⇧K</kbd></button>
       <${MiniPomo} />
       <a class=${'side-user ' + (route.path === 'settings' ? 'active' : '')} href="#/settings" data-tip="设置" title="设置"><span class="side-avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</span><span class="flex1 nl"><b>${s.profile.name}</b><small>${s.settings.lastSync ? '已同步 ' + new Date(s.settings.lastSync).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '本地存储'}</small></span><${Icon} name="settings" size=${15} class="su-gear nl" /></a>
     </aside>
@@ -171,7 +172,7 @@ function App() {
     </div>
     <${SearchPalette} open=${search} onClose=${() => setSearch(false)} />
     <${Capture} open=${cap} onClose=${() => setCap(false)} />
-    ${s.settings.seal !== false && html`<${Seal} />`}
+    <${Seal} key=${s.settings.seal === false ? 'ghost' : 'seal'} ghost=${s.settings.seal === false} />
     <nav class="tabbar">
       ${[['home', '总览', 'home', (r) => r.path === 'home'], ['todos', '待办', 'checksq', (r) => r.path === 'todos'], ['plan/day', '今天', 'sun', (r) => r.path === 'plan' && r.sub === 'day'], ['notes', '笔记', 'note', (r) => r.path === 'notes']].map(([h, n, ic, m]) => html`<a key=${h} href=${'#/' + h} class=${m(route) ? 'active' : ''}><${Icon} name=${ic} size=${20} /><span>${n}</span></a>`)}
       <button class="tab-cap" onClick=${capture} title="记一下（问汤圆）"><${Icon} name="plus" size=${22} /></button>

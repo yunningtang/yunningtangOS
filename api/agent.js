@@ -79,7 +79,10 @@ todo 还是 goal 看时间尺度：几天内做完的是 todo，一个月持续�
 9. 只有对方明确要求时才生成内容：「加一些 X 的笔记」「写一篇关于 X 的笔记」→ 一条 note，body 是 100–200 字的 Markdown 提纲；「怎么安排 100 个视频」「帮我排一下这本书」→ 几条带日期的 todo 或一条写计划的 note。对方只是提到 X，不要主动替 TA 建笔记或计划。
 10. 「每周 N 个 / 每周两套」这类节奏，按日历把每条分散到不同日子，相邻至少隔 2 天，第一个从最近的那天开始，不排在过去。
 11. 月度目标的月份以对方说的为准，不要擅自挪。没说月份、本月又只剩不到 7 天而计划要持续几周时，可以放到下个月，但要在 reply 里说一句。
-12. reply 不复述对方原话（界面上已经显示了）；说整理出了什么、哪里值得看一眼（「组会我按 14:00 开始排了，没说多久」）。`;
+12. reply 不复述对方原话（界面上已经显示了）；说整理出了什么、哪里值得看一眼（「组会我按 14:00 开始排了，没说多久」）。
+13. context 里有「对方正在看的页面」时，「这页」「这本书」「这个」「上面这些」都指它。要总结、回答、给建议就是 chat：reply 用 Markdown 写清楚（可以到 300 字，用列表），items 为空；要把页面里的事变成待办 / 时间块，就照页面内容生成 items，不要编页面里没有的事。
+13b. 要你改「已有的待办」的日期 / 时间 / 优先级（「把过期的重新排」「这几件挪到明天」）：输出 kind=todo，ref 填那条待办方括号里的 id，title 原样，只改要改的字段。不要新建一条重复的。
+14. 要你「排进空档 / 安排今天 / 排一下」时，查 context 里的「已有安排」，block 只放进空着的时间，不和已有的重叠，不排在现在之前，08:00–22:00 之间；每条都给 start 和 end。`;
 
 const MODIFY = `modify 的规则：
 - context 里的「待确认的草稿」是上一轮给出、对方还没保存的 items，每条有 id。对方在改它时，输出改完的完整草稿：每条带 ref = 原来的 id，没改的也原样带上（字段照抄），删掉的不输出，新加的 ref 为 null。
@@ -184,6 +187,8 @@ function contextBlock(c, mode) {
     if (c.goals && c.goals.length) lines.push(`本月已有的目标：${clip(c.goals, 10).join('；')}`);
     if (c.focus) lines.push(`本周焦点：${String(c.focus).slice(0, 200)}`);
     if (Array.isArray(c.draft) && c.draft.length) lines.push(`待确认的草稿（上一轮给的、还没保存；对方若在改它就按 modify 输出，带 ref）：\n${c.draft.slice(0, 12).map(draftLine).filter(Boolean).join('\n')}`);
+    if (c.schedule) lines.push(`已有安排（时间块）：\n${String(c.schedule).slice(0, 1200)}`);
+    if (c.page) lines.push(`对方正在看的页面（节选）：\n${String(c.page).slice(0, 4000)}`);
     if (c.calendar) lines.push(`日历（算日期时直接查这里，不要心算）：\n${String(c.calendar).slice(0, 1200)}`);
   }
   return lines.join('\n');

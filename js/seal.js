@@ -13,6 +13,7 @@ import { detect, plan } from './capture.js';
 import { newNote } from './views/notes.js';
 import { mdToBlocks, sanitizeDoc } from './blocks.js';
 import { marked } from '../vendor/marked.js';
+import { parseRoute, pageContext, contextPrompts, fillVars } from './prompts.js';
 import { aiHeaders, aiEnabled, aiLabel, aiOptions, aiConfig, setAiConfig, recordUsage } from './ai.js';
 import { stepsOf, addSteps, clampMin } from './steps.js';
 import { go, toast } from './nav.js';
@@ -182,6 +183,9 @@ function fromAI(it, s) {
   if (item.kind === 'block' && !item.start) { item.kind = 'todo'; } // 没有起止时间就不是时间块
   if (item.kind === 'block') { if (!item.date) { item.date = todayStr(); item.inferred.push('date'); } if (!item.end || timeToMin(item.end) <= timeToMin(item.start)) { item.end = minToTime(timeToMin(item.start) + 60); item.inferred.push('end'); } if (!kind) item.inferred.push('kindV'); }
   if (item.kind === 'note' && !nb) item.inferred.push('nb');
+  // ref 是已有待办的 id：这是在改那条待办（改期 / 改优先级），保存时更新它而不是新建
+  const ex = it.ref && item.kind === 'todo' ? s.todos.find((t) => t.id === it.ref) : null;
+  if (ex) { item.upd = ex.id; item.id = uid(); item.was = ex.due || ''; if (!item.title) item.title = ex.title; item.inferred = item.inferred.filter((k) => k !== 'priority'); if (!Number.isInteger(it.priority)) item.priority = ex.priority ?? 2; }
   return item.title ? item : null;
 }
 function fromLocal(text, s) {
@@ -207,7 +211,8 @@ function saveItems(items) {
   let n = 0, last = null; const undos = [];
   for (const it of items) {
     if (!it.on) continue;
-    if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; undos.push(() => remove('todos', t.id)); }
+    if (it.kind === 'todo' && it.upd) { const prev = get().todos.find((x) => x.id === it.upd); if (!prev) continue; const before = { id: prev.id, title: prev.title, due: prev.due || '', time: prev.time || '', priority: prev.priority }; upsert('todos', { id: prev.id, title: it.title, due: it.date, time: it.time, priority: it.priority }); last = 'todos?open=' + prev.id; undos.push(() => upsert('todos', before)); }
+    else if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; undos.push(() => remove('todos', t.id)); }
     else if (it.kind === 'block') { const b = { id: uid(), date: it.date, start: it.start, end: it.end, title: it.title, kind: it.kindV, note: it.body }; upsert('blocks', b); last = 'plan/day?d=' + b.date; undos.push(() => remove('blocks', b.id)); }
     else if (it.kind === 'goal') { const mk = it.date ? it.date.slice(0, 7) : monthKey(); const g = { id: uid(), title: it.title, area: '', why: it.body || '', krs: it.subitems.map((text) => ({ id: uid(), text, done: false })), progress: 0 }; update((d) => { d.goals[mk] = d.goals[mk] || []; d.goals[mk].push(g); }); last = 'plan/month'; undos.push(() => update((d) => { if (d.goals[mk]) d.goals[mk] = d.goals[mk].filter((x) => x.id !== g.id); })); }
     else if (it.kind === 'focus') { const key = weekKey(); const prev = (get().weeks[key] || {}).focus || ''; update((d) => { d.weeks[key] = d.weeks[key] || { focus: '', items: {}, review: '' }; const lines = (d.weeks[key].focus || '').split('\n').filter((x) => x.trim()); if (lines.length < 3) lines.push(it.title); else lines[2] = it.title; d.weeks[key].focus = lines.join('\n'); }); last = 'plan/week'; undos.push(() => update((d) => { if (d.weeks[key]) d.weeks[key].focus = prev; })); }
@@ -219,7 +224,7 @@ function saveItems(items) {
   }
   return { n, open: last && n === 1 ? last : '', undo: () => { for (const f of undos.reverse()) f(); } };
 }
-function buildContext(s, draft) {
+function buildContext(s, draft, page) {
   const now = new Date(), today = todayStr();
   const tagCount = {};
   for (const t of s.todos) for (const g of t.tags || []) tagCount[g] = (tagCount[g] || 0) + 1;
@@ -233,6 +238,8 @@ function buildContext(s, draft) {
     focus: (s.weeks[weekKey()] || {}).focus || '',
     calendar: calendarText(),
     who: s.profile && s.profile.name || '',
+    page: page ? page.text : '',
+    schedule: [0, 1].map((i) => { const d = addDays(today, i); const bl = s.blocks.filter((b) => b.date === d && !b.pomo).sort((a, b) => (a.start < b.start ? -1 : 1)); return `${i ? '明天' : '今天'}（${d}）：${bl.map((b) => `${b.start}–${b.end} ${b.title || ''}`).join('，') || '空'}`; }).join('\n'),
     draft: (draft || []).map((it) => ({ id: it.id, kind: it.kind, title: it.title, date: it.date, time: it.time, start: it.start, end: it.end, priority: it.priority, tags: it.tags })),
   };
 }
@@ -285,7 +292,7 @@ const HINTS = [
 const AVATAR = html`<svg class="seal-ava" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="18" rx="12" ry="10" fill="#e9edf3"/><ellipse cx="16" cy="17" rx="9.5" ry="7.5" fill="#f7f8fa"/><circle cx="12" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="20" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="12.5" cy="15" r=".5" fill="#fff"/><circle cx="20.5" cy="15" r=".5" fill="#fff"/><ellipse cx="16" cy="19.2" rx="1.6" ry="1.1" fill="#0b0b0d"/><path d="M14.6 20.6q1.4 1.2 2.8 0" stroke="#0b0b0d" stroke-width=".9" fill="none" stroke-linecap="round"/></svg>`;
 
 /* ---------------- 组件 ---------------- */
-export function Seal() {
+export function Seal({ ghost = false } = {}) {
   const s = useStore();
   const fabRef = useRef(), cvRef = useRef(), panelRef = useRef(), inRef = useRef(), msgsRef = useRef();
   const api = useRef({});           // imperative hooks exposed by the effect: { toggle, happy, flap }
@@ -317,6 +324,22 @@ export function Seal() {
   const [hero, setHero] = useState(() => { try { return sessionStorage.getItem('ytos.seal.hero') || ''; } catch { return ''; } });
   api.current.setHero = (u) => { setHero(u); try { sessionStorage.setItem('ytos.seal.hero', u); } catch {} };
   const [cmode, setCmode] = useState(''); // 输入框的模式：'' 记录 | breakdown 拆解 | plan 规划
+  // 当前页面：输入框上方的上下文胶囊，发出去时把这页的摘要一起带给模型；点 × 摘掉（换页后自动恢复）
+  const [route, setRoute] = useState(parseRoute);
+  useEffect(() => { const h = () => setRoute(parseRoute()); window.addEventListener('hashchange', h); return () => window.removeEventListener('hashchange', h); }, []);
+  const [ctxOff, setCtxOff] = useState('');
+  const pctx = pageContext(route, s); const ctxOn = pctx && ctxOff !== pctx.key ? pctx : null;
+  const cprompts = contextPrompts(route, s);
+  const myPrompts = (s.settings.prompts || []).filter((x) => x && x.text);
+  const cards = [...cprompts, ...HINTS.filter((h) => !cprompts.some((c) => c.h === h.h))].slice(0, 6);
+  const useHint = (h) => { setTxt(h.t); if (h.mode !== undefined) setCmode(h.mode || ''); setTimeout(() => inRef.current && inRef.current.focus(), 0); };
+  const useMine = (p) => { const sel = String(getSelection && getSelection().toString() || '').trim().slice(0, 2000); const t = fillVars(p.text, { route, s, sel }); setTxt(t); setCmode(p.mode || ''); setTimeout(() => inRef.current && inRef.current.focus(), 0); };
+  const promptMenu = (e) => ctxMenu(e, [
+    ...(myPrompts.length ? [{ label: '我的提示词', disabled: true }, ...myPrompts.map((p) => ({ label: p.title || p.text.slice(0, 16), icon: 'star', hint: p.mode === 'breakdown' ? '拆解' : p.mode === 'plan' ? '规划' : '', onClick: () => useMine(p) })), 'sep'] : []),
+    ...(cprompts.length ? [{ label: pctx ? '针对「' + pctx.label + '」' : '看你的数据', disabled: true }, ...cprompts.map((h) => ({ label: h.h, icon: h.i, hint: h.k.join(' · '), onClick: () => useHint(h) })), 'sep'] : []),
+    { label: '示例', disabled: true }, ...HINTS.map((h) => ({ label: h.h, icon: h.i, hint: h.k.join(' · '), onClick: () => useHint(h) })),
+    'sep', { label: '管理我的提示词…', icon: 'settings', onClick: () => go('settings?sec=prompts') },
+  ], '提示词');
   const heroRef = useRef();
   const nogl = !!(fabRef.current && fabRef.current.classList.contains('nogl'));
   const docked = !!mode && open && view === 'chat' && msgs.length === 0 && !nogl;
@@ -513,7 +536,7 @@ export function Seal() {
     };
     api.current.shot = shot; window.tangyuanShot = shot; // 控制台 / 脚本可以调：tangyuanShot({ ry: .5, full: true, size: 1024 })
     const snapshot = () => { const u = shot(); if (u) api.current.setAvatar && api.current.setAvatar(u); const h = shot({ full: true, shadow: true, size: 420, ry: -.35, hy: .25, hx: -.02 }); if (h) api.current.setHero && api.current.setHero(h); };
-    loadThree().then((THREE) => { if (dead) return; try { model = buildSeal(THREE, cv); setTimeout(snapshot, 250); } catch (err) { console.error(err); fab.classList.add('nogl'); } }).catch(() => fab.classList.add('nogl'));
+    if (ghost) fab.classList.add('nogl', 'ghost'); else loadThree().then((THREE) => { if (dead) return; try { model = buildSeal(THREE, cv); setTimeout(snapshot, 250); } catch (err) { console.error(err); fab.classList.add('nogl'); } }).catch(() => fab.classList.add('nogl'));
 
     return () => {
       dead = true; cancelAnimationFrame(raf); if (model) model.dispose();
@@ -625,7 +648,7 @@ export function Seal() {
       try {
         // 上一轮还没保存的草稿一起发过去，对方说「第二个改成后天」时模型能对上号
         const pending = [...msgsR.current].reverse().find((m) => m.who === 'bot' && m.items && m.items.length && m.saved == null && !m.superseded);
-        const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, signal: AbortSignal.timeout(90000), body: JSON.stringify({ text, history: hist, context: buildContext(st, pending ? pending.items : []) }) });
+        const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, signal: AbortSignal.timeout(90000), body: JSON.stringify({ text, history: hist, context: buildContext(st, pending ? pending.items : [], ctxOn) }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
         recordUsage(j);
@@ -662,7 +685,9 @@ export function Seal() {
   useEffect(() => {
     const h = (e) => { setOpen(true); const t = e.detail; if (t) setTimeout(() => ask(t), 60); };
     const hb = (e) => { setOpen(true); const t = e.detail; if (t) setTimeout(() => breakdown(t), 60); };
-    window.addEventListener('seal:ask', h); window.addEventListener('seal:breakdown', hb); return () => { window.removeEventListener('seal:ask', h); window.removeEventListener('seal:breakdown', hb); };
+    const ho = (e) => { const d = e.detail || {}; if (d.mode) setMode(d.mode); setView('chat'); setOpen(true); if (d.text) setTimeout(() => { setTxt(d.text); if (d.cmode !== undefined) setCmode(d.cmode); inRef.current && inRef.current.focus(); }, 60); else setTimeout(() => inRef.current && inRef.current.focus(), 60); };
+    window.addEventListener('seal:open', ho);
+    window.addEventListener('seal:ask', h); window.addEventListener('seal:breakdown', hb); return () => { window.removeEventListener('seal:open', ho); window.removeEventListener('seal:ask', h); window.removeEventListener('seal:breakdown', hb); };
   }, []);
 
   // 重新生成：删掉这条回复和它前面那句话，再问一遍
@@ -708,9 +733,10 @@ export function Seal() {
   const introShown = view === 'chat' && msgs.length === 0;
   const composer = html`
   <div class="seal-col seal-cw"><form class=${'seal-form ' + (busy ? 'busy' : '')} onSubmit=${(e) => { e.preventDefault(); ask(txt); }}>
+    ${ctxOn && html`<div class="sf-ctx"><span class="sf-chip" title=${"汤圆会看到这页的内容（截取前面一部分）"}><${Icon} name=${ctxOn.kind === 'note' ? 'note' : ctxOn.kind === 'todo' || ctxOn.kind === 'todos' ? 'checksq' : ctxOn.kind === 'book' || ctxOn.kind === 'reading' ? 'book' : ctxOn.kind === 'vision' ? 'sparkle' : ctxOn.kind === 'links' ? 'link' : 'calendar'} size=${12} /><span>${ctxOn.label}</span><button type="button" title="这次不带这页" onClick=${() => setCtxOff(ctxOn.key)}><${Icon} name="x" size=${11} /></button></span></div>`}
     <textarea ref=${inRef} rows="1" maxlength="2000" value=${txt} placeholder="问汤圆任何事：记一件事、拆解一个任务，或者随便聊聊" autocomplete="off" disabled=${busy} onInput=${(e) => setTxt(e.target.value)} onKeyDown=${onKey}></textarea>
     <div class="sf-bar">
-      <button type="button" class="sf-b" title="示例句子" onClick=${(e) => ctxMenu(e, HINTS.map((h) => ({ label: h.t, hint: h.k.join(' · '), onClick: () => { setTxt(h.t); setTimeout(() => inRef.current && inRef.current.focus(), 0); } })), '提示词')}><${Icon} name="sparkle" size=${13} /> 提示词</button>
+      <button type="button" class="sf-b" title="提示词：针对当前页面的、你自己存的、示例" onClick=${promptMenu}><${Icon} name="sparkle" size=${13} /> 提示词</button>
       <span class="sf-seg"><${Seg} options=${[{ v: '', label: '记录' }, { v: 'breakdown', label: '拆解' }, { v: 'plan', label: '规划' }]} value=${cmode} onChange=${setCmode} /></span>
       <span class="flex1"></span>
       <span class=${'sf-cnt ' + (txt.length > 1800 ? 'warn' : '')}>${txt.length} / 2000</span>
@@ -767,7 +793,8 @@ export function Seal() {
             <h3>${greeting()}，${(sRef.current.profile && sRef.current.profile.name) || '妈妈'}。今天想做点什么？</h3>
             <p>说一句话，我整理成待办、时间块、笔记或目标；也能把一件大事拆成几步、排进时间线。你确认了才会写进去。</p>
             ${big && composer}
-            <div class="seal-hints">${HINTS.map((h) => html`<button key=${h.t} type="button" title=${'落到：' + h.k.join(' · ')} onClick=${() => { setTxt(h.t); setTimeout(() => inRef.current && inRef.current.focus(), 0); }}><span class="sh-i"><${Icon} name=${h.i} size=${15} /></span><span class="sh-b"><span class="sh-h">${h.h}</span><span class="sh-q">${h.t}</span></span></button>`)}</div>
+            ${cprompts.length > 0 && html`<div class="sh-lbl">${pctx ? '针对「' + pctx.label + '」' : '看了看你今天的安排'}</div>`}
+            <div class="seal-hints">${cards.map((h, ci) => html`<button key=${h.t} type="button" class=${ci < cprompts.length ? 'ctx' : ''} title=${'落到：' + h.k.join(' · ')} onClick=${() => useHint(h)}><span class="sh-i"><${Icon} name=${h.i} size=${15} /></span><span class="sh-b"><span class="sh-h">${h.h}</span><span class="sh-q">${h.t}</span></span></button>`)}</div>
           </div>`}
         ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who}>
           ${m.who === 'bot' ? html`<div class="sm-t md" dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : html`<div class="sm-t">${m.text}</div>`}
@@ -787,7 +814,7 @@ export function Seal() {
               <input type="checkbox" checked=${it.on} disabled=${saved} onChange=${() => toggleItem(m.id, it.id)} />
               <span class="ac-b">
                 <span class="ac-t" contenteditable=${ed} spellcheck="false" title=${ed ? '点一下直接改' : ''} onBlur=${ed ? (e) => { const v = e.target.textContent.trim(); if (v && v !== it.title) editItem(m.id, it.id, { title: v }); else e.target.textContent = it.title; } : undefined} onKeyDown=${ed ? (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { e.target.textContent = it.title; e.target.blur(); } } : undefined}>${it.title}</span>
-                <span class="ac-k">${KIND_LABEL[it.kind]}</span>
+                <span class="ac-k">${it.upd ? (it.was && it.was !== it.date ? `改期 · 原 ${it.was.slice(5).replace('-', '/')}` : '更新待办') : KIND_LABEL[it.kind]}</span>
                 ${it.kind === 'goal' && html`<span class="ac-subs">${(it.subitems || []).map((x, i) => html`<span key=${i} class="ac-sub"><span contenteditable=${ed} spellcheck="false" onBlur=${ed ? (e) => { const v = e.target.textContent.trim(); const subs = [...it.subitems]; if (v) subs[i] = v; else subs.splice(i, 1); editItem(m.id, it.id, { subitems: subs }); } : undefined} onKeyDown=${ed ? (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } } : undefined}>${x}</span>${ed && html`<button type="button" class="ac-x" title="去掉这条" onClick=${() => editItem(m.id, it.id, { subitems: it.subitems.filter((_, j) => j !== i) })}>×</button>`}</span>`)}${ed && html`<button type="button" class="ac-add" onClick=${(e) => { editItem(m.id, it.id, { subitems: [...(it.subitems || []), '新的关键结果'] }); setTimeout(() => { const el = e.target.closest('.ac-subs'); const last = el && el.querySelector('.ac-sub:last-of-type [contenteditable]'); if (last) { last.focus(); getSelection().selectAllChildren(last); } }, 0); }}>+ 关键结果</button>`}</span>`}
               </span>
               ${!ed ? html`<span class="ac-m">${metaParts(it).map((x, i) => html`<span key=${i} class=${x.i ? 'inf' : ''}>${x.t}</span>`)}</span>`

@@ -2347,3 +2347,21 @@ html[data-accent]:not([data-accent="none"])[data-theme="dark"]:not([data-glow="0
 html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-form:focus-within{background:linear-gradient(var(--paper),var(--paper)) padding-box,conic-gradient(from var(--seal-ang),var(--line) 0 62%,var(--seal-ac) 78%,var(--line) 92%) border-box;box-shadow:0 10px 30px -20px color-mix(in srgb,var(--seal-ac) 60%,transparent)}
 html[data-accent]:not([data-accent="none"])[data-theme="dark"]:not([data-glow="0"]) .seal-form:focus-within{background:linear-gradient(#171b2a,#171b2a) padding-box,conic-gradient(from var(--seal-ang),rgba(255,255,255,.1) 0 62%,var(--seal-ac) 78%,rgba(255,255,255,.1) 92%) border-box;box-shadow:0 0 30px -8px color-mix(in srgb,var(--seal-ac) 40%,transparent)}
 html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-hero.docked::before{background:radial-gradient(closest-side,color-mix(in srgb,var(--seal-ac) 16%,transparent),transparent 72%)}
+
+/* ---- 汤圆：上下文胶囊、针对当前页面的提示词、侧栏入口 ---- */
+.sf-ctx{display:flex;padding:10px 12px 0}
+.sf-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;height:24px;padding:0 4px 0 8px;border-radius:7px;background:var(--hover);color:var(--text-3);font-size:.72rem}
+.sf-chip>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+.sf-chip button{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;color:var(--text-4)}.sf-chip button:hover{background:var(--hover-2);color:var(--text)}
+.seal-form .sf-ctx+textarea{padding-top:8px}
+.sh-lbl{align-self:flex-start;font-size:.7rem;color:var(--text-4);margin:0 0 8px 2px;letter-spacing:.02em}
+.seal-panel:not(.big) .sh-lbl{margin:2px 0 4px 10px}
+.seal-hints button.ctx .sh-i{background:var(--ink);color:var(--bg)}
+.side-ai{margin-top:auto;display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border-radius:var(--r2);color:var(--text-2);font-size:.86rem;text-align:left;transition:background .15s}
+.side-ai:hover{background:var(--hover)}
+.side-ai-ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--ink);color:var(--bg);flex:none}
+.side-ai .nl:first-of-type{flex:1}
+.side-ai kbd{font-family:inherit;font-size:.66rem;color:var(--text-4);background:none;border:0;padding:0}
+.side-ai~.side-user{margin-top:2px}
+.side.mini .side-ai{width:44px;height:44px;padding:0;justify-content:center;border-radius:13px}
+.seal-fab.ghost{display:none!important}

@@ -11,7 +11,7 @@ function Menu() {
   useEffect(() => {
     if (!m) return;
     const close = () => set(null);
-    const key = (e) => e.key === 'Escape' && close();
+    const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); close(); } }; // 只关菜单，不让下面的对话框 / 弹窗也跟着关
     const down = (e) => { if (!e.target.closest('.ctx')) close(); };
     document.addEventListener('mousedown', down); window.addEventListener('keydown', key, true); window.addEventListener('scroll', close, true); window.addEventListener('resize', close);
     return () => { document.removeEventListener('mousedown', down); window.removeEventListener('keydown', key, true); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
