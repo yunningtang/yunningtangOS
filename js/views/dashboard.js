@@ -57,7 +57,7 @@ function Spark({ points, color = 'var(--blue)' }) {
 // 有安排的时段点更大更实，「此刻」那一列是红色，围着此刻有一团半调网点的光；全部本地计算
 function DayPoster({ s }) {
   const today = todayStr(); const now = new Date(); const nowM = now.getHours() * 60 + now.getMinutes();
-  const C = 36, R = 11, G = 10, x0 = 8, y0 = 10, from = 8 * 60, to = 22 * 60, step = (to - from) / C;
+  const C = 64, R = 34, G = 6, x0 = 3, y0 = 3, from = 8 * 60, to = 22 * 60, step = (to - from) / C;
   const bl = s.blocks.filter((b) => b.date === today && !b.pomo).map((b) => [timeToMin(b.start), timeToMin(b.end), b.done]);
   const nowC = (nowM - from) / step;
   const dots = [];
@@ -66,20 +66,18 @@ function DayPoster({ s }) {
     const hit = bl.find(([s0, e0]) => mid >= s0 && mid < e0);
     for (let r = 0; r < R; r++) {
       // 半调「太阳」：离此刻越近、越靠上越大
-      const dx = (c - nowC) / 8, dy = (r - 3.2) / 3.6; const sun = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy));
+      const dx = (c - nowC) / 14, dy = (r - (R - 10)) / 11; const sun = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy));
       // 安排：下半部分的柱子，有安排的时段点更大
-      const bar = hit && r >= 5 ? (hit[2] ? .5 : .78) : 0;
+      const bar = hit && r >= R - 14 ? (hit[2] ? .45 : .8) * Math.min(1, (r - (R - 14)) / 10 + .3) : 0;
       const past = mid < nowM;
-      let rad = .5 + 3 * Math.max(sun, bar * .8);
-      const isNow = Math.abs(c + .5 - nowC) < .6 && nowM >= from && nowM <= to;
+      let rad = .35 + 1.75 * Math.max(sun * .9, bar);
+      const isNow = Math.abs(c + .5 - nowC) < .55 && nowM >= from && nowM <= to && r >= R - 14;
       dots.push(html`<circle key=${c + '-' + r} cx=${x0 + c * G} cy=${y0 + r * G} r=${rad.toFixed(2)} class=${isNow ? 'dp-now' : bar ? (past ? 'dp-done' : 'dp-bar') : sun > .05 ? 'dp-sun' : 'dp-base'} />`);
     }
   }
   const W = x0 * 2 + (C - 1) * G, H = y0 * 2 + (R - 1) * G;
-  const busyMin = bl.reduce((n, [a, b]) => n + Math.max(0, Math.min(b, to) - Math.max(a, from)), 0);
-  return html`<div class="sugg-poster" title="今天的形状：8:00–22:00，实心的是有安排的时段，红色是此刻">
-    <svg viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">${dots}</svg>
-    <div class="dp-cap"><b>${now.getMonth() + 1}.${now.getDate()}</b><span>${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()]}</span><i>${bl.length ? `${bl.length} 段 · ${Math.round(busyMin / 6) / 10}h` : '还没有安排'}</i></div>
+    return html`<div class="sugg-bg" aria-hidden="true" title="今天的形状：8:00–22:00，实心的是有安排的时段，红色是此刻">
+    <svg viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice">${dots}</svg>
   </div>`;
 }
 
@@ -96,13 +94,13 @@ function SuggestWidget({ s }) {
     if (a.ask) window.dispatchEvent(new CustomEvent('seal:ask', { detail: a.ask }));
   };
   return html`<${Card} class="sugg-card">
+    <${DayPoster} s=${s} />
     <div class="card-h"><h3>汤圆今天的建议${list.length > 0 && html`<span class="muted small"> ${list.length}</span>`}</h3><div class="card-act"><button class="ibtn" title="问汤圆" onClick=${() => window.dispatchEvent(new CustomEvent('seal:open', { detail: { mode: 'big' } }))}><${Icon} name="chat" size=${15} /></button></div></div>
     ${list.length === 0 ? html`<p class="muted small sugg-none">今天的建议都处理过了。</p>` : html`<div class="sugg-list">${list.map((x) => html`<div class=${'sugg ' + (x.lv || 'calm')} key=${x.id}>
       <span class="sugg-ic"><${Icon} name=${x.i} size=${15} /></span>
       <div class="sugg-b"><b>${x.t}</b>${x.sub && html`<small>${x.sub}</small>`}</div>
       <div class="sugg-a">${x.act && html`<button class="sugg-go" onClick=${() => run(x.act)}>${x.act.label}<${Icon} name="right" size=${12} /></button>`}<button class="ibtn sugg-x" title="今天不再提" onClick=${() => dismiss(x.id)}><${Icon} name="x" size=${12} /></button></div>
     </div>`)}</div>`}
-    <${DayPoster} s=${s} />
   <//>`;
 }
 
