@@ -2569,3 +2569,42 @@ html[data-skin="glass"] .todo .meta .due.passed{color:var(--warn)}
 html[data-skin="glass"] .sugg.now .sugg-ic{color:var(--blue);box-shadow:0 0 0 1px rgba(35,131,226,.3);background:color-mix(in srgb,var(--blue) 8%,var(--paper))}
 html[data-skin="glass"] .todo-card .tg-h.today{color:var(--text-2)}
 html[data-skin="glass"] .group-h.today{color:var(--text-2)}
+
+/* ===================================================================
+   墨白 · 最终配色（每个颜色只有一个意思）
+   墨 = 主操作和「今天」；红 = 现在要处理（P0、逾期、此刻）；橙 = 注意（P1、提醒）；
+   蓝 = 普通优先级 P2；灰 = 其余（P3、次要按钮、元信息）
+   --blue 在基础样式里是「主强调色」，这里让它指向墨色；P2 单独用 --p2
+   =================================================================== */
+html[data-skin="glass"][data-theme="light"],html[data-skin="glass"][data-theme="light"][data-fx]{
+  --blue:#37352f;--ac:55,53,47;--on-ac:#ffffff;--now:#37352f;
+  --hot:#e03e3e;--red:#e03e3e;--warn:#d9730d;--amber:#d9730d;--orange:#d9730d;--p2:#2383e2;
+  --sel:rgba(35,131,226,.18);--btn-h:#1f1e1b;
+}
+html[data-skin="glass"][data-theme="dark"],html[data-skin="glass"][data-theme="dark"][data-fx]{
+  --blue:#e6e5e3;--ac:230,229,227;--on-ac:#191919;--now:#e6e5e3;
+  --hot:#df5452;--red:#df5452;--warn:#d9844b;--amber:#d9844b;--orange:#d9844b;--p2:#4a9ae9;
+  --sel:rgba(35,131,226,.35);--btn-h:#ffffff;
+}
+/* 所有主按钮：墨底；悬停更深（暗色更亮）；禁用是浅灰 */
+html[data-skin="glass"] .btn.primary,html[data-skin="glass"] .seal-send,html[data-skin="glass"] .ac .btn.primary,html[data-skin="glass"] .sugg:first-child .sugg-a .btn,
+html[data-skin="glass"] .fw-go,html[data-skin="glass"] .pf-start,html[data-skin="glass"] .fw-ctl .pf-btn.main,html[data-skin="glass"] .fp-go,html[data-skin="glass"] .tabbar .tab-cap,html[data-skin="glass"] .ss-new,html[data-skin="glass"] .side-ai-ic{background:var(--blue);color:var(--on-ac);border-color:transparent;box-shadow:none}
+html[data-skin="glass"] .btn.primary:hover:not(:disabled),html[data-skin="glass"] .seal-send:hover:not(:disabled),html[data-skin="glass"] .ac .btn.primary:hover:not(:disabled),html[data-skin="glass"] .fw-go:hover,html[data-skin="glass"] .pf-start:hover,html[data-skin="glass"] .ss-new:hover{background:var(--btn-h);opacity:1}
+html[data-skin="glass"] .btn.primary:disabled,html[data-skin="glass"] .seal-send:disabled,html[data-skin="glass"] .ac .btn.primary:disabled{background:var(--hover-2);color:var(--text-4);opacity:1}
+/* 番茄钟：进行中也是墨色（休息仍是绿） */
+html[data-skin="glass"][data-theme="light"] .focus-w:not(.break),html[data-skin="glass"][data-theme="light"] .focus-grid,html[data-skin="glass"][data-theme="light"] .focus-page:not(.break){--pg1:#5a5853;--pg2:#37352f}
+html[data-skin="glass"][data-theme="dark"] .focus-w:not(.break),html[data-skin="glass"][data-theme="dark"] .focus-grid,html[data-skin="glass"][data-theme="dark"] .focus-page:not(.break){--pg1:#f2f1ef;--pg2:#cfcdc9}
+html[data-skin="glass"][data-theme="dark"] .focus-w:not(.break) .fw-go,html[data-skin="glass"][data-theme="dark"] .focus-w:not(.break) .fw-ctl .pf-btn.main,html[data-skin="glass"][data-theme="dark"] .focus-page:not(.break) .pf-start{color:#191919}
+/* 今天：墨色实心圆；当前时间块：墨色描边；此刻线：红 */
+html[data-skin="glass"] .mc-d.today,html[data-skin="glass"] .wtl-day.today b,html[data-skin="glass"] .dchip.on.today{background:var(--now);color:var(--on-ac)}
+html[data-skin="glass"] .dchip.on.today b::after{background:var(--on-ac)}
+html[data-skin="glass"] .dchip.today,html[data-skin="glass"] .cal-d.today{color:var(--text);font-weight:600}html[data-skin="glass"] .dchip.today b::after{background:var(--text)}
+html[data-skin="glass"] .mt-b.cur{box-shadow:0 0 0 1.5px var(--text),0 6px 16px -8px rgba(15,15,15,.3)}
+html[data-skin="glass"] .mt-now,html[data-skin="glass"] .tl .now,html[data-skin="glass"] .tl .now::before{background:var(--hot)}html[data-skin="glass"] .mt-now span{background:var(--hot);color:#fff}
+/* 首页建议：急 = 红、空档 = 蓝（普通）、注意 = 橙 */
+html[data-skin="glass"] .sugg.now .sugg-ic{color:var(--p2);box-shadow:0 0 0 1px color-mix(in srgb,var(--p2) 30%,transparent);background:color-mix(in srgb,var(--p2) 8%,var(--paper))}
+/* 优先级标签：P0 红底、P1 橙底（Notion 的浅底 + 文字色） */
+html[data-skin="glass"][data-theme="light"] .todo .meta .pri{color:var(--pc)}
+/* 墨白 · 标签：照 Notion 的「浅底 + 深一号的文字色」，平底不做渐变，亮色下文字压深保证看得清 */
+html[data-skin="glass"][data-theme="light"] .tag.tc,html[data-skin="glass"][data-theme="light"] .tag.th,html[data-skin="glass"][data-theme="light"] .mtag,html[data-skin="glass"][data-theme="light"] .tag-chip{color:color-mix(in srgb,var(--tc) 48%,#24231f);background:color-mix(in srgb,var(--tc) 12%,#fff);box-shadow:none}
+html[data-skin="glass"][data-theme="dark"] .tag.tc,html[data-skin="glass"][data-theme="dark"] .tag.th,html[data-skin="glass"][data-theme="dark"] .mtag,html[data-skin="glass"][data-theme="dark"] .tag-chip{color:color-mix(in srgb,var(--tcd) 62%,#fff);background:color-mix(in srgb,var(--tcd) 16%,#202020);box-shadow:none}
