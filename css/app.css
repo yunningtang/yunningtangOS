@@ -2859,3 +2859,12 @@ html[data-theme="dark"] .sp-card{background:color-mix(in srgb,var(--k) 16%,var(-
 .sp-day b{margin:0 8px 0 2px}
 .sp-st{grid-template-columns:52px 48px minmax(0,1fr)}
 .sp-dot{top:13px}.sp-trk::before{top:13px}
+/* 地铁线：轨道改虚线（空档处更稀） */
+.sp-trk::before{width:4px;margin-left:-2px;border-radius:0;background:repeating-linear-gradient(to bottom,var(--k) 0 7px,transparent 7px 12px)}
+.sp-st.gapped .sp-trk::before{background:repeating-linear-gradient(to bottom,var(--k) 0 3px,transparent 3px 9px)}
+/* 编辑自己的话：图标按钮 */
+.sm-edit-f{margin-top:4px}
+.sm-ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--text-3)}.sm-ic:hover{background:var(--hover-2);color:var(--text)}
+.sm-ic.go{background:var(--ink);color:var(--paper)}.sm-ic.go:hover{background:var(--ink);color:var(--paper);opacity:.88}.sm-ic.go:disabled{background:var(--hover-2);color:var(--text-4)}
+html[data-theme="dark"] .sm-ic.go:not(:disabled){color:#191919}
+.ac-row{cursor:context-menu}.sm.bot .sm-t{cursor:default}

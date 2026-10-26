@@ -707,6 +707,27 @@ export function Seal({ ghost = false } = {}) {
     { label: '再发一次', icon: 'refresh', onClick: () => resend(m, m.text) },
     { label: '复制', icon: 'copy', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); } },
   ], '我说的');
+  const dropItem = (mid, iid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, items: m.items.filter((x) => x.id !== iid) }));
+  const itemMenu = (e, m, it) => { if (m.saved != null || e.target.closest('[contenteditable=true],input,textarea')) return; const d0 = todayStr(); ctxMenu(e, [
+    { label: '只保存这一项', icon: 'check', onClick: () => { const r = saveItems([{ ...it, on: true }]); dropItem(m.id, it.id); if (r.n) toast(`记了「${it.title}」`, r.open ? { label: '打开', onClick: () => go(r.open) } : undefined); } },
+    { label: '改名字', icon: 'edit', onClick: () => { const el = e.target.closest('.ac-row') && e.target.closest('.ac-row').querySelector('.ac-t'); if (el) { el.focus(); getSelection().selectAllChildren(el); } } },
+    ['todo', 'block', 'goal'].includes(it.kind) && { label: '日期', icon: 'calendar', sub: [['今天', d0], ['明天', addDays(d0, 1)], ['后天', addDays(d0, 2)], ['下周一', addDays(weekStart(), 7)]].map(([l, v]) => ({ label: l, hint: v.slice(5).replace('-', '/'), icon: it.date === v ? 'check' : '', onClick: () => editItem(m.id, it.id, { date: v }) })).concat(it.kind === 'todo' ? [{ label: '不定日期', onClick: () => editItem(m.id, it.id, { date: '' }) }] : []) },
+    it.kind === 'todo' && { label: '优先级', icon: 'flag', sub: [0, 1, 2, 3].map((n) => ({ label: ['P0 紧急', 'P1 重要', 'P2 普通', 'P3 随缘'][n], icon: it.priority === n ? 'check' : '', onClick: () => editItem(m.id, it.id, { priority: n }) })) },
+    { label: '换成…', icon: 'layers', sub: [['todo', '待办'], ['block', '时间块'], ['note', '笔记'], ['goal', '月度目标']].filter(([k]) => k !== it.kind).map(([k, l]) => ({ label: l, onClick: () => editItem(m.id, it.id, k === 'block' ? { kind: k, date: it.date || d0, start: it.start || it.time || minToTime(Math.ceil((new Date().getHours() * 60 + new Date().getMinutes() + 10) / 15) * 15), end: it.end || minToTime(timeToMin(it.start || it.time || '09:00') + 60) } : k === 'note' ? { kind: k, nb: it.nb || 'nb-inbox' } : { kind: k }) })) },
+    it.kind === 'todo' && { label: '拆成步骤', icon: 'sparkle', onClick: () => breakdown({ title: it.title, due: it.date }) },
+    'sep',
+    { label: '从草稿里去掉', icon: 'x', danger: true, onClick: () => dropItem(m.id, it.id) },
+  ].filter(Boolean), KIND_LABEL[it.kind] || '这一项'); };
+  // 汤圆说的话：右键可以直接放进系统
+  const botMenu = (e, m) => { const sel = String(getSelection && getSelection().toString() || '').trim(); const text = (sel || m.text || '').trim(); if (!text) return; const first = text.split('\n').map((l) => l.replace(/^[#>*\-\d.\s]+/, '').trim()).find(Boolean) || '汤圆的回复'; ctxMenu(e, [
+    { label: sel ? '复制选中' : '复制', icon: 'copy', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(text); toast('已复制'); } },
+    'sep',
+    { label: '存成笔记', icon: 'note', hint: '收件箱', onClick: () => { const n = newNote({ title: first.slice(0, 40), blocks: mdToBlocks(text) }); toast('存进收件箱了', { label: '打开', onClick: () => go('notes/' + n.id) }); } },
+    { label: '加为待办', icon: 'checksq', hint: '今天', onClick: () => { const t = { id: uid(), title: first.slice(0, 80), done: false, priority: 2, due: todayStr(), time: '', tags: [], area: '', note: text.length > first.length ? text.slice(0, 600) : '', created: todayStr(), steps: [] }; upsert('todos', t); toast('加到今天的待办了', { label: '去看看', onClick: () => go('todos?open=' + t.id) }); } },
+    { label: '让汤圆整理成待办 / 安排', icon: 'sparkle', onClick: () => ask('把这段整理成待办或安排：\n' + text.slice(0, 1500)) },
+    { label: '拆成步骤', icon: 'layers', onClick: () => breakdown({ title: first.slice(0, 60), note: text.slice(0, 600) }) },
+    !sel && { label: '重新生成', icon: 'refresh', onClick: () => regen(m) },
+  ].filter(Boolean), sel ? '选中的文字' : '汤圆说的'); };
   const toggleStep = (mid, sid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, steps: m.steps.map((x) => x.id === sid ? { ...x, on: !x.on } : x) }));
 
   const ask = async (text) => {
@@ -881,7 +902,7 @@ export function Seal({ ghost = false } = {}) {
                         <div class="seal-hints">${cards.map((h, ci) => html`<button key=${h.t} type="button" class=${ci < cprompts.length ? 'ctx' : ''} title=${'落到：' + h.k.join(' · ')} onClick=${() => useHint(h)}><span class="sh-i"><${Icon} name=${h.i} size=${15} /></span><span class="sh-b"><span class="sh-h">${h.h}</span><span class="sh-q">${h.d || h.t}</span></span></button>`)}</div>
           </div>`}
         ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who}>
-          ${m.who === 'bot' ? html`<div class="sm-t md" dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : (editMsg && editMsg.id === m.id ? html`<div class="sm-edit"><textarea rows="2" value=${editMsg.text} ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }} onInput=${(e) => setEditMsg({ ...editMsg, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); resend(m, editMsg.text); } if (e.key === 'Escape') { e.stopPropagation(); setEditMsg(null); } }}></textarea><div class="sm-edit-f"><span class="flex1">后面的回复会被替换</span><button type="button" class="btn sm ghost" onClick=${() => setEditMsg(null)}>取消</button><button type="button" class="btn sm primary" disabled=${!editMsg.text.trim() || busy} onClick=${() => resend(m, editMsg.text)}>发送</button></div></div>`
+          ${m.who === 'bot' ? html`<div class="sm-t md" onContextMenu=${(e) => botMenu(e, m)} dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : (editMsg && editMsg.id === m.id ? html`<div class="sm-edit"><textarea rows="2" value=${editMsg.text} ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }} onInput=${(e) => setEditMsg({ ...editMsg, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); resend(m, editMsg.text); } if (e.key === 'Escape') { e.stopPropagation(); setEditMsg(null); } }}></textarea><div class="sm-edit-f"><span class="flex1"></span><button type="button" class="sm-ic" title="取消（Esc）" onClick=${() => setEditMsg(null)}><${Icon} name="x" size=${15} /></button><button type="button" class="sm-ic go" title="重新发送（回车）· 后面的回复会被替换" disabled=${!editMsg.text.trim() || busy} onClick=${() => resend(m, editMsg.text)}><${Icon} name="up" size=${15} /></button></div></div>`
             : html`<div class="sm-t" onContextMenu=${(e) => meMenu(e, m)} onDblClick=${() => !busy && setEditMsg({ id: m.id, text: m.text })} title="双击或右键可以改了重新发">${m.text}</div><div class="sm-acts me"><button type="button" title="编辑并重新发送" disabled=${busy} onClick=${() => setEditMsg({ id: m.id, text: m.text })}><${Icon} name="edit" size=${13} /></button><button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button></div>`)}
           ${m.who === 'bot' && !m.items?.length && !m.steps?.length && !busy && html`<div class="sm-acts">
             <button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button>
@@ -895,7 +916,7 @@ export function Seal({ ghost = false } = {}) {
             return html`<div class=${'ac ' + (saved ? 'saved' : '')}>
             <div class="ac-h"><span>${m.intent === 'plan' ? '建议的安排' : m.intent === 'modify' ? '改好的草稿' : '识别到的安排'}</span><small>${m.items.length} 项</small></div>
             ${m.items.map((it) => { const ed = !saved, inf = it.inferred || []; const chip = (t, i) => html`<span class=${'ac-chip ' + (i ? 'inf' : '')} title=${i ? '汤圆补的建议值' : ''}>${t}</span>`;
-              return html`<div key=${it.id} class=${'ac-row ' + (it.on ? '' : 'off')}>
+              return html`<div key=${it.id} class=${'ac-row ' + (it.on ? '' : 'off')} onContextMenu=${(e) => itemMenu(e, m, it)}>
               <input type="checkbox" checked=${it.on} disabled=${saved} onChange=${() => toggleItem(m.id, it.id)} />
               <span class="ac-b">
                 <span class="ac-t" contenteditable=${ed} spellcheck="false" title=${ed ? '点一下直接改' : ''} onBlur=${ed ? (e) => { const v = e.target.textContent.trim(); if (v && v !== it.title) editItem(m.id, it.id, { title: v }); else e.target.textContent = it.title; } : undefined} onKeyDown=${ed ? (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') { e.target.textContent = it.title; e.target.blur(); } } : undefined}>${it.title}</span>
