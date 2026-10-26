@@ -73,6 +73,18 @@
 
 3. 部署后打开站点 → 设置 → 「用 GitHub 登录」。
 
+### 多人云端：sealonote 账号（Supabase，邮箱验证码登录）
+
+每个人用邮箱登录，各有一份自己的数据（数据库里一行，行级权限保证只能读写自己的那一行），附件放在只属于自己的私有存储目录。浏览器只和本站 `/api/*` 通信，由服务端转发给 Supabase，所以不暴露 Supabase 地址，国内访问也只依赖本站域名。第一次注册要邀请码；站长的 GitHub 登录照常可用。
+
+1. 在 supabase.com 新建项目，地区选新加坡或东京。
+2. Vercel → 项目 → Integrations 安装 Supabase，选这个项目；它会自动写入 `SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`。密钥只放在这里，不要写进代码或发到聊天里。
+3. Supabase → SQL Editor，把仓库里的 `supabase/schema.sql` 整段粘进去运行一次（重复运行也安全）。它会建好表、行级权限、附件存储桶，并生成第一个邀请码（Table Editor → invites 里能看到，也可以自己加行：`code` 随便写，`max_uses` 是能用几次）。
+4. Supabase → Authentication → Emails → Templates → **Magic Link**，把正文改成带验证码的，例如：`你的 sealonote 验证码：{{ .Token }}（10 分钟内有效）`。不改的话收到的是登录链接而不是验证码。
+5. Supabase → Authentication → Emails → SMTP Settings，接一个发信服务（比如 Resend，免费每月 3000 封）。Supabase 自带的发信只能发给项目成员、而且每小时只有几封，正式给别人用必须换。
+6. Vercel 环境变量再加两个（可选）：`OWNER_EMAILS`（你的邮箱，逗号分隔；不需要邀请码，汤圆不限量），`AI_FREE_CALLS`（每人每月免费让汤圆处理几次，默认 60；用完后在设置里填自己的 DeepSeek / Claude 密钥就能继续）。
+7. 重新部署。设置 → 云端同步 → sealonote 账号，输入邮箱 → 收验证码 → 登录。第一次登录会把这台电脑上的数据带进账号；同一台电脑换另一个人登录时，上一个人的数据先备份在本机（不会混进新账号），新账号从自己的云端数据开始。
+
 ### 方式二：GitHub Pages（纯静态，token 同步）
 
 仓库里已有 `.github/workflows/pages.yml`。在 GitHub 的 Settings → Pages 把 Source 选为 **GitHub Actions**，之后每次推送 master 自动部署到 `https://yunningtang.github.io/yunningtangOS/`。

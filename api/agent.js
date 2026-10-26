@@ -10,6 +10,7 @@
 // 只有登录用户能调用，密钥不会被路人刷。
 import Anthropic from '@anthropic-ai/sdk';
 import { session, json, readJson, env } from './_lib.js';
+import { sb, accessToken, isOwner, freeCalls } from './_cloud.js';
 
 const DEFAULTS = { anthropic: 'claude-opus-5-5', deepseek: 'deepseek-chat' };
 const DS_BASE = env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com');
@@ -332,6 +333,12 @@ export default async function handler(req, res) {
     return json(res, 200, { provider: cfg.provider, model: cfg.model, fromHeader: cfg.fromHeader });
   }
   if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+  // 云端用户用的是站长的服务器密钥：每人每月有免费次数，超了就请自带密钥（设置 → 汤圆 → AI 密钥）
+  if (s.k === 'sb' && !cfg.fromHeader && !isOwner(s.email)) {
+    let n = 0;
+    try { const tok = await accessToken(s, res); const r = await sb('/rest/v1/rpc/bump_ai', { as: tok, method: 'POST', body: { p_month: new Date().toISOString().slice(0, 7) } }); if (r.ok) n = Number(r.data) || 0; } catch {}
+    if (n > freeCalls()) return json(res, 429, { error: `这个月的 ${freeCalls()} 次免费额度用完了。去设置里填自己的 DeepSeek / Claude 密钥就能继续用`, quota: true });
+  }
 
   const body = await readJson(req, 1e6);
   if (!body) return json(res, 400, { error: 'bad json' });

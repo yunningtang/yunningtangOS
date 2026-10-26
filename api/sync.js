@@ -1,10 +1,41 @@
 // GET  -> { sha, data } of the data file (data null if it does not exist yet)
 // PUT  -> body { content: string, sha?: string } writes the file as a commit
 import { session, json, gh, dataTarget, readJson, resolveBranch } from './_lib.js';
+import { sb, accessToken, errMsg } from './_cloud.js';
+
+// 云端用户：一行 docs，version 充当 sha（乐观锁：只在版本没变时才写得进去，否则 409，前端会重新拉取合并）
+async function cloud(req, res, s) {
+  let tok; try { tok = await accessToken(s, res); } catch (e) { return json(res, 401, { error: e.message }); }
+  if (req.method === 'GET') {
+    const r = await sb('/rest/v1/docs?select=doc,version&user_id=eq.' + encodeURIComponent(s.uid), { as: tok });
+    if (!r.ok) return json(res, 502, { error: errMsg(r) });
+    const row = Array.isArray(r.data) ? r.data[0] : null;
+    return json(res, 200, row ? { sha: String(row.version), data: row.doc } : { sha: null, data: null });
+  }
+  if (req.method === 'PUT') {
+    const body = await readJson(req);
+    if (!body || typeof body.content !== 'string') return json(res, 400, { error: 'content required' });
+    let doc; try { doc = JSON.parse(body.content); if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw 0; } catch { return json(res, 400, { error: '要写入的内容不是合法的 JSON 文档' }); }
+    const now = new Date().toISOString();
+    if (body.sha == null) {
+      const r = await sb('/rest/v1/docs', { as: tok, method: 'POST', body: { user_id: s.uid, doc, version: 1, updated_at: now }, headers: { Prefer: 'return=representation' } });
+      if (r.status === 409) return json(res, 409, { error: '云端已经有数据了，先同步一次再推送' });
+      if (!r.ok) return json(res, 502, { error: errMsg(r) });
+      return json(res, 200, { sha: '1' });
+    }
+    const v = parseInt(String(body.sha), 10); if (!(v > 0)) return json(res, 400, { error: 'bad sha' });
+    const r = await sb(`/rest/v1/docs?user_id=eq.${encodeURIComponent(s.uid)}&version=eq.${v}`, { as: tok, method: 'PATCH', body: { doc, version: v + 1, updated_at: now }, headers: { Prefer: 'return=representation' } });
+    if (!r.ok) return json(res, 502, { error: errMsg(r) });
+    if (!Array.isArray(r.data) || !r.data.length) return json(res, 409, { error: '另一台设备刚同步过，重新同步一次就好' });
+    return json(res, 200, { sha: String(v + 1) });
+  }
+  json(res, 405, { error: 'method not allowed' });
+}
 
 export default async function handler(req, res) {
   const s = await session(req);
   if (!s) return json(res, 401, { error: 'not logged in' });
+  if (s.k === 'sb') return cloud(req, res, s);
   const { repo, branch: wanted, path } = dataTarget();
   if (!repo) return json(res, 500, { error: 'DATA_REPO is not set' });
   const branch = await resolveBranch(s.t, repo, wanted);

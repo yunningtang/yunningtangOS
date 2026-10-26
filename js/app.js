@@ -203,7 +203,19 @@ setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors);
 subscribe(() => { setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors); });
 applySizes();
 initLiquid();
-detectLogin().then((login) => {
+detectLogin().then(async (login) => {
+  // 换了账号（同一台电脑上另一个人登录）：先把上一个账号留在本机的数据备份起来，再从空白开始拉这个账号自己的云端数据，
+  // 免得把上一个人的内容合并进新账号。第一次登录（本机还没记过账号）照常把本地数据带上去。
+  if (login && login.user) {
+    const id = login.user.email || 'gh:' + login.user.login; let prev = ''; try { prev = localStorage.getItem('ytos.account') || ''; } catch {}
+    const migrating = prev.startsWith('gh:') && login.cloud && login.aiQuota === null; // 站长从 GitHub 登录换成邮箱登录：同一个人，数据照常带上去
+    if (prev && prev !== id && !migrating) {
+      try { const { kvSet } = await import('./files.js'); await kvSet('backup:' + prev, JSON.parse(JSON.stringify(get()))); await kvSet('sync-base', null); } catch {}
+      const { replace, blank } = await import('./store.js'); const b = blank(); b.settings.seeded = true; replace(b);
+      toast('换了账号：上一个账号在这台电脑上的数据已经备份在本机，现在显示的是 ' + (login.user.email || login.user.login) + ' 的数据');
+    }
+    try { localStorage.setItem('ytos.account', id); } catch {}
+  }
   // 第一次登录、还没设过头像：直接用 GitHub 头像
   if (login && login.user && login.user.avatar && !get().profile.avatar) update((d) => { d.profile.avatar = login.user.avatar; });
   autoSync(subscribe);

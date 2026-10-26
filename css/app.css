@@ -2972,3 +2972,7 @@ html[data-theme="dark"] .fq-go{color:var(--text-3)}html[data-theme="dark"] .fq-g
 .fq-add:focus-within{background:var(--hover)}
 .fq-add input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:.82rem;color:var(--text)}
 .fq-add input::placeholder{color:var(--text-4)}
+.mail-login{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mail-login input{flex:1 1 180px;min-width:0;height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--input);font:inherit;font-size:.84rem;outline:0}
+.mail-login input:focus{border-color:var(--line-2);background:var(--paper)}
+.mail-msg{flex-basis:100%;color:var(--text-3)}

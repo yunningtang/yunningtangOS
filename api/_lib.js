@@ -49,8 +49,11 @@ export function allowedUsers() { return (env('ALLOWED_USER') || '').split(',').m
 export async function session(req) {
   const c = cookies(req)[COOKIE];
   const s = c ? await open(c) : null;
-  if (!s || !s.t || !s.u) return null;
+  if (!s) return null;
   if (!s.at || Date.now() - s.at > SESSION_MAX_AGE * 1000) return null; // 过期
+  // 云端（Supabase 邮箱登录）会话：身份由 Supabase 的 token 决定，不走 GitHub 白名单
+  if (s.k === 'sb') return s.uid && s.a && s.r ? { ...s, u: s.email } : null;
+  if (!s.t || !s.u) return null;
   const allowed = allowedUsers(); if (!allowed.length || !allowed.includes(String(s.u).toLowerCase())) return null; // 每次请求都重查允许名单
   return s;
 }

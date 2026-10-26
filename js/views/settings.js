@@ -64,6 +64,26 @@ function PromptsCard({ s }) {
   <//>`;
 }
 
+// sealonote 账号：邮箱 + 验证码登录；第一次注册要邀请码
+function EmailLogin() {
+  const [step, setStep] = useState('email'); const [email, setEmail] = useState(''); const [invite, setInvite] = useState(''); const [code, setCode] = useState('');
+  const [needInv, setNeedInv] = useState(false); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
+  const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error || `出错了（${r.status}）`), j); return j; };
+  const send = async (e) => { e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/email', { email, invite }); setStep('code'); setMsg('验证码已发到 ' + email + '，十分钟内有效'); } catch (er) { if (er.needInvite) setNeedInv(true); setMsg(er.message); } setBusy(false); };
+  const verify = async (e) => { e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/verify', { email, code }); location.hash = '#/settings'; location.reload(); } catch (er) { setMsg(er.message); setBusy(false); } };
+  return html`<form class="mail-login" onSubmit=${step === 'email' ? send : verify}>
+    ${step === 'email' ? html`
+      <input type="email" required autocomplete="email" placeholder="你的邮箱" value=${email} onInput=${(e) => setEmail(e.target.value.trim())} />
+      ${needInv && html`<input type="text" autocomplete="off" placeholder="邀请码" value=${invite} onInput=${(e) => setInvite(e.target.value.trim())} />`}
+      <button class="btn sm primary" disabled=${busy || !email}>${busy ? '发送中…' : '发验证码'}</button>`
+    : html`
+      <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="6 位验证码" value=${code} onInput=${(e) => setCode(e.target.value.replace(/\D/g, ''))} autofocus />
+      <button class="btn sm primary" disabled=${busy || code.length < 6}>${busy ? '登录中…' : '登录'}</button>
+      <button type="button" class="btn sm ghost" onClick=${() => { setStep('email'); setCode(''); setMsg(''); }}>换邮箱</button>`}
+    ${msg && html`<p class="small mail-msg">${msg}</p>`}
+  </form>`;
+}
+
 export default function Settings() {
   const s = useStore();
   useEffect(() => { const m = location.hash.match(/[?&]sec=(\w+)/); if (m) setTimeout(() => { const el = document.getElementById('set-' + m[1]); el && el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120); }, []);
@@ -147,13 +167,19 @@ export default function Settings() {
           return html`
           <div class=${'sync-head ' + stState}><span class="dot"></span><span class="flex1">${stText}</span>${(connected || tokenMode) && html`<button class="btn sm" disabled=${busy} onClick=${() => run(smartSync)}>${busy ? '同步中…' : '立即同步'}</button>`}</div>
           <div class="int-list">
-            <div class="int-row">
+            ${login && login.cloud && html`<div class="int-row">
+              <span class="int-ic"><${Icon} name="cloud" size=${16} /></span>
+              <div class="int-b"><b>sealonote 账号</b><small>${connected && login.user.email ? html`${login.user.email} · 数据在 sealonote 云端${login.aiQuota != null ? ` · 汤圆每月免费 ${login.aiQuota} 次` : ''}` : '用邮箱登录，每个人一份自己的数据；第一次注册需要邀请码'}</small></div>
+              ${connected && login.user.email ? html`<span class="int-tag on">已登录</span><button class="btn sm ghost" onClick=${async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.reload(); }}>退出</button>` : ''}
+            </div>
+            ${!connected && html`<div class="int-sub"><${EmailLogin} /></div>`}`}
+            ${!(connected && login.user.email) && html`<div class="int-row">
               <span class="int-ic gh"><${Icon} name="github" size=${16} /></span>
               <div class="int-b"><b>GitHub</b><small>${connected ? html`${login.user.login} · ${login.target.repo} · ${login.target.branch}` : login && login.configured ? '同步到你的私人仓库' : '静态部署：用 token 直连仓库'}</small></div>
               ${connected ? html`<span class="int-tag on">已连接</span><button class="btn sm ghost" onClick=${async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.reload(); }}>断开</button>`
                 : login && login.configured ? html`<a class="btn sm primary" href="/api/auth/login">连接</a>`
                 : html`<button class="btn sm" onClick=${() => setTokOpen((v) => !v)}>${tokOpen ? '收起' : tokenMode ? '设置' : '配置'}</button>`}
-            </div>
+            </div>`}
             ${!connected && !(login && login.configured) && tokOpen && html`<div class="int-sub">
               <p class="small muted">要「登录即同步」，把仓库部署到 Vercel 并配置 OAuth（见 README）。现在先用 token：</p>
               <div class="grid2">
@@ -179,7 +205,7 @@ export default function Settings() {
           <details class="sync-how">
             <summary>同步如何工作？</summary>
             <ul>
-              <li><b>数据存在哪里</b>：整份数据是你仓库里的一个 JSON 文件（${login && login.target ? login.target.path : s.settings.sync.path || 'data/os.json'}），附件在旁边的 assets 目录。每次同步是一次提交，可以回滚到任何一天。</li>
+              ${login && login.cloud && connected && login.user.email ? html`<li><b>数据存在哪里</b>：sealonote 云端的数据库里，每个人一份，别人看不到；附件放在只属于你的私有存储里。本机也留一份，断网照常用，联网后自动合并。</li>` : ''}<li><b>GitHub 方式</b>：整份数据是你仓库里的一个 JSON 文件（${login && login.target ? login.target.path : s.settings.sync.path || 'data/os.json'}），附件在旁边的 assets 目录。每次同步是一次提交，可以回滚到任何一天。</li>
               <li><b>什么时候同步</b>：打开页面自动拉取较新的一方；编辑后几秒自动推送；切换标签页或关闭前也会推送。</li>
               <li><b>安全</b>：登录凭据只存在加密的 httpOnly cookie 里，浏览器脚本拿不到；token 方式的 token 只存在本机，不会被写进数据文件。</li>
               <li><b>注意</b>：仓库如果是公开的，数据文件也是公开的。私人内容请用私有仓库。</li>
@@ -203,7 +229,7 @@ export default function Settings() {
               ${ai.provider !== 'local' && html`<${Btn} small onClick=${testAi} disabled=${!(login && login.user)}>测试连接<//>`}
             </div>
             ${aiMsg && html`<p class=${'small ' + (aiMsg.startsWith('失败') ? '' : 'muted')} style=${aiMsg.startsWith('失败') ? 'color:var(--red);margin-top:6px' : 'margin-top:6px'}>${aiMsg}</p>`}
-            ${!(login && login.user) && html`<p class="small muted" style="margin-top:6px">先用 GitHub 登录，汤圆只给登录用户用。</p>`}
+            ${!(login && login.user) && html`<p class="small muted" style="margin-top:6px">先登录，汤圆只给登录用户用。</p>`}
           <//>
           <${Field} label="本月用量" hint="本机统计，刷新或换设备不累计；费用按公开单价估算，以平台账单为准。">
             <div class="row wrap" style="gap:14px;align-items:center">
