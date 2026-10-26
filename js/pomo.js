@@ -33,7 +33,10 @@ function finish() {
     const end = new Date(), start = new Date(st.startedAt);
     const mins = Math.max(1, Math.round((end - start) / 60000));
     const pad = (n) => String(n).padStart(2, '0');
-    upsert('sessions', { id: uid(), date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: new Date().toISOString() });
+    const sid = uid();
+    upsert('sessions', { id: sid, goal: st.goal || '', date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: new Date().toISOString() });
+    st.review = { sid, todoId: st.todoId || '', label: st.label || '', goal: st.goal || '', mins }; // 等一个检查点：做到哪了、下一步
+    if (st.restoreLen) { st.workLen = st.restoreLen; st.restoreLen = 0; }
     st.count += 1;
     if (st.todoId && st.stepId) { markStepDone(st.todoId, st.stepId); st.stepId = ''; } // 这一轮是某一步：做完顺手勾掉
     beep(); notify('专注完成', `${st.label || '专注'} · ${mins} 分钟。休息一下。`);
@@ -49,16 +52,27 @@ function schedule() {
   if (st.phase === 'idle' || st.paused) return;
   timer = setInterval(() => { if (remaining() <= 0) finish(); else emit(); }, 1000);
 }
-export function start({ label, todoId, stepId, workLen, breakLen } = {}) {
-  if (workLen) st.workLen = workLen; if (breakLen) st.breakLen = breakLen;
+export function start({ label, todoId, stepId, workLen, breakLen, goal, once } = {}) {
+  if (once) { st.restoreLen = st.restoreLen || st.workLen; st.workLen = once; } else if (workLen) st.workLen = workLen; if (breakLen) st.breakLen = breakLen;
+  if (goal !== undefined) st.goal = goal;
+  st.review = null;
   st = { ...st, phase: 'work', label: label ?? st.label, todoId: todoId ?? st.todoId, stepId: stepId || '', startedAt: Date.now(), endsAt: Date.now() + st.workLen * 60000, paused: false };
   try { if (Notification.permission === 'default') Notification.requestPermission(); } catch {}
   save(); emit(); schedule();
 }
 export function pause() { if (st.phase === 'idle' || st.paused) return; st = { ...st, paused: true, remain: remaining() }; save(); emit(); schedule(); }
 export function resume() { if (!st.paused) return; st = { ...st, paused: false, endsAt: Date.now() + st.remain * 1000 }; save(); emit(); schedule(); }
-export function stop(log = false) { if (log && st.phase === 'work') { finish(); return; } st = { ...st, phase: 'idle', paused: false }; save(); emit(); schedule(); }
+export function stop(log = false) { if (log && st.phase === 'work') { finish(); return; } st = { ...st, phase: 'idle', paused: false, ...(st.restoreLen ? { workLen: st.restoreLen, restoreLen: 0 } : {}) }; save(); emit(); schedule(); }
 export function skip() { if (st.phase === 'break') { st = { ...st, phase: 'idle', paused: false }; save(); emit(); schedule(); } else if (st.phase === 'work') finish(); }
 export function setLens(w, b) { st = { ...st, workLen: w, breakLen: b }; save(); emit(); }
 export function setLabel(label, todoId) { st = { ...st, label, todoId: todoId ?? st.todoId }; save(); emit(); }
+export function setGoal(goal) { st = { ...st, goal }; save(); emit(); }
+// 检查点：这一轮做到哪了、下一步是什么。写进这段专注和对应的待办，下次选同一件事时会带出来
+export function checkpoint({ note = '', next = '', done = false } = {}) {
+  const r = st.review; if (!r) return;
+  if (note || next) upsert('sessions', { id: r.sid, note: note.trim(), next: next.trim(), updated: new Date().toISOString() });
+  if (r.todoId) upsert('todos', { id: r.todoId, ...(next.trim() ? { next: next.trim() } : {}), ...(note.trim() ? { lastNote: note.trim() } : {}), ...(done ? { done: true, completedAt: todayStr(), next: '' } : {}) });
+  st = { ...st, review: null, goal: next.trim() || '' }; save(); emit();
+}
+export function dismissReview() { st = { ...st, review: null }; save(); emit(); }
 schedule();

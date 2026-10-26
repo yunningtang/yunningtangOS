@@ -2877,3 +2877,73 @@ html[data-theme="dark"] .sm-ic.go:not(:disabled){color:#191919}
 .sm-ic:hover,.sm-ic.go:hover{background:var(--hover);color:var(--text);opacity:1}
 .sm-ic.go{color:var(--text-2)}.sm-ic.go:disabled{background:transparent;color:var(--text-4);opacity:.5}
 html[data-theme="dark"] .sm-ic.go:not(:disabled){color:var(--text-2)}
+
+/* ===================================================================
+   专注页 v2：计时器是主工作区，待办是旁边的队列；专注中收起其余内容；历史折叠
+   =================================================================== */
+.focus-page2{display:flex;flex-direction:column;gap:16px}
+.fp-main{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:16px;align-items:start}
+.fp-timer .tt-card.full .fw-hero,html[data-skin] .fp-timer .tt-card.full .fw-hero{display:grid;grid-template-columns:minmax(220px,340px) minmax(0,1fr);gap:clamp(20px,4vw,48px);align-items:center;padding:clamp(20px,3vw,36px)}
+.fp-timer .tt-card.full .ttd{width:100%;max-width:340px;margin:0}
+.fp-timer .tt-card.full .tt-info{text-align:left}
+.fp-timer .tt-card.full .tt-time{font-size:clamp(2.8rem,5vw,4.2rem)}
+.fp-timer .tt-card.full .tt-sub,.fp-timer .tt-card.full .tt-chips,.fp-timer .tt-card.full .tt-acts{justify-content:flex-start}
+.fp-timer .tt-card.full .tt-label{margin:0 0 8px;max-width:420px}
+.tt-prep{margin:0 0 12px}
+.tt-goal{font-size:.8rem!important;height:34px!important}
+.tp-task{display:flex;align-items:center;gap:8px;max-width:420px;padding:8px 6px 8px 12px;border-radius:12px;background:var(--hover);margin-bottom:6px}
+.tp-k{font-size:.66rem;color:var(--text-4);letter-spacing:.04em;flex:none}
+.tp-task b{flex:1;min-width:0;font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-resume{display:flex;flex-direction:column;gap:2px;max-width:420px;margin:0 0 8px;padding-left:12px;border-left:2px solid var(--line-2);font-size:.74rem;color:var(--text-3)}
+.tt-two{color:var(--text-2)}
+.tt-now{font-size:1rem;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;flex-direction:column;gap:2px}
+.tt-now small{font-size:.8rem;font-weight:400;color:var(--text-3)}
+.tt-cp-link{display:inline-block;margin:-4px 0 8px;font-size:.74rem;color:var(--text-2)}
+/* 检查点 */
+.tt-cp{max-width:460px}
+.cp-k{font-size:.8rem;color:var(--text-3);margin-bottom:4px}.cp-k b{color:var(--text)}
+.cp-goal{font-size:.78rem;color:var(--text-3);margin-bottom:10px}
+.cp-f{display:block;margin-bottom:10px}
+.cp-f span{display:block;font-size:.84rem;font-weight:600;color:var(--text);margin-bottom:5px}
+.cp-f textarea,.cp-f input{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--input);padding:8px 11px;font:inherit;font-size:.84rem;outline:0;resize:none}
+.cp-f textarea:focus,.cp-f input:focus{border-color:var(--line-2);background:var(--paper)}
+.cp-acts{flex-wrap:wrap;margin-top:6px!important}
+.cp-skip{margin-top:8px;font-size:.72rem;color:var(--text-4)}.cp-skip:hover{color:var(--text-2)}
+/* 待办队列：整行可点，悬停 / 聚焦才出现开始键 */
+.fp-queue,.fp-today{background:var(--card-bg);border-radius:var(--r);box-shadow:0 0 0 1px var(--glass-edge,var(--line));padding:16px 14px}
+.fq-h{display:flex;align-items:baseline;gap:8px;margin:0 4px 10px;flex-wrap:wrap}
+.fq-h b{font-size:.9rem;font-weight:650}.fq-h small{font-size:.72rem;color:var(--text-4);flex:1}
+.fq-list{display:flex;flex-direction:column;gap:2px}
+.fq-row{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 10px;border-radius:10px;cursor:pointer;outline:0;transition:background .15s}
+.fq-row:hover,.fq-row:focus-visible{background:var(--hover)}
+.fq-row.on{background:var(--hover-2)}
+.fq-p{width:3px;align-self:stretch;border-radius:2px;background:var(--pc);flex:none;opacity:.8}
+.fq-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.fq-t b{font-size:.84rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fq-t small{font-size:.7rem;color:var(--text-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fq-go{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--paper);opacity:0;transition:opacity .15s;flex:none}
+html[data-theme="dark"] .fq-go{color:#191919}
+.fq-row:hover .fq-go,.fq-row:focus-within .fq-go,.fq-row.on .fq-go{opacity:1}
+.fq-go:disabled{opacity:0!important}
+@media (hover:none){.fq-go{opacity:1}}
+.fq-empty{font-size:.8rem;color:var(--text-4);padding:8px}
+.fq-goal{font-size:.72rem;color:var(--text-4)}.fq-goal:hover{color:var(--text)}
+.fp-today .goal-row{flex:0 0 220px;margin:0}
+.ft-list{display:flex;flex-direction:column;margin-top:10px}
+.ft-row{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:10px;padding:7px 4px;border-top:1px solid var(--line);font-size:.8rem}
+.ft-time{color:var(--text-3);font-variant-numeric:tabular-nums}.ft-b{min-width:0}.ft-b b{font-weight:500}.ft-b small{display:block;font-size:.72rem;color:var(--text-3)}.ft-m{color:var(--text-4);font-variant-numeric:tabular-nums}
+.fq-fold{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text-3);padding:4px 6px;border-radius:7px}.fq-fold:hover{background:var(--hover);color:var(--text)}
+.fp-hist .fstats{margin-top:10px}
+/* 专注中：只留计时器，居中放大 */
+.fq-bar{display:flex;align-items:center;justify-content:center;gap:12px;font-size:.76rem;color:var(--text-4)}
+.fq-bar button{color:var(--text-2);text-decoration:underline;text-underline-offset:3px}
+.focus-page2.quiet .fp-main{grid-template-columns:1fr;max-width:860px;margin:4vh auto 0;width:100%}
+.focus-page2.quiet .tt-card{box-shadow:none;background:transparent}
+.focus-page2.quiet .tt-card.full .tt-time{font-size:clamp(3.4rem,7vw,5.6rem)}
+@media (max-width:900px){.fp-main{grid-template-columns:1fr}.fp-timer .tt-card.full .fw-hero,html[data-skin] .fp-timer .tt-card.full .fw-hero{grid-template-columns:1fr;justify-items:center}.fp-timer .tt-card.full .ttd{max-width:260px}.fp-timer .tt-card.full .tt-info{text-align:center}.fp-timer .tt-card.full .tt-sub,.fp-timer .tt-card.full .tt-chips,.fp-timer .tt-card.full .tt-acts{justify-content:center}}
+/* 表盘材质减弱一档，让扇形成为唯一焦点 */
+.ttd svg{filter:drop-shadow(0 1px 2px rgba(25,22,18,.08)) drop-shadow(0 14px 24px rgba(25,22,18,.07))}
+.focus-page2{--pg1:#4c9cea;--pg2:#1f7ad8}
+.fp-timer .tt-card.full .tt-chips{flex-wrap:wrap;gap:6px}.tt-chip{white-space:nowrap;flex:none}
+.fp-timer .tt-card.full .tt-chip{min-width:0;padding:0 12px;height:34px;font-size:.82rem}
+.fp-timer .tt-card.full .fw-hero{grid-template-columns:minmax(200px,300px) minmax(0,1fr)!important}

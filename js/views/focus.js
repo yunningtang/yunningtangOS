@@ -2,7 +2,7 @@ import { html, useState, useEffect, useMemo, useRef } from '../../vendor/preact.
 import { useStore, update, upsert, toggleTodo, removeUndo, get } from '../store.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
-import { uid } from '../util.js';
+import { uid, lsGet, lsSet } from '../util.js';
 
 
 import { Icon, Card, Btn, Seg, Empty, Tag, Select } from '../ui.js';
@@ -39,31 +39,39 @@ export default function Focus({ route }) {
   const dayFrom = 6, dayTo = 24;
   const posOf = (t) => Math.max(0, Math.min(100, ((timeToMin(t) - dayFrom * 60) / ((dayTo - dayFrom) * 60)) * 100));
 
-  return html`<div class="dash3 focus-grid">
-    <div class="widget span-1"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
-    <div class="widget span-1">
-      <${Card} title="今天的专注" sub=${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m` : '还没有记录'} action=${html`<a class="more" href="#/plan/day">时间线<${Icon} name="right" size=${12} /></a>`}>
-        <${GoalRow} mins=${mins} goal=${s.settings.focusGoal || 120} />
-        <div class="day-strip">
+  const running = st.phase === 'work';
+  const [peek, setPeek] = useState(false); useEffect(() => { if (!running) setPeek(false); }, [running]);
+  const [hist, setHist] = useState(() => lsGet('ytos.focus.hist', '') === '1');
+  const quiet = running && !peek;
+  const pick = (t) => { if (st.phase !== 'idle') return; pomo.setLabel(t.title, t.id); pomo.setGoal(t.next || ''); };
+  const go1 = (t) => { const w = t.focusLen || st.workLen || 25; pomo.start({ label: t.title, todoId: t.id, goal: t.next || '', workLen: w, breakLen: Math.max(3, Math.round(w / 5)) }); };
+  const rowMenu = (e, t) => ctxMenu(e, [{ label: '现在开始', icon: 'play', disabled: st.phase !== 'idle', onClick: () => go1(t) }, { label: '先做 2 分钟', icon: 'clock', disabled: st.phase !== 'idle', onClick: () => pomo.start({ label: t.title, todoId: t.id, goal: t.next || '', once: 2 }) }, { label: '专注时长', icon: 'clock', sub: LENS.map((n) => ({ label: `${n} 分钟`, icon: (t.focusLen || 25) === n ? 'check' : '', onClick: () => upsert('todos', { id: t.id, focusLen: n }) })) }, 'sep', { label: '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) }, { label: '打开待办', icon: 'external', onClick: () => go('todos?open=' + t.id) }], t.title);
+  return html`<div class=${'focus-page2 ' + (quiet ? 'quiet' : '')}>
+    ${quiet && html`<div class="fq-bar"><span>专注中 · 其他内容先收起来了</span><button type="button" onClick=${() => setPeek(true)}>看一眼其他内容</button></div>`}
+    ${running && peek && html`<div class="fq-bar"><span>正在专注</span><button type="button" onClick=${() => setPeek(false)}>回到专注视图</button></div>`}
+    <div class="fp-main">
+      <div class="fp-timer"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
+      ${!quiet && html`<div class="fp-queue">
+        <div class="fq-h"><b>接下来</b><small>点一下选中，▶ 直接开始</small><a class="more" href="#/todos">全部<${Icon} name="right" size=${12} /></a></div>
+        ${todos.length === 0 ? html`<div class="fq-empty">今天没有待办。<a href="#/todos">去添加</a></div>` : html`<div class="fq-list">${todos.slice(0, 9).map((t) => { const spent = focusedOn.get(t.id) || 0; const on = st.todoId === t.id; return html`<div key=${t.id} role="button" tabindex="0" class=${'fq-row ' + (on ? 'on' : '')} style=${`--pc:${(PRIORITY.find((p) => p.v === t.priority) || PRIORITY[2]).color}`} onClick=${() => pick(t)} onKeyDown=${(e) => { if (e.key === 'Enter') pick(t); }} onContextMenu=${(e) => rowMenu(e, t)}>
+          <i class="fq-p"></i>
+          <span class="fq-t"><b>${t.title}</b><small>${t.next ? `下一步：${t.next}` : [t.time, spent ? `已专注 ${spent} 分` : '', `${t.focusLen || 25} 分钟`].filter(Boolean).join(' · ')}</small></span>
+          <button type="button" class="fq-go" title=${`开始 · ${t.focusLen || 25} 分钟`} disabled=${st.phase !== 'idle'} onClick=${(e) => { e.stopPropagation(); go1(t); }}><${Icon} name="play" size=${12} /></button>
+        </div>`; })}</div>`}
+      </div>`}
+    </div>
+    ${!quiet && html`<div class="fp-today">
+      <div class="fq-h"><b>今天</b><small>${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60) ? Math.floor(mins / 60) + ' 小时 ' : ''}${mins % 60} 分钟` : '还没有专注记录，开始第一轮吧'}</small>${s.settings.focusGoal ? html`<${GoalRow} mins=${mins} goal=${s.settings.focusGoal} />` : html`<button type="button" class="fq-goal" onClick=${async () => { const v = await askPrompt('每天想专注多久？按小时填，比如 2；留空就不设目标', '', { title: '今日目标（可选）' }); const h = parseFloat(v); if (h > 0 && h <= 16) update((d) => { d.settings.focusGoal = Math.round(h * 60); }); }}>设个目标（可选）</button>`}</div>
+      ${sessions.length > 0 && html`<div class="day-strip">
           ${[6, 9, 12, 15, 18, 21, 24].map((h) => html`<span class="ds-h" key=${h} style=${`left:${posOf(String(h).padStart(2, '0') + ':00')}%`}>${h}</span>`)}
           ${sessions.map((b) => html`<i key=${b.id} class="ds-b" style=${`left:${posOf(b.start)}%;width:${Math.max(1.2, posOf(b.end) - posOf(b.start))}%`} title=${`${b.title} ${b.start}–${b.end}`}></i>`)}
-          ${st.phase === 'work' && html`<i class="ds-b live" style=${`left:${posOf(new Date(st.startedAt).toTimeString().slice(0, 5))}%;width:${Math.max(1.2, ((st.workLen - rem / 60) / ((dayTo - dayFrom) * 60)) * 100)}%`}></i>`}
         </div>
-        ${sessions.length > 0 && html`<div class="sec-h" style="margin-top:14px">已完成 <span class="muted small" style="text-transform:none;letter-spacing:0;font-weight:400">右键可备注或删除</span></div><div class="sess-list">${[...sessions].reverse().slice(0, 8).map((b) => html`<div class="sess" key=${b.id} onContextMenu=${(e) => sessMenu(e, b)}><i></i><span class="sess-t">${b.start}–${b.end}</span><span class="sess-n">${b.title || '专注'}${b.note && html`<small class="sess-note">${b.note}</small>`}</span><span class="sess-m">${b.mins} 分</span><span class="sess-acts"><button class="ibtn" title="备注" onClick=${(e) => sessMenu(e, b)}><${Icon} name="dots" size=${13} /></button></span></div>`)}</div>`}
-      <//>
+        <div class="ft-list">${[...sessions].reverse().map((b) => html`<div key=${b.id} class="ft-row" onContextMenu=${(e) => sessMenu(e, b)}><span class="ft-time">${b.start}–${b.end}</span><span class="ft-b"><b>${b.title || '专注'}</b>${(b.note || b.next || b.goal) && html`<small>${[b.note && '做到：' + b.note, b.next && '下一步：' + b.next, !b.note && b.goal && '目标：' + b.goal].filter(Boolean).join(' · ')}</small>`}</span><span class="ft-m">${b.mins} 分</span></div>`)}</div>`}
     </div>
-    <div class="widget span-1">
-      <${Card} title="今天的待办" sub="点 ▶ 用右边的时长开始专注" action=${html`<a class="more" href="#/todos">全部待办<${Icon} name="right" size=${12} /></a>`}>
-        ${todos.length === 0 ? html`<${Empty} icon="checksq" text="今天没有待办。"><${Btn} small onClick=${() => go('todos')}>去添加<//><//>` : html`<div class="tlist">${todos.slice(0, 8).map((t) => { const spent = focusedOn.get(t.id) || 0; const live = st.phase === 'work' && st.todoId === t.id; return html`<div class=${'fp-i p' + t.priority + ' ' + (live ? 'live' : '')} key=${t.id} style=${`--pc:${(PRIORITY[t.priority] || PRIORITY[2]).color}`} onContextMenu=${(e) => lenMenu(e, t)}>
-          <button class="cb" title="标为完成" onClick=${() => toggleTodo(t.id)}><${Icon} name="check" size=${12} /></button>
-          <span class="fp-t">${t.title}${spent > 0 && html`<small class="fp-spent">已专注 ${spent} 分</small>`}</span>
-          ${t.time && html`<small class="muted">${t.time}</small>`}
-          <button class="fp-len" title="专注时长（点击修改）" onClick=${(e) => lenMenu(e, t)}>${t.focusLen || 25}<i>分</i></button>
-          <button class="fp-go" title="开始这一项" disabled=${st.phase !== 'idle'} onClick=${() => { const w = t.focusLen || 25; pomo.start({ label: t.title, todoId: t.id, workLen: w, breakLen: Math.max(3, Math.round(w / 5)) }); }}><${Icon} name="play" size=${12} /></button>
-        </div>`; })}</div>`}
-      <//>
-    </div>
-    <div class="widget span-3"><${FocusStats} sessions=${all} /></div>
+    <div class="fp-hist">
+      <button type="button" class="fq-fold" onClick=${() => { const v = !hist; setHist(v); lsSet('ytos.focus.hist', v ? '1' : ''); }}><${Icon} name=${hist ? 'down' : 'right'} size=${12} /> 历史与趋势</button>
+      ${hist && html`<${FocusStats} sessions=${all} />`}
+    </div>`}
   </div>`;
 }
 
@@ -82,41 +90,64 @@ function GoalRow({ mins, goal }) {
 export function PomoCard({ full = false, initialTodo = '' }) {
   const s = useStore();
   const pst = usePomo();
-  const today = todayStr();
-  const [label, setLabel] = useState(pst.label || '');
-  const [todoId, setTodoId] = useState(pst.todoId || '');
   const [customLen, setCustomLen] = useState(false);
-  useEffect(() => { if (initialTodo) { const t = s.todos.find((x) => x.id === initialTodo); if (t) { setTodoId(t.id); setLabel(t.title); } } }, [initialTodo]);
-  const todos = sortBy(s.todos.filter((t) => !t.done && (t.due === today || !t.due)), 'priority');
-  const rem = pomo.remaining(); const total = (pst.phase === 'break' ? pst.breakLen : pst.workLen) * 60; const pct = pst.phase === 'idle' ? 0 : 1 - rem / total; const R = 118, C = 2 * Math.PI * R;
-  const begin = () => { pomo.start({ label: label.trim(), todoId }); if (!full) setLabel(''); };
-  const presets = [[15, 3], [25, 5], [45, 10]];
+  const [note, setNote] = useState(''); const [next, setNext] = useState('');
+  useEffect(() => { if (initialTodo) { const t = s.todos.find((x) => x.id === initialTodo); if (t) { pomo.setLabel(t.title, t.id); pomo.setGoal(t.next || ''); } } }, [initialTodo]);
+  useEffect(() => { setNote(''); setNext(''); }, [pst.review && pst.review.sid]);
+  const task = pst.todoId ? s.todos.find((t) => t.id === pst.todoId) : null;
+  const rem = pomo.remaining();
+  const begin = (once) => pomo.start({ label: (pst.label || '').trim(), todoId: pst.todoId, goal: (pst.goal || '').trim(), ...(once ? { once } : {}) });
+  const presets = full ? [[5, 2], [15, 3], [25, 5], [45, 10]] : [[15, 3], [25, 5], [45, 10]];
   const custom = !presets.some(([w]) => w === pst.workLen);
   const endAt = (w) => hhmm(new Date(Date.now() + w * 60000));
   const breakMenu = (e) => ctxMenu(e, [...[3, 5, 10, 15, 20].map((n) => ({ label: `休息 ${n} 分钟`, icon: pst.breakLen === n ? 'check' : 'clock', onClick: () => pomo.setLens(pst.workLen, n) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('休息几分钟？', String(pst.breakLen), { title: '休息时长' }), 10); if (v >= 1 && v <= 60) pomo.setLens(pst.workLen, v); } }], '休息时长');
-  const sub = pst.phase === 'idle' ? html`${pst.workLen} 分钟<${Span} rem=${rem} />${full ? html`<button type="button" class="tt-break" title="休息时长" onClick=${breakMenu}>· 休息 ${pst.breakLen} 分</button>` : ''}`
-    : pst.phase === 'break' ? html`休息一下<${Span} rem=${rem} />` : html`${pst.paused ? '已暂停' : (pst.label || '专注中')}<${Span} rem=${rem} />`;
   const tint = s.settings.pomoColor || 'blue';
-  return html`<${Card} class=${'focus-w tt-card tc-' + tint + ' ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '')} pad=${false}>
+  const rv = pst.review;
+  const sub = pst.phase === 'idle' ? html`${pst.workLen} 分钟<${Span} rem=${rem} />${full ? html`<button type="button" class="tt-break" title="休息时长" onClick=${breakMenu}>· 休息 ${pst.breakLen} 分</button>` : ''}`
+    : pst.phase === 'break' ? html`休息一下<${Span} rem=${rem} />` : html`${pst.paused ? '已暂停' : '专注中'}<${Span} rem=${rem} />`;
+  const save = (after) => { pomo.checkpoint({ note, next, done: after === 'done' }); if (after === 'again') { pomo.skip(); setTimeout(() => pomo.start({ label: rv.label, todoId: rv.todoId, goal: next.trim() }), 0); } };
+  // ---- 检查点：一轮结束后问两句，写回这件事；计时结束 ≠ 任务完成 ----
+  const review = rv && full && html`<div class="tt-info tt-cp">
+    <div class="cp-k">这一轮 ${rv.mins} 分钟${rv.label ? html` · <b>${rv.label}</b>` : ''}</div>
+    ${rv.goal && html`<div class="cp-goal">本来想推进：${rv.goal}</div>`}
+    <label class="cp-f"><span>做到哪了？</span><textarea rows="2" value=${note} placeholder="一句话就行，比如：方法部分写完前两段" onInput=${(e) => setNote(e.target.value)}></textarea></label>
+    <label class="cp-f"><span>下一步是什么？</span><input type="text" value=${next} placeholder="下次打开就从这里接着做" onInput=${(e) => setNext(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') save('break'); }} /></label>
+    <div class="tt-acts cp-acts">
+      <button type="button" class="tt-go" onClick=${() => save('again')}><${Icon} name="play" size=${14} /> 记下，再来一轮</button>
+      <button type="button" class="tt-chip" onClick=${() => save('break')}>记下，先休息</button>
+      ${rv.todoId && html`<button type="button" class="tt-chip" title="把这件待办标为完成" onClick=${() => save('done')}><${Icon} name="check" size=${13} /> 这件事做完了</button>`}
+    </div>
+    <button type="button" class="cp-skip" onClick=${() => pomo.dismissReview()}>这次不记</button>
+  </div>`;
+  // ---- 准备：选一件事、写一句这轮最小目标（可选）、选时长 ----
+  const prep = full && html`<div class="tt-prep">
+    ${task ? html`<div class="tp-task"><span class="tp-k">现在做</span><b>${task.title}</b><button type="button" class="ibtn" title="不绑定待办" onClick=${() => { pomo.setLabel('', ''); pomo.setGoal(''); }}><${Icon} name="x" size=${13} /></button></div>
+      ${(task.lastNote || task.next) && html`<div class="tp-resume">${task.lastNote && html`<span>上次停在：${task.lastNote}</span>`}${task.next && html`<span>下一步：${task.next}</span>`}</div>`}`
+    : html`<input class="tt-label" type="text" value=${pst.label || ''} placeholder="这一轮推进什么？也可以从右边点一件待办" onInput=${(e) => pomo.setLabel(e.target.value, '')} onKeyDown=${(e) => { if (e.key === 'Enter') begin(); }} />`}
+    <input class="tt-label tt-goal" type="text" value=${pst.goal || ''} placeholder="这轮最小目标（可选）：比如先列三个要点" onInput=${(e) => pomo.setGoal(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') begin(); }} />
+  </div>`;
+  return html`<${Card} class=${'focus-w tt-card tc-' + tint + ' ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '') + (rv && full ? ' reviewing' : '')} pad=${false}>
     <div class="fw-hero">
       ${!full && html`<div class="fw-top"><span class="fh-k">专注</span><a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a></div>`}
       <${Dial} rem=${rem} phase=${pst.phase} full=${full} />
-      <div class="tt-info">
+      ${review || html`<div class="tt-info">
+        ${full && pst.phase !== 'idle' && html`<div class="tt-now">${pst.phase === 'break' ? '休息' : (pst.label || '专注')}${pst.phase === 'work' && pst.goal && html`<small>这轮：${pst.goal}</small>`}</div>`}
         <div class="tt-time">${pomo.fmt(rem)}</div>
         <div class="tt-sub">${sub}</div>
+        ${!full && rv && html`<a class="tt-cp-link" href="#/focus">记一下这轮做到哪了 →</a>`}
         ${pst.phase === 'idle' ? html`
-          ${full && html`<input class="tt-label" type="text" value=${label} placeholder="这一轮要做什么？（可不填）" onInput=${(e) => setLabel(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') begin(); }} />`}
-          <div class="tt-chips">${presets.map(([w, b]) => html`<button key=${w} type="button" class=${'tt-chip ' + (pst.workLen === w && !customLen ? 'on' : '')} title=${`${w} 分钟 · 到 ${endAt(w)}`} onClick=${() => { setCustomLen(false); pomo.setLens(w, b); }}>${w} 分</button>`)}${full && (customLen ? html`<input class="tt-chip tt-chip-in" type="number" min="5" max="180" value=${pst.workLen} autofocus onBlur=${() => setCustomLen(false)} onInput=${(e) => { const w = Math.max(5, Math.min(180, +e.target.value || 25)); pomo.setLens(w, Math.max(3, Math.round(w / 5))); }} />` : html`<button type="button" class=${'tt-chip ' + (custom ? 'on' : '')} title="输入任意分钟数" onClick=${() => setCustomLen(true)}>${custom ? `${pst.workLen} 分` : '自定义'}</button>`)}</div>
+          ${prep}
+          <div class="tt-chips">${presets.map(([w, b]) => html`<button key=${w} type="button" class=${'tt-chip ' + (pst.workLen === w && !customLen ? 'on' : '')} title=${`${w} 分钟 · 到 ${endAt(w)}`} onClick=${() => { setCustomLen(false); pomo.setLens(w, b); }}>${w} 分</button>`)}${full && (customLen ? html`<input class="tt-chip tt-chip-in" type="number" min="1" max="180" value=${pst.workLen} autofocus onBlur=${() => setCustomLen(false)} onInput=${(e) => { const w = Math.max(1, Math.min(180, +e.target.value || 25)); pomo.setLens(w, Math.max(2, Math.round(w / 5))); }} />` : html`<button type="button" class=${'tt-chip ' + (custom ? 'on' : '')} title="输入任意分钟数" onClick=${() => setCustomLen(true)}>${custom ? `${pst.workLen} 分` : '自定义'}</button>`)}</div>
           <div class="tt-acts">
-            <button type="button" class="tt-go" onClick=${begin}><${Icon} name="play" size=${15} /> 开始专注</button>
-            <button type="button" class="tt-round" title="恢复 25 分钟" onClick=${() => { setCustomLen(false); pomo.setLens(25, 5); }}><${Icon} name="refresh" size=${16} /></button>
+            <button type="button" class="tt-go" onClick=${() => begin()}><${Icon} name="play" size=${15} /> 开始专注</button>
+            ${full ? html`<button type="button" class="tt-chip tt-two" title="不想开始的时候，先只做 2 分钟；到点可以停，也可以接着做" onClick=${() => begin(2)}>先做 2 分钟</button>` : html`<button type="button" class="tt-round" title="恢复 25 分钟" onClick=${() => { setCustomLen(false); pomo.setLens(25, 5); }}><${Icon} name="refresh" size=${16} /></button>`}
           </div>`
         : html`<div class="tt-acts">
             <button type="button" class="tt-go" onClick=${() => (pst.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${pst.paused ? 'play' : 'pause'} size=${15} /> ${pst.paused ? '继续' : '暂停'}</button>
-            ${pst.phase === 'work' ? html`<button type="button" class="tt-round" title="提前完成，记一次" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${16} /></button>` : html`<button type="button" class="tt-round" title="跳过休息" onClick=${() => pomo.skip()}><${Icon} name="right" size=${16} /></button>`}
-            <button type="button" class="tt-round" title="放弃这一轮" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${16} /></button>
+            ${pst.phase === 'work' ? html`<button type="button" class="tt-round" title="这轮先到这，记一下" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${16} /></button>` : html`<button type="button" class="tt-round" title="跳过休息" onClick=${() => pomo.skip()}><${Icon} name="right" size=${16} /></button>`}
+            <button type="button" class="tt-round" title="放弃这一轮（不记录）" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${16} /></button>
           </div>`}
-      </div>
+      </div>`}
     </div>
   <//>`;
 }
@@ -214,7 +245,7 @@ function FocusStats({ sessions }) {
   const yOf = (v) => padT + (H - padT - padB) * (1 - v / yMax);
   return html`<${Card} class="fstats">
     <div class="fs-left">
-    <div class="fs-nums"><div><b>${focus.length}</b><small>次</small></div><div><b>${perDay.size}</b><small>天</small></div><div><b class=${streak ? '' : 'muted'}>${streak} 天</b><small>连续专注</small></div></div>
+    <div class="fs-nums"><div><b>${focus.length}</b><small>次</small></div><div><b>${perDay.size}</b><small>天</small></div></div>
     <div class="heat">
       <div class="heat-months">${grid.months.map((m) => html`<span key=${m.w} style=${`left:calc(${m.w} * (100% / ${weeks}))`}>${m.label}</span>`)}</div>
       <div class="heat-body"><div class="heat-wd">${WD.map((d) => html`<span key=${d}>${d}</span>`)}</div>
