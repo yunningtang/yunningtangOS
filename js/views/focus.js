@@ -52,12 +52,13 @@ export default function Focus({ route }) {
     <div class="fp-main">
       <div class="fp-timer"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
       ${!quiet && html`<div class="fp-queue">
-        <div class="fq-h"><b>接下来</b><small>点一下选中，▶ 直接开始</small><a class="more" href="#/todos">全部<${Icon} name="right" size=${12} /></a></div>
+        <div class="fq-h"><b>接下来</b><small>${todos.length || ''}</small><a class="more" href="#/todos" title="全部待办"><${Icon} name="right" size=${13} /></a></div>
         ${todos.length === 0 ? html`<div class="fq-empty">今天没有待办。<a href="#/todos">去添加</a></div>` : html`<div class="fq-list">${todos.slice(0, 9).map((t) => { const spent = focusedOn.get(t.id) || 0; const on = st.todoId === t.id; return html`<div key=${t.id} role="button" tabindex="0" class=${'fq-row ' + (on ? 'on' : '')} style=${`--pc:${(PRIORITY.find((p) => p.v === t.priority) || PRIORITY[2]).color}`} onClick=${() => pick(t)} onKeyDown=${(e) => { if (e.key === 'Enter') pick(t); }} onContextMenu=${(e) => rowMenu(e, t)}>
-          <i class="fq-p"></i>
+          <i class=${'fq-p p' + (t.priority ?? 2)} title=${(PRIORITY.find((p) => p.v === t.priority) || PRIORITY[2]).name}></i>
           <span class="fq-t"><b>${t.title}</b><small>${t.next ? `下一步：${t.next}` : [t.time, spent ? `已专注 ${spent} 分` : '', `${t.focusLen || 25} 分钟`].filter(Boolean).join(' · ')}</small></span>
           <button type="button" class="fq-go" title=${`开始 · ${t.focusLen || 25} 分钟`} disabled=${st.phase !== 'idle'} onClick=${(e) => { e.stopPropagation(); go1(t); }}><${Icon} name="play" size=${12} /></button>
         </div>`; })}</div>`}
+        <form class="fq-add" onSubmit=${(e) => { e.preventDefault(); const v = e.target.elements.q.value.trim(); if (!v) return; const t = { id: uid(), title: v, done: false, priority: 2, due: today, time: '', tags: [], area: '', note: '', created: today, steps: [] }; upsert('todos', t); e.target.reset(); pick(t); }}><${Icon} name="plus" size=${13} /><input name="q" placeholder="加一件今天要做的事" autocomplete="off" /></form>
       </div>`}
     </div>
     ${!quiet && html`<div class="fp-today">

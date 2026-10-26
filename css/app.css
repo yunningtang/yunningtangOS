@@ -2947,3 +2947,28 @@ html[data-theme="dark"] .fq-go{color:#191919}
 .fp-timer .tt-card.full .tt-chips{flex-wrap:wrap;gap:6px}.tt-chip{white-space:nowrap;flex:none}
 .fp-timer .tt-card.full .tt-chip{min-width:0;padding:0 12px;height:34px;font-size:.82rem}
 .fp-timer .tt-card.full .fw-hero{grid-template-columns:minmax(200px,300px) minmax(0,1fr)!important}
+
+/* ---- 专注页「接下来」：Notion 式安静列表 ---- */
+.fp-queue{padding:14px 10px 10px}
+.fq-h{align-items:center;margin:0 8px 6px}
+.fq-h b{font-size:.86rem}.fq-h small{flex:1;font-size:.74rem;color:var(--text-4)}
+.fq-h .more{color:var(--text-4);display:grid;place-items:center;width:24px;height:24px;border-radius:6px}.fq-h .more:hover{background:var(--hover);color:var(--text)}
+.fq-row{gap:10px;padding:7px 8px;border-radius:8px}
+.fq-row.on{background:var(--hover)}
+.fq-row.on .fq-t b{font-weight:600}
+.fq-p{width:14px;height:14px;align-self:auto;flex:none;border-radius:50%;border:1.5px solid var(--text-4);background:transparent;opacity:1;margin-top:1px}
+.fq-p.p0{border-color:var(--hot);background:color-mix(in srgb,var(--hot) 14%,transparent)}
+.fq-p.p1{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.fq-p.p2{border-color:color-mix(in srgb,var(--p2,var(--blue)) 70%,transparent)}
+.fq-p.p3{border-color:var(--line-2)}
+.fq-row{align-items:flex-start}.fq-row .fq-go{align-self:center}
+.fq-t b{font-size:.85rem;font-weight:450;line-height:1.35}
+.fq-t small{font-size:.7rem}
+.fq-go{width:24px;height:24px;background:transparent;color:var(--text-3);border:1px solid var(--line-2)}
+.fq-go:hover{background:var(--ink);color:var(--paper);border-color:transparent}
+html[data-theme="dark"] .fq-go{color:var(--text-3)}html[data-theme="dark"] .fq-go:hover{color:#191919}
+.fq-row.on .fq-go{background:var(--ink);color:var(--paper);border-color:transparent}html[data-theme="dark"] .fq-row.on .fq-go{color:#191919}
+.fq-add{display:flex;align-items:center;gap:8px;margin:4px 0 0;padding:7px 8px;border-radius:8px;color:var(--text-4)}
+.fq-add:focus-within{background:var(--hover)}
+.fq-add input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:.82rem;color:var(--text)}
+.fq-add input::placeholder{color:var(--text-4)}
