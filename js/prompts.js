@@ -132,16 +132,16 @@ export function contextPrompts(route = parseRoute(), s = get()) {
 export function dailySuggestions(s = get()) {
   const out = []; const today = todayStr();
   const od = overdue(s), td = dueToday(s), free = freeSlots(s);
-  if (od.length) out.push({ id: 'overdue', w: 100, i: 'refresh', t: `${od.length} 件待办过期了`, sub: od.slice(0, 3).map((t) => t.title).join('、'), act: { label: '让汤圆重排', ask: `这些待办过期了：${od.slice(0, 10).map((t) => t.title).join('、')}，帮我把日期重新排一下（能今天做的放今天）` } });
+  if (od.length) out.push({ id: 'overdue', lv: 'hot', w: 100, i: 'refresh', t: `${od.length} 件待办过期了`, sub: od.slice(0, 3).map((t) => t.title).join('、'), act: { label: '让汤圆重排', ask: `这些待办过期了：${od.slice(0, 10).map((t) => t.title).join('、')}，帮我把日期重新排一下（能今天做的放今天）` } });
   const unplanned = td.filter((t) => !s.blocks.some((b) => b.todoId === t.id && b.date === today));
-  if (unplanned.length && free.length) { const [a, b] = free[0]; out.push({ id: 'today', w: 90, i: 'clock', t: `${fmtMin(a)}–${fmtMin(b)} 空着`, sub: `今天还有 ${unplanned.length} 件没排时间：${unplanned.slice(0, 2).map((t) => t.title).join('、')}`, act: { label: '排进去', mode: 'plan', ask: `今天到期还没排时间的：${unplanned.slice(0, 8).map((t) => t.title).join('、')}，帮我排进今天剩下的空档` } }); }
+  if (unplanned.length && free.length) { const [a, b] = free[0]; out.push({ id: 'today', lv: 'now', w: 90, i: 'clock', t: `${fmtMin(a)}–${fmtMin(b)} 空着`, sub: `今天还有 ${unplanned.length} 件没排时间：${unplanned.slice(0, 2).map((t) => t.title).join('、')}`, act: { label: '排进去', mode: 'plan', ask: `今天到期还没排时间的：${unplanned.slice(0, 8).map((t) => t.title).join('、')}，帮我排进今天剩下的空档` } }); }
   const big = openTodos(s).filter((t) => !(t.steps || []).length && (t.priority ?? 2) <= 1 && (!t.due || t.due <= addDays(today, 7)))[0];
-  if (big) out.push({ id: 'big:' + big.id, w: 70, i: 'layers', t: `「${clip(big.title, 16)}」还没拆`, sub: big.due ? `${relDay(big.due)}到期，先拆成几步更好开始` : '高优先级，先拆成几步更好开始', act: { label: '拆一下', breakdown: { id: big.id, title: big.title, due: big.due || '', note: big.note || '' } } });
+  if (big) out.push({ id: 'big:' + big.id, lv: 'warn', w: 70, i: 'layers', t: `「${clip(big.title, 16)}」还没拆`, sub: big.due ? `${relDay(big.due)}到期，先拆成几步更好开始` : '高优先级，先拆成几步更好开始', act: { label: '拆一下', breakdown: { id: big.id, title: big.title, due: big.due || '', note: big.note || '' } } });
   const stale = s.books.filter((b) => b.status === 'reading' && daysSince(lastRead(b)) >= 4).sort((a, b) => daysSince(lastRead(b)) - daysSince(lastRead(a)))[0];
-  if (stale) out.push({ id: 'book:' + stale.id, w: 50, i: 'book', t: `《${clip(stale.title, 14)}》${daysSince(lastRead(stale))} 天没读了`, sub: `读到 ${bookPct(stale)}%`, act: { label: '排 30 分钟', mode: 'plan', ask: `《${stale.title}》好几天没读了，帮我在今天或明天的空档排 30 分钟读书` } });
+  if (stale) out.push({ id: 'book:' + stale.id, lv: 'calm', w: 50, i: 'book', t: `《${clip(stale.title, 14)}》${daysSince(lastRead(stale))} 天没读了`, sub: `读到 ${bookPct(stale)}%`, act: { label: '排 30 分钟', mode: 'plan', ask: `《${stale.title}》好几天没读了，帮我在今天或明天的空档排 30 分钟读书` } });
   const gs = s.goals[monthKey()] || []; const dom = new Date().getDate(); const dim = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const lag = gs.filter((g) => (g.progress || 0) + 15 < Math.round(dom / dim * 100)).sort((a, b) => (a.progress || 0) - (b.progress || 0))[0];
-  if (lag) out.push({ id: 'goal:' + lag.id, w: 60, i: 'target', t: `「${clip(lag.title, 14)}」落后了`, sub: `本月过了 ${Math.round(dom / dim * 100)}%，它才 ${lag.progress || 0}%`, act: { label: '拆成本周的事', goal: { mk: monthKey(), id: lag.id } } });
+  if (lag) out.push({ id: 'goal:' + lag.id, lv: 'warn', w: 60, i: 'target', t: `「${clip(lag.title, 14)}」落后了`, sub: `本月过了 ${Math.round(dom / dim * 100)}%，它才 ${lag.progress || 0}%`, act: { label: '拆成本周的事', goal: { mk: monthKey(), id: lag.id } } });
   const fk = (s.weeks[weekKey()] || {}).focus; const dow = new Date().getDay();
   if (!fk && (dow === 1 || dow === 0)) out.push({ id: 'focus', w: 40, i: 'target', t: '这周还没定焦点', sub: '一句话写下这周最重要的事', act: { label: '一起想想', ask: '看我的待办和本月目标，帮我定一句本周焦点' } });
   const rv = s.notes.filter((n) => n.review && n.review <= today && !n.deleted);

@@ -2484,3 +2484,30 @@ html[data-skin="glass"][data-theme="dark"] .focus-w:not(.break) .fw-go,html[data
 html[data-skin="glass"] .fw-go,html[data-skin="glass"] .pf-start{box-shadow:none}
 html[data-skin="glass"] .side-avatar,html[data-skin="glass"] .avatar-pick{background:var(--hover-2)}
 html[data-skin="glass"] .th-lines i{background:color-mix(in srgb,var(--ink) 14%,transparent)}
+
+/* ---- 墨白的颜色层级：红 = 现在要处理（过期、紧急、此刻），蓝 = 今天 / 当前，墨 = 主操作，灰 = 其余 ---- */
+html[data-skin="glass"][data-theme="light"],html[data-skin="glass"][data-theme="light"][data-fx]{--now:#2b6fd6;--hot:#d2483f;--warn:#c27a1e}
+html[data-skin="glass"][data-theme="dark"],html[data-skin="glass"][data-theme="dark"][data-fx]{--now:#6aa5ff;--hot:#ff6b61;--warn:#f0aa4a}
+/* 今天 / 当前：蓝 */
+html[data-skin="glass"] .mc-d.today{background:var(--now);color:#fff}
+html[data-skin="glass"] .wtl-day.today b{background:var(--now);color:#fff}
+html[data-skin="glass"] .dchip.today{color:var(--now)}html[data-skin="glass"] .dchip.today b::after{background:var(--now)}
+html[data-skin="glass"] .dchip.on.today{background:var(--now);color:#fff;box-shadow:none}html[data-skin="glass"] .dchip.on.today b::after{background:#fff}
+html[data-skin="glass"] .cal-d.today{color:var(--now)}
+html[data-skin="glass"] .mt-b.cur{box-shadow:0 0 0 1.5px var(--now),0 6px 16px -8px color-mix(in srgb,var(--now) 55%,transparent)}
+html[data-skin="glass"] .todo-card .tg-h.today{color:var(--now);font-weight:600}html[data-skin="glass"] .todo-card .tg-h.late{color:var(--hot);font-weight:600}
+/* 此刻、过期、紧急：红 */
+html[data-skin="glass"] .mt-now{background:var(--hot)}html[data-skin="glass"] .mt-now span{background:var(--hot);color:#fff}
+html[data-skin="glass"] .tl .now,html[data-skin="glass"] .tl .now::before{background:var(--hot)}
+/* 首页建议：按紧急程度上色，最急的那条最显眼 */
+.sugg{position:relative}
+html[data-skin="glass"] .sugg.hot .sugg-ic{color:var(--hot);box-shadow:0 0 0 1px color-mix(in srgb,var(--hot) 30%,transparent);background:color-mix(in srgb,var(--hot) 8%,var(--paper))}
+html[data-skin="glass"] .sugg.now .sugg-ic{color:var(--now);box-shadow:0 0 0 1px color-mix(in srgb,var(--now) 30%,transparent);background:color-mix(in srgb,var(--now) 8%,var(--paper))}
+html[data-skin="glass"] .sugg.warn .sugg-ic{color:var(--warn);box-shadow:0 0 0 1px color-mix(in srgb,var(--warn) 30%,transparent);background:color-mix(in srgb,var(--warn) 8%,var(--paper))}
+html[data-skin="glass"] .sugg:first-child .sugg-a .btn{background:var(--ink);color:var(--bg);border-color:transparent}
+.sugg.hot .sugg-b b{color:var(--text)}
+/* 文字层级：标题更实、元信息更淡 */
+html[data-skin="glass"] .card-h h3{font-weight:650;letter-spacing:-.01em}
+html[data-skin="glass"] .nav a.active{font-weight:600}
+html[data-skin="glass"] .nav a.active svg{color:var(--text)}
+html[data-skin="glass"] .group-h.today{color:var(--now)}html[data-skin="glass"] .group-h.late{color:var(--hot)}
