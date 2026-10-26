@@ -53,34 +53,6 @@ function Spark({ points, color = 'var(--blue)' }) {
   return html`<svg class="spark" viewBox=${`0 0 ${w} ${h}`} preserveAspectRatio="none"><path d=${area} fill=${color} opacity=".12" /><path d=${d} fill="none" stroke=${color} stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" /></svg>`;
 }
 
-// 建议卡底部的「今天的形状」：点阵海报。横轴是 8:00–22:00，每一列是一小段时间；
-// 有安排的时段点更大更实，「此刻」那一列是红色，围着此刻有一团半调网点的光；全部本地计算
-function DayPoster({ s }) {
-  const today = todayStr(); const now = new Date(); const nowM = now.getHours() * 60 + now.getMinutes();
-  const C = 64, R = 34, G = 6, x0 = 3, y0 = 3, from = 8 * 60, to = 22 * 60, step = (to - from) / C;
-  const bl = s.blocks.filter((b) => b.date === today && !b.pomo).map((b) => [timeToMin(b.start), timeToMin(b.end), b.done]);
-  const nowC = (nowM - from) / step;
-  const dots = [];
-  for (let c = 0; c < C; c++) {
-    const a = from + c * step, mid = a + step / 2;
-    const hit = bl.find(([s0, e0]) => mid >= s0 && mid < e0);
-    for (let r = 0; r < R; r++) {
-      // 半调「太阳」：离此刻越近、越靠上越大
-      const dx = (c - nowC) / 14, dy = (r - (R - 10)) / 11; const sun = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy));
-      // 安排：下半部分的柱子，有安排的时段点更大
-      const bar = hit && r >= R - 14 ? (hit[2] ? .45 : .8) * Math.min(1, (r - (R - 14)) / 10 + .3) : 0;
-      const past = mid < nowM;
-      let rad = .35 + 1.75 * Math.max(sun * .9, bar);
-      const isNow = Math.abs(c + .5 - nowC) < .55 && nowM >= from && nowM <= to && r >= R - 14;
-      dots.push(html`<circle key=${c + '-' + r} cx=${x0 + c * G} cy=${y0 + r * G} r=${rad.toFixed(2)} class=${isNow ? 'dp-now' : bar ? (past ? 'dp-done' : 'dp-bar') : sun > .05 ? 'dp-sun' : 'dp-base'} />`);
-    }
-  }
-  const W = x0 * 2 + (C - 1) * G, H = y0 * 2 + (R - 1) * G;
-    return html`<div class="sugg-bg" aria-hidden="true" title="今天的形状：8:00–22:00，实心的是有安排的时段，红色是此刻">
-    <svg viewBox=${`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice">${dots}</svg>
-  </div>`;
-}
-
 // 汤圆今天的建议：看数据算出最多三条（过期、空档、没拆的大事、没读的书、落后的目标…），每条一个按钮直接交给汤圆
 function SuggestWidget({ s }) {
   const today = todayStr();
@@ -94,7 +66,6 @@ function SuggestWidget({ s }) {
     if (a.ask) window.dispatchEvent(new CustomEvent('seal:ask', { detail: a.ask }));
   };
   return html`<${Card} class="sugg-card">
-    <${DayPoster} s=${s} />
     <div class="card-h"><h3>汤圆今天的建议${list.length > 0 && html`<span class="muted small"> ${list.length}</span>`}</h3><div class="card-act"><button class="ibtn" title="问汤圆" onClick=${() => window.dispatchEvent(new CustomEvent('seal:open', { detail: { mode: 'big' } }))}><${Icon} name="chat" size=${15} /></button></div></div>
     ${list.length === 0 ? html`<p class="muted small sugg-none">今天的建议都处理过了。</p>` : html`<div class="sugg-list">${list.map((x) => html`<div class=${'sugg ' + (x.lv || 'calm')} key=${x.id}>
       <span class="sugg-ic"><${Icon} name=${x.i} size=${15} /></span>

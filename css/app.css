@@ -2640,48 +2640,9 @@ html[data-theme="dark"] .sugg:first-child .sugg-go{color:#191919}
 .sugg:first-child .sugg-go svg{opacity:.8}
 
 
-/* ---- 建议卡底部「今天的形状」点阵海报 ---- */
+/* ---- 建议卡 ---- */
 .sugg-card{display:flex;flex-direction:column}
-.sugg-poster{position:relative;margin-top:auto;flex:1 1 auto;min-height:104px;max-height:180px;border-radius:12px;overflow:hidden;background:var(--hover);margin-top:12px}
-.sugg-list+.sugg-poster,.sugg-none+.sugg-poster{margin-top:max(12px,auto)}
-.sugg-poster svg{position:absolute;inset:0;width:100%;height:100%}
-.sugg-poster circle{transition:r .4s}
-.dp-base{fill:color-mix(in srgb,var(--text) 14%,transparent)}
-.dp-sun{fill:color-mix(in srgb,var(--text) 30%,transparent)}
-.dp-bar{fill:var(--text)}
-.dp-done{fill:color-mix(in srgb,var(--text) 45%,transparent)}
-.dp-now{fill:var(--hot,#e03e3e)}
-.dp-cap{position:absolute;left:12px;top:10px;display:flex;align-items:baseline;gap:6px;color:var(--text);mix-blend-mode:normal;padding:2px 6px 2px 0;background:linear-gradient(90deg,var(--hover-bg,transparent),transparent)}
-.dp-cap b{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
-.dp-cap span{font-size:.62rem;letter-spacing:.14em;color:var(--text-3);font-weight:600}
-.dp-meta{position:absolute;right:12px;bottom:9px;font-size:.66rem;color:var(--text-3);letter-spacing:.02em}
-.dp-cap{align-items:baseline;padding:3px 8px 3px 0;border-radius:0 8px 8px 0;background:var(--hover);background:color-mix(in srgb,var(--paper) 0%,transparent)}
-.dp-cap i{font-style:normal;font-size:.64rem;color:var(--text-3);margin-left:4px}
-.dp-cap i::before{content:'·';margin-right:5px;color:var(--text-4)}
-.sugg-poster{--dp-bg:color-mix(in srgb,var(--text) 5%,var(--paper));background:var(--dp-bg)}
-.dp-cap{left:0;top:0;padding:10px 12px 8px 12px;border-radius:0 0 12px 0;background:var(--dp-bg);box-shadow:6px 6px 10px -4px var(--dp-bg)}
-
-/* ---- 建议卡：点阵当背景叠底（不是单独的一块），从底部往上淡出，文字始终干净 ---- */
-.sugg-poster{display:none}
-.sugg-card{position:relative;overflow:hidden;isolation:isolate}
-.sugg-card>*:not(.sugg-bg){position:relative;z-index:1}
-.sugg-bg{position:absolute;inset:0;z-index:0;pointer-events:none;mix-blend-mode:multiply;opacity:.9;
-  -webkit-mask-image:linear-gradient(to top,#000 0%,rgba(0,0,0,.75) 30%,rgba(0,0,0,.18) 62%,transparent 85%);mask-image:linear-gradient(to top,#000 0%,rgba(0,0,0,.75) 30%,rgba(0,0,0,.18) 62%,transparent 85%)}
-html[data-theme="dark"] .sugg-bg{mix-blend-mode:screen}
-.sugg-bg svg{position:absolute;inset:0;width:100%;height:100%}
-.sugg-bg .dp-base{fill:color-mix(in srgb,var(--text) 9%,transparent)}
-.sugg-bg .dp-sun{fill:color-mix(in srgb,var(--text) 18%,transparent)}
-.sugg-bg .dp-bar{fill:color-mix(in srgb,var(--text) 30%,transparent)}
-.sugg-bg .dp-done{fill:color-mix(in srgb,var(--text) 16%,transparent)}
-.sugg-bg .dp-now{fill:color-mix(in srgb,var(--hot,#e03e3e) 70%,transparent)}
 .sugg-card .sugg:hover{background:color-mix(in srgb,var(--hover) 80%,transparent)}
-.sugg-bg{opacity:1;-webkit-mask-image:linear-gradient(to top,#000 0%,rgba(0,0,0,.6) 22%,rgba(0,0,0,.15) 45%,transparent 62%);mask-image:linear-gradient(to top,#000 0%,rgba(0,0,0,.6) 22%,rgba(0,0,0,.15) 45%,transparent 62%)}
-.sugg-bg .dp-base{fill:color-mix(in srgb,var(--text) 7%,transparent)}
-.sugg-bg .dp-sun{fill:color-mix(in srgb,var(--text) 13%,transparent)}
-.sugg-bg .dp-bar{fill:color-mix(in srgb,var(--text) 20%,transparent)}
-.sugg-bg .dp-done{fill:color-mix(in srgb,var(--text) 11%,transparent)}
-.sugg-bg .dp-now{fill:color-mix(in srgb,var(--hot,#e03e3e) 45%,transparent)}
-html[data-theme="dark"] .sugg-bg .dp-base{fill:rgba(255,255,255,.06)}html[data-theme="dark"] .sugg-bg .dp-sun{fill:rgba(255,255,255,.12)}html[data-theme="dark"] .sugg-bg .dp-bar{fill:rgba(255,255,255,.17)}html[data-theme="dark"] .sugg-bg .dp-done{fill:rgba(255,255,255,.09)}
 
 /* ===================================================================
    番茄钟（参考 Time Timer）：0 在正上方，番茄红扇形 = 剩余时间，其余只用黑白灰
