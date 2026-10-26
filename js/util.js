@@ -201,7 +201,7 @@ export function sortBy(arr, ...keys) {
 export const PRIORITY = [
   { v: 0, label: 'P0', name: '紧急', color: 'var(--red)' },
   { v: 1, label: 'P1', name: '重要', color: 'var(--amber)' },
-  { v: 2, label: 'P2', name: '普通', color: 'var(--blue)' },
+  { v: 2, label: 'P2', name: '普通', color: 'var(--p2, var(--blue))' },
   { v: 3, label: 'P3', name: '随缘', color: 'var(--text-4)' },
 ];
 
