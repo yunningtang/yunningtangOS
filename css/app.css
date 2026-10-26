@@ -2834,3 +2834,28 @@ html[data-theme="dark"] .sp-card{background:color-mix(in srgb,var(--k) 16%,var(-
 .sp-body small{display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--text-3)}
 .sp-kind{padding:0 6px;border-radius:5px;background:color-mix(in srgb,var(--k) 16%,transparent);color:var(--k);font-weight:500}
 .sm-edit textarea{border:0!important;box-shadow:none!important;padding:0!important;background:transparent!important;border-radius:0!important}
+
+/* ---- 时间线预览：地铁线路图——每段轨道是这一步类型的颜色，站点是圆环，圆越大这一步越久 ---- */
+.sp-cal{display:none}
+.sp-line{margin-top:10px}
+.sp-day{display:flex;align-items:center;gap:8px;margin:4px 0 6px;font-size:.78rem}
+.sp-term{width:52px;display:flex;justify-content:flex-end}
+.sp-day b{font-weight:650;color:var(--text);margin-left:14px}
+.sp-st{display:grid;grid-template-columns:52px 44px minmax(0,1fr);min-height:var(--rh)}
+.sp-when{display:flex;flex-direction:column;align-items:flex-end;padding-top:2px;line-height:1.2;font-variant-numeric:tabular-nums}
+.sp-when b{font-size:.84rem;font-weight:650;color:var(--text)}.sp-when small{font-size:.66rem;color:var(--text-4);margin-top:1px}
+.sp-trk{position:relative}
+.sp-trk::before{content:"";position:absolute;left:50%;top:12px;bottom:-12px;width:6px;margin-left:-3px;border-radius:3px;background:var(--k)}
+.sp-st.last .sp-trk::before{display:none}
+.sp-st.gapped .sp-trk::before{background:repeating-linear-gradient(to bottom,var(--k) 0 6px,transparent 6px 11px)}
+.sp-dot{position:absolute;left:50%;top:12px;width:var(--d);height:var(--d);margin:calc(var(--d) / -2) 0 0 calc(var(--d) / -2);border-radius:50%;background:var(--paper);border:4px solid var(--k);z-index:1;display:grid;place-items:center;font-size:.62rem;font-weight:800;color:var(--k);font-variant-numeric:tabular-nums;box-shadow:0 0 0 3px var(--paper)}
+.sp-lbl2{padding:1px 0 14px 2px;min-width:0}
+.sp-lbl2 b{display:block;font-size:.86rem;font-weight:550;color:var(--text);line-height:1.35}
+.sp-lbl2 small{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:.7rem;color:var(--text-3)}
+.sp-kind2{color:var(--k);font-weight:600}
+.sp-lbl2 em{font-style:normal;color:var(--text-4)}
+.sp-day{display:grid;grid-template-columns:52px 44px auto 1fr;align-items:center;gap:0;margin:2px 0 8px}
+.sp-day .sp-term{grid-column:2;width:auto;justify-self:center;width:10px;height:10px;border-radius:50%;background:var(--text)}
+.sp-day b{margin:0 8px 0 2px}
+.sp-st{grid-template-columns:52px 48px minmax(0,1fr)}
+.sp-dot{top:13px}.sp-trk::before{top:13px}

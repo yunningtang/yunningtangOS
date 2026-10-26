@@ -940,13 +940,13 @@ export function Seal({ ghost = false } = {}) {
             </div>`)}
             ${plan.length > 0 && html`<div class="sp-tl">
               <div class="sp-h">时间线预览<small>从现在起避开已有安排，只排 8:00–22:00</small></div>
-              <div class="sp-cal">
-                ${plan.map((p, i) => { const gap = i > 0 && plan[i - 1].date === p.date ? timeToMin(p.start) - timeToMin(plan[i - 1].end) : 0; const d = parseDate(p.date); return html`<div key=${p.stepId} class="sp-g">
-                  ${(i === 0 || plan[i - 1].date !== p.date) && html`<div class="sp-day"><b>${p.date === todayStr() ? '今天' : relDay(p.date)}</b><span>${d.getMonth() + 1}月${d.getDate()}日 ${WEEKDAY_SUN[d.getDay()]}</span><i></i></div>`}
-                  ${gap >= 15 && html`<div class="sp-gap">空 ${fmtMin(gap)}</div>`}
-                  <div class="sp-ev" style=${`--k:var(--tone-${toneOf(p.kind)});--h:${Math.min(96, 40 + p.minutes * 0.9)}px`}>
+              <div class="sp-line">
+                ${plan.map((p, i) => { const nx = plan[i + 1]; const sameDay = nx && nx.date === p.date; const gap = sameDay ? timeToMin(nx.start) - timeToMin(p.end) : 0; const d = parseDate(p.date); const dot = Math.round(Math.max(14, Math.min(40, 8 + Math.sqrt(p.minutes) * 4.2))); return html`<div key=${p.stepId} class="sp-g">
+                  ${(i === 0 || plan[i - 1].date !== p.date) && html`<div class="sp-day"><span class="sp-term"></span><b>${p.date === todayStr() ? '今天' : relDay(p.date)}</b><span>${d.getMonth() + 1}月${d.getDate()}日 ${WEEKDAY_SUN[d.getDay()]}</span></div>`}
+                  <div class=${'sp-st ' + (!sameDay ? 'last' : '') + (gap >= 15 ? ' gapped' : '')} style=${`--k:var(--tone-${toneOf(p.kind)});--d:${dot}px;--rh:${Math.round(Math.min(84, 44 + p.minutes * 0.7))}px`}>
                     <div class="sp-when"><b>${p.start}</b><small>${p.end}</small></div>
-                    <div class="sp-card"><span class="sp-no">${i + 1}</span><div class="sp-body"><b>${p.title}</b><small><span class="sp-kind">${p.kind || '一步'}</span>${p.minutes} 分钟</small></div></div>
+                    <div class="sp-trk"><span class="sp-dot">${dot >= 24 ? i + 1 : ''}</span></div>
+                    <div class="sp-lbl2"><b>${p.title}</b><small><span class="sp-kind2">${p.kind || '一步'}</span>${p.minutes} 分钟${gap >= 15 ? html`<em>· 之后空 ${fmtMin(gap)}</em>` : ''}</small></div>
                   </div>
                 </div>`; })}
               </div>
