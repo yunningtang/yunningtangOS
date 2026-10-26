@@ -2976,3 +2976,34 @@ html[data-theme="dark"] .fq-go{color:var(--text-3)}html[data-theme="dark"] .fq-g
 .mail-login input{flex:1 1 180px;min-width:0;height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--input);font:inherit;font-size:.84rem;outline:0}
 .mail-login input:focus{border-color:var(--line-2);background:var(--paper)}
 .mail-msg{flex-basis:100%;color:var(--text-3)}
+
+/* ===================================================================
+   和官网一样的流光（「汤圆光效」开着时）：输入框一直有一圈蓝光慢慢转，打字时转快一点；
+   发送、保存这些主按钮边上有一道光在走，鼠标放上去会扫过一道高光
+   =================================================================== */
+html:not([data-glow="0"]) .seal-form,html:not([data-glow="0"]) .seal-form:focus-within{border:1.5px solid transparent;background:linear-gradient(var(--paper),var(--paper)) padding-box,conic-gradient(from var(--seal-ang),var(--line-2) 0 60%,#b9dcff 72%,#2383e2 77%,#b9dcff 82%,var(--line-2) 94%) border-box;animation:seal-ring 7s linear infinite}
+html:not([data-glow="0"]) .seal-form:focus-within{animation-duration:3s;box-shadow:0 10px 30px -18px rgba(35,131,226,.45)}
+html[data-theme="dark"]:not([data-glow="0"]) .seal-form,html[data-theme="dark"]:not([data-glow="0"]) .seal-form:focus-within{background:linear-gradient(var(--paper),var(--paper)) padding-box,conic-gradient(from var(--seal-ang),rgba(255,255,255,.1) 0 60%,rgba(159,208,255,.55) 72%,#9fd0ff 77%,rgba(159,208,255,.55) 82%,rgba(255,255,255,.1) 94%) border-box}
+html[data-theme="dark"]:not([data-glow="0"]) .seal-form:focus-within{box-shadow:0 0 28px -8px rgba(159,208,255,.28)}
+html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-form,html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-form:focus-within{background:linear-gradient(var(--paper),var(--paper)) padding-box,conic-gradient(from var(--seal-ang),var(--line-2) 0 60%,color-mix(in srgb,var(--seal-ac) 45%,transparent) 72%,var(--seal-ac) 77%,color-mix(in srgb,var(--seal-ac) 45%,transparent) 82%,var(--line-2) 94%) border-box}
+
+html:not([data-glow="0"]) .seal-send:not(:disabled),html:not([data-glow="0"]) .seal-panel .btn.primary:not(:disabled){--fb:var(--ink);position:relative;overflow:hidden;isolation:isolate;border:1.5px solid transparent;background:linear-gradient(var(--fb),var(--fb)) padding-box,conic-gradient(from var(--seal-ang),rgba(255,255,255,.08) 0 55%,#9fd0ff 70%,#fff 76%,#9fd0ff 82%,rgba(255,255,255,.08) 100%) border-box;box-shadow:0 6px 18px -8px rgba(35,131,226,.45);animation:seal-ring 3.6s linear infinite}
+html[data-theme="dark"]:not([data-glow="0"]) .seal-send:not(:disabled),html[data-theme="dark"]:not([data-glow="0"]) .seal-panel .btn.primary:not(:disabled){background:linear-gradient(var(--fb),var(--fb)) padding-box,conic-gradient(from var(--seal-ang),rgba(0,0,0,.1) 0 55%,#5aa8f0 70%,#2383e2 76%,#5aa8f0 82%,rgba(0,0,0,.1) 100%) border-box}
+html[data-accent]:not([data-accent="none"]):not([data-glow="0"]) .seal-send:not(:disabled){--fb:var(--seal-ac)}
+html:not([data-glow="0"]) .seal-send:not(:disabled)::after,html:not([data-glow="0"]) .seal-panel .btn.primary:not(:disabled)::after{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.24) 50%,transparent 65%) 130% 0/260% 100% no-repeat;animation:seal-sheen 4.5s cubic-bezier(.2,.7,.2,1) infinite}
+html:not([data-glow="0"]) .seal-send:hover:not(:disabled),html:not([data-glow="0"]) .seal-panel .btn.primary:hover:not(:disabled){background:linear-gradient(var(--fb),var(--fb)) padding-box,conic-gradient(from var(--seal-ang),rgba(255,255,255,.08) 0 55%,#9fd0ff 70%,#fff 76%,#9fd0ff 82%,rgba(255,255,255,.08) 100%) border-box;opacity:1;transform:translateY(-1px);box-shadow:0 10px 26px -8px rgba(35,131,226,.6);animation-duration:1.6s}
+html:not([data-glow="0"]) .seal-send:hover:not(:disabled)::after,html:not([data-glow="0"]) .seal-panel .btn.primary:hover:not(:disabled)::after{animation-duration:1.4s}
+@keyframes seal-sheen{0%,55%{background-position:130% 0}100%{background-position:-30% 0}}
+
+/* ===================================================================
+   墨白的卡片质感（跟官网的卡片一致）：鼠标移上去轻轻浮起，跟着鼠标有一点光；总览的卡片依次浮现
+   =================================================================== */
+html[data-skin="glass"] .dash-home .card{transition:transform .35s cubic-bezier(.2,.7,.2,1),box-shadow .35s cubic-bezier(.2,.7,.2,1)}
+html[data-skin="glass"] .dash-home .card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(380px circle at var(--mx,50%) var(--my,-40%),rgba(35,131,226,.07),transparent 60%);opacity:0;transition:opacity .3s}
+html[data-skin="glass"][data-theme="dark"] .dash-home .card::before{background:radial-gradient(380px circle at var(--mx,50%) var(--my,-40%),rgba(159,208,255,.07),transparent 60%)}
+html[data-skin="glass"] .dash-home:not(.customizing) .card:hover{transform:translateY(-3px);box-shadow:var(--glass-shadow-h)}
+html[data-skin="glass"] .dash-home .card:hover::before{opacity:1}
+@keyframes w-in{from{opacity:0;transform:translateY(14px)}}
+html[data-skin="glass"] .dash-home>.widget{animation:w-in .7s cubic-bezier(.2,.7,.2,1) both}
+html[data-skin="glass"] .dash-home>.widget:nth-child(2){animation-delay:.05s}html[data-skin="glass"] .dash-home>.widget:nth-child(3){animation-delay:.1s}html[data-skin="glass"] .dash-home>.widget:nth-child(4){animation-delay:.15s}html[data-skin="glass"] .dash-home>.widget:nth-child(5){animation-delay:.2s}html[data-skin="glass"] .dash-home>.widget:nth-child(6){animation-delay:.25s}html[data-skin="glass"] .dash-home>.widget:nth-child(7){animation-delay:.3s}html[data-skin="glass"] .dash-home>.widget:nth-child(n+8){animation-delay:.35s}
+@media (prefers-reduced-motion:reduce){html:not([data-glow="0"]) .seal-form,html:not([data-glow="0"]) .seal-send,html:not([data-glow="0"]) .seal-panel .btn.primary,html[data-skin="glass"] .dash-home>.widget{animation:none}html:not([data-glow="0"]) .seal-send::after,html:not([data-glow="0"]) .seal-panel .btn.primary::after{display:none}html[data-skin="glass"] .dash-home .card:hover{transform:none}}
