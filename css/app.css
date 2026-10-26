@@ -2868,3 +2868,12 @@ html[data-theme="dark"] .sp-card{background:color-mix(in srgb,var(--k) 16%,var(-
 .sm-ic.go{background:var(--ink);color:var(--paper)}.sm-ic.go:hover{background:var(--ink);color:var(--paper);opacity:.88}.sm-ic.go:disabled{background:var(--hover-2);color:var(--text-4)}
 html[data-theme="dark"] .sm-ic.go:not(:disabled){color:#191919}
 .ac-row{cursor:context-menu}.sm.bot .sm-t{cursor:default}
+/* 编辑框按钮：小而轻，不抢视觉 */
+.sm-edit{padding:8px 12px 6px;border-width:1px;border-color:var(--line-2)}
+.sm-edit textarea{resize:none;min-height:24px}
+.sm-edit-f{margin-top:2px;gap:2px}
+.sm-ic,.sm-ic.go{width:24px;height:24px;border-radius:6px;background:transparent;color:var(--text-4)}
+.sm-ic svg{width:14px;height:14px}
+.sm-ic:hover,.sm-ic.go:hover{background:var(--hover);color:var(--text);opacity:1}
+.sm-ic.go{color:var(--text-2)}.sm-ic.go:disabled{background:transparent;color:var(--text-4);opacity:.5}
+html[data-theme="dark"] .sm-ic.go:not(:disabled){color:var(--text-2)}
