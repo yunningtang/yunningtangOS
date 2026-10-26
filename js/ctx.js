@@ -28,14 +28,16 @@ function Menu() {
   if (!m) return null;
   return html`<div class="ctx popmenu" ref=${ref} style=${`left:${m.x}px;top:${m.y}px;visibility:hidden`} onContextMenu=${(e) => e.preventDefault()}>
     ${m.title && html`<div class="pm-sec">${m.title}</div>`}
-    ${m.items.map((it, i) => it === 'sep' ? html`<div class="ctx-sep" key=${i}></div>` : html`<div key=${i} class=${'pm ' + (it.danger ? 'danger' : '') + (it.disabled ? ' disabled' : '')} onClick=${() => { if (it.disabled) return; if (it.sub) { set({ ...m, title: it.label, items: [{ label: '返回', icon: 'left', onClick: () => set(m) }, 'sep', ...it.sub.filter(Boolean)] }); return; } set(null); it.onClick && it.onClick(); }}>${it.color ? html`<span class="ic"><i class="ctx-dot" style=${`background:${it.color}`}></i></span>` : it.icon ? html`<${Icon} name=${it.icon} size=${14} />` : html`<span class="ic"></span>`}<b>${it.label}</b>${it.sub ? html`<small>›</small>` : it.color && it.icon === 'check' ? html`<small>✓</small>` : it.hint && !it.color ? html`<small>${it.hint}</small>` : html`<span></span>`}</div>`)}
+    ${m.grid && html`<div class="ctx-grid">${m.items.filter((it) => it !== 'sep' && it.color).map((it, i) => html`<button key=${i} type="button" class=${'ctx-sw ' + (m.grid === 'text' ? 'txt ' : '') + (it.icon === 'check' ? 'on' : '')} title=${it.label} style=${`--c:${it.color}`} onClick=${() => { set(null); it.onClick && it.onClick(); }}>${m.grid === 'text' ? 'A' : ''}</button>`)}</div>`}
+    ${(m.grid ? m.items.filter((it) => it === 'sep' || !it.color) : m.items).map((it, i) => it === 'sep' ? html`<div class="ctx-sep" key=${i}></div>` : html`<div key=${i} class=${'pm ' + (it.danger ? 'danger' : '') + (it.disabled ? ' disabled' : '')} onClick=${() => { if (it.disabled) return; if (it.sub) { set({ ...m, title: it.label, items: [{ label: '返回', icon: 'left', onClick: () => set(m) }, 'sep', ...it.sub.filter(Boolean)] }); return; } set(null); it.onClick && it.onClick(); }}>${it.color ? html`<span class="ic"><i class="ctx-dot" style=${`background:${it.color}`}></i></span>` : it.icon ? html`<${Icon} name=${it.icon} size=${14} />` : html`<span class="ic"></span>`}<b>${it.label}</b>${it.sub ? html`<small>›</small>` : it.color && it.icon === 'check' ? html`<small>✓</small>` : it.hint && !it.color ? html`<small>${it.hint}</small>` : html`<span></span>`}</div>`)}
   </div>`;
 }
 
-export function ctxMenu(e, items, title) {
+// opts.grid：有颜色的项排成一格一格的色块（'text' 时每格是一个彩色的 A），其余照常列在下面
+export function ctxMenu(e, items, title, opts) {
   if (!items || !items.length) return;
   e.preventDefault(); e.stopPropagation();
   if (!host) { host = document.createElement('div'); host.id = 'ctx-host'; document.body.appendChild(host); render(html`<${Menu} />`, host); }
-  setCurrent({ x: e.clientX, y: e.clientY, items: items.filter(Boolean), title });
+  setCurrent({ x: e.clientX, y: e.clientY, items: items.filter(Boolean), title, grid: opts && opts.grid });
 }
 export function closeCtx() { setCurrent && setCurrent(null); }

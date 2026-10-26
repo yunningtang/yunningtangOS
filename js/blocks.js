@@ -69,6 +69,9 @@ function unwrapGoogleUrl(href) {
 }
 export const TEXT_COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'];
 export const TEXT_COLOR_NAMES = { gray: '灰', red: '红', orange: '橙', yellow: '黄', green: '绿', blue: '蓝', purple: '紫', pink: '粉' };
+// 荧光笔的九种颜色（y 黄是默认，不带 class）
+export const HL_COLORS = ['y', 'o', 'r', 'k', 'p', 'b', 'g', 'n', 'a'];
+export const HL_NAMES = { y: '黄', o: '橙', r: '红', k: '粉', p: '紫', b: '蓝', g: '绿', n: '棕', a: '灰' };
 export const TEXT_SIZES = [['s', '小'], ['', '标准'], ['l', '大'], ['xl', '特大']];
 export const TEXT_FONTS = FONTS.map((f) => [f.id === 'default' ? '' : f.id, f.n]);
 const INLINE_RE = /^(tc-(gray|red|orange|yellow|green|blue|purple|pink)|fs-(s|l|xl|[89]|[1-6]\d|7[0-2]))$/;
@@ -103,7 +106,7 @@ export function sanitize(html) {
           if (!/^(https?:|mailto:|#)/i.test(href)) { out += walk(c); continue; }
           out += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${walk(c)}</a>`; continue;
         }
-        if (tag === 'mark') { const m = (c.className || '').match(/\bhl-([ygbpr])\b/); out += `<mark${m ? ` class="hl-${m[1]}"` : ''}>${walk(c)}</mark>`; continue; }
+        if (tag === 'mark') { const m = (c.className || '').match(/\bhl-([ygbprokna])\b/); out += `<mark${m ? ` class="hl-${m[1]}"` : ''}>${walk(c)}</mark>`; continue; }
         if (tag === 'code') { out += `<code>${escapeHtml(c.textContent)}</code>`; continue; }
         out += `<${tag}>${walk(c)}</${tag}>`;
       }
@@ -133,7 +136,7 @@ export function sanitizeDoc(html) {
         if (/^(https?:|mailto:|#)/i.test(href)) attrs.push(`href="${escapeHtml(href)}"`); if (cls) attrs.push(`class="${cls[1]}"`); if (/^https?:/i.test(href)) attrs.push('target="_blank" rel="noopener"');
         out += attrs.length ? `<a ${attrs.join(' ')}>${walk(c)}</a>` : walk(c); continue; }
       if (tag === 'code' || tag === 'pre') { out += `<${tag}>${escapeHtml(c.textContent)}</${tag}>`; continue; }
-      if (tag === 'mark') { const m = (c.className || '').match(/\bhl-([ygbpr])\b/); out += `<mark${m ? ` class="hl-${m[1]}"` : ''}>${walk(c)}</mark>`; continue; }
+      if (tag === 'mark') { const m = (c.className || '').match(/\bhl-([ygbprokna])\b/); out += `<mark${m ? ` class="hl-${m[1]}"` : ''}>${walk(c)}</mark>`; continue; }
       out += `<${tag}>${walk(c)}</${tag}>`;
     }
     return out;
@@ -261,7 +264,7 @@ export function inlineMdToHtml(md) {
   s = s.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g, '<u>$1</u>');
   s = s.replace(/\[\[([^\[\]|\n]+)(?:\|([^\[\]\n]+))?\]\]/g, (_, t, a) => `<a class="wiki" data-title="${t.trim()}" contenteditable="false">${a || t.trim()}</a>`);
   s = s.replace(/@\[(todo|book|trip|goal|link):([\w-]+)\|([^\]]+)\]/g, (_, k, id, t) => `<a class="ref" data-kind="${k}" data-id="${id}" contenteditable="false">${t}</a>`);
-  s = s.replace(/==(?:\{([ygbpr])\})?([^=\n]+)==/g, (_, c, t) => `<mark${c ? ` class="hl-${c}"` : ''}>${t}</mark>`);
+  s = s.replace(/==(?:\{([ygbprokna])\})?([^=\n]+)==/g, (_, c, t) => `<mark${c ? ` class="hl-${c}"` : ''}>${t}</mark>`);
   s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|[^\w*])__([^_\n]+)__(?!\w)/g, '$1<b>$2</b>').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>').replace(/(^|[^\w_])_([^_\n]+)_(?!\w)/g, '$1<i>$2</i>').replace(/~~([^~]+)~~/g, '<s>$1</s>');
   s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   s = s.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
@@ -284,7 +287,7 @@ export function inlineHtmlToMd(html) {
         else if (tag === 'S' || tag === 'DEL' || tag === 'STRIKE') out += `~~${walk(c)}~~`;
         else if (tag === 'CODE') out += `\`${c.textContent}\``;
         else if (tag === 'A' && c.classList.contains('ref')) out += `@[${c.dataset.kind}:${c.dataset.id}|${c.textContent}]`;
-        else if (tag === 'MARK') { const m = (c.className || '').match(/\bhl-([ygbpr])\b/); out += `==${m ? `{${m[1]}}` : ''}${walk(c)}==`; }
+        else if (tag === 'MARK') { const m = (c.className || '').match(/\bhl-([ygbprokna])\b/); out += `==${m ? `{${m[1]}}` : ''}${walk(c)}==`; }
         else if (tag === 'U') out += `<u>${walk(c)}</u>`;
         else if (tag === 'A' && c.classList.contains('wiki')) out += `[[${c.dataset.title || c.textContent}]]`;
         else if (tag === 'A') out += `[${walk(c)}](${c.getAttribute('href')})`;

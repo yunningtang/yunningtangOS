@@ -2968,3 +2968,40 @@ html[data-skin="glass"] .dash-home .card:hover::before{opacity:1}
 html[data-skin="glass"] .dash-home>.widget{animation:w-in .7s cubic-bezier(.2,.7,.2,1) both}
 html[data-skin="glass"] .dash-home>.widget:nth-child(2){animation-delay:.05s}html[data-skin="glass"] .dash-home>.widget:nth-child(3){animation-delay:.1s}html[data-skin="glass"] .dash-home>.widget:nth-child(4){animation-delay:.15s}html[data-skin="glass"] .dash-home>.widget:nth-child(5){animation-delay:.2s}html[data-skin="glass"] .dash-home>.widget:nth-child(6){animation-delay:.25s}html[data-skin="glass"] .dash-home>.widget:nth-child(7){animation-delay:.3s}html[data-skin="glass"] .dash-home>.widget:nth-child(n+8){animation-delay:.35s}
 @media (prefers-reduced-motion:reduce){html:not([data-glow="0"]) .seal-form,html:not([data-glow="0"]) .seal-send,html:not([data-glow="0"]) .seal-panel .btn.primary,html[data-skin="glass"] .dash-home>.widget{animation:none}html:not([data-glow="0"]) .seal-send::after,html:not([data-glow="0"]) .seal-panel .btn.primary::after{display:none}html[data-skin="glass"] .dash-home .card:hover{transform:none}}
+
+/* ===================================================================
+   荧光笔九色（--hl-* 是正文里的底色，--hs-* 是色块按钮的颜色）+ 颜色格子面板
+   =================================================================== */
+:root{--hl-y:rgba(255,214,80,.45);--hl-o:rgba(255,165,80,.38);--hl-r:rgba(255,140,150,.38);--hl-k:rgba(255,150,205,.36);--hl-p:rgba(190,150,255,.38);--hl-b:rgba(120,165,255,.35);--hl-g:rgba(120,210,150,.4);--hl-n:rgba(190,150,115,.34);--hl-a:rgba(150,150,145,.28);
+  --hs-y:#f7d774;--hs-o:#ffb072;--hs-r:#ffa3ab;--hs-k:#ffa8d6;--hs-p:#d4b5ff;--hs-b:#9cc0ff;--hs-g:#8fd6a5;--hs-n:#d2b394;--hs-a:#cfcecb}
+html[data-theme="dark"]{--hl-y:rgba(255,200,60,.3);--hl-o:rgba(255,150,60,.3);--hl-r:rgba(255,120,130,.3);--hl-k:rgba(255,120,190,.28);--hl-p:rgba(170,130,255,.3);--hl-b:rgba(100,150,255,.3);--hl-g:rgba(90,190,120,.32);--hl-n:rgba(180,135,100,.3);--hl-a:rgba(160,160,155,.25)}
+.b-text mark,.md mark{background:var(--hl-y)}
+.b-text mark.hl-o,.md mark.hl-o{background:var(--hl-o)}.b-text mark.hl-r,.md mark.hl-r{background:var(--hl-r)}.b-text mark.hl-k,.md mark.hl-k{background:var(--hl-k)}.b-text mark.hl-p,.md mark.hl-p{background:var(--hl-p)}.b-text mark.hl-b,.md mark.hl-b{background:var(--hl-b)}.b-text mark.hl-g,.md mark.hl-g{background:var(--hl-g)}.b-text mark.hl-n,.md mark.hl-n{background:var(--hl-n)}.b-text mark.hl-a,.md mark.hl-a{background:var(--hl-a)}
+.cv-text mark.hl-o{background:var(--hs-o)}.cv-text mark.hl-k{background:var(--hs-k)}.cv-text mark.hl-n{background:var(--hs-n)}.cv-text mark.hl-a{background:var(--hs-a)}
+.fmt-bar .fb-hl.hl-o::after{background:var(--hs-o)}.fmt-bar .fb-hl.hl-k::after{background:var(--hs-k)}.fmt-bar .fb-hl.hl-n::after{background:var(--hs-n)}.fmt-bar .fb-hl.hl-a::after{background:var(--hs-a)}
+/* 选中文字工具条：A 旁边的小箭头，移上去弹出格子 */
+.hl-more{position:relative;display:inline-flex}
+.sel-tb .hl-caret{min-width:14px;width:14px;padding:0;font-size:.55rem;opacity:.7}
+.hl-grid{display:none;position:absolute;top:calc(100% + 7px);left:50%;transform:translateX(-50%);z-index:2;grid-template-columns:repeat(5,22px);gap:6px;padding:8px;border-radius:10px;background:var(--ink);box-shadow:var(--pop)}
+.hl-grid::before{content:"";position:absolute;left:0;right:0;top:-9px;height:9px}
+.hl-more:hover .hl-grid,.hl-more:focus-within .hl-grid{display:grid}
+.sel-tb .hl-sw{width:22px;height:22px;min-width:0;padding:0;border-radius:6px;border:1.5px solid rgba(255,255,255,.22);transition:transform .12s}
+.sel-tb .hl-sw:hover{transform:scale(1.15)}
+.sel-tb .hl-sw.hl-y{background:var(--hs-y)}.sel-tb .hl-sw.hl-o{background:var(--hs-o)}.sel-tb .hl-sw.hl-r{background:var(--hs-r)}.sel-tb .hl-sw.hl-k{background:var(--hs-k)}.sel-tb .hl-sw.hl-p{background:var(--hs-p)}.sel-tb .hl-sw.hl-b{background:var(--hs-b)}.sel-tb .hl-sw.hl-g{background:var(--hs-g)}.sel-tb .hl-sw.hl-n{background:var(--hs-n)}.sel-tb .hl-sw.hl-a{background:var(--hs-a)}
+.sel-tb .hl-sw.none{background:transparent;color:inherit;opacity:.8}
+/* 右键 / 格式栏里的颜色格子 */
+.ctx-grid{display:grid;grid-template-columns:repeat(5,28px);gap:6px;padding:6px 10px 8px}
+.ctx-sw{width:28px;height:28px;padding:0;border:0;border-radius:7px;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);cursor:pointer;transition:transform .12s}
+.ctx-sw:hover{transform:scale(1.12)}
+.ctx-sw.txt{background:var(--paper);color:var(--c);font-weight:700;font-size:.9rem;box-shadow:inset 0 0 0 1px var(--line-2)}
+.ctx-sw.txt:hover{background:var(--hover)}
+.ctx-sw.on{box-shadow:0 0 0 2px var(--paper),0 0 0 3.5px var(--ink)}
+.ctx-grid+.ctx-sep,.ctx-grid+.pm{margin-top:2px}
+
+/* 笔记里的链接用蓝色（墨白主题的主色是墨，链接单独给一个蓝） */
+html[data-skin="glass"][data-theme="light"]{--link:#2383e2}
+html[data-skin="glass"][data-theme="dark"]{--link:#529cca}
+.b-text a[href],.md a[href]{color:var(--link,var(--blue));border-bottom:1px solid color-mix(in srgb,var(--link,var(--blue)) 35%,transparent)}
+.b-text a[href]:hover,.md a[href]:hover{border-bottom-color:var(--link,var(--blue))}
+.b-text a.wiki,.md a.wiki{color:var(--link,var(--blue));border-bottom-color:color-mix(in srgb,var(--link,var(--blue)) 45%,transparent)}
+.b-text a.wiki:hover,.md a.wiki:hover{border-bottom-color:var(--link,var(--blue))}

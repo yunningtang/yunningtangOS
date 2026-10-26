@@ -6,7 +6,7 @@ import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
 import { askPrompt } from './confirm.js';
 import { get as storeGet, upsert as storeUpsert, remove as storeRemove } from './store.js';
-import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc, structureScore, TEXT_COLORS, TEXT_COLOR_NAMES, TEXT_SIZES, TEXT_FONTS, isSize } from './blocks.js';
+import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc, structureScore, TEXT_COLORS, TEXT_COLOR_NAMES, TEXT_SIZES, TEXT_FONTS, isSize, HL_COLORS, HL_NAMES } from './blocks.js';
 import { todayStr, escapeHtml, imageToDataUrl, pickFile, uid } from './util.js';
 import { saveFile, fileUrl, forgetUrl, deleteFile, fmtSize, isPdf } from './files.js';
 import { fetchAttachment } from './sync.js';
@@ -143,6 +143,10 @@ export function applyMark(color) {
   const el = document.createElement('mark'); if (cls) el.className = cls;
   try { r.surroundContents(el); } catch { el.appendChild(r.extractContents()); r.insertNode(el); }
   s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(el); s.addRange(nr);
+}
+// 选中文字工具条里的荧光笔：点 A 是黄色；鼠标移到旁边的小箭头上，弹出九色格子
+function hlPicker(btn) {
+  return html`<span class="tb-hl">${btn('荧光标记 ⌘⇧H', () => applyMark('y'), 'A', 'hl')}<span class="hl-more"><button type="button" class="hl-caret" title="更多颜色" onMouseDown=${(e) => e.preventDefault()}>▾</button><span class="hl-grid">${HL_COLORS.map((c) => btn(HL_NAMES[c], () => applyMark(c), '', 'hl-sw hl-' + c))}${btn('去掉标记', () => applyMark(null), html`<${Icon} name="x" size=${11} />`, 'hl-sw none')}</span></span></span>`;
 }
 // 选区的行内样式：prefix 是 tc / fs / ff，value 为空就是去掉。选区已经整个在一个这样的 span 里就改它，否则包一层。
 export function applyInline(prefix, value) {
@@ -574,7 +578,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
           const q = (c) => { try { return document.queryCommandState(c); } catch { return false; } };
           const sn = (() => { let n = startNode(s); if (n && n.nodeType !== 1) n = n.parentElement; return n; })();
           const tcm = sn && sn.closest && sn.closest('span[class*="tc-"]'); const mk = sn && sn.closest && sn.closest('mark');
-          const nf = b ? { type: b.type, indent: b.indent || 0, size: curSize(), bold: q('bold'), italic: q('italic'), underline: q('underline'), strike: q('strikeThrough'), sel: !s.isCollapsed, font: curFont(), color: tcm ? (tcm.className.match(/\btc-(\w+)/) || [])[1] : (b.color || ''), mark: mk ? ((mk.className.match(/\bhl-([ygbpr])\b/) || [])[1] || 'y') : '' } : null;
+          const nf = b ? { type: b.type, indent: b.indent || 0, size: curSize(), bold: q('bold'), italic: q('italic'), underline: q('underline'), strike: q('strikeThrough'), sel: !s.isCollapsed, font: curFont(), color: tcm ? (tcm.className.match(/\btc-(\w+)/) || [])[1] : (b.color || ''), mark: mk ? ((mk.className.match(/\bhl-([ygbprokna])\b/) || [])[1] || 'y') : '' } : null;
           setFmt((o) => (JSON.stringify(o) === JSON.stringify(nf) ? o : nf));
         }
         if (prevCur && prevCur !== row) prevCur.classList.remove('cur'); if (row && row !== prevCur) row.classList.add('cur');
@@ -614,7 +618,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     setMenu(null);
     if (it.k === 'date') { exec('insertText', todayStr() + ' '); emit(syncFromDom(bsRef.current)); return; }
     if (it.k && it.k.startsWith('size:')) { update(b.id, { size: it.k.slice(5) || undefined }, 'end'); return; }
-    if (it.k === 'color' || it.k === 'font') { const rect = el.getBoundingClientRect(); const fake = { clientX: rect.left + 24, clientY: rect.bottom + 4, preventDefault() {}, stopPropagation() {} }; ctxMenu(fake, it.k === 'color' ? colorItems(b) : fontItems(b), it.k === 'color' ? '文字颜色' : '字体'); emit(syncFromDom(bsRef.current)); return; }
+    if (it.k === 'color' || it.k === 'font') { const rect = el.getBoundingClientRect(); const fake = { clientX: rect.left + 24, clientY: rect.bottom + 4, preventDefault() {}, stopPropagation() {} }; ctxMenu(fake, it.k === 'color' ? colorItems(b) : fontItems(b), it.k === 'color' ? '文字颜色' : '字体', it.k === 'color' ? { grid: 'text' } : undefined); emit(syncFromDom(bsRef.current)); return; }
     if (it.k === 'ai') { askPrompt('要汤圆写什么', '', { title: '让汤圆写一段', ok: '开始写', placeholder: '比如：总结上面三点 / 写一段这个方案的风险 / 列一个对比表' }).then((intent) => { if (!intent || !intent.trim()) return; const nb = { ...block('pending', '', { intent: intent.trim(), status: 'idle' }), v: 0 }; const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); if (i < 0) return; if (!el.textContent.trim()) list[i] = { ...nb, id: b.id }; else list.splice(i + 1, 0, nb); emit(list); setTimeout(() => startPending(el.textContent.trim() ? nb.id : b.id), 0); }); return; }
     if (it.k && it.k.startsWith('tpl:')) { const tpl = templateBlocks(it.k.slice(4)).map((x) => ({ ...x, v: 0 })); const list = syncFromDom(bsRef.current); const i = list.findIndex((x) => x.id === b.id); const empty = !el.textContent.trim(); list.splice(empty ? i : i + 1, empty ? 1 : 0, ...tpl); emit(list); const first = tpl.find((x) => TEXT_TYPES.includes(x.type) && !textOf(x.html)) || tpl[0]; setFocusReq({ id: first.id, pos: 'end' }); return; }
     if (it.k === 'link') { exec('insertText', '[['); setMenu({ kind: 'link', id: b.id, q: '', idx: 0 }); return; }
@@ -833,8 +837,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     ${fb('减小字号 ⌘⇧,', () => stepSize(-1), '−', 'fb-step')}<input class="fb-num" type="number" min="8" max="72" value=${fmt ? fmt.size : 16} onMouseDown=${(e) => e.stopPropagation()} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); setSize(+e.target.value); e.target.blur(); } }} onChange=${(e) => setSize(+e.target.value)} />${fb('增大字号 ⌘⇧.', () => stepSize(1), '+', 'fb-step')}
     <span class="fb-sep"></span>
     ${fb('粗体 ⌘B', () => exec('bold'), html`<b>B</b>`, fmt && fmt.bold ? 'on' : '')}${fb('斜体 ⌘I', () => exec('italic'), html`<i>I</i>`, fmt && fmt.italic ? 'on' : '')}${fb('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`, fmt && fmt.underline ? 'on' : '')}${fb('删除线', () => exec('strikeThrough'), html`<s>S</s>`, 'fb-opt ' + (fmt && fmt.strike ? 'on' : ''))}
-    ${fb('文字颜色', (e) => ctxMenu(e, [{ label: '默认', onClick: () => inlineOrBlock('tc', 'color', '') }, ...TEXT_COLORS.map((c) => ({ label: TEXT_COLOR_NAMES[c], color: `var(--tc-${c})`, onClick: () => inlineOrBlock('tc', 'color', c) }))], '文字颜色'), html`<span class="fb-a" style=${fmt && fmt.color ? `border-color:var(--tc-${fmt.color})` : ''}>A</span>`, 'fb-color')}
-    ${fb('荧光标记', (e) => ctxMenu(e, [['y', '黄'], ['g', '绿'], ['b', '蓝'], ['p', '紫'], ['r', '红']].map(([c, n]) => ({ label: n, color: { y: '#f7d774', g: '#8fd6a5', b: '#9cc0ff', p: '#d4b8ff', r: '#ffb3b3' }[c], onClick: () => { restoreSel(); applyMark(c); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } })).concat([{ label: '去掉标记', onClick: () => { restoreSel(); applyMark(null); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } }]), '荧光标记'), html`<span class=${'fb-hl ' + (fmt && fmt.mark ? 'hl-' + fmt.mark : 'none')}><${Icon} name="highlighter" size=${15} /></span>`, fmt && fmt.mark ? 'on' : '')}
+    ${fb('文字颜色', (e) => ctxMenu(e, [{ label: '默认', onClick: () => inlineOrBlock('tc', 'color', '') }, ...TEXT_COLORS.map((c) => ({ label: TEXT_COLOR_NAMES[c], color: `var(--tc-${c})`, icon: fmt && fmt.color === c ? 'check' : '', onClick: () => inlineOrBlock('tc', 'color', c) }))], '文字颜色', { grid: 'text' }), html`<span class="fb-a" style=${fmt && fmt.color ? `border-color:var(--tc-${fmt.color})` : ''}>A</span>`, 'fb-color')}
+    ${fb('荧光标记', (e) => ctxMenu(e, HL_COLORS.map((c) => ({ label: HL_NAMES[c], color: `var(--hs-${c})`, icon: fmt && (fmt.mark || '') === c ? 'check' : '', onClick: () => { restoreSel(); applyMark(c); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } })).concat([{ label: '去掉标记', icon: 'x', onClick: () => { restoreSel(); applyMark(null); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } }]), '荧光标记', { grid: true }), html`<span class=${'fb-hl ' + (fmt && fmt.mark ? 'hl-' + fmt.mark : 'none')}><${Icon} name="highlighter" size=${15} /></span>`, fmt && fmt.mark ? 'on' : '')}
     <span class="fb-sep"></span>
     ${fb('链接 ⌘K', () => linkPrompt(), html`<${Icon} name="link" size=${14} />`)}
     ${onComment && fb('评论', () => { const s0 = sel(); const q = s0 ? s0.toString().trim().slice(0, 160) : ''; const b = curB(); if (b) onComment(b.id, q); }, html`<${Icon} name="chat" size=${14} />`)}
@@ -873,7 +877,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       ${tbBtn('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`)}
       ${tbBtn('删除线', () => exec('strikeThrough'), html`<s>S</s>`)}
       ${tbBtn('代码 ⌘E', () => toggleCode(), '</>', 'mono')}
-      <span class="tb-hl">${tbBtn('荧光标记 ⌘⇧H', () => applyMark('y'), 'A', 'hl')}${['y', 'g', 'b', 'p', 'r'].map((c) => tbBtn('标记颜色', () => applyMark(c), '', 'hl-dot hl-' + c))}</span>
+      ${hlPicker(tbBtn)}
       ${tbBtn('链接 ⌘K', () => linkPrompt(), html`<${Icon} name="link" size=${13} />`)}
       ${tbBtn('链接到页面（选中文字变成 [[页面]]）', () => wikiFromSelection(), '[[ ]]', 'mono')}
       <button title="文字颜色 / 字号 / 字体" class=${'tb-style ' + (tbPop ? 'on' : '')} onMouseDown=${(e) => e.preventDefault()} onClick=${() => setTbPop(!tbPop)}>A<small>a</small></button>
@@ -1025,7 +1029,7 @@ export function SelToolbar({ within, onChange }) {
     ${btn('斜体 ⌘I', () => exec('italic'), html`<i>I</i>`)}
     ${btn('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`)}
     ${btn('删除线', () => exec('strikeThrough'), html`<s>S</s>`)}
-    <span class="tb-hl">${btn('荧光标记 ⌘⇧H', () => applyMark('y'), 'A', 'hl')}${['y', 'g', 'b', 'p', 'r'].map((c) => btn('标记颜色', () => applyMark(c), '', 'hl-dot hl-' + c))}</span>
+    ${hlPicker(btn)}
     ${btn('清除格式', () => { exec('removeFormat'); applyMark(null); }, html`<${Icon} name="x" size=${13} />`)}
   </div>`, document.body);
 }
