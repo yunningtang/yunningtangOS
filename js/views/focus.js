@@ -40,7 +40,7 @@ export default function Focus({ route }) {
   const posOf = (t) => Math.max(0, Math.min(100, ((timeToMin(t) - dayFrom * 60) / ((dayTo - dayFrom) * 60)) * 100));
 
   return html`<div class="dash3 focus-grid">
-    <div class="widget span-1"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
+    <div class="widget span-3"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
     <div class="widget span-1">
       <${Card} title="今天的专注" sub=${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m` : '还没有记录'} action=${html`<a class="more" href="#/plan/day">时间线<${Icon} name="right" size=${12} /></a>`}>
         <${GoalRow} mins=${mins} goal=${s.settings.focusGoal || 120} />
@@ -52,7 +52,7 @@ export default function Focus({ route }) {
         ${sessions.length > 0 && html`<div class="sec-h" style="margin-top:14px">已完成 <span class="muted small" style="text-transform:none;letter-spacing:0;font-weight:400">右键可备注或删除</span></div><div class="sess-list">${[...sessions].reverse().slice(0, 8).map((b) => html`<div class="sess" key=${b.id} onContextMenu=${(e) => sessMenu(e, b)}><i></i><span class="sess-t">${b.start}–${b.end}</span><span class="sess-n">${b.title || '专注'}${b.note && html`<small class="sess-note">${b.note}</small>`}</span><span class="sess-m">${b.mins} 分</span><span class="sess-acts"><button class="ibtn" title="备注" onClick=${(e) => sessMenu(e, b)}><${Icon} name="dots" size=${13} /></button></span></div>`)}</div>`}
       <//>
     </div>
-    <div class="widget span-1">
+    <div class="widget span-2">
       <${Card} title="今天的待办" sub="点 ▶ 用右边的时长开始专注" action=${html`<a class="more" href="#/todos">全部待办<${Icon} name="right" size=${12} /></a>`}>
         ${todos.length === 0 ? html`<${Empty} icon="checksq" text="今天没有待办。"><${Btn} small onClick=${() => go('todos')}>去添加<//><//>` : html`<div class="tlist">${todos.slice(0, 8).map((t) => { const spent = focusedOn.get(t.id) || 0; const live = st.phase === 'work' && st.todoId === t.id; return html`<div class=${'fp-i p' + t.priority + ' ' + (live ? 'live' : '')} key=${t.id} style=${`--pc:${(PRIORITY[t.priority] || PRIORITY[2]).color}`} onContextMenu=${(e) => lenMenu(e, t)}>
           <button class="cb" title="标为完成" onClick=${() => toggleTodo(t.id)}><${Icon} name="check" size=${12} /></button>
@@ -90,24 +90,32 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   const todos = sortBy(s.todos.filter((t) => !t.done && (t.due === today || !t.due)), 'priority');
   const rem = pomo.remaining(); const total = (pst.phase === 'break' ? pst.breakLen : pst.workLen) * 60; const pct = pst.phase === 'idle' ? 0 : 1 - rem / total; const R = 118, C = 2 * Math.PI * R;
   const begin = () => { pomo.start({ label: label.trim(), todoId }); if (!full) setLabel(''); };
-  const presets = [[25, 5], [45, 10], [50, 10], [90, 15]];
+  const presets = [[15, 3], [25, 5], [45, 10]];
+  const custom = !presets.some(([w]) => w === pst.workLen);
   const endAt = (w) => hhmm(new Date(Date.now() + w * 60000));
-  return html`<${Card} class=${'focus-w ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '')} pad=${false}>
+  const breakMenu = (e) => ctxMenu(e, [...[3, 5, 10, 15, 20].map((n) => ({ label: `休息 ${n} 分钟`, icon: pst.breakLen === n ? 'check' : 'clock', onClick: () => pomo.setLens(pst.workLen, n) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('休息几分钟？', String(pst.breakLen), { title: '休息时长' }), 10); if (v >= 1 && v <= 60) pomo.setLens(pst.workLen, v); } }], '休息时长');
+  const sub = pst.phase === 'idle' ? html`拖动表盘设置时长，共 ${pst.workLen} 分钟${full ? html`<button type="button" class="tt-break" title="休息时长" onClick=${breakMenu}>· 休息 ${pst.breakLen} 分钟</button>` : ''}`
+    : pst.phase === 'break' ? html`休息一下<${Span} rem=${rem} />` : html`${pst.paused ? '已暂停' : (pst.label || '专注中')}<${Span} rem=${rem} />`;
+  return html`<${Card} class=${'focus-w tt-card ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '')} pad=${false}>
     <div class="fw-hero">
-      <div class="fw-top"><span class="fh-k">${pst.phase === 'idle' ? '专注' : pst.phase === 'break' ? '休息一下' : pst.paused ? '已暂停' : '专注中'}</span>${full ? html`${pst.phase === 'idle' && html`<button class="fw-lens" title="点击修改休息时长" onClick=${(e) => ctxMenu(e, [...[3, 5, 10, 15, 20].map((n) => ({ label: `休息 ${n} 分钟`, icon: pst.breakLen === n ? 'check' : 'clock', onClick: () => pomo.setLens(pst.workLen, n) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('休息几分钟？', String(pst.breakLen), { title: '休息时长' }), 10); if (v >= 1 && v <= 60) pomo.setLens(pst.workLen, v); } }], '休息时长')}>${pst.workLen} 分钟 · 休息 ${pst.breakLen} 分钟 <${Icon} name="down" size=${10} /></button>`}` : html`<a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a>`}</div>
+      ${!full && html`<div class="fw-top"><span class="fh-k">专注</span><a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a></div>`}
       <${Dial} rem=${rem} phase=${pst.phase} full=${full} />
-      <div class="pomo-t"><div class="pomo-time">${pomo.fmt(rem)}</div><div class="pomo-sub">${pst.phase === 'idle' ? html`${pst.workLen} 分钟` : pst.phase === 'break' ? '休息' : (pst.label || '专注')}<${Span} rem=${rem} /></div></div>
-      ${pst.phase === 'idle' ? html`
-        <form class="fw-start" onSubmit=${(e) => { e.preventDefault(); begin(); }}>
-          <input type="text" value=${label} placeholder="这一轮要做什么？" onInput=${(e) => setLabel(e.target.value)} />
-          <button type="submit" class="fw-go" title="开始专注"><${Icon} name="play" size=${14} /> 开始</button>
-        </form>
-        <div class="chips fw-chips">${presets.map(([w, b]) => html`<button key=${w} type="button" class=${'chip ' + (pst.workLen === w && !customLen ? 'on' : '')} title=${`${w} 分钟 · 到 ${endAt(w)}`} onClick=${() => { setCustomLen(false); pomo.setLens(w, b); }}>${w}<i>分</i></button>`)}${full && (customLen ? html`<input class="chip-in" type="number" min="5" max="180" value=${pst.workLen} autofocus onBlur=${() => { if (presets.some(([w]) => w === pst.workLen)) setCustomLen(false); }} onInput=${(e) => { const w = Math.max(5, Math.min(180, +e.target.value || 25)); pomo.setLens(w, Math.max(3, Math.round(w / 5))); }} />` : html`<button type="button" class=${'chip ' + (presets.every(([w]) => w !== pst.workLen) ? 'on' : '')} title="输入任意分钟数" onClick=${() => setCustomLen(true)}>${presets.every(([w]) => w !== pst.workLen) ? `${pst.workLen}分` : '自定义'}</button>`)}</div>`
-      : html`<div class="fw-ctl">
-          <button class="pf-btn main" onClick=${() => (pst.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${pst.paused ? 'play' : 'pause'} size=${13} /> ${pst.paused ? '继续' : '暂停'}</button>
-          ${pst.phase === 'work' ? html`<button class="pf-btn" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${13} /> 完成</button>` : html`<button class="pf-btn" onClick=${() => pomo.skip()}><${Icon} name="right" size=${13} /> 跳过</button>`}
-          <button class="pf-btn danger" title="放弃" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${13} /></button>
-        </div>`}
+      <div class="tt-info">
+        <div class="tt-time">${pomo.fmt(rem)}</div>
+        <div class="tt-sub">${sub}</div>
+        ${pst.phase === 'idle' ? html`
+          ${full && html`<input class="tt-label" type="text" value=${label} placeholder="这一轮要做什么？（可不填）" onInput=${(e) => setLabel(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') begin(); }} />`}
+          <div class="tt-chips">${presets.map(([w, b]) => html`<button key=${w} type="button" class=${'tt-chip ' + (pst.workLen === w && !customLen ? 'on' : '')} title=${`${w} 分钟 · 到 ${endAt(w)}`} onClick=${() => { setCustomLen(false); pomo.setLens(w, b); }}>${w} 分</button>`)}${full && (customLen ? html`<input class="tt-chip tt-chip-in" type="number" min="5" max="180" value=${pst.workLen} autofocus onBlur=${() => setCustomLen(false)} onInput=${(e) => { const w = Math.max(5, Math.min(180, +e.target.value || 25)); pomo.setLens(w, Math.max(3, Math.round(w / 5))); }} />` : html`<button type="button" class=${'tt-chip ' + (custom ? 'on' : '')} title="输入任意分钟数" onClick=${() => setCustomLen(true)}>${custom ? `${pst.workLen} 分` : '自定义'}</button>`)}</div>
+          <div class="tt-acts">
+            <button type="button" class="tt-go" onClick=${begin}><${Icon} name="play" size=${15} /> 开始专注</button>
+            <button type="button" class="tt-round" title="恢复 25 分钟" onClick=${() => { setCustomLen(false); pomo.setLens(25, 5); }}><${Icon} name="refresh" size=${16} /></button>
+          </div>`
+        : html`<div class="tt-acts">
+            <button type="button" class="tt-go" onClick=${() => (pst.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${pst.paused ? 'play' : 'pause'} size=${15} /> ${pst.paused ? '继续' : '暂停'}</button>
+            ${pst.phase === 'work' ? html`<button type="button" class="tt-round" title="提前完成，记一次" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${16} /></button>` : html`<button type="button" class="tt-round" title="跳过休息" onClick=${() => pomo.skip()}><${Icon} name="right" size=${16} /></button>`}
+            <button type="button" class="tt-round" title="放弃这一轮" onClick=${() => pomo.stop(false)}><${Icon} name="x" size=${16} /></button>
+          </div>`}
+      </div>
     </div>
   <//>`;
 }
@@ -118,59 +126,45 @@ function useTick(ms) { const [, f] = useState(0); useEffect(() => { const t = se
 function Span({ rem }) { useTick(15000); const now = new Date(); return html`<span class="pomo-span"><i>·</i>${hhmm(now)} → ${hhmm(new Date(now.getTime() + rem * 1000))}</span>`; }
 function Dial({ rem, phase, full }) {
   useTick(1000);
-  const secDelay = useRef(-((Date.now() / 1000) % 60)); // fixed at mount so the sweep is not restarted on every render
-  const [drag, setDrag] = useState(null); // minutes while dragging the sector (idle only)
-  const [tilt, setTilt] = useState(null); // [rx, ry] from the pointer, for the 3D lean
+  const [drag, setDrag] = useState(null); // 拖表盘设时长（只在没开始时）
   const ref = useRef();
-  const C = 140, R = 104, PIE_R = R / 2;
-  const nowA = ((Date.now() / 60000) % 60) * 6;
-  const mins = drag != null ? drag : rem / 60;
-  const span = Math.min(360, mins * 6);
-  const circ = 2 * Math.PI * PIE_R;
+  const C = 140, RIM = 134, FACE = 117, SEC = 76; // 外圈 / 表盘 / 番茄扇形半径
   const idle = phase === 'idle';
-  const angleAt = (e) => { const r = ref.current.getBoundingClientRect(); const x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2); return ((Math.atan2(x, -y) * 180 / Math.PI) + 360) % 360; };
-  const minsAt = (e) => { let d = (angleAt(e) - nowA + 360) % 360; let m = Math.round(d / 6 / 5) * 5; if (m === 0) m = 60; return Math.max(5, Math.min(60, m)); };
-  const down = (e) => { if (!idle || e.button) return; e.preventDefault(); ref.current.setPointerCapture(e.pointerId); setDrag(minsAt(e)); };
-  const move = (e) => {
-    if (drag != null) { setDrag(minsAt(e)); return; }
-    const r = ref.current.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5; setTilt([-y * 14, x * 14]);
-  };
-  const up = (e) => { if (drag == null) return; const m = drag; setDrag(null); pomo.setLens(m, Math.max(3, Math.round(m / 5))); };
-  const leave = () => setTilt(null);
-  const wheel = (e) => { if (!idle) return; e.preventDefault(); const cur = pomo.get().workLen; const m = Math.max(5, Math.min(180, cur + (e.deltaY < 0 ? 5 : -5))); pomo.setLens(m, Math.max(3, Math.round(m / 5))); };
-  const style = tilt ? `transform:perspective(600px) rotateX(${tilt[0]}deg) rotateY(${tilt[1]}deg)` : '';
+  const mins = drag != null ? drag : rem / 60;
+  const span = Math.max(0, Math.min(359.99, mins * 6)); // 0 在正上方，顺时针是剩余时间
   const pt = (a, r) => [C + r * Math.sin(a * Math.PI / 180), C - r * Math.cos(a * Math.PI / 180)];
-  const uid = full ? 'f' : 'w';
-  return html`<div class=${'dial3 ' + phase + (drag != null ? ' turning' : '') + (idle ? ' idle' : '')} ref=${ref} style=${style} onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onPointerLeave=${leave} onWheel=${wheel} title=${idle ? '拖动表盘或滚轮设置时长' : ''}>
-    <svg viewBox="0 0 280 280">
+  const angleAt = (e) => { const r = ref.current.getBoundingClientRect(); const x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2); return ((Math.atan2(x, -y) * 180 / Math.PI) + 360) % 360; };
+  const minsAt = (e) => { let m = Math.round(angleAt(e) / 6 / 5) * 5; if (m === 0) m = 60; return Math.max(5, Math.min(60, m)); };
+  const down = (e) => { if (!idle || e.button) return; e.preventDefault(); ref.current.setPointerCapture(e.pointerId); setDrag(minsAt(e)); };
+  const move = (e) => { if (drag != null) setDrag(minsAt(e)); };
+  const up = () => { if (drag == null) return; const m = drag; setDrag(null); pomo.setLens(m, Math.max(3, Math.round(m / 5))); };
+  const wheel = (e) => { if (!idle) return; e.preventDefault(); const cur = pomo.get().workLen; const m = Math.max(5, Math.min(180, cur + (e.deltaY < 0 ? 5 : -5))); pomo.setLens(m, Math.max(3, Math.round(m / 5))); };
+  const [ex, ey] = pt(span, SEC); const large = span > 180 ? 1 : 0;
+  const sector = span <= 0 ? '' : `M${C},${C} L${C},${C - SEC} A${SEC},${SEC} 0 ${large} 1 ${ex.toFixed(2)},${ey.toFixed(2)} Z`;
+  const running = !idle && !pomo.get().paused;
+  const secA = idle ? 0 : ((60 - (Math.ceil(rem) % 60)) % 60) * 6; // 秒针：开始后每秒走一格
+  const id = full ? 'f' : 'w';
+  return html`<div class=${'tt ' + phase + (drag != null ? ' turning' : '') + (idle ? ' idle' : '')} ref=${ref} onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onWheel=${wheel} title=${idle ? '拖动表盘或滚轮设置时长' : ''}>
+    <svg viewBox="0 0 280 280" aria-hidden="true">
       <defs>
-        <radialGradient id=${'rim' + uid} cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="var(--d-rim1)" /><stop offset="1" stop-color="var(--d-rim2)" /></radialGradient>
-        <radialGradient id=${'face' + uid} cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="var(--d-face1)" /><stop offset="1" stop-color="var(--d-face2)" /></radialGradient>
-        <linearGradient id=${'pie' + uid} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--pg1)" /><stop offset="1" stop-color="var(--pg2)" /></linearGradient>
-        <linearGradient id=${'gloss' + uid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55" /><stop offset="1" stop-color="#fff" stop-opacity="0" /></linearGradient>
-        <linearGradient id=${'hand' + uid} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--pg1)" /><stop offset="1" stop-color="var(--pg2)" /></linearGradient>
-        <filter id=${'soft' + uid} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5" /></filter>
+        <linearGradient id=${'tt-rim' + id} x1="0.15" y1="0.1" x2="0.85" y2="0.95"><stop offset="0" stop-color="var(--tt-rim1)" /><stop offset="1" stop-color="var(--tt-rim2)" /></linearGradient>
+        <linearGradient id=${'tt-groove' + id} x1="0.15" y1="0.1" x2="0.85" y2="0.95"><stop offset="0" stop-color="var(--tt-groove1)" /><stop offset="1" stop-color="var(--tt-groove2)" /></linearGradient>
+        <radialGradient id=${'tt-face' + id} cx="38%" cy="32%" r="78%"><stop offset="0" stop-color="var(--tt-face1)" /><stop offset="1" stop-color="var(--tt-face2)" /></radialGradient>
+        <linearGradient id=${'tt-sec' + id} x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="var(--tt-red1)" /><stop offset="1" stop-color="var(--tt-red2)" /></linearGradient>
+        <filter id=${'tt-hs' + id} filterUnits="userSpaceOnUse" x="0" y="0" width="280" height="280"><feDropShadow dx="1.2" dy="2" stdDeviation="1.6" flood-color="#000" flood-opacity=".22" /></filter>
       </defs>
-      <circle cx=${C} cy=${C} r=${R + 22} class="d3-shadow" />
-      <circle cx=${C} cy=${C} r=${R + 18} fill=${'url(#rim' + uid + ')'} class="d3-rim" />
-      <circle cx=${C} cy=${C} r=${R + 8} class="d3-groove" />
-      <circle cx=${C} cy=${C} r=${R + 4} fill=${'url(#face' + uid + ')'} class="d3-face" />
-      <g class="d3-pie" style=${`transform:rotate(${nowA}deg);transform-origin:${C}px ${C}px`}>
-        <circle cx=${C} cy=${C} r=${PIE_R} fill="none" stroke=${'url(#pie' + uid + ')'} stroke-width=${R} stroke-dasharray=${`${circ * span / 360} ${circ}`} class="d3-pie-c" style=${`transform:rotate(-90deg);transform-origin:${C}px ${C}px`} />
-      </g>
-      ${Array.from({ length: 60 }, (_, i) => { const big = i % 5 === 0; const [x1, y1] = pt(i * 6, R - 2), [x2, y2] = pt(i * 6, R - (big ? 12 : 7)); return html`<line key=${i} x1=${x1} y1=${y1} x2=${x2} y2=${y2} class=${'d3-tick ' + (big ? 'big' : '')} />`; })}
-      ${[15, 30, 45, 60].map((n) => { const [x, y] = pt(n * 6, R - 24); return html`<text key=${n} x=${x} y=${y + 4} class="d3-num">${n}</text>`; })}
-      <ellipse cx=${C} cy=${C - R * 0.45} rx=${R * 0.78} ry=${R * 0.42} fill=${'url(#gloss' + uid + ')'} class="d3-gloss" />
-      <g class="d3-hour" style=${`transform:rotate(${((new Date().getHours() % 12) + new Date().getMinutes() / 60) * 30}deg);transform-origin:${C}px ${C}px`}><path d=${`M${C - 5},${C + 12} L${C - 3.5},${C - R * 0.52} L${C + 3.5},${C - R * 0.52} L${C + 5},${C + 12} Z`} class="d3-hour-p" /></g>
-      <g class="d3-hand" style=${`transform:rotate(${nowA}deg);transform-origin:${C}px ${C}px`}>
-        <path d=${`M${C - 5},${C + 16} L${C - 3},${C - R + 16} L${C + 3},${C - R + 16} L${C + 5},${C + 16} Z`} class="d3-hand-sh" filter=${'url(#soft' + uid + ')'} />
-        <path d=${`M${C - 5},${C + 16} L${C - 3},${C - R + 16} L${C + 3},${C - R + 16} L${C + 5},${C + 16} Z`} class="d3-hand-p" />
-        <path d=${`M${C - 1.2},${C} L${C - 1.2},${C - R + 22} L${C + 1.2},${C - R + 22} L${C + 1.2},${C} Z`} class="d3-hand-core" />
-      </g>
-      <g class=${'d3-sec ' + (phase !== 'idle' && pomo.get().paused ? 'paused' : '')} style=${`transform-origin:${C}px ${C}px;animation-delay:${secDelay.current.toFixed(2)}s`}><line x1=${C} y1=${C + 18} x2=${C} y2=${C - R + 10} class="d3-sec-l" /><circle cx=${C} cy=${C + 18} r="3" class="d3-sec-t" /></g>
-      <circle cx=${C} cy=${C} r="10" class="d3-hub" /><circle cx=${C} cy=${C} r="4" class="d3-hub-in" />
+      <circle cx=${C} cy=${C} r=${RIM} fill=${'url(#tt-rim' + id + ')'} class="tt-rim" />
+      <circle cx=${C} cy=${C} r=${FACE + 2.5} fill="none" stroke=${'url(#tt-groove' + id + ')'} stroke-width="5" />
+      <circle cx=${C} cy=${C} r=${FACE} fill=${'url(#tt-face' + id + ')'} class="tt-face" />
+      <circle cx=${C} cy=${C} r=${SEC + 3} class="tt-well" />
+      ${sector && html`<path d=${sector} fill=${'url(#tt-sec' + id + ')'} class="tt-sector" />`}
+      ${Array.from({ length: 60 }, (_, i) => { const lv = i % 15 === 0 ? 3 : i % 5 === 0 ? 2 : 1; const [x1, y1] = pt(i * 6, FACE - 4), [x2, y2] = pt(i * 6, FACE - (lv === 3 ? 17 : lv === 2 ? 11 : 6)); return html`<line key=${i} x1=${x1} y1=${y1} x2=${x2} y2=${y2} class=${'tt-tick l' + lv} />`; })}
+      ${[0, 15, 30, 45].map((n) => { const [x, y] = pt(n * 6, FACE - 29); return html`<text key=${n} x=${x} y=${y + 4.5} class="tt-num">${n}</text>`; })}
+      <g style=${`transform:rotate(${span}deg);transform-origin:${C}px ${C}px`} class="tt-hand" filter=${'url(#tt-hs' + id + ')'}><line x1=${C} y1=${C + 12} x2=${C} y2=${C - SEC - 2} class="tt-hand-l" /></g>
+      <g style=${`transform:rotate(${secA}deg);transform-origin:${C}px ${C}px`} class=${'tt-sec ' + (running ? 'run' : '')}><line x1=${C} y1=${C + 22} x2=${C} y2=${C - FACE + 8} class="tt-sec-l" /><circle cx=${C} cy=${C + 22} r="3.2" class="tt-sec-t" /></g>
+      <circle cx=${C} cy=${C} r="8.5" class="tt-hub" /><circle cx=${C} cy=${C} r="3.2" class="tt-hub-in" />
     </svg>
-    ${drag != null && html`<div class="d3-bubble">${drag} 分钟</div>`}
+    ${drag != null && html`<div class="tt-bubble">${drag} 分钟</div>`}
   </div>`;
 }
 

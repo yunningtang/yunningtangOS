@@ -2682,3 +2682,73 @@ html[data-theme="dark"] .sugg-bg{mix-blend-mode:screen}
 .sugg-bg .dp-done{fill:color-mix(in srgb,var(--text) 11%,transparent)}
 .sugg-bg .dp-now{fill:color-mix(in srgb,var(--hot,#e03e3e) 45%,transparent)}
 html[data-theme="dark"] .sugg-bg .dp-base{fill:rgba(255,255,255,.06)}html[data-theme="dark"] .sugg-bg .dp-sun{fill:rgba(255,255,255,.12)}html[data-theme="dark"] .sugg-bg .dp-bar{fill:rgba(255,255,255,.17)}html[data-theme="dark"] .sugg-bg .dp-done{fill:rgba(255,255,255,.09)}
+
+/* ===================================================================
+   番茄钟（参考 Time Timer）：0 在正上方，番茄红扇形 = 剩余时间，其余只用黑白灰
+   指针：一根深色粗针（剩余时间的边）+ 一根红色细秒针；刻度三级（每分钟 / 每 5 分钟 / 每 15 分钟）
+   材质：光源左上；浅色外圈、内凹的槽、微凸的表盘；投影两层（贴身深影 + 大范围淡影）
+   =================================================================== */
+.tt-card{--tt-rim1:#ffffff;--tt-rim2:#e3e1dc;--tt-groove1:#c9c6c0;--tt-groove2:#ffffff;--tt-face1:#fefefd;--tt-face2:#efeeea;
+  --tt-red1:#e4513b;--tt-red2:#ef735f;--tt-t1:#bdbab4;--tt-t2:#77746e;--tt-t3:#272623;--tt-num:#34332f;--tt-hand:#1d1c1a;--tt-sec:#e4513b}
+.tt-card.break{--tt-red1:#4c9a70;--tt-red2:#6db58e}
+html[data-theme="dark"] .tt-card{--tt-rim1:#3b3b3a;--tt-rim2:#1b1b1b;--tt-groove1:#0c0c0c;--tt-groove2:#3d3d3c;--tt-face1:#2e2e2d;--tt-face2:#222221;
+  --tt-t1:#5a5957;--tt-t2:#9a9894;--tt-t3:#ecebe8;--tt-num:#dcdad6;--tt-hand:#f1f0ec;--tt-sec:#ef6a55}
+.tt-card .fw-hero,html[data-skin] .tt-card .fw-hero{background:none;padding:16px 18px 20px}
+.tt{position:relative;width:216px;aspect-ratio:1;margin:2px auto 6px;touch-action:none;user-select:none}
+.tt.idle{cursor:grab}.tt.turning{cursor:grabbing}
+.tt svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 3px rgba(25,22,18,.12)) drop-shadow(0 22px 34px rgba(25,22,18,.10))}
+html[data-theme="dark"] .tt svg{filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)) drop-shadow(0 22px 34px rgba(0,0,0,.45))}
+.tt-well{fill:rgba(0,0,0,.022)}html[data-theme="dark"] .tt-well{fill:rgba(255,255,255,.02)}
+.tt-sector{transition:d .35s cubic-bezier(.2,.8,.2,1)}
+.tt.turning .tt-sector,.tt.turning .tt-hand{transition:none}
+.tt-tick{stroke-linecap:round}.tt-tick.l1{stroke:var(--tt-t1);stroke-width:1}.tt-tick.l2{stroke:var(--tt-t2);stroke-width:1.7}.tt-tick.l3{stroke:var(--tt-t3);stroke-width:3.2}
+.tt-num{font-size:13px;font-weight:500;text-anchor:middle;fill:var(--tt-num);font-variant-numeric:tabular-nums;font-family:var(--font)}
+.tt-hand{transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.tt-hand-l{stroke:var(--tt-hand);stroke-width:5.5;stroke-linecap:round}
+.tt-sec{transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+.tt-sec-l{stroke:var(--tt-sec);stroke-width:1.5;stroke-linecap:round}.tt-sec-t{fill:var(--tt-sec)}
+.tt-hub{fill:var(--tt-hand)}.tt-hub-in{fill:var(--tt-sec)}
+.tt-bubble{position:absolute;left:50%;top:-6px;transform:translate(-50%,-100%);padding:3px 10px;border-radius:999px;background:var(--ink);color:var(--bg);font-size:.74rem;font-weight:600;white-space:nowrap;pointer-events:none}
+.tt-info{text-align:center}
+.tt-time{font-size:2.5rem;font-weight:400;line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-feature-settings:"tnum";color:var(--text)}
+.tt-sub{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:0 4px;margin:6px 0 14px;font-size:.78rem;color:var(--text-3)}
+.tt-sub .pomo-span{color:var(--text-4);font-variant-numeric:tabular-nums}
+.tt-break{color:inherit;font-size:inherit;padding:0 2px;border-radius:5px}.tt-break:hover{color:var(--text);background:var(--hover)}
+.tt-label{display:block;width:100%;max-width:340px;height:38px;margin:0 auto 12px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--input);font-size:.84rem;outline:0}
+.tt-label:focus{border-color:var(--line-2);background:var(--paper)}
+.tt-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.tt-chip{height:34px;min-width:58px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:var(--paper);color:var(--text);font-size:.84rem;font-weight:500;font-variant-numeric:tabular-nums;transition:background .15s,border-color .15s}
+.tt-chip:hover{border-color:var(--text-4)}
+.tt-chip.on{background:var(--ink);color:var(--paper);border-color:transparent}
+html[data-theme="dark"] .tt-chip.on{color:#191919}
+.tt-chip-in{width:76px;text-align:center;outline:0}
+.tt-acts{display:flex;gap:10px;justify-content:center;margin-top:12px}
+.tt-go{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 22px;border-radius:999px;background:var(--ink);color:var(--paper);font-size:.9rem;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12);transition:transform .15s,box-shadow .15s}
+.tt-go:hover{transform:translateY(-1px);box-shadow:0 6px 16px -6px rgba(0,0,0,.35)}
+html[data-theme="dark"] .tt-go{color:#191919}
+.tt-round{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line-2);background:var(--paper);color:var(--text-2);transition:border-color .15s,color .15s}
+.tt-round:hover{border-color:var(--text-4);color:var(--text)}
+/* 专注页：横排，表盘在左、信息在右 */
+.tt-card.full .fw-hero,html[data-skin] .tt-card.full .fw-hero{display:grid;grid-template-columns:minmax(240px,420px) minmax(260px,1fr);align-items:center;gap:clamp(24px,5vw,72px);padding:clamp(24px,4vw,48px) clamp(24px,5vw,64px)}
+.tt-card.full .tt{width:100%;max-width:400px;margin:0}
+.tt-card.full .tt-info{text-align:left}
+.tt-card.full .tt-time{font-size:clamp(3.4rem,7vw,6rem);font-weight:400;letter-spacing:-.03em}
+.tt-card.full .tt-sub{justify-content:flex-start;font-size:.9rem;margin:10px 0 22px}
+.tt-card.full .tt-label{margin:0 0 14px;max-width:380px}
+.tt-card.full .tt-chips,.tt-card.full .tt-acts{justify-content:flex-start}
+.tt-card.full .tt-chip{height:40px;min-width:72px;font-size:.95rem}
+.tt-card.full .tt-acts{margin-top:18px}
+.tt-card.full .tt-go{height:50px;padding:0 30px;font-size:1rem}
+.tt-card.full .tt-round{width:50px;height:50px}
+@media (max-width:860px){.tt-card.full .fw-hero,html[data-skin] .tt-card.full .fw-hero{grid-template-columns:1fr;justify-items:center}.tt-card.full .tt{max-width:300px}.tt-card.full .tt-info{text-align:center}.tt-card.full .tt-sub,.tt-card.full .tt-chips,.tt-card.full .tt-acts{justify-content:center}.tt-card.full .tt-label{margin:0 auto 14px}}
+@media (prefers-reduced-motion:reduce){.tt-sector,.tt-hand,.tt-sec{transition:none}}
+.tt-go svg{fill:currentColor;stroke:currentColor}
+/* 首页小卡片：更紧凑，按钮不被裁掉 */
+.tt-card:not(.full) .fw-hero{padding:14px 16px 16px}
+.tt-card:not(.full) .tt{width:172px;margin:0 auto 4px}
+.tt-card:not(.full) .tt-time{font-size:2.1rem}
+.tt-card:not(.full) .tt-sub{margin:4px 0 10px;font-size:.74rem}
+.tt-card:not(.full) .tt-chip{height:30px;min-width:52px;font-size:.78rem;padding:0 12px}
+.tt-card:not(.full) .tt-acts{margin-top:10px}
+.tt-card:not(.full) .tt-go{height:38px;padding:0 18px;font-size:.84rem}
+.tt-card:not(.full) .tt-round{width:38px;height:38px}
