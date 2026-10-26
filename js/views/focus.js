@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useMemo, useRef } from '../../vendor/preact.js';
-import { useStore, update, upsert, toggleTodo, removeUndo } from '../store.js';
+import { useStore, update, upsert, toggleTodo, removeUndo, get } from '../store.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
 import { uid } from '../util.js';
@@ -40,7 +40,7 @@ export default function Focus({ route }) {
   const posOf = (t) => Math.max(0, Math.min(100, ((timeToMin(t) - dayFrom * 60) / ((dayTo - dayFrom) * 60)) * 100));
 
   return html`<div class="dash3 focus-grid">
-    <div class="widget span-3"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
+    <div class="widget span-1"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
     <div class="widget span-1">
       <${Card} title="今天的专注" sub=${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m` : '还没有记录'} action=${html`<a class="more" href="#/plan/day">时间线<${Icon} name="right" size=${12} /></a>`}>
         <${GoalRow} mins=${mins} goal=${s.settings.focusGoal || 120} />
@@ -52,7 +52,7 @@ export default function Focus({ route }) {
         ${sessions.length > 0 && html`<div class="sec-h" style="margin-top:14px">已完成 <span class="muted small" style="text-transform:none;letter-spacing:0;font-weight:400">右键可备注或删除</span></div><div class="sess-list">${[...sessions].reverse().slice(0, 8).map((b) => html`<div class="sess" key=${b.id} onContextMenu=${(e) => sessMenu(e, b)}><i></i><span class="sess-t">${b.start}–${b.end}</span><span class="sess-n">${b.title || '专注'}${b.note && html`<small class="sess-note">${b.note}</small>`}</span><span class="sess-m">${b.mins} 分</span><span class="sess-acts"><button class="ibtn" title="备注" onClick=${(e) => sessMenu(e, b)}><${Icon} name="dots" size=${13} /></button></span></div>`)}</div>`}
       <//>
     </div>
-    <div class="widget span-2">
+    <div class="widget span-1">
       <${Card} title="今天的待办" sub="点 ▶ 用右边的时长开始专注" action=${html`<a class="more" href="#/todos">全部待办<${Icon} name="right" size=${12} /></a>`}>
         ${todos.length === 0 ? html`<${Empty} icon="checksq" text="今天没有待办。"><${Btn} small onClick=${() => go('todos')}>去添加<//><//>` : html`<div class="tlist">${todos.slice(0, 8).map((t) => { const spent = focusedOn.get(t.id) || 0; const live = st.phase === 'work' && st.todoId === t.id; return html`<div class=${'fp-i p' + t.priority + ' ' + (live ? 'live' : '')} key=${t.id} style=${`--pc:${(PRIORITY[t.priority] || PRIORITY[2]).color}`} onContextMenu=${(e) => lenMenu(e, t)}>
           <button class="cb" title="标为完成" onClick=${() => toggleTodo(t.id)}><${Icon} name="check" size=${12} /></button>
@@ -94,9 +94,10 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   const custom = !presets.some(([w]) => w === pst.workLen);
   const endAt = (w) => hhmm(new Date(Date.now() + w * 60000));
   const breakMenu = (e) => ctxMenu(e, [...[3, 5, 10, 15, 20].map((n) => ({ label: `休息 ${n} 分钟`, icon: pst.breakLen === n ? 'check' : 'clock', onClick: () => pomo.setLens(pst.workLen, n) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('休息几分钟？', String(pst.breakLen), { title: '休息时长' }), 10); if (v >= 1 && v <= 60) pomo.setLens(pst.workLen, v); } }], '休息时长');
-  const sub = pst.phase === 'idle' ? html`拖动表盘设置时长，共 ${pst.workLen} 分钟${full ? html`<button type="button" class="tt-break" title="休息时长" onClick=${breakMenu}>· 休息 ${pst.breakLen} 分钟</button>` : ''}`
+  const sub = pst.phase === 'idle' ? html`${pst.workLen} 分钟<${Span} rem=${rem} />${full ? html`<button type="button" class="tt-break" title="休息时长" onClick=${breakMenu}>· 休息 ${pst.breakLen} 分</button>` : ''}`
     : pst.phase === 'break' ? html`休息一下<${Span} rem=${rem} />` : html`${pst.paused ? '已暂停' : (pst.label || '专注中')}<${Span} rem=${rem} />`;
-  return html`<${Card} class=${'focus-w tt-card ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '')} pad=${false}>
+  const tint = s.settings.pomoColor || 'blue';
+  return html`<${Card} class=${'focus-w tt-card tc-' + tint + ' ' + pst.phase + (pst.paused ? ' paused' : '') + (full ? ' full' : '')} pad=${false}>
     <div class="fw-hero">
       ${!full && html`<div class="fw-top"><span class="fh-k">专注</span><a class="ibtn" href="#/focus" title="打开专注页"><${Icon} name="right" size=${15} /></a></div>`}
       <${Dial} rem=${rem} phase=${pst.phase} full=${full} />
@@ -144,7 +145,8 @@ function Dial({ rem, phase, full }) {
   const running = !idle && !pomo.get().paused;
   const secA = idle ? 0 : ((60 - (Math.ceil(rem) % 60)) % 60) * 6; // 秒针：开始后每秒走一格
   const id = full ? 'f' : 'w';
-  return html`<div class=${'tt ' + phase + (drag != null ? ' turning' : '') + (idle ? ' idle' : '')} ref=${ref} onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onWheel=${wheel} title=${idle ? '拖动表盘或滚轮设置时长' : ''}>
+  const colorMenu = (e) => { const cur = get().settings.pomoColor || 'blue'; ctxMenu(e, [['blue', '蓝', '#2383e2'], ['tomato', '番茄红', '#e4513b'], ['ink', '墨', '#37352f'], ['teal', '青绿', '#2f9e8f']].map(([v, l, c]) => ({ label: l, color: c, icon: cur === v ? 'check' : '', onClick: () => update((d) => { d.settings.pomoColor = v; }) })), '扇形颜色'); };
+  return html`<div class=${'ttd ' + phase + (drag != null ? ' turning' : '') + (idle ? ' idle' : '')} ref=${ref} onContextMenu=${colorMenu} onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onWheel=${wheel} title=${idle ? '拖动表盘或滚轮设置时长' : ''}>
     <svg viewBox="0 0 280 280" aria-hidden="true">
       <defs>
         <linearGradient id=${'tt-rim' + id} x1="0.15" y1="0.1" x2="0.85" y2="0.95"><stop offset="0" stop-color="var(--tt-rim1)" /><stop offset="1" stop-color="var(--tt-rim2)" /></linearGradient>

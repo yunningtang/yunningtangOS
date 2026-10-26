@@ -315,7 +315,15 @@ export default function Dashboard() {
     </div>`;
   };
 
-  return html`<div class=${'dash3 ' + (custom ? 'customizing' : '')} onDragOver=${(e) => drag && e.preventDefault()} onDrop=${(e) => { if (e.target.closest('.widget')) return; onDrop(e, null); }}>
+  // 瀑布流：每张卡按自己的内容高度占行（grid-auto-rows 很小，按高度算 span），下面的卡自动补上空位
+  const gridRef = useRef();
+  useEffect(() => {
+    const g = gridRef.current; if (!g || typeof ResizeObserver === 'undefined') return;
+    const fit = () => { const cs = getComputedStyle(g); const unit = parseFloat(cs.gridAutoRows) || 4, gap = parseFloat(cs.rowGap) || 16; if (g.offsetWidth < 900) { g.querySelectorAll(':scope > .widget').forEach((w) => { w.style.gridRowEnd = ''; }); return; } g.querySelectorAll(':scope > .widget').forEach((w) => { const c = w.firstElementChild; if (!c) return; const h = c.getBoundingClientRect().height; w.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + gap) / (unit + gap))); }); };
+    const ro = new ResizeObserver(() => requestAnimationFrame(fit)); g.querySelectorAll(':scope > .widget > *').forEach((c) => ro.observe(c)); ro.observe(g); fit();
+    return () => ro.disconnect();
+  }, [layout, custom]);
+  return html`<div ref=${gridRef} class=${'dash3 dash-home ' + (custom ? 'customizing' : '')} onDragOver=${(e) => drag && e.preventDefault()} onDrop=${(e) => { if (e.target.closest('.widget')) return; onDrop(e, null); }}>
     ${custom && html`<div class="custom-bar">
       <span><${Icon} name="grid" size=${14} /> 拖动卡片排序；拖卡片右边缘改宽度（⅓ / ⅔ / 整行），下边缘改高度。</span>
       ${layout.hidden.length > 0 && html`<span class="muted">已隐藏：</span>${layout.hidden.map((id) => html`<button class="btn sm" key=${id} onClick=${() => moveTo(id, null)}>+ ${W[id] ? W[id].title : id}</button>`)}`}

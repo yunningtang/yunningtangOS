@@ -2694,13 +2694,13 @@ html[data-theme="dark"] .sugg-bg .dp-base{fill:rgba(255,255,255,.06)}html[data-t
 html[data-theme="dark"] .tt-card{--tt-rim1:#3b3b3a;--tt-rim2:#1b1b1b;--tt-groove1:#0c0c0c;--tt-groove2:#3d3d3c;--tt-face1:#2e2e2d;--tt-face2:#222221;
   --tt-t1:#5a5957;--tt-t2:#9a9894;--tt-t3:#ecebe8;--tt-num:#dcdad6;--tt-hand:#f1f0ec;--tt-sec:#ef6a55}
 .tt-card .fw-hero,html[data-skin] .tt-card .fw-hero{background:none;padding:16px 18px 20px}
-.tt{position:relative;width:216px;aspect-ratio:1;margin:2px auto 6px;touch-action:none;user-select:none}
-.tt.idle{cursor:grab}.tt.turning{cursor:grabbing}
-.tt svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 3px rgba(25,22,18,.12)) drop-shadow(0 22px 34px rgba(25,22,18,.10))}
-html[data-theme="dark"] .tt svg{filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)) drop-shadow(0 22px 34px rgba(0,0,0,.45))}
+.ttd{position:relative;width:216px;aspect-ratio:1;margin:2px auto 6px;touch-action:none;user-select:none}
+.ttd.idle{cursor:grab}.ttd.turning{cursor:grabbing}
+.ttd svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 3px rgba(25,22,18,.12)) drop-shadow(0 22px 34px rgba(25,22,18,.10))}
+html[data-theme="dark"] .ttd svg{filter:drop-shadow(0 2px 3px rgba(0,0,0,.5)) drop-shadow(0 22px 34px rgba(0,0,0,.45))}
 .tt-well{fill:rgba(0,0,0,.022)}html[data-theme="dark"] .tt-well{fill:rgba(255,255,255,.02)}
 .tt-sector{transition:d .35s cubic-bezier(.2,.8,.2,1)}
-.tt.turning .tt-sector,.tt.turning .tt-hand{transition:none}
+.ttd.turning .tt-sector,.ttd.turning .tt-hand{transition:none}
 .tt-tick{stroke-linecap:round}.tt-tick.l1{stroke:var(--tt-t1);stroke-width:1}.tt-tick.l2{stroke:var(--tt-t2);stroke-width:1.7}.tt-tick.l3{stroke:var(--tt-t3);stroke-width:3.2}
 .tt-num{font-size:13px;font-weight:500;text-anchor:middle;fill:var(--tt-num);font-variant-numeric:tabular-nums;font-family:var(--font)}
 .tt-hand{transition:transform .35s cubic-bezier(.2,.8,.2,1)}
@@ -2730,7 +2730,7 @@ html[data-theme="dark"] .tt-go{color:#191919}
 .tt-round:hover{border-color:var(--text-4);color:var(--text)}
 /* 专注页：横排，表盘在左、信息在右 */
 .tt-card.full .fw-hero,html[data-skin] .tt-card.full .fw-hero{display:grid;grid-template-columns:minmax(240px,420px) minmax(260px,1fr);align-items:center;gap:clamp(24px,5vw,72px);padding:clamp(24px,4vw,48px) clamp(24px,5vw,64px)}
-.tt-card.full .tt{width:100%;max-width:400px;margin:0}
+.tt-card.full .ttd{width:100%;max-width:400px;margin:0}
 .tt-card.full .tt-info{text-align:left}
 .tt-card.full .tt-time{font-size:clamp(3.4rem,7vw,6rem);font-weight:400;letter-spacing:-.03em}
 .tt-card.full .tt-sub{justify-content:flex-start;font-size:.9rem;margin:10px 0 22px}
@@ -2740,15 +2740,56 @@ html[data-theme="dark"] .tt-go{color:#191919}
 .tt-card.full .tt-acts{margin-top:18px}
 .tt-card.full .tt-go{height:50px;padding:0 30px;font-size:1rem}
 .tt-card.full .tt-round{width:50px;height:50px}
-@media (max-width:860px){.tt-card.full .fw-hero,html[data-skin] .tt-card.full .fw-hero{grid-template-columns:1fr;justify-items:center}.tt-card.full .tt{max-width:300px}.tt-card.full .tt-info{text-align:center}.tt-card.full .tt-sub,.tt-card.full .tt-chips,.tt-card.full .tt-acts{justify-content:center}.tt-card.full .tt-label{margin:0 auto 14px}}
+@media (max-width:860px){.tt-card.full .fw-hero,html[data-skin] .tt-card.full .fw-hero{grid-template-columns:1fr;justify-items:center}.tt-card.full .ttd{max-width:300px}.tt-card.full .tt-info{text-align:center}.tt-card.full .tt-sub,.tt-card.full .tt-chips,.tt-card.full .tt-acts{justify-content:center}.tt-card.full .tt-label{margin:0 auto 14px}}
 @media (prefers-reduced-motion:reduce){.tt-sector,.tt-hand,.tt-sec{transition:none}}
 .tt-go svg{fill:currentColor;stroke:currentColor}
 /* 首页小卡片：更紧凑，按钮不被裁掉 */
 .tt-card:not(.full) .fw-hero{padding:14px 16px 16px}
-.tt-card:not(.full) .tt{width:172px;margin:0 auto 4px}
+.tt-card:not(.full) .ttd{width:172px;margin:0 auto 4px}
 .tt-card:not(.full) .tt-time{font-size:2.1rem}
 .tt-card:not(.full) .tt-sub{margin:4px 0 10px;font-size:.74rem}
 .tt-card:not(.full) .tt-chip{height:30px;min-width:52px;font-size:.78rem;padding:0 12px}
 .tt-card:not(.full) .tt-acts{margin-top:10px}
 .tt-card:not(.full) .tt-go{height:38px;padding:0 18px;font-size:.84rem}
 .tt-card:not(.full) .tt-round{width:38px;height:38px}
+
+/* ---- 番茄钟扇形颜色（右键表盘可换）：默认蓝 ---- */
+.tt-card.tc-blue{--tt-red1:#1f7ad8;--tt-red2:#4c9cea;--tt-sec:#1f7ad8}
+.tt-card.tc-tomato{--tt-red1:#e4513b;--tt-red2:#ef735f;--tt-sec:#e4513b}
+.tt-card.tc-ink{--tt-red1:#37352f;--tt-red2:#5d5a53;--tt-sec:#e4513b}
+html[data-theme="dark"] .tt-card.tc-ink{--tt-red1:#e9e8e4;--tt-red2:#c9c7c2}
+.tt-card.tc-teal{--tt-red1:#24907f;--tt-red2:#45b09f;--tt-sec:#24907f}
+html[data-theme="dark"] .tt-card.tc-blue{--tt-sec:#4c9cea}
+.tt-card.break{--tt-red1:#4c9a70;--tt-red2:#6db58e;--tt-sec:#4c9a70}
+
+/* ---- 首页小卡：横排迷你版（表盘左、信息右），不再竖着拉长 ---- */
+.tt-card:not(.full) .fw-hero,html[data-skin] .tt-card:not(.full) .fw-hero{display:grid;grid-template-columns:132px minmax(0,1fr);grid-template-rows:auto 1fr;column-gap:16px;align-items:center;padding:14px 16px 16px}
+.tt-card:not(.full) .fw-top{grid-column:1/-1;margin-bottom:6px}
+.tt-card:not(.full) .ttd{width:132px;margin:0}
+.tt-card:not(.full) .tt-info{text-align:left;min-width:0}
+.tt-card:not(.full) .tt-time{font-size:2rem}
+.tt-card:not(.full) .tt-sub{justify-content:flex-start;margin:2px 0 10px;font-size:.72rem}
+.tt-card:not(.full) .tt-chips{justify-content:flex-start;gap:5px;flex-wrap:nowrap}
+.tt-card:not(.full) .tt-chip{height:26px;min-width:0;padding:0 9px;font-size:.72rem}
+.tt-card:not(.full) .tt-acts{justify-content:flex-start;margin-top:8px;gap:6px}
+.tt-card:not(.full) .tt-go{height:32px;padding:0 14px;font-size:.78rem;gap:6px}
+.tt-card:not(.full) .tt-round{width:32px;height:32px}
+.tt-card:not(.full) .tt-num{font-size:15px}
+/* 专注页回到三列：大号竖排 */
+.tt-card.full .fw-hero,html[data-skin] .tt-card.full .fw-hero{display:block;padding:18px 20px 22px}
+.tt-card.full .ttd{width:min(100%,280px);margin:4px auto 10px}
+.tt-card.full .tt-info{text-align:center}
+.tt-card.full .tt-time{font-size:3rem}
+.tt-card.full .tt-sub{justify-content:center;font-size:.8rem;margin:6px 0 14px}
+.tt-card.full .tt-label{margin:0 auto 12px}
+.tt-card.full .tt-chips,.tt-card.full .tt-acts{justify-content:center}
+.tt-card.full .tt-chip{height:34px;min-width:58px;font-size:.84rem}
+.tt-card.full .tt-go{height:42px;padding:0 22px;font-size:.9rem}.tt-card.full .tt-round{width:42px;height:42px}
+.tt-card.full .tt-acts{margin-top:12px}
+/* 总览：卡片高度跟着内容走，不再被同一行最高的卡拉长 */
+.dash3:not(.focus-grid){align-items:start}
+.dash3:not(.focus-grid) .widget>.card{flex:none}
+/* 总览瀑布流：行单位 4px，卡片按内容高度占行（JS 算 span）；窄屏退回普通单列 */
+@media (min-width:901px){.dash-home{grid-auto-rows:4px;align-items:start}.dash-home>.widget>.card{flex:none}}
+.dash-home .mini-tl-wrap{max-height:420px}
+.dash-home .todo-card .tlist{max-height:440px;overflow-y:auto;scrollbar-width:thin}
