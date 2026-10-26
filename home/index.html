@@ -5,334 +5,260 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>sealonote · 海豹笔记</title>
 <meta name="description" content="笔记、待办、日程放在一起，还有一只帮你整理的海豹。">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Sans+SC:wght@400;500;700&amp;family=Noto+Serif+SC:wght@500;700&amp;display=swap" rel="stylesheet">
-<style>
-body{margin:0;background:#FFFFFF}
-a{color:#1F1E1C}a:hover{color:#2383E2}
-button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #2383E2;outline-offset:2px}
-.nl{color:#5F5E5B;text-decoration:none;font-size:14px}.nl:hover{color:#1F1E1C}
-.chip{font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid #E6E5E1;background:#FFFFFF;color:#5F5E5B;cursor:pointer}
-.chip:hover{border-color:#CFCEC9;color:#1F1E1C}
-.chip.on{background:#1F1E1C;border-color:#1F1E1C;color:#FFFFFF}
-.caret{display:inline-block;width:2px;height:1.1em;background:#2383E2;vertical-align:-0.18em;margin-left:2px;animation:blink 1s steps(1) infinite}
-@keyframes blink{50%{opacity:0}}
-.tile{transition:transform .25s ease, box-shadow .25s ease}
-.tile:hover{transform:translateY(-2px);box-shadow:0 18px 40px -28px rgba(31,30,28,.35)}
-.field{font:inherit;font-size:15px;min-height:48px;padding:0 16px;border-radius:12px;border:1px solid #E6E5E1;background:#FFFFFF;color:#1F1E1C;width:100%;box-sizing:border-box}
-.field::placeholder{color:#8E8D89}
-@media (max-width:760px){.hide-sm{display:none !important}}
-</style>
-<style>[hidden]{display:none !important}</style>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/home/home.css">
 </head>
 <body>
-<div style="font-family: Inter, 'Noto Sans SC', system-ui, sans-serif; color: #1F1E1C; background: #FFFFFF; line-height: 1.6; overflow-x: hidden">
 
-<!-- NAV -->
-<header style="max-width: 1160px; margin: 0 auto; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
-<a href="#top" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #1F1E1C">
-<svg viewBox="0 0 120 100" width="30" aria-hidden="true"><path d="M16 74 C12 42 32 12 60 12 C88 12 108 42 104 74 C102 88 84 92 60 92 C36 92 18 88 16 74 Z" fill="#F2F2F0" stroke="#1F1E1C" stroke-width="5"></path><circle cx="42" cy="52" r="6" fill="#1F1E1C"></circle><circle cx="78" cy="52" r="6" fill="#1F1E1C"></circle></svg>
-<span style="font-weight: 700; font-size: 19px; letter-spacing: -0.03em">sealonote</span>
-<span class="hide-sm" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F5E5B; border: 1px solid #E6E5E1; border-radius: 6px; padding: 1px 7px">beta</span>
+<header class="nav" id="nav">
+<div class="wrap">
+<a class="brand" href="#top">
+<svg viewBox="0 0 120 100" width="28" aria-hidden="true"><path d="M16 74 C12 42 32 12 60 12 C88 12 108 42 104 74 C102 88 84 92 60 92 C36 92 18 88 16 74 Z" fill="#EEF0F3" stroke="#1F1E1C" stroke-width="5"></path><circle cx="42" cy="52" r="6" fill="#1F1E1C"></circle><circle cx="78" cy="52" r="6" fill="#1F1E1C"></circle></svg>
+sealonote <small>海豹笔记</small>
 </a>
-<nav class="hide-sm" aria-label="主导航" style="display: flex; gap: 28px; flex-wrap: wrap">
-<a class="nl" href="#system">系统</a>
-<a class="nl" href="#resume">接着上次</a>
-<a class="nl" href="#trust">数据与隐私</a>
-<a class="nl" href="#join">邀请制</a>
+<nav class="links" aria-label="主导航">
+<a href="#system">都在一起</a>
+<a href="#resume">接着上次</a>
+<a href="#trust">你的数据</a>
 </nav>
-<div style="display: flex; gap: 8px; align-items: center">
-<a class="nl" href="#join" style="padding: 0 12px">登录</a>
-<a href="#join" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 999px; background: #1F1E1C; color: #FFFFFF; text-decoration: none; font-size: 14px; font-weight: 500">开始使用</a>
+<div class="nav-r">
+<a class="txt" href="/#/settings?sec=sync">登录</a>
+<a class="flow" href="#join">开始使用</a>
+</div>
 </div>
 </header>
 
-<!-- HERO: the page IS a chat home -->
-<section id="top" style="position: relative; padding: 64px 24px 96px">
-<div aria-hidden="true" style="position: absolute; inset: 0; background-image: radial-gradient(#D9D8D4 1px, transparent 1.2px); background-size: 18px 18px; -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 40%, #000 10%, transparent 75%); mask-image: radial-gradient(ellipse 60% 70% at 50% 40%, #000 10%, transparent 75%)"></div>
-<div style="position: relative; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; text-align: center">
-<p style="margin: 0 0 22px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; display: inline-flex; gap: 8px; align-items: center; border: 1px solid #E6E5E1; background: #FFFFFF; border-radius: 999px; padding: 4px 12px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #2383E2"></span>笔记、待办、日程放在一起，还有一只帮你整理的海豹</p>
-<h1 style="margin: 0; font-family: 'Noto Serif SC', serif; font-weight: 700; font-size: clamp(38px, 5.6vw, 68px); line-height: 1.15; letter-spacing: -0.02em">少放一点在脑子里。</h1>
-<p style="margin: 18px 0 0; max-width: 580px; font-size: 17px; color: #5F5E5B">想到什么就跟汤圆说一句，它帮你整理成笔记、拆成小步、排进日程。<b style="color: #1F1E1C; font-weight: 600">你看过觉得行，再存。</b></p>
-
-<!-- Composer -->
-<div style="position: relative; width: 100%; margin-top: 44px; text-align: left">
-<div aria-hidden="true" style="position: absolute; inset: -30px -40px; background: radial-gradient(ellipse at 50% 60%, rgba(35,131,226,.16), transparent 68%); filter: blur(8px)"></div>
-<div style="position: relative; background: #FFFFFF; border: 1px solid #E6E5E1; border-radius: 22px; box-shadow: 0 1px 0 rgba(31,30,28,.04), 0 30px 60px -36px rgba(31,30,28,.30); padding: 18px 18px 14px">
-<div style="display: flex; gap: 12px; align-items: flex-start; min-height: 58px">
-<svg viewBox="0 0 120 100" width="30" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px"><path d="M16 74 C12 42 32 12 60 12 C88 12 108 42 104 74 C102 88 84 92 60 92 C36 92 18 88 16 74 Z" fill="#F2F2F0" stroke="#DEDDD9" stroke-width="3"></path><circle cx="42" cy="52" r="6" fill="#1F1E1C"></circle><circle cx="78" cy="52" r="6" fill="#1F1E1C"></circle><circle cx="33" cy="63" r="4" fill="#F2C3B8" opacity="0.6"></circle><circle cx="87" cy="63" r="4" fill="#F2C3B8" opacity="0.6"></circle></svg>
-<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #1F1E1C"><span id="typed"></span><span class="caret"></span></p>
+<main>
+<section class="hero" id="top">
+<div class="dots" id="heroDots" aria-hidden="true"></div>
+<div class="hero-in">
+<div class="seal-stage" id="sealHero" role="button" tabindex="0" aria-label="汤圆，点一下打个招呼">
+<canvas width="420" height="420" aria-hidden="true"></canvas>
+<svg class="fallback" viewBox="0 0 120 100" aria-hidden="true"><path d="M16 74 C12 42 32 12 60 12 C88 12 108 42 104 74 C102 88 84 92 60 92 C36 92 18 88 16 74 Z" fill="#EEF0F3" stroke="#D3D2CD" stroke-width="1.5"></path><circle cx="42" cy="52" r="5" fill="#1F1E1C"></circle><circle cx="78" cy="52" r="5" fill="#1F1E1C"></circle></svg>
+<div class="bubble" id="bubble">嗨，我是汤圆</div>
 </div>
-<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; flex-wrap: wrap">
-<div role="group" aria-label="让汤圆" style="display: flex; gap: 6px; flex-wrap: wrap">
-<button type="button" class="chip" data-mode="record" aria-pressed="false">记录</button><button type="button" class="chip on" data-mode="split" aria-pressed="true">拆解</button><button type="button" class="chip" data-mode="plan" aria-pressed="false">规划</button><button type="button" class="chip" data-mode="resume" aria-pressed="false">接着上次</button>
+<h1 id="h1">少放一点在脑子里。</h1>
+<p class="lede">想到什么就跟汤圆说一句，它帮你整理成笔记、拆成小步、排进日程。<b>你看过觉得行，再存。</b></p>
+
+<div class="composer-w">
+<div class="composer">
+<div class="say"><span><span id="typed"></span><span class="caret"></span></span></div>
+<div class="bar">
+<div class="chips" role="group" aria-label="让汤圆">
+<button type="button" class="chip" data-mode="record">记录</button>
+<button type="button" class="chip on" data-mode="split">拆解</button>
+<button type="button" class="chip" data-mode="plan">规划</button>
+<button type="button" class="chip" data-mode="resume">接着上次</button>
 </div>
 <div style="display: flex; align-items: center; gap: 10px">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">汤圆 · DeepSeek ⌄</span>
-<button type="button" aria-label="发送" id="replay" style="width: 40px; height: 40px; border-radius: 50%; border: 0; background: #1F1E1C; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"></path></svg></button>
+<span class="agent"><b>汤圆</b> · DeepSeek</span>
+<button type="button" class="flow send" id="replay" aria-label="再说一遍"><svg viewBox="0 0 24 24" width="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"></path></svg></button>
 </div>
 </div>
 </div>
 </div>
 
-<!-- Reply draft -->
-<div style="box-sizing: border-box; width: 100%; margin-top: 18px; text-align: left; background: #FBFBFA; border: 1px solid #EFEEEA; border-radius: 18px; padding: 20px 22px">
-<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">草稿 · <span id="kind">5 个步骤</span></span>
-<span style="font-size: 12px; color: #5F5E5B">哪条不对，右键改</span>
-</div>
+<div class="draft" aria-live="polite">
+<div class="draft-h"><span>草稿 · <b id="kind">5 个步骤</b></span><span>哪条不对，右键就能改</span></div>
 
-<div data-show="record" hidden>
-<div>
-<b style="font-size: 16px">周四 · 和导师过论文进度</b>
-<div style="margin-top: 12px; display: grid; grid-template-columns: 64px minmax(0, 1fr); row-gap: 8px; font-size: 14px">
-<span style="color: #5F5E5B">时间</span><span>周四下午 · 具体几点还没定</span>
-<span style="color: #5F5E5B">之前</span><span>整理这周读的三篇论文笔记</span>
-<span style="color: #5F5E5B">顺便</span><span>约一次跑步</span>
-<span style="color: #5F5E5B">标签</span><span><span style="background: #E7F0FB; color: #1C5FA8; border-radius: 4px; padding: 1px 6px; font-size: 12px">论文</span> <span style="background: #F1F1EF; color: #5F5E5B; border-radius: 4px; padding: 1px 6px; font-size: 12px">导师</span></span>
-</div>
+<div class="thinking" id="thinking" hidden><span class="typing"><i></i><i></i><i></i></span>汤圆在整理</div>
+
+<div class="pane" data-show="record" hidden>
+<div class="draft-t row" style="--i:0">周四 · 和导师过论文进度</div>
+<div class="kv">
+<span class="row" style="--i:1">时间</span><span class="row" style="--i:1">周四下午，具体几点还没定</span>
+<span class="row" style="--i:2">之前</span><span class="row" style="--i:2">整理这周读的三篇论文笔记</span>
+<span class="row" style="--i:3">顺便</span><span class="row" style="--i:3">约一次跑步</span>
+<span class="row" style="--i:4">标签</span><span class="row" style="--i:4"><span class="tag blue">论文</span> <span class="tag gray">导师</span></span>
 </div>
 </div>
 
-<div data-show="split">
-<div>
-<b style="font-size: 16px">准备周四的论文讨论 · 5 站 · 共 97 分钟</b>
-<div style="overflow-x: auto; margin: 0 -8px; padding: 0 8px"><div style="position: relative; min-width: 560px; margin-top: 18px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px">
-<div aria-hidden="true" style="position: absolute; left: 24px; right: 24px; top: 22px; border-top: 2px dashed #D3D2CD"></div>
-
-<div style="position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px">
-<div style="height: 44px; display: flex; align-items: center"><span style="display:block;width:27px;height:27px;border-radius:50%;background:#FFFFFF;border:3px solid #2383E2;box-sizing:border-box"></span></div>
-<span style="font-size: 13px; line-height: 1.4">第一篇：三句话核心观点</span>
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F5E5B">20 min</span>
+<div class="pane" data-show="split">
+<div class="draft-t row" style="--i:0">准备周四的论文讨论 · 5 步 · 共 97 分钟</div>
+<div class="metro-s"><div class="metro">
+<div class="track" aria-hidden="true"></div>
+<div class="st" style="--i:0;--c:#2383E2"><div class="dot-w"><span class="ring" style="width:27px;height:27px"></span></div><span class="t">第一篇：写三句话核心观点</span><span class="m">20 分钟</span></div>
+<div class="st" style="--i:1;--c:#2383E2"><div class="dot-w"><span class="ring" style="width:27px;height:27px"></span></div><span class="t">第二篇：同上</span><span class="m">20 分钟</span></div>
+<div class="st" style="--i:2;--c:#2383E2"><div class="dot-w"><span class="ring" style="width:31px;height:31px"></span></div><span class="t">第三篇：重点看方法</span><span class="m">30 分钟</span></div>
+<div class="st" style="--i:3;--c:#D9730D"><div class="dot-w"><span class="ring" style="width:29px;height:29px"></span></div><span class="t">写一页对比带给导师</span><span class="m">25 分钟</span></div>
+<div class="st" style="--i:4;--c:#9B9A97"><div class="dot-w"><span class="ring" style="width:14px;height:14px"></span></div><span class="t">约跑步搭子</span><span class="m">2 分钟</span></div>
+</div></div>
 </div>
 
-<div style="position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px">
-<div style="height: 44px; display: flex; align-items: center"><span style="display:block;width:27px;height:27px;border-radius:50%;background:#FFFFFF;border:3px solid #2383E2;box-sizing:border-box"></span></div>
-<span style="font-size: 13px; line-height: 1.4">第二篇：同上</span>
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F5E5B">20 min</span>
-</div>
-
-<div style="position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px">
-<div style="height: 44px; display: flex; align-items: center"><span style="display:block;width:31px;height:31px;border-radius:50%;background:#FFFFFF;border:3px solid #2383E2;box-sizing:border-box"></span></div>
-<span style="font-size: 13px; line-height: 1.4">第三篇：重点看方法</span>
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F5E5B">30 min</span>
-</div>
-
-<div style="position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px">
-<div style="height: 44px; display: flex; align-items: center"><span style="display:block;width:29px;height:29px;border-radius:50%;background:#FFFFFF;border:3px solid #D9730D;box-sizing:border-box"></span></div>
-<span style="font-size: 13px; line-height: 1.4">写一页对比带给导师</span>
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F5E5B">25 min</span>
-</div>
-
-<div style="position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px">
-<div style="height: 44px; display: flex; align-items: center"><span style="display:block;width:14px;height:14px;border-radius:50%;background:#FFFFFF;border:3px solid #9B9A97;box-sizing:border-box"></span></div>
-<span style="font-size: 13px; line-height: 1.4">约跑步搭子</span>
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F5E5B">2 min</span>
+<div class="pane" data-show="plan" hidden>
+<div class="draft-t row" style="--i:0">排进这周，避开已经满的时段</div>
+<div class="plan">
+<div class="row" style="--i:1"><span class="when">周二 19:30</span><span class="pdot" style="--c:#2383E2"></span><span>整理第一、二篇笔记</span></div>
+<div class="row" style="--i:2"><span class="when">周三 09:00</span><span class="pdot" style="--c:#2383E2"></span><span>第三篇方法部分，再写对比</span></div>
+<div class="row" style="--i:3"><span class="when">周三 18:00</span><span class="pdot" style="--c:#9B9A97"></span><span>跑步 30 分钟</span></div>
+<div class="row" style="--i:4"><span class="when">周四 14:00</span><span class="pdot fill" style="--c:#D9730D"></span><b>和导师讨论论文进度</b></div>
 </div>
 </div>
 
+<div class="pane" data-show="resume" hidden>
+<div class="draft-t row" style="--i:0">欢迎回来，你上次停在这里</div>
+<div class="kv">
+<span class="row" style="--i:1">停在</span><span class="row" style="--i:1">第 3 篇，方法部分第二段</span>
+<span class="row" style="--i:2">下一步</span><b class="row" style="--i:2;font-weight:600">写作者的结论，再总结三篇的发现，约 20 分钟</b>
+<span class="row" style="--i:3">相关</span><span class="row" style="--i:3">第 1 篇笔记、组会记录、周四讨论</span>
+</div>
+</div>
+
+<div class="draft-f">
+<span id="unsaved">还没存。看一眼，没问题就保存。</span>
+<span id="saved" class="ok" hidden><svg viewBox="0 0 24 24" width="16" fill="none" stroke="#2383E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"></path></svg>存好了，之后也能改</span>
+<span>
+<button type="button" class="flow small" id="confirm">保存</button>
+<button type="button" class="ghost small" id="undo" hidden>撤回</button>
+</span>
 </div>
 </div>
 </div>
 
-<div data-show="plan" hidden>
-<div>
-<b style="font-size: 16px">排进这周 · 避开已经满的时段</b>
-<div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 14px">
-<div style="display: flex; gap: 14px; align-items: center"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; width: 92px">周二 19:30</span><span style="width: 8px; height: 8px; border-radius: 50%; border: 2px solid #2383E2"></span><span>整理第一、二篇笔记</span></div>
-<div style="display: flex; gap: 14px; align-items: center"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; width: 92px">周三 09:00</span><span style="width: 8px; height: 8px; border-radius: 50%; border: 2px solid #2383E2"></span><span>第三篇方法部分 + 写对比</span></div>
-<div style="display: flex; gap: 14px; align-items: center"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; width: 92px">周三 18:00</span><span style="width: 8px; height: 8px; border-radius: 50%; border: 2px solid #9B9A97"></span><span>跑步 30 分钟</span></div>
-<div style="display: flex; gap: 14px; align-items: center"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; width: 92px">周四 14:00</span><span style="width: 8px; height: 8px; border-radius: 50%; background: #D9730D"></span><b>和导师讨论论文进度</b></div>
-</div>
-</div>
-</div>
-
-<div data-show="resume" hidden>
-<div>
-<b style="font-size: 16px">欢迎回来。你上次停在这里：</b>
-<div style="margin-top: 12px; display: grid; grid-template-columns: 64px minmax(0, 1fr); row-gap: 8px; font-size: 14px">
-<span style="color: #5F5E5B">停在</span><span>第 3 篇 · 方法部分第二段</span>
-<span style="color: #5F5E5B">下一步</span><b style="font-weight: 600">写下作者的结论，再总结三篇的关键发现 · 约 20 分钟</b>
-<span style="color: #5F5E5B">相关</span><span>第 1 篇笔记 · 组会记录 · 周四讨论</span>
-</div>
-</div>
-</div>
-
-<div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid #EFEEEA; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
-<div id="savedRow" hidden style="display:contents">
-<span style="font-size: 13px; color: #1F1E1C; display: inline-flex; gap: 6px; align-items: center"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="#2383E2" stroke-width="2.2" aria-hidden="true"><path d="M5 12l5 5L19 7"></path></svg>存好了，之后也能改</span>
-<button type="button" id="undo" style="font: inherit; font-size: 13px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #E6E5E1; background: #FFFFFF; color: #1F1E1C; cursor: pointer">撤回</button>
-</div>
-<div id="unsavedRow" style="display:contents">
-<span style="font-size: 13px; color: #5F5E5B">还没存。看一眼，没问题就保存。</span>
-<button type="button" id="confirm" style="font: inherit; font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 16px; border-radius: 999px; border: 0; background: #1F1E1C; color: #FFFFFF; cursor: pointer">保存</button>
-</div>
-</div>
-</div>
+<div class="marquee" aria-label="可以对汤圆说的话">
+<div class="belt" id="belt1"></div>
+<div class="belt rev" id="belt2"></div>
 </div>
 </section>
 
-<!-- SYSTEM: bento -->
-<section id="system" style="max-width: 1160px; margin: 0 auto; padding: 96px 24px">
-<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 40px">
+<section class="blk" id="system">
+<div class="wrap">
+<div class="blk-h" data-reveal>
 <div>
-<p style="margin: 0 0 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">01 / 都在一起</p>
-<h2 style="margin: 0; font-family: 'Noto Serif SC', serif; font-size: clamp(30px, 3.6vw, 44px); line-height: 1.2; letter-spacing: -0.01em">笔记、待办、日程，<br>本来就该放在一起。</h2>
+<p class="eyebrow">都在一起</p>
+<h2>笔记、待办、日程，<br>本来就该放在一起。</h2>
 </div>
-<p style="margin: 0; max-width: 380px; font-size: 15px; color: #5F5E5B">汤圆知道你现在在哪一页、今天哪里还有空。在任何一条笔记、待办或者一本书上右键，都能叫它帮忙。</p>
+<p class="sub">汤圆知道你现在在哪一页、今天哪里还有空。在任何一条笔记、待办或者一本书上右键，都能叫它帮忙。</p>
 </div>
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px">
+<div class="bento">
 
-<div class="tile" style="grid-column: span 2; min-width: 0; border: 1px solid #EFEEEA; border-radius: 18px; padding: 24px; background: #FFFFFF">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">时间线</p>
-<b style="display: block; margin-top: 4px; font-size: 18px">今天要做的，排成一条线</b>
-<div style="margin-top: 20px; display: flex; flex-direction: column; gap: 0; font-size: 13px">
-<div style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 40px"><span style="font-family: 'JetBrains Mono', monospace; color: #5F5E5B">09:00</span><span style="width: 10px; height: 10px; border-radius: 50%; border: 2px solid #2383E2"></span><span style="background: #E7F0FB; color: #1C5FA8; border-radius: 8px; padding: 6px 10px">深度 · 论文第三篇方法部分</span></div>
-<div style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 40px"><span style="font-family: 'JetBrains Mono', monospace; color: #5F5E5B">11:30</span><span style="width: 10px; height: 10px; border-radius: 50%; border: 2px solid #9B9A97"></span><span style="background: #F1F1EF; color: #5F5E5B; border-radius: 8px; padding: 6px 10px">回邮件 · 15 min</span></div>
-<div style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 28px"><span style="font-family: 'JetBrains Mono', monospace; color: #D44C47">13:42</span><span style="width: 10px; height: 2px; background: #D44C47"></span><span style="border-top: 1px solid #D44C47; height: 0"></span></div>
-<div style="display: grid; grid-template-columns: 52px 14px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 40px"><span style="font-family: 'JetBrains Mono', monospace; color: #5F5E5B">14:00</span><span style="width: 10px; height: 10px; border-radius: 50%; background: #D9730D"></span><span style="background: #FBEBDD; color: #8A4A0F; border-radius: 8px; padding: 6px 10px">组会 · 和导师过进度</span></div>
+<div class="tile wide" data-reveal style="--d:0">
+<div class="lab">时间线</div>
+<h3>今天要做的，排成一条线</h3>
+<div class="tl" id="tl">
+<div class="r"><span class="h">09:00</span><span class="pdot" style="--c:#2383E2"></span><span class="bb" style="background:var(--blue-bg);color:var(--blue-tx)">深度：论文第三篇方法部分</span></div>
+<div class="r"><span class="h">11:30</span><span class="pdot" style="--c:#9B9A97"></span><span class="bb" style="background:var(--gray-bg);color:var(--text-2)">回邮件 · 15 分钟</span></div>
+<div class="r"><span class="h">14:00</span><span class="pdot fill" style="--c:#D9730D"></span><span class="bb" style="background:var(--orange-bg);color:var(--orange-tx)">组会，和导师过进度</span></div>
+<div class="r"><span class="h">16:30</span><span class="pdot" style="--c:#2383E2"></span><span class="bb" style="background:var(--blue-bg);color:var(--blue-tx)">写对比，整理成一页</span></div>
+<div class="now" id="now" style="top:0"><span id="nowT">09:00</span></div>
 </div>
 </div>
 
-<div class="tile" style="min-width: 0; border: 1px solid #EFEEEA; border-radius: 18px; padding: 24px; background: #FFFFFF; display: flex; flex-direction: column">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">专注</p>
-<b style="display: block; margin-top: 4px; font-size: 18px">还剩多久，看一眼就知道</b>
-<div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 18px 0">
-<svg viewBox="0 0 120 120" width="150" role="img" aria-label="专注计时，剩余 18 分钟">
-<circle cx="60" cy="60" r="54" fill="#FFFFFF" stroke="#E6E5E1" stroke-width="1.5"></circle>
-<path d="M60 60 L60 14 A46 46 0 1 1 18.3 79.4 Z" fill="#2383E2" opacity="0.9"></path>
-<circle cx="60" cy="60" r="6" fill="#1F1E1C"></circle>
-<path d="M60 60 L60 14" stroke="#1F1E1C" stroke-width="2" stroke-linecap="round"></path>
+<div class="tile" data-reveal style="--d:1">
+<div class="lab">专注</div>
+<h3>还剩多久，看一眼就知道</h3>
+<div class="timer">
+<svg viewBox="0 0 120 120" width="148" role="img" aria-label="专注计时">
+<circle cx="60" cy="60" r="55" fill="#fff" stroke="#E3E2DE" stroke-width="1.2"></circle>
+<g stroke="#C9C8C4" stroke-width="1.2" id="ticks"></g>
+<path id="sector" fill="#2383E2" opacity=".92" d=""></path>
+<circle cx="60" cy="60" r="7" fill="#1F1E1C"></circle>
 </svg>
+<span class="tm" id="tm">25:00</span>
 </div>
-<p style="margin: 0; font-size: 13px; color: #5F5E5B">每轮结束记一句做到哪了，下次打开就能接着做。</p>
+<p class="note">每轮结束记一句做到哪了，下次打开就能接着做。</p>
 </div>
 
-<div class="tile" style="min-width: 0; border: 1px solid #EFEEEA; border-radius: 18px; padding: 24px; background: #FFFFFF">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">笔记</p>
-<b style="display: block; margin-top: 4px; font-size: 18px">写着写着，就能变成待办</b>
-<div style="margin-top: 16px; border: 1px solid #EFEEEA; border-radius: 12px; padding: 14px; font-size: 14px; background: #FBFBFA">
-<p style="margin: 0; font-family: 'Noto Serif SC', serif; font-size: 15px">被打断的那组，如果离开前写下“下一步”，回来的表现几乎不受影响。</p>
-<div style="margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px">
-<span style="border: 1px solid #E6E5E1; border-radius: 6px; padding: 2px 8px; background: #FFFFFF">变成待办</span>
-<span style="border: 1px solid #E6E5E1; border-radius: 6px; padding: 2px 8px; background: #FFFFFF">让汤圆拆成步骤</span>
-<span style="border: 1px solid #E6E5E1; border-radius: 6px; padding: 2px 8px; background: #FFFFFF">评论</span>
-</div>
+<div class="tile" data-reveal style="--d:2">
+<div class="lab">笔记</div>
+<h3>写着写着，就能变成待办</h3>
+<div class="nb">
+<div>被打断的那组，<mark>如果离开前写下“下一步”</mark>，回来的表现几乎不受影响。</div>
+<div class="acts"><span class="go">变成待办</span><span>让汤圆拆成步骤</span><span>评论</span></div>
+<div class="made"><span class="pdot" style="--c:#2383E2"></span>离开前写下下一步</div>
 </div>
 </div>
 
-<div class="tile" style="min-width: 0; border: 1px solid #EFEEEA; border-radius: 18px; padding: 24px; background: #FFFFFF">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">待办</p>
-<b style="display: block; margin-top: 4px; font-size: 18px">分四档，红的先做</b>
-<div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 14px">
-<div style="display: flex; gap: 10px; align-items: center"><span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #D44C47"></span><span>回复导师邮件</span><span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #D44C47">P0</span></div>
-<div style="display: flex; gap: 10px; align-items: center"><span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #D9730D"></span><span>整理三篇论文笔记</span><span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A65A0B">P1</span></div>
-<div style="display: flex; gap: 10px; align-items: center"><span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #2383E2"></span><span>读《深度工作》第 4 章</span><span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #1C5FA8">P2</span></div>
-<div style="display: flex; gap: 10px; align-items: center"><span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #9B9A97"></span><span style="color: #5F5E5B">换个桌面壁纸</span><span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #5F5E5B">P3</span></div>
+<div class="tile" data-reveal style="--d:3">
+<div class="lab">待办</div>
+<h3>分四档，红的先做</h3>
+<div class="todo" id="todo">
+<div class="r" style="--c:#D44C47"><span class="cb"><svg viewBox="0 0 24 24" width="10" fill="none" stroke="#fff" stroke-width="4" aria-hidden="true"><path d="M5 12l5 5L19 7"></path></svg></span><span class="tt">回复导师邮件</span><span class="p">P0</span></div>
+<div class="r" style="--c:#D9730D"><span class="cb"><svg viewBox="0 0 24 24" width="10" fill="none" stroke="#fff" stroke-width="4" aria-hidden="true"><path d="M5 12l5 5L19 7"></path></svg></span><span class="tt">整理三篇论文笔记</span><span class="p">P1</span></div>
+<div class="r" style="--c:#2383E2"><span class="cb"><svg viewBox="0 0 24 24" width="10" fill="none" stroke="#fff" stroke-width="4" aria-hidden="true"><path d="M5 12l5 5L19 7"></path></svg></span><span class="tt">读《深度工作》第 4 章</span><span class="p">P2</span></div>
+<div class="r" style="--c:#9B9A97"><span class="cb"><svg viewBox="0 0 24 24" width="10" fill="none" stroke="#fff" stroke-width="4" aria-hidden="true"><path d="M5 12l5 5L19 7"></path></svg></span><span class="tt">换个桌面壁纸</span><span class="p">P3</span></div>
 </div>
 </div>
 
-<div class="tile" style="min-width: 0; border: 1px solid #EFEEEA; border-radius: 18px; padding: 24px; background: #FFFFFF">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">书架 · 收藏 · 愿景</p>
-<b style="display: block; margin-top: 4px; font-size: 18px">在读的书、存的链接、想做的事</b>
-<div style="margin-top: 16px; display: flex; gap: 10px; align-items: flex-end; height: 92px">
-<span style="width: 34px; height: 86px; border-radius: 4px; background: #1F1E1C"></span>
-<span style="width: 28px; height: 72px; border-radius: 4px; background: #E7F0FB; border: 1px solid #C9DDF5"></span>
-<span style="width: 38px; height: 90px; border-radius: 4px; background: #F1F1EF; border: 1px solid #E6E5E1"></span>
-<span style="width: 26px; height: 64px; border-radius: 4px; background: #FBEBDD; border: 1px solid #F2D3B6"></span>
-<span style="flex: 1; align-self: stretch; border: 1px dashed #D3D2CD; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #5F5E5B; text-align: center; padding: 0 8px">让汤圆排阅读计划</span>
-</div>
-</div>
-</div>
-</section>
-
-<!-- RESUME: transcript -->
-<section id="resume" style="background: #FBFBFA; border-top: 1px solid #F1F0EC; border-bottom: 1px solid #F1F0EC">
-<div style="max-width: 1160px; margin: 0 auto; padding: 96px 24px; display: flex; gap: 56px; flex-wrap: wrap; align-items: flex-start">
-<div style="flex: 1 1 340px; min-width: 0">
-<p style="margin: 0 0 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">02 / 接着上次</p>
-<h2 style="margin: 0; font-family: 'Noto Serif SC', serif; font-size: clamp(30px, 3.6vw, 44px); line-height: 1.2">中途被打断，<br>也没关系。</h2>
-<p style="margin: 20px 0 0; font-size: 15px; color: #5F5E5B; max-width: 400px">开个会、吃个饭、过了个周末，回来经常想不起刚才在干嘛。汤圆会帮你记着停在哪、下一步做什么。</p>
-</div>
-<div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 0">
-<div style="display: grid; grid-template-columns: 64px 20px minmax(0, 1fr); gap: 14px; padding-bottom: 22px">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; padding-top: 12px">10:12</span>
-<span style="display: flex; flex-direction: column; align-items: center"><span style="width: 10px; height: 10px; border-radius: 50%; border: 2px solid #2383E2; margin-top: 14px; background: #FFFFFF"></span><span style="flex: 1; border-left: 2px dashed #D3D2CD; margin-top: 4px; margin-bottom: -26px"></span></span>
-<div style="background: #FFFFFF; border: 1px solid #EFEEEA; border-radius: 14px; padding: 12px 16px; font-size: 14px">专注中 · 整理第 3 篇论文 · 写到方法部分第二段</div>
-</div>
-<div style="display: grid; grid-template-columns: 64px 20px minmax(0, 1fr); gap: 14px; padding-bottom: 22px">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; padding-top: 12px">10:40</span>
-<span style="display: flex; flex-direction: column; align-items: center"><span style="width: 10px; height: 10px; border-radius: 50%; background: #D9730D; margin-top: 14px"></span><span style="flex: 1; border-left: 2px dashed #D3D2CD; margin-top: 4px; margin-bottom: -26px"></span></span>
-<div style="background: #FFFFFF; border: 1px solid #EFEEEA; border-radius: 14px; padding: 12px 16px; font-size: 14px"><b style="font-weight: 600">这一轮结束 · 做到哪了？</b><div style="margin-top: 6px; color: #5F5E5B">第二段读完了，结论还没写。下一步：写结论</div></div>
-</div>
-<div style="display: grid; grid-template-columns: 64px 20px minmax(0, 1fr); gap: 14px; padding-bottom: 22px">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; padding-top: 12px">周一</span>
-<span style="display: flex; flex-direction: column; align-items: center"><span style="width: 10px; height: 10px; border-radius: 50%; border: 2px solid #9B9A97; margin-top: 14px; background: #FFFFFF"></span><span style="flex: 1; border-left: 2px dashed #D3D2CD; margin-top: 4px; margin-bottom: -26px"></span></span>
-<div style="font-size: 14px; color: #5F5E5B; padding-top: 10px">隔了一个周末</div>
-</div>
-<div style="display: grid; grid-template-columns: 64px 20px minmax(0, 1fr); gap: 14px">
-<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B; padding-top: 12px">09:05</span>
-<span style="display: flex; justify-content: center"><span style="width: 10px; height: 10px; border-radius: 50%; background: #1F1E1C; margin-top: 14px"></span></span>
-<div style="background: #FFFFFF; border: 1px solid #E6E5E1; border-radius: 14px; padding: 14px 16px; font-size: 14px; box-shadow: 0 20px 40px -30px rgba(31,30,28,.35)">
-<div style="display: flex; gap: 10px; align-items: center"><svg viewBox="0 0 120 100" width="24" aria-hidden="true"><path d="M16 74 C12 42 32 12 60 12 C88 12 108 42 104 74 C102 88 84 92 60 92 C36 92 18 88 16 74 Z" fill="#F2F2F0" stroke="#DEDDD9" stroke-width="3"></path><circle cx="42" cy="52" r="6" fill="#1F1E1C"></circle><circle cx="78" cy="52" r="6" fill="#1F1E1C"></circle></svg><b style="font-weight: 600">早，接着上周五的？</b></div>
-<p style="margin: 8px 0 0; color: #5F5E5B">你停在第 3 篇的方法部分，接下来是写结论，大概 20 分钟。要现在开始吗？</p>
-<div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap">
-<span style="font-size: 13px; padding: 6px 14px; border-radius: 999px; background: #1F1E1C; color: #FFFFFF">开始 20 分钟</span>
-<span style="font-size: 13px; padding: 6px 14px; border-radius: 999px; border: 1px solid #E6E5E1; color: #1F1E1C">先做 2 分钟</span>
-</div>
+<div class="tile" data-reveal style="--d:4">
+<div class="lab">书架、收藏、愿景</div>
+<h3>在读的书、存的链接、想做的事</h3>
+<div class="shelf">
+<span class="bk" style="--i:0;width:32px;height:88px;background:#37352F"></span>
+<span class="bk" style="--i:1;width:26px;height:70px;background:#5B8FC9"></span>
+<span class="bk" style="--i:2;width:36px;height:92px;background:#E9E5DC"></span>
+<span class="bk" style="--i:3;width:24px;height:62px;background:#D9730D"></span>
+<span class="bk" style="--i:4;width:30px;height:80px;background:#9B9A97"></span>
+<span class="add">让汤圆排个阅读计划</span>
 </div>
 </div>
 </div>
 </div>
 </section>
 
-<!-- TRUST -->
-<section id="trust" style="max-width: 1160px; margin: 0 auto; padding: 96px 24px">
-<p style="margin: 0 0 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5F5E5B">03 / 你的数据</p>
-<h2 style="margin: 0 0 40px; font-family: 'Noto Serif SC', serif; font-size: clamp(30px, 3.6vw, 44px); line-height: 1.2">存什么、存不存，<br>你说了算。</h2>
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0; border-top: 1px solid #E6E5E1">
-<div style="padding: 24px 24px 24px 0; border-bottom: 1px solid #E6E5E1">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #2383E2">01</p>
-<b style="display: block; margin-top: 8px; font-size: 17px">先给你看，再保存</b>
-<p style="margin: 8px 0 0; font-size: 14px; color: #5F5E5B">汤圆写的都是草稿，可以改也可以删，你点了保存才会存进去。</p>
+<section class="blk resume" id="resume">
+<div class="wrap">
+<div class="l" data-reveal>
+<p class="eyebrow">接着上次</p>
+<h2>中途被打断，<br>也没关系。</h2>
+<p class="sub">开个会、吃个饭、过了个周末，回来经常想不起刚才在干嘛。汤圆会帮你记着停在哪、下一步做什么。</p>
 </div>
-<div style="padding: 24px 24px 24px 0; border-bottom: 1px solid #E6E5E1">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #2383E2">02</p>
-<b style="display: block; margin-top: 8px; font-size: 17px">只有你看得到</b>
-<p style="margin: 8px 0 0; font-size: 14px; color: #5F5E5B">每个账号的数据分开放，上传的附件也是私密的。</p>
+<div class="trans" id="trans">
+<div class="line" aria-hidden="true"></div>
+<div class="ev" style="--i:0"><span class="h">10:12</span><span class="d"><i style="--c:#2383E2"></i></span><div class="c">专注中，整理第 3 篇论文，写到方法部分第二段</div></div>
+<div class="ev" style="--i:1"><span class="h">10:40</span><span class="d"><i class="fill" style="--c:#D9730D"></i></span><div class="c"><b style="font-weight:600;color:var(--ink)">这一轮结束了，做到哪了？</b><div style="margin-top:4px;color:var(--text-2)">第二段读完了，结论还没写。下一步：写结论</div></div></div>
+<div class="ev" style="--i:2"><span class="h">周末</span><span class="d"><i style="--c:#9B9A97"></i></span><div class="c plain">两天没打开</div></div>
+<div class="ev" style="--i:3"><span class="h">周一</span><span class="d"><i class="fill" style="--c:#1F1E1C"></i></span>
+<div class="c big">
+<div style="display:flex;gap:8px;align-items:center"><svg viewBox="0 0 120 100" width="22" aria-hidden="true"><path d="M16 74 C12 42 32 12 60 12 C88 12 108 42 104 74 C102 88 84 92 60 92 C36 92 18 88 16 74 Z" fill="#EEF0F3" stroke="#D3D2CD" stroke-width="3"></path><circle cx="42" cy="52" r="6" fill="#1F1E1C"></circle><circle cx="78" cy="52" r="6" fill="#1F1E1C"></circle></svg><b style="font-weight:600;color:var(--ink)">早，接着上周五的？</b></div>
+<p style="margin:6px 0 0;color:var(--text-2)">你停在第 3 篇的方法部分，接下来是写结论，大概 20 分钟。要现在开始吗？</p>
+<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><span class="pill dark">开始 20 分钟</span><span class="pill">先做 2 分钟</span></div>
 </div>
-<div style="padding: 24px 24px 24px 0; border-bottom: 1px solid #E6E5E1">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #2383E2">03</p>
-<b style="display: block; margin-top: 8px; font-size: 17px">AI 可以换，也可以不用</b>
-<p style="margin: 8px 0 0; font-size: 14px; color: #5F5E5B">可以用自带的额度，也可以填自己的 DeepSeek 或 Claude key，key 只存在你自己的浏览器里。</p>
 </div>
-<div style="padding: 24px 24px 24px 0; border-bottom: 1px solid #E6E5E1">
-<p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #2383E2">04</p>
-<b style="display: block; margin-top: 8px; font-size: 17px">没网也能用</b>
-<p style="margin: 8px 0 0; font-size: 14px; color: #5F5E5B">先存在本地，联网后自动同步。</p>
 </div>
 </div>
 </section>
 
-<!-- JOIN -->
-<section id="join" style="position: relative; padding: 104px 24px 120px; background: #141413; color: #FFFFFF; overflow: hidden">
-<div aria-hidden="true" style="position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1.2px); background-size: 18px 18px; -webkit-mask-image: radial-gradient(ellipse 50% 70% at 50% 50%, #000 0%, transparent 80%); mask-image: radial-gradient(ellipse 50% 70% at 50% 50%, #000 0%, transparent 80%)"></div>
-<div style="position: relative; max-width: 560px; margin: 0 auto; text-align: center">
-<p style="margin: 0 0 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #B5B4AF">现在还在内测</p>
-<h2 style="margin: 0; font-family: 'Noto Serif SC', serif; font-size: clamp(32px, 4vw, 48px); line-height: 1.2">来试试？</h2>
-<p style="margin: 16px 0 0; font-size: 15px; color: #B5B4AF">用邮箱登录，不用设密码。第一次注册要邀请码，找我要就行。</p>
-<div style="margin-top: 32px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap">
-<a href="/#/settings?sec=sync" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 24px; border-radius: 12px; background: #FFFFFF; color: #141413; text-decoration: none; font-size: 15px; font-weight: 600">用邮箱登录</a>
-<a href="/" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 24px; border-radius: 12px; border: 1px solid rgba(255,255,255,.28); color: #FFFFFF; text-decoration: none; font-size: 15px">先在本地试用</a>
+<section class="blk" id="trust">
+<div class="wrap">
+<div data-reveal>
+<p class="eyebrow">你的数据</p>
+<h2>存什么、存不存，<br>你说了算。</h2>
+</div>
+<div class="trust">
+<div class="tr" data-reveal style="--d:0"><div class="ic"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.6 2.5L16 9.5"></path></svg></div><h3>先给你看，再保存</h3><p>汤圆写的都是草稿，可以改也可以删，你点了保存才会存进去。</p></div>
+<div class="tr" data-reveal style="--d:1"><div class="ic"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></div><h3>只有你看得到</h3><p>每个账号的数据分开放，上传的附件也是私密的。</p></div>
+<div class="tr" data-reveal style="--d:2"><div class="ic"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h11M4 17h7M15 4l3 3-3 3M11 14l3 3-3 3"></path></svg></div><h3>AI 可以换，也可以不用</h3><p>可以用自带的额度，也可以填自己的 DeepSeek 或 Claude key，key 只存在你自己的浏览器里。</p></div>
+<div class="tr" data-reveal style="--d:3"><div class="ic"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.6-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9H7z"></path><path d="M12 11v5M10 14l2 2 2-2"></path></svg></div><h3>没网也能用</h3><p>先存在本地，联网后自动同步。</p></div>
 </div>
 </div>
 </section>
 
-<footer style="max-width: 1160px; margin: 0 auto; padding: 28px 24px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 13px; color: #5F5E5B">
-<span><b style="color: #1F1E1C">sealonote</b> · 海豹笔记 © 2026</span>
-<span style="display: flex; gap: 20px"><a class="nl" href="#trust">隐私</a><a class="nl" href="#top">更新日志</a><a class="nl" href="#top">联系</a></span>
+<section class="join" id="join">
+<div class="dots" aria-hidden="true"></div>
+<div class="wrap" data-reveal>
+<div class="seal-stage" id="sealJoin" role="button" tabindex="0" aria-label="汤圆，点一下打个招呼">
+<canvas width="420" height="420" aria-hidden="true"></canvas>
+<svg class="fallback" viewBox="0 0 120 100" aria-hidden="true"><path d="M16 74 C12 42 32 12 60 12 C88 12 108 42 104 74 C102 88 84 92 60 92 C36 92 18 88 16 74 Z" fill="#EEF0F3"></path><circle cx="42" cy="52" r="5" fill="#1F1E1C"></circle><circle cx="78" cy="52" r="5" fill="#1F1E1C"></circle></svg>
+</div>
+<h2>来试试？</h2>
+<p>用邮箱登录，不用设密码。第一次注册要邀请码，找我要就行。</p>
+<div class="acts">
+<a class="flow light lg" href="/#/settings?sec=sync">用邮箱登录</a>
+<a class="ghost dark" href="/" style="min-height:50px;padding:0 24px">先在本地试用</a>
+</div>
+</div>
+</section>
+</main>
+
+<footer>
+<div class="wrap">
+<span><b style="color:var(--ink)">sealonote</b> · 海豹笔记 © 2026</span>
+<span><a href="#trust">隐私</a><a href="mailto:tangyunning27@gmail.com">联系</a></span>
+</div>
 </footer>
-</div>
-<script src="/home/home.js" defer></script>
+
+<script type="module" src="/home/home.js"></script>
 </body>
 </html>
