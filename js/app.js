@@ -155,7 +155,7 @@ function App() {
             </div>`}`;
         }); })()}
       </nav>
-      <button class="side-ai" data-tip="汤圆" title="和汤圆聊聊（全屏）" onClick=${() => { setMenu(false); window.dispatchEvent(new CustomEvent('seal:open', { detail: { mode: 'full' } })); }}><span class="side-ai-ic"><${Icon} name="chat" size=${15} /></span><span class="nl">汤圆</span><kbd class="nl">⌘⇧K</kbd></button>
+      ${s.settings.seal === false && html`<button class="side-ai" data-tip="汤圆" title="和汤圆聊聊（全屏）" onClick=${() => { setMenu(false); window.dispatchEvent(new CustomEvent('seal:open', { detail: { mode: 'full' } })); }}><span class="side-ai-ic"><${Icon} name="chat" size=${15} /></span><span class="nl">汤圆</span><kbd class="nl">⌘⇧K</kbd></button>`}
       <${MiniPomo} />
       <a class=${'side-user ' + (route.path === 'settings' ? 'active' : '')} href="#/settings" data-tip="设置" title="设置"><span class="side-avatar">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || 'R')[0]}</span><span class="flex1 nl"><b>${s.profile.name}</b><small>${s.settings.lastSync ? '已同步 ' + new Date(s.settings.lastSync).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '本地存储'}</small></span><${Icon} name="settings" size=${15} class="su-gear nl" /></a>
     </aside>

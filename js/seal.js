@@ -792,7 +792,7 @@ export function Seal({ ghost = false } = {}) {
       <span class="sf-seg"><${Seg} options=${[{ v: '', label: '记录' }, { v: 'breakdown', label: '拆解' }, { v: 'plan', label: '规划' }]} value=${cmode} onChange=${setCmode} /></span>
       <span class="flex1"></span>
       ${txt.length > 1500 && html`<span class=${'sf-cnt ' + (txt.length > 1800 ? 'warn' : '')}>${txt.length} / 2000</span>`}
-      <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${14} /><span>发送</span>`}</button>
+      <button class="seal-send" type="submit" title="发送（Enter，Shift+Enter 换行）" disabled=${!txt.trim() || busy}>${busy ? html`<i class="spin"></i>` : html`<${Icon} name="up" size=${16} />`}</button>
     </div>
   </form><div class="sf-note">汤圆可能会出错，写进去之前看一眼。</div></div>
   `;

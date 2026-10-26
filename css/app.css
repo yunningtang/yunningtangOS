@@ -2608,3 +2608,34 @@ html[data-skin="glass"][data-theme="light"] .todo .meta .pri{color:var(--pc)}
 /* 墨白 · 标签：照 Notion 的「浅底 + 深一号的文字色」，平底不做渐变，亮色下文字压深保证看得清 */
 html[data-skin="glass"][data-theme="light"] .tag.tc,html[data-skin="glass"][data-theme="light"] .tag.th,html[data-skin="glass"][data-theme="light"] .mtag,html[data-skin="glass"][data-theme="light"] .tag-chip{color:color-mix(in srgb,var(--tc) 48%,#24231f);background:color-mix(in srgb,var(--tc) 12%,#fff);box-shadow:none}
 html[data-skin="glass"][data-theme="dark"] .tag.tc,html[data-skin="glass"][data-theme="dark"] .tag.th,html[data-skin="glass"][data-theme="dark"] .mtag,html[data-skin="glass"][data-theme="dark"] .tag-chip{color:color-mix(in srgb,var(--tcd) 62%,#fff);background:color-mix(in srgb,var(--tcd) 16%,#202020);box-shadow:none}
+
+/* ---- 顶栏：实底 + 一条细线，不再半透明渐隐（下面是深色卡片时会透出一道「裂缝」） ---- */
+html[data-skin="glass"] .topbar,html[data-skin="glass"][data-fx] .topbar{--tb-bg:var(--bg)}
+html[data-skin="glass"] .topbar::after{display:none}
+html[data-skin="glass"] body.scrolled .topbar{background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+
+/* ---- 汤圆的发送键：圆形墨色图标按钮（像 Claude / ChatGPT），空的时候是浅灰 ---- */
+.seal-send,html[data-skin="glass"] .seal-send{width:34px;height:34px;padding:0;border-radius:50%;display:grid;place-items:center;gap:0;background:var(--ink);color:var(--bg);box-shadow:0 1px 2px rgba(15,15,15,.12),inset 0 1px 0 rgba(255,255,255,.12);transition:background .15s,transform .15s,box-shadow .15s}
+.seal-send:hover:not(:disabled),html[data-skin="glass"] .seal-send:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px -4px rgba(15,15,15,.35),inset 0 1px 0 rgba(255,255,255,.12);background:var(--ink)}
+.seal-send:disabled,html[data-skin="glass"] .seal-send:disabled{background:var(--hover-2);color:var(--text-4);box-shadow:none;transform:none}
+.seal-send svg{stroke-width:2.2}
+html[data-theme="dark"] .seal-send:not(:disabled){color:#191919}
+
+/* ---- 首页「汤圆今天的建议」：和汤圆对话框同一套——细线分隔的列表，不用灰色色块；按钮是细框胶囊 ---- */
+.sugg-card .card-h h3 .muted{font-weight:500}
+.sugg-list,.widget.span-1 .sugg-list,.widget.span-2 .sugg-list{display:flex;flex-direction:column;gap:0;grid-template-columns:none}
+.sugg,html[data-skin="glass"] .sugg{align-items:center;gap:12px;padding:12px 8px;margin:0 -8px;border-radius:10px;background:transparent;transition:background .15s}
+.sugg+.sugg{border-top:1px solid var(--line);border-radius:0}
+.sugg:hover{background:color-mix(in srgb,var(--hover) 70%,transparent);border-radius:10px}
+.sugg:hover+.sugg{border-top-color:transparent}
+.sugg-ic,html[data-skin="glass"] .sugg.hot .sugg-ic,html[data-skin="glass"] .sugg.now .sugg-ic,html[data-skin="glass"] .sugg.warn .sugg-ic,html[data-skin="glass"] .sugg.calm .sugg-ic{width:30px;height:30px;border-radius:9px;background:var(--hover);box-shadow:none;color:var(--text-2)}
+html[data-skin="glass"] .sugg.hot .sugg-ic{color:var(--hot)}html[data-skin="glass"] .sugg.warn .sugg-ic{color:var(--warn)}html[data-skin="glass"] .sugg.now .sugg-ic{color:var(--p2)}
+.sugg-b b{font-size:.84rem;font-weight:600}
+.sugg-b small{-webkit-line-clamp:1}
+.sugg-go{display:inline-flex;align-items:center;gap:3px;height:28px;padding:0 9px 0 11px;border-radius:999px;border:1px solid var(--line-2);background:var(--paper);color:var(--text);font-size:.74rem;font-weight:500;white-space:nowrap;transition:background .15s,border-color .15s}
+.sugg-go svg{opacity:.5;transition:transform .15s}
+.sugg-go:hover{border-color:var(--text-4)}.sugg-go:hover svg{transform:translateX(2px);opacity:.8}
+.sugg:first-child .sugg-go,html[data-skin="glass"] .sugg:first-child .sugg-go{background:var(--ink);color:var(--bg);border-color:transparent}
+html[data-theme="dark"] .sugg:first-child .sugg-go{color:#191919}
+.sugg:first-child .sugg-go svg{opacity:.8}
+

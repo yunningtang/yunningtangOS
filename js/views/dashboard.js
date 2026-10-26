@@ -66,11 +66,11 @@ function SuggestWidget({ s }) {
     if (a.ask) window.dispatchEvent(new CustomEvent('seal:ask', { detail: a.ask }));
   };
   return html`<${Card} class="sugg-card">
-    <div class="card-h"><h3><span class="sugg-dot"></span>汤圆今天的建议</h3><div class="card-act"><button class="ibtn" title="问汤圆" onClick=${() => window.dispatchEvent(new CustomEvent('seal:open', { detail: { mode: 'big' } }))}><${Icon} name="chat" size=${15} /></button></div></div>
+    <div class="card-h"><h3>汤圆今天的建议${list.length > 0 && html`<span class="muted small"> ${list.length}</span>`}</h3><div class="card-act"><button class="ibtn" title="问汤圆" onClick=${() => window.dispatchEvent(new CustomEvent('seal:open', { detail: { mode: 'big' } }))}><${Icon} name="chat" size=${15} /></button></div></div>
     ${list.length === 0 ? html`<p class="muted small sugg-none">今天的建议都处理过了。</p>` : html`<div class="sugg-list">${list.map((x) => html`<div class=${'sugg ' + (x.lv || 'calm')} key=${x.id}>
       <span class="sugg-ic"><${Icon} name=${x.i} size=${15} /></span>
       <div class="sugg-b"><b>${x.t}</b>${x.sub && html`<small>${x.sub}</small>`}</div>
-      <div class="sugg-a">${x.act && html`<button class="btn sm" onClick=${() => run(x.act)}>${x.act.label}</button>`}<button class="ibtn sugg-x" title="今天不再提" onClick=${() => dismiss(x.id)}><${Icon} name="x" size=${12} /></button></div>
+      <div class="sugg-a">${x.act && html`<button class="sugg-go" onClick=${() => run(x.act)}>${x.act.label}<${Icon} name="right" size=${12} /></button>`}<button class="ibtn sugg-x" title="今天不再提" onClick=${() => dismiss(x.id)}><${Icon} name="x" size=${12} /></button></div>
     </div>`)}</div>`}
   <//>`;
 }
