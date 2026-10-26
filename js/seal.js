@@ -257,25 +257,30 @@ const DAY_START = 8 * 60, DAY_END = 22 * 60;
 // 只算不写：每一步排在哪天几点（从现在起避开已有安排，只排 8:00–22:00，步骤之间留 10 分钟）
 export function planSteps(steps) {
   const st = get(); let date = todayStr(); const now = new Date();
-  let cur = Math.ceil((now.getHours() * 60 + now.getMinutes() + 5) / 15) * 15;
+  let cur = Math.ceil((now.getHours() * 60 + now.getMinutes() + 5) / 5) * 5;
   if (cur < DAY_START) cur = 9 * 60; else if (cur >= DAY_END) { date = addDays(date, 1); cur = 9 * 60; }
   const busy = (d) => st.blocks.filter((b) => b.date === d && !b.pomo).map((b) => [timeToMin(b.start), timeToMin(b.end)]).sort((a, b) => a[0] - b[0]);
   const made = [];
   for (const sp of steps) {
-    const len = Math.max(15, Math.round((sp.minutes || 25) / 15) * 15);
+    const len = Math.max(5, Math.round((sp.minutes || 25) / 5) * 5);
     for (let guard = 0; guard < 60; guard++) {
       if (cur + len > DAY_END) { date = addDays(date, 1); cur = 9 * 60; continue; }
       const hit = busy(date).find(([a, b]) => cur < b && cur + len > a);
-      if (hit) { cur = Math.ceil(hit[1] / 15) * 15; continue; }
+      if (hit) { cur = Math.ceil(hit[1] / 5) * 5; continue; }
       break;
     }
-    made.push({ date, start: minToTime(cur), end: minToTime(cur + len), minutes: len, title: sp.title, stepId: sp.id }); cur += len + 10;
+    made.push({ date, start: minToTime(cur), end: minToTime(cur + len), minutes: len, title: sp.title, stepId: sp.id, kind: sp.kind }); cur += len + 5;
   }
   return made;
 }
 function scheduleSteps(steps, todo) {
   return planSteps(steps).map((p) => { const b = { id: uid(), date: p.date, start: p.start, end: p.end, title: p.title, kind: 'focus', note: `「${todo.title}」的一步`, todoId: todo.id, stepId: p.stepId }; upsert('blocks', b); return b; });
 }
+// 步骤类型 → 颜色（Notion 九色里挑），步骤列表和时间线预览共用
+const TONES = { 动手: 'blue', 执行: 'blue', 思考: 'purple', 规划: 'purple', 整理: 'green', 收尾: 'green', 写作: 'orange', 创作: 'orange', 检查: 'gray', 复盘: 'gray', 沟通: 'pink', 联系: 'pink', 练习: 'yellow', 阅读: 'brown', 学习: 'brown', 休息: 'teal' };
+const TONE_LIST = ['blue', 'purple', 'green', 'orange', 'pink', 'yellow', 'brown', 'red'];
+export const toneOf = (k) => TONES[k] || TONE_LIST[[...String(k || '')].reduce((n, c) => n + c.charCodeAt(0), 0) % TONE_LIST.length];
+const STEP_KINDS = ['动手', '思考', '整理', '写作', '检查', '沟通', '练习', '阅读'];
 // 汤圆的回复按 Markdown 渲染（表格、列表、粗体），整段过一遍块级消毒
 const renderBot = (t) => sanitizeDoc(marked.parse(String(t || '')));
 
@@ -681,6 +686,27 @@ export function Seal({ ghost = false } = {}) {
     toast(`加了 ${added.length} 步到「${t.title}」`, { label: '去看看', onClick: () => go('todos?open=' + t.id) });
     api.current.happy && api.current.happy(1.6); api.current.flap && api.current.flap();
   };
+  const editStep = (mid, sid, patch) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, steps: m.steps.map((x) => x.id === sid ? { ...x, ...patch } : x) }));
+  const dropStep = (mid, sid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, steps: m.steps.filter((x) => x.id !== sid) }));
+  const stepMenu = (e, m, x) => { if (m.saved != null) return; ctxMenu(e, [
+    { label: '改名字', icon: 'edit', onClick: () => { const el = e.target.closest('.ac-row') && e.target.closest('.ac-row').querySelector('.ac-t'); if (el) { el.focus(); getSelection().selectAllChildren(el); } } },
+    { label: '时长', icon: 'clock', sub: [5, 10, 15, 20, 25, 30, 45, 60, 90].map((n) => ({ label: n + ' 分钟', icon: (x.minutes || 25) === n ? 'check' : '', onClick: () => editStep(m.id, x.id, { minutes: n }) })) },
+    { label: '类型', icon: 'tag', sub: STEP_KINDS.map((k) => ({ label: k, icon: x.kind === k ? 'check' : '', onClick: () => editStep(m.id, x.id, { kind: k }) })) },
+    'sep',
+    { label: '现在开始这一步', icon: 'play', hint: `${x.minutes || 25} 分钟专注`, onClick: () => startStep(m, x) },
+    { label: '加为单独的待办', icon: 'checksq', hint: '今天', onClick: () => { const t = { id: uid(), title: x.title, done: false, priority: 2, due: todayStr(), time: '', tags: [], area: '', note: x.hint || '', created: todayStr(), steps: [] }; upsert('todos', t); toast('加到今天的待办了', { label: '去看看', onClick: () => go('todos?open=' + t.id) }); } },
+    { label: '只把这一步排进时间线', icon: 'calendar', onClick: () => { const p = planSteps([x])[0]; if (!p) return; const b = { id: uid(), date: p.date, start: p.start, end: p.end, title: x.title, kind: 'focus', note: `「${m.todo.title}」的一步` }; upsert('blocks', b); toast(`排在${p.date === todayStr() ? '今天' : relDay(p.date)} ${p.start}–${p.end}`, { label: '看时间线', onClick: () => go('plan/day?d=' + p.date) }); } },
+    'sep',
+    { label: '删掉这一步', icon: 'trash', danger: true, onClick: () => dropStep(m.id, x.id) },
+  ], x.title); };
+  // 自己发的话：可以改了重新发（后面的对话会被替换），也能复制
+  const [editMsg, setEditMsg] = useState(null); // { id, text }
+  const resend = (m, text) => { text = (text || '').trim(); if (!text) return; const list = msgsR.current; const i = list.findIndex((x) => x.id === m.id); if (i < 0) return; setEditMsg(null); setMsgs(list.slice(0, i)); setTimeout(() => ask(text), 0); };
+  const meMenu = (e, m) => ctxMenu(e, [
+    { label: '编辑并重新发送', icon: 'edit', onClick: () => setEditMsg({ id: m.id, text: m.text }) },
+    { label: '再发一次', icon: 'refresh', onClick: () => resend(m, m.text) },
+    { label: '复制', icon: 'copy', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); } },
+  ], '我说的');
   const toggleStep = (mid, sid) => setMsgs((list) => list.map((m) => m.id !== mid ? m : { ...m, steps: m.steps.map((x) => x.id === sid ? { ...x, on: !x.on } : x) }));
 
   const ask = async (text) => {
@@ -855,7 +881,8 @@ export function Seal({ ghost = false } = {}) {
                         <div class="seal-hints">${cards.map((h, ci) => html`<button key=${h.t} type="button" class=${ci < cprompts.length ? 'ctx' : ''} title=${'落到：' + h.k.join(' · ')} onClick=${() => useHint(h)}><span class="sh-i"><${Icon} name=${h.i} size=${15} /></span><span class="sh-b"><span class="sh-h">${h.h}</span><span class="sh-q">${h.d || h.t}</span></span></button>`)}</div>
           </div>`}
         ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who}>
-          ${m.who === 'bot' ? html`<div class="sm-t md" dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : html`<div class="sm-t">${m.text}</div>`}
+          ${m.who === 'bot' ? html`<div class="sm-t md" dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : (editMsg && editMsg.id === m.id ? html`<div class="sm-edit"><textarea rows="2" value=${editMsg.text} ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }} onInput=${(e) => setEditMsg({ ...editMsg, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); resend(m, editMsg.text); } if (e.key === 'Escape') { e.stopPropagation(); setEditMsg(null); } }}></textarea><div class="sm-edit-f"><span class="flex1">后面的回复会被替换</span><button type="button" class="btn sm ghost" onClick=${() => setEditMsg(null)}>取消</button><button type="button" class="btn sm primary" disabled=${!editMsg.text.trim() || busy} onClick=${() => resend(m, editMsg.text)}>发送</button></div></div>`
+            : html`<div class="sm-t" onContextMenu=${(e) => meMenu(e, m)} onDblClick=${() => !busy && setEditMsg({ id: m.id, text: m.text })} title="双击或右键可以改了重新发">${m.text}</div><div class="sm-acts me"><button type="button" title="编辑并重新发送" disabled=${busy} onClick=${() => setEditMsg({ id: m.id, text: m.text })}><${Icon} name="edit" size=${13} /></button><button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button></div>`)}
           ${m.who === 'bot' && !m.items?.length && !m.steps?.length && !busy && html`<div class="sm-acts">
             <button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button>
             ${mi > 0 && msgs[mi - 1].who === 'me' && html`<button type="button" title="重新生成" onClick=${() => regen(m)}><${Icon} name="refresh" size=${13} /></button>`}
@@ -904,24 +931,24 @@ export function Seal({ ghost = false } = {}) {
             const plan = saved || sk === 'block' ? [] : planSteps(on); const maxLen = Math.max(15, ...plan.map((p) => p.minutes));
             return html`<div class=${'ac steps ' + (saved ? 'saved' : '')}>
             <div class="ac-h"><span>「${m.todo.title}」拆成 ${m.steps.length} 步</span><small>约 ${fmtMin(total)}${plan.length ? ` · ${plan[0].date === todayStr() ? '今天' : relDay(plan[0].date)} ${plan[0].start} 起` : ''}</small></div>
-            ${m.steps.map((x, i) => html`<label key=${x.id} class=${'ac-row ' + (x.on ? '' : 'off')}>
+            ${m.steps.map((x, i) => html`<div key=${x.id} class=${'ac-row ' + (x.on ? '' : 'off')} style=${`--k:var(--tone-${toneOf(x.kind)})`} onContextMenu=${(e) => stepMenu(e, m, x)}>
               <input type="checkbox" checked=${x.on} disabled=${saved} onChange=${() => toggleStep(m.id, x.id)} />
               <span class="ac-n">${i + 1}</span>
-              <span class="ac-b"><span class="ac-t">${x.title}</span>${x.hint && html`<span class="ac-k">${x.hint}</span>`}</span>
-              <span class="ac-m"><span class="ac-tag">${x.kind}</span><span>${x.minutes || 25} 分</span></span>
+              <span class="ac-b"><span class="ac-t" contenteditable=${!saved} spellcheck="false" title=${saved ? '' : '点一下直接改，右键有更多'} onBlur=${saved ? undefined : (e) => { const v = e.target.textContent.trim(); if (v && v !== x.title) editStep(m.id, x.id, { title: v }); else e.target.textContent = x.title; }} onKeyDown=${saved ? undefined : (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}>${x.title}</span>${x.hint && html`<span class="ac-k">${x.hint}</span>`}</span>
+              <span class="ac-m"><button type="button" class="ac-tag k" disabled=${saved} title="换类型" onClick=${(e) => ctxMenu(e, STEP_KINDS.map((k) => ({ label: k, icon: x.kind === k ? 'check' : '', onClick: () => editStep(m.id, x.id, { kind: k }) })), '类型')}>${x.kind}</button><button type="button" class="ac-min" disabled=${saved} title="改时长" onClick=${(e) => ctxMenu(e, [5, 10, 15, 20, 25, 30, 45, 60, 90].map((n) => ({ label: n + ' 分钟', icon: (x.minutes || 25) === n ? 'check' : '', onClick: () => editStep(m.id, x.id, { minutes: n }) })), '时长')}>${x.minutes || 25} 分</button></span>
               <button class="ac-go" title=${`开始这一步 · ${x.minutes || 25} 分钟番茄钟`} onClick=${(e) => { e.preventDefault(); e.stopPropagation(); startStep(m, x); }}><${Icon} name="play" size=${11} /></button>
-            </label>`)}
+            </div>`)}
             ${plan.length > 0 && html`<div class="sp-tl">
               <div class="sp-h">时间线预览<small>从现在起避开已有安排，只排 8:00–22:00</small></div>
-              <div class="sp-metro">
-                ${plan.map((p, i) => html`<div key=${p.stepId}>
-                  ${(i === 0 || plan[i - 1].date !== p.date) && html`<div class="sp-dayrow"><span class="sp-t"></span><span class="sp-node day"></span><span class="sp-daylbl">${p.date === todayStr() ? '今天' : relDay(p.date)}</span></div>`}
-                  <div class="sp-stop">
-                    <span class="sp-t">${p.start}</span>
-                    <span class="sp-node"><i>${i + 1}</i></span>
-                    <span class="sp-lbl"><b>${p.title}</b><small>${p.minutes} 分钟 · 到 ${p.end}</small></span>
+              <div class="sp-cal">
+                ${plan.map((p, i) => { const gap = i > 0 && plan[i - 1].date === p.date ? timeToMin(p.start) - timeToMin(plan[i - 1].end) : 0; const d = parseDate(p.date); return html`<div key=${p.stepId} class="sp-g">
+                  ${(i === 0 || plan[i - 1].date !== p.date) && html`<div class="sp-day"><b>${p.date === todayStr() ? '今天' : relDay(p.date)}</b><span>${d.getMonth() + 1}月${d.getDate()}日 ${WEEKDAY_SUN[d.getDay()]}</span><i></i></div>`}
+                  ${gap >= 15 && html`<div class="sp-gap">空 ${fmtMin(gap)}</div>`}
+                  <div class="sp-ev" style=${`--k:var(--tone-${toneOf(p.kind)});--h:${Math.min(96, 40 + p.minutes * 0.9)}px`}>
+                    <div class="sp-when"><b>${p.start}</b><small>${p.end}</small></div>
+                    <div class="sp-card"><span class="sp-no">${i + 1}</span><div class="sp-body"><b>${p.title}</b><small><span class="sp-kind">${p.kind || '一步'}</span>${p.minutes} 分钟</small></div></div>
                   </div>
-                </div>`)}
+                </div>`; })}
               </div>
             </div>`}
             <div class="ac-f">

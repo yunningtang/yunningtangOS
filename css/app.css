@@ -2793,3 +2793,44 @@ html[data-theme="dark"] .tt-card.tc-blue{--tt-sec:#4c9cea}
 @media (min-width:901px){.dash-home{grid-auto-rows:4px;align-items:start}.dash-home>.widget>.card{flex:none}}
 .dash-home .mini-tl-wrap{max-height:420px}
 .dash-home .todo-card .tlist{max-height:440px;overflow-y:auto;scrollbar-width:thin}
+
+/* ---- Notion 九色：步骤类型、时间线预览共用 ---- */
+:root,html[data-theme="light"]{--tone-blue:#2f7fd0;--tone-purple:#8a5cc2;--tone-green:#3f8a5f;--tone-orange:#d0742a;--tone-pink:#c4508c;--tone-yellow:#b98a1f;--tone-brown:#94664d;--tone-red:#d04a45;--tone-gray:#7d7b76;--tone-teal:#2f8f86}
+html[data-theme="dark"]{--tone-blue:#4f9ee8;--tone-purple:#a57de0;--tone-green:#5cad7d;--tone-orange:#e08a4a;--tone-pink:#de6aa8;--tone-yellow:#d4ab4a;--tone-brown:#bf8a6f;--tone-red:#e3605a;--tone-gray:#9b9a97;--tone-teal:#4fb3a8}
+
+/* ---- 自己发的话：气泡在文字上，下面一排小按钮（编辑 / 复制）；编辑时变成输入框 ---- */
+.sm.me{background:none!important;border:0!important;padding:0!important;display:flex;flex-direction:column;align-items:flex-end;max-width:80%}
+.sm.me>.sm-t{padding:8px 14px;border:1px solid var(--line);border-radius:18px 18px 6px 18px;background:var(--paper);color:var(--text);white-space:pre-wrap;cursor:text}
+.sm.me>.sm-t:hover{border-color:var(--line-2)}
+.sm-acts.me{justify-content:flex-end;opacity:0}.sm.me:hover .sm-acts.me{opacity:1}
+.sm-edit{width:min(560px,100%);border:1.5px solid var(--text-4);border-radius:16px;background:var(--paper);padding:10px 12px 8px}
+.sm-edit textarea{width:100%;border:0;outline:0;resize:vertical;background:transparent;font:inherit;font-size:.88rem;line-height:1.55;color:var(--text);min-height:44px}
+.sm-edit-f{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:.7rem;color:var(--text-4)}
+
+/* ---- 拆解步骤：类型标签按颜色分，时长、类型都能点着改，右键有更多 ---- */
+.ac.steps .ac-row{cursor:default}
+.ac-tag.k{border:0;background:color-mix(in srgb,var(--k) 12%,transparent);color:var(--k);font-weight:500;cursor:pointer}
+.ac-tag.k:hover:not(:disabled){background:color-mix(in srgb,var(--k) 20%,transparent)}
+.ac-min{font-size:.72rem;color:var(--text-3);padding:2px 6px;border-radius:6px;font-variant-numeric:tabular-nums}.ac-min:hover:not(:disabled){background:var(--hover-2);color:var(--text)}
+.ac.steps .ac-n{border-color:color-mix(in srgb,var(--k) 45%,transparent);color:var(--k)}
+.ac-tag:disabled,.ac-min:disabled{cursor:default}
+
+/* ---- 时间线预览：像一小段日历——日期抬头、粗体开始时刻 / 浅色结束时刻、按类型上色的卡片（高度按时长），中间的空档标出来 ---- */
+.sp-metro{display:none}
+.sp-cal{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.sp-day{display:flex;align-items:baseline;gap:8px;margin:6px 0 2px;font-size:.78rem}
+.sp-day b{font-weight:650;color:var(--text)}.sp-day span{color:var(--text-4);font-size:.72rem}
+.sp-day i{flex:1;height:1px;background:var(--line);align-self:center}
+.sp-g:first-child .sp-day{margin-top:0}
+.sp-gap{margin:0 0 0 64px;font-size:.66rem;color:var(--text-4);padding:2px 0 2px 10px;border-left:1px dashed var(--line-2)}
+.sp-ev{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:stretch}
+.sp-when{display:flex;flex-direction:column;align-items:flex-end;padding-top:6px;font-variant-numeric:tabular-nums;line-height:1.25}
+.sp-when b{font-size:.84rem;font-weight:600;color:var(--text)}.sp-when small{font-size:.68rem;color:var(--text-4)}
+.sp-card{position:relative;display:flex;align-items:flex-start;gap:10px;min-height:var(--h);padding:8px 12px 8px 12px;border-radius:10px;background:color-mix(in srgb,var(--k) 9%,var(--paper));box-shadow:inset 3px 0 0 var(--k)}
+html[data-theme="dark"] .sp-card{background:color-mix(in srgb,var(--k) 16%,var(--paper))}
+.sp-no{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--k);color:#fff;font-size:.66rem;font-weight:700;margin-top:1px;font-variant-numeric:tabular-nums}
+.sp-body{min-width:0;display:flex;flex-direction:column;gap:2px}
+.sp-body b{font-size:.84rem;font-weight:550;color:var(--text);line-height:1.4}
+.sp-body small{display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--text-3)}
+.sp-kind{padding:0 6px;border-radius:5px;background:color-mix(in srgb,var(--k) 16%,transparent);color:var(--k);font-weight:500}
+.sm-edit textarea{border:0!important;box-shadow:none!important;padding:0!important;background:transparent!important;border-radius:0!important}
