@@ -3590,3 +3590,10 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .bc-r b svg{color:var(--text-4)}
 .bc-r small{color:var(--text-4)}
 .br-work .bw-desc{padding-left:34px}
+/* 图例：图标统一灰色，不带类别色；选中 / 悬停时变深 */
+.br-key .bk-ic{color:var(--text-3);background:var(--hover)}
+.br-key.nil .bk-ic{opacity:1;color:var(--text-4);background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.br-key:hover .bk-ic,.br-key.hi .bk-ic{color:var(--text)}
+.br-key.on .bk-ic{color:var(--bg);background:var(--text)}
+.br-work .card-h h3 .bk-ic{color:var(--text-2);background:var(--hover)}
+.br-key em{color:var(--text-4)}
