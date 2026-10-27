@@ -4,6 +4,7 @@ import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, conf
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGet, lsSet, pad, weekStart, timeToMin, minToTime } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { brainMenu, stepCat, stepRegionItems } from '../brain.js';
+import { doThis } from '../doing.js';
 import { askConfirm, askDate, askPrompt } from '../confirm.js';
 import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
@@ -128,6 +129,7 @@ export const postponeMenu = (e, t) => ctxMenu(e, postponeItems(t), `推迟「${t
 export function todoMenu(t, onEdit) {
   const today = todayStr();
   return [
+    !t.done && { label: '做这件', icon: 'target', hint: '放到专注', onClick: () => doThis(t) },
     { label: '开始专注', icon: 'clock', onClick: () => go('focus?todo=' + t.id) },
     { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
     !t.done && { label: '卡住了…', icon: 'chat', hint: '问汤圆', onClick: () => window.dispatchEvent(new CustomEvent('stuck:open', { detail: t.id })) },
@@ -184,7 +186,7 @@ export function StepList({ t, autoAdd = false, hideCat = null }) {
       ${!x.done && html`<button class="st-go" title="开始这一步（番茄钟）" onClick=${() => startStep(t, x)}><${Icon} name="play" size=${10} /></button>`}
       <button class="st-x" title="删除这一步" onClick=${() => removeStep(t.id, x.id)}><${Icon} name="x" size=${10} /></button>
     </li>`)}
-    ${adding ? html`<li class="step new"><input class="st-in" autofocus ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => el.focus(), 0); } }} onClick=${(e) => e.stopPropagation()} value=${v} placeholder="再加一步，可以带时长：买菜 45分 · 回车保存，Esc 退出" onInput=${(e) => setV(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setV(''); setAdding(false); } }} onBlur=${() => { if (v.trim()) add(); else setAdding(false); }} /></li>`
+    ${adding ? html`<li class="step new"><input class="st-in" autofocus ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; el.focus(); } }} onClick=${(e) => e.stopPropagation()} value=${v} placeholder="再加一步，可以带时长：买菜 45分 · 回车保存，Esc 退出" onInput=${(e) => setV(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setV(''); setAdding(false); } }} onBlur=${() => { if (v.trim()) add(); else setAdding(false); }} /></li>`
       : html`<li class="step new"><button onClick=${() => setAdding(true)}><${Icon} name="plus" size=${10} /> 加一步</button></li>`}
   </ul>`;
 }

@@ -10,6 +10,9 @@ import { todayStr, sortBy, timeToMin, kindColor, addDays, pad, PRIORITY } from '
 import * as pomo from '../pomo.js';
 import { nextStep } from '../steps.js';
 import { go } from '../nav.js';
+import { BattleCard } from './battle.js';
+import { doingOf, setDoing } from '../doing.js';
+import { TodoModal } from './todos.js';
 
 export function usePomo() {
   const [st, set] = useState(pomo.get());
@@ -24,7 +27,15 @@ export default function Focus({ route }) {
   const total = (st.phase === 'break' ? st.breakLen : st.workLen) * 60;
   const pct = st.phase === 'idle' ? 0 : 1 - rem / total;
   const today = todayStr();
-  const todos = sortBy(s.todos.filter((t) => !t.done && (t.due === today || !t.due)), 'priority');
+  const todos = sortBy(s.todos.filter((t) => !t.done && (t.due === today || !t.due || t.due < today)), 'priority');
+  // 主战场：全局「正在做」的那件；从别处带着 ?todo= 进来就换成那件
+  const doing = doingOf(s);
+  useEffect(() => { const id = route && route.query && route.query.todo; if (id && id !== s.settings.doing && s.todos.some((t) => t.id === id && !t.done)) setDoing(id); }, [route && route.query && route.query.todo]);
+  // 没在计时的时候，计时器跟着主战场走
+  useEffect(() => { if (doing && st.phase === 'idle' && st.todoId !== doing.id) { pomo.setLabel(doing.title, doing.id); pomo.setGoal((nextStep(doing) || {}).title || ''); } }, [doing && doing.id, st.phase]);
+  const [editing, setEditing] = useState(null);
+  const [others, setOthers] = useState(false);
+  const rest = todos.filter((t) => !doing || t.id !== doing.id);
   const all = s.sessions || [];
   const sessions = useMemo(() => sortBy(all.filter((b) => b.date === today), 'start'), [all]);
   const mins = sessions.reduce((n, b) => n + (b.mins || 0), 0);
@@ -50,18 +61,23 @@ export default function Focus({ route }) {
   return html`<div class=${'focus-page2 ' + (quiet ? 'quiet' : '')}>
     ${quiet && html`<div class="fq-bar"><span>专注中 · 其他内容先收起来了</span><button type="button" onClick=${() => setPeek(true)}>看一眼其他内容</button></div>`}
     ${running && peek && html`<div class="fq-bar"><span>正在专注</span><button type="button" onClick=${() => setPeek(false)}>回到专注视图</button></div>`}
-    <div class="fp-main">
+    <div class=${'fp-main fp-battle-main ' + (doing ? 'has-doing' : '')}>
+      <div class="fp-battle">
+        ${doing ? html`<${BattleCard} t=${doing} key=${doing.id} label="主战场" big onEdit=${setEditing} />`
+          : html`<div class="fb-empty"><b>先选一件事来做</b><span>主战场一次只放一件事，其他的先留在待办里。</span>
+            <div class="fb-pick">${todos.slice(0, 5).map((t) => html`<button type="button" key=${t.id} onClick=${() => setDoing(t.id)}><i class=${'fq-p p' + (t.priority ?? 2)}></i>${t.title}</button>`)}${todos.length === 0 && html`<a href="#/todos">去待办里加一件</a>`}</div></div>`}
+        ${!quiet && rest.length > 0 && html`<div class="fb-others">
+          <button type="button" class="fq-fold" onClick=${() => setOthers(!others)}><${Icon} name=${others ? 'down' : 'right'} size=${12} /> 其他的事 ${rest.length} 件<small>先留在待办里</small></button>
+          ${others && html`<div class="fq-list">${rest.slice(0, 12).map((t) => html`<div key=${t.id} class="fq-row" onContextMenu=${(e) => rowMenu(e, t)}>
+            <i class=${'fq-p p' + (t.priority ?? 2)}></i>
+            <span class="fq-t"><b>${t.title}</b>${nextStep(t) && html`<small>下一步：${nextStep(t).title}</small>`}</span>
+            <button type="button" class="fb-do" onClick=${() => setDoing(t.id)}>做这件</button>
+          </div>`)}</div>`}
+        </div>`}
+      </div>
       <div class="fp-timer"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
-      ${!quiet && html`<div class="fp-queue">
-        <div class="fq-h"><b>接下来</b><small>${todos.length || ''}</small><a class="more" href="#/todos" title="全部待办"><${Icon} name="right" size=${13} /></a></div>
-        ${todos.length === 0 ? html`<div class="fq-empty">今天没有待办。<a href="#/todos">去添加</a></div>` : html`<div class="fq-list">${todos.slice(0, 9).map((t) => { const spent = focusedOn.get(t.id) || 0; const on = st.todoId === t.id; return html`<div key=${t.id} role="button" tabindex="0" class=${'fq-row ' + (on ? 'on' : '')} style=${`--pc:${(PRIORITY.find((p) => p.v === t.priority) || PRIORITY[2]).color}`} onClick=${() => pick(t)} onKeyDown=${(e) => { if (e.key === 'Enter') pick(t); }} onContextMenu=${(e) => rowMenu(e, t)}>
-          <i class=${'fq-p p' + (t.priority ?? 2)} title=${(PRIORITY.find((p) => p.v === t.priority) || PRIORITY[2]).name}></i>
-          <span class="fq-t"><b>${t.title}</b><small>${nextStep(t) ? `下一步：${nextStep(t).title}` : [t.time, spent ? `已专注 ${spent} 分` : '', `${t.focusLen || 25} 分钟`].filter(Boolean).join(' · ')}</small></span>
-          <button type="button" class="fq-go" title=${`开始 · ${t.focusLen || 25} 分钟`} disabled=${st.phase !== 'idle'} onClick=${(e) => { e.stopPropagation(); go1(t); }}><${Icon} name="play" size=${12} /></button>
-        </div>`; })}</div>`}
-        <form class="fq-add" onSubmit=${(e) => { e.preventDefault(); const v = e.target.elements.q.value.trim(); if (!v) return; const t = { id: uid(), title: v, done: false, priority: 2, due: today, time: '', tags: [], area: '', note: '', created: today, steps: [] }; upsert('todos', t); e.target.reset(); pick(t); }}><${Icon} name="plus" size=${13} /><input name="q" placeholder="加一件今天要做的事" autocomplete="off" /></form>
-      </div>`}
     </div>
+    <${TodoModal} open=${!!editing} todo=${editing} onClose=${() => setEditing(null)} />
     ${!quiet && html`<div class="fp-today">
       <div class="fq-h"><b>今天</b><small>${sessions.length ? `${sessions.length} 段 · ${Math.floor(mins / 60) ? Math.floor(mins / 60) + ' 小时 ' : ''}${mins % 60} 分钟` : '还没有专注记录，开始第一轮吧'}</small>${s.settings.focusGoal ? html`<${GoalRow} mins=${mins} goal=${s.settings.focusGoal} />` : html`<button type="button" class="fq-goal" onClick=${async () => { const v = await askPrompt('每天想专注多久？按小时填，比如 2；留空就不设目标', '', { title: '今日目标（可选）' }); const h = parseFloat(v); if (h > 0 && h <= 16) update((d) => { d.settings.focusGoal = Math.round(h * 60); }); }}>设个目标（可选）</button>`}</div>
       ${sessions.length > 0 && html`<div class="day-strip">

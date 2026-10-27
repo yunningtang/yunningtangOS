@@ -129,7 +129,8 @@ const SYSTEM_BREAKDOWN = `${PERSONA}
 5. 需要检验才算完成的事（写代码、做网页、交作业）：最后一步写清楚怎么算做完（比如「在手机上点一遍登录和退出」），不要另加空泛的「检查一下」。
 6. 如果对方给了截止日期，在 hint 里提醒哪几步必须在哪天前完成；没给就不要编。
 7. 不要加「庆祝一下」「复盘」这类凑数的步骤。「页面里已经有的步骤」不要重复。
-8. reply 用一句话说你的拆法思路（比如「先把材料凑齐，再动笔，最后留一天改」）。`;
+8. reply 用一句话说你的拆法思路（比如「先把材料凑齐，再动笔，最后留一天改」）。
+9. goal：这一轮的「本次目标」，一句话、做完能检验，说清楚做到什么就算完成（比如「找出这篇笔记开头吸引人的原因」）。步骤就是达成它的条件。只拆前几步的大事，goal 也只写这几步能达成的；小事不用拆时 goal 给 null。`;
 
 // 卡住了：对方在一件事上停住了，按 ta 说的卡点给一个马上能做的小动作
 const STUCK_HOW = {
@@ -190,12 +191,12 @@ const SYSTEM_BRAIN = `${PERSONA}
 4. reply 用一句很短的话说说今天的事主要落在哪块（不超过 30 个字）。`;
 const SCHEMA_BRAIN = { type: 'object', additionalProperties: false, required: ['reply', 'picks'], properties: { reply: { type: 'string' }, picks: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'region'], properties: { id: { type: 'string' }, region: { type: 'string', enum: BRAIN_IDS } } } } } };
 const SCHEMA_DOC = { type: 'object', additionalProperties: false, required: ['reply', 'markdown'], properties: { reply: { type: 'string' }, markdown: S_OR_NULL } };
-const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'steps'], properties: { reply: { type: 'string' }, steps: { type: 'array', items: STEP } } };
+const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'goal', 'steps'], properties: { reply: { type: 'string' }, goal: S_OR_NULL, steps: { type: 'array', items: STEP } } };
 
 const JSON_HINT = {
   capture: '只输出一个 JSON 对象：{"intent": "chat|capture|plan|modify", "reply": "...", "items": [...]}，每个 item 含 ref,kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
   doc: '只输出一个 JSON 对象：{"reply": "...", "markdown": "..."}（不需要改正文时 markdown 为 null）。markdown 字符串里的换行写成 \\n。不要输出 JSON 之外的任何文字。',
-  breakdown: '只输出一个 JSON 对象：{"reply": "...", "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
+  breakdown: '只输出一个 JSON 对象：{"reply": "...", "goal": "..." 或 null, "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
   stuck: '只输出一个 JSON 对象：{"reply": "...", "first": {"title": "...", "minutes": 5}, "tip": null, "next_steps": []}。不要输出 JSON 之外的任何文字。',
   brain: '只输出一个 JSON 对象：{"reply": "...", "picks": [{"id": "...", "region": "plan|memory|talk|move|habit|alarm"}]}。不要输出 JSON 之外的任何文字。',
 };
@@ -441,7 +442,7 @@ export async function runAgent(body, cfg) {
   }
   if (mode === 'breakdown') {
     const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).map(validateStep).filter(Boolean).slice(0, 7);
-    return { status: 200, body: { ...base, steps } };
+    return { status: 200, body: { ...base, goal: steps.length ? str(got.out.goal, 80) || '' : '', steps } };
   }
   const items = (Array.isArray(got.out.items) ? got.out.items : []).map(validateItem).filter(Boolean).slice(0, 20);
   const intent = INTENTS.includes(got.out.intent) ? got.out.intent : (items.length ? 'capture' : 'chat');

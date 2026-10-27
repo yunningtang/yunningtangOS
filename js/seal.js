@@ -508,7 +508,7 @@ export function Seal({ ghost = false } = {}) {
       setBusy(false);
       // 小事不用拆：汤圆只回一句话，不给步骤
       if (!(j.steps || []).length) push({ who: 'bot', text: j.reply || '这件直接做就行，不用拆。' });
-      else push({ who: 'bot', text: j.reply || '拆好了，看看这样行不行：', steps: j.steps.map((x) => ({ ...x, id: uid(), on: true })), todo: { id: t.id || '', title: t.title, due: t.due || '' }, src: t.src || null });
+      else push({ who: 'bot', text: j.reply || '拆好了，看看这样行不行：', goal: j.goal || '', steps: j.steps.map((x) => ({ ...x, id: uid(), on: true })), todo: { id: t.id || '', title: t.title, due: t.due || '' }, src: t.src || null });
     } catch (e) { setBusy(false); push({ who: 'bot', text: `拆不动（${e.message}）。` }); }
     if (!openRef.current) setBadge((b) => b + 1);
     api.current.happy && api.current.happy(1.2);
@@ -548,6 +548,7 @@ export function Seal({ ghost = false } = {}) {
     const steps = m.steps.filter((x) => x.on); if (!steps.length) return;
     const t = ensureTodo(m);
     const added = addSteps(t.id, steps.map((x) => ({ id: x.id, title: x.title, minutes: x.minutes, kind: x.kind })));
+    if (m.goal && !(get().todos.find((x) => x.id === t.id) || {}).goal) upsert('todos', { id: t.id, goal: m.goal }); // 汤圆建议的本次目标，自己没写过才填
     setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: added.length, open: 'todos?open=' + t.id } : x));
     toast(`加了 ${added.length} 步到「${t.title}」`, { label: '去看看', onClick: () => go('todos?open=' + t.id) });
     api.current.happy && api.current.happy(1.6); api.current.flap && api.current.flap();
@@ -683,6 +684,7 @@ export function Seal({ ghost = false } = {}) {
     if (m.src && m.src.kind === 'goal') return saveAsTodos(m, true);
     const steps = m.steps.filter((x) => x.on); if (!steps.length) return;
     const t = ensureTodo(m); addSteps(t.id, steps.map((x) => ({ id: x.id, title: x.title, minutes: x.minutes, kind: x.kind })));
+    if (m.goal && !(get().todos.find((x) => x.id === t.id) || {}).goal) upsert('todos', { id: t.id, goal: m.goal });
     const made = scheduleSteps(steps, t);
     setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, saved: steps.length, scheduled: made.length, open: 'plan/day?d=' + made[0].date } : x));
     toast(`排进了 ${made.length} 段，${made[0].date === todayStr() ? '' : relDay(made[0].date) + ' '}${made[0].start} 开始`, { label: '看时间线', onClick: () => go('plan/day?d=' + made[0].date) });
@@ -853,7 +855,7 @@ export function Seal({ ghost = false } = {}) {
             const sk = m.src ? m.src.kind : 'todo'; const on = m.steps.filter((x) => x.on), saved = m.saved != null, total = on.reduce((a, x) => a + (x.minutes || 25), 0);
             const plan = saved || sk === 'block' ? [] : planSteps(on); const maxLen = Math.max(15, ...plan.map((p) => p.minutes));
             return html`<div class=${'ac steps ' + (saved ? 'saved' : '')}>
-            <div class="ac-h"><span>「${m.todo.title}」拆成 ${m.steps.length} 步</span><small>约 ${fmtMin(total)}${plan.length ? ` · ${plan[0].date === todayStr() ? '今天' : relDay(plan[0].date)} ${plan[0].start} 起` : ''}</small></div>
+            ${m.goal && html`<div class="ac-goal"><span>本次目标</span>${m.goal}</div>`}<div class="ac-h"><span>「${m.todo.title}」拆成 ${m.steps.length} 步</span><small>约 ${fmtMin(total)}${plan.length ? ` · ${plan[0].date === todayStr() ? '今天' : relDay(plan[0].date)} ${plan[0].start} 起` : ''}</small></div>
             ${m.steps.map((x, i) => html`<div key=${x.id} class=${'ac-row ' + (x.on ? '' : 'off')} style=${`--k:var(--tone-${toneOf(x.kind)})`} onContextMenu=${(e) => stepMenu(e, m, x)}>
               <input type="checkbox" checked=${x.on} disabled=${saved} onChange=${() => toggleStep(m.id, x.id)} />
               <span class="ac-n">${i + 1}</span>

@@ -9,6 +9,8 @@ import { ctxMenu } from '../ctx.js';
 import { go, toast } from '../nav.js';
 import { aiEnabled } from '../ai.js';
 import { openStuck } from './stuck.js';
+import { BattleCard } from './battle.js';
+import { doingOf, setDoing } from '../doing.js';
 import { nextStep, clampMin, stepsProgress } from '../steps.js';
 import * as pomo from '../pomo.js';
 import { loginState } from '../sync.js';
@@ -87,26 +89,6 @@ function Line({ t, words, onPick, onEdit, setFocus }) {
   </div>`;
 }
 
-// 正在做：一次只摊开一件事——它的步骤全部列出来、能直接勾；没拆过就让汤圆拆
-function Now({ t, onEdit }) {
-  const sp = stepsProgress(t); const ns = nextStep(t); const allDone = sp.total > 0 && !ns;
-  const startStep = () => { pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title}`, { label: '去专注', onClick: () => go('focus') }); };
-  return html`<div class="bwn">
-    <div class="bwn-h">
-      <span class="bwn-k">正在做</span>
-      <b class="bwn-t" title="编辑" onClick=${() => onEdit(t)}>${t.title}</b>
-      ${sp.total > 0 && html`<span class="bwn-n">${sp.done}/${sp.total}</span>`}
-      <button type="button" class="bw-text" onClick=${() => openStuck(t)} title="不知道怎么推进？问问汤圆">卡住了</button>
-    </div>
-    ${sp.total > 0 ? html`<${StepList} t=${t} key=${t.id} hideCat=${brainOf(t)} />` : html`<div class="bwn-empty"><span>还没拆成小步。大一点的事拆开会好开始很多。</span><button type="button" class="bw-text strong" onClick=${() => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t }))}><${Icon} name="sparkle" size=${12} />让汤圆拆一下</button></div>`}
-    <div class="bwn-f">
-      ${allDone ? html`<button type="button" class="bw-cta" onClick=${() => toggleTodo(t.id)}><${Icon} name="check" size=${12} />步骤都做完了，完成这件事</button>`
-        : ns ? html`<button type="button" class="bw-cta" onClick=${startStep}><${Icon} name="play" size=${11} />开始：${ns.title} · ${clampMin(ns.minutes)} 分</button>`
-        : html`<button type="button" class="bw-cta" onClick=${() => go('focus?todo=' + t.id)}><${Icon} name="play" size=${11} />直接开始</button><button type="button" class="bw-text" onClick=${() => toggleTodo(t.id)}>做完了</button>`}
-    </div>
-  </div>`;
-}
-
 export default function Brain() {
   const s = useStore();
   const today = todayStr();
@@ -114,8 +96,7 @@ export default function Brain() {
   const [sel, setSel] = useState(() => { try { return localStorage.getItem('ytos.brain.sel') || 'plan'; } catch { return 'plan'; } });
   const [editing, setEditing] = useState(null);
   const [hover, setHover] = useState('');
-  const [pinned, setPinned] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.brain.doing') || '{}'); } catch { return {}; } });
-  const pickTask = (t) => { const n = { ...pinned, [sel]: t.id }; setPinned(n); try { localStorage.setItem('ytos.brain.doing', JSON.stringify(n)); } catch {} };
+  const pickTask = (t) => setDoing(t.id); // 跟专注页同一件「正在做」
   const [focus, setFocus] = useState(null);
   const [aiBusy, setAiBusy] = useState(''); const [aiOn, setAiOn] = useState(() => aiEnabled(loginState()));
   useEffect(() => { const h = () => setAiOn(aiEnabled(loginState())); addEventListener('ytos:login', h); return () => removeEventListener('ytos:login', h); }, []);
@@ -153,8 +134,9 @@ export default function Brain() {
   const doneHere = prog.by[sel] || 0;
   // 下一步：先挑这一区里有日期的、最早的；没有就第一件
   const next = [...list].sort((a, b) => (a.due || '9') .localeCompare(b.due || '9') || a.priority - b.priority)[0];
-  // 正在做：自己点过的那件（还在这一类、没做完）优先，不然就是最该先做的那件
-  const doing = list.find((t) => t.id === pinned[sel]) || next; const rest = list.filter((t) => t !== doing);
+  // 正在做是全局的（跟专注页同一件）：它在这一类里就摊开它；不在的话，摊开这一类最该先做的那件，给一个「做这件」
+  const gDoing = doingOf(s); const isDoing = !!gDoing && list.includes(gDoing);
+  const doing = isDoing ? gDoing : next; const rest = list.filter((t) => t !== doing);
   // 顶上一句话，只说数量，不下「过载」之类的判断
   const tip = (() => {
     if (by.alarm.length) return `「压力」里有 ${by.alarm.length} 件，挑一件拆出最小的第一步？`;
@@ -182,7 +164,7 @@ export default function Brain() {
       <${Card} class="br-work" style=${`--c:${cur.color};--bg:${cur.bg}`}>
         <div class="card-h"><h3><span class="bk-ic" style=${`--c:${cur.color}`}><${Icon} name=${cur.icon} size=${15} /></span>${cur.label} <span class="muted small">${cur.name} · ${list.length} 件${doneHere ? ` · 做完 ${doneHere}` : ''}</span></h3></div>
         <p class="bw-desc">${cur.desc}</p>
-        ${doing ? html`<${Now} t=${doing} key=${doing.id} onEdit=${setEditing} />` : html`<div class="bw-empty"><b>${scope === 'today' ? '今天' : ''}这里还没有事</b><span>在下面直接写，会自动放进「${cur.label}」。比如：${cur.example}</span></div>`}
+        ${doing ? html`<${BattleCard} t=${doing} key=${doing.id} onEdit=${setEditing} label=${isDoing ? '正在做' : '这一类先做'} onPick=${isDoing ? null : () => setDoing(doing.id)} />` : html`<div class="bw-empty"><b>${scope === 'today' ? '今天' : ''}这里还没有事</b><span>在下面直接写，会自动放进「${cur.label}」。比如：${cur.example}</span></div>`}
         ${rest.length > 0 && html`<div class="bw-sub">${doing ? '其他' : ''}</div><div class="bwls">${rest.map((t) => html`<${Line} key=${t.id} t=${t} words=${words} onPick=${pickTask} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`}
         ${alsoList.length > 0 && html`<div class="bw-sub">有步骤在「${cur.label}」</div><div class="bwls">${alsoList.map((t) => html`<${Line} key=${t.id} t=${t} words=${words} onPick=${pickTask} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`}
         <${QuickAdd} defaults=${{ due: today, brain: sel, brainBy: 'add' }} placeholder=${`加到「${cur.label}」… 比如：${cur.example}`} />
