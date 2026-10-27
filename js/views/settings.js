@@ -67,7 +67,7 @@ function PromptsCard({ s }) {
 // sealonote 账号：邮箱 + 验证码登录；第一次注册要邀请码
 function EmailLogin() {
   const [step, setStep] = useState('email'); const [email, setEmail] = useState(''); const [invite, setInvite] = useState(''); const [code, setCode] = useState('');
-  const [needInv, setNeedInv] = useState(false); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
+  const [needInv, setNeedInv] = useState(() => /[?&]auth=need-invite/.test(location.hash)); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
   const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error || `出错了（${r.status}）`), j); return j; };
   const send = async (e) => { e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/email', { email, invite }); setStep('code'); setMsg('验证码已发到 ' + email + '，十分钟内有效'); } catch (er) { if (er.needInvite) setNeedInv(true); setMsg(er.message); } setBusy(false); };
   const verify = async (e) => { e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/verify', { email, code }); location.hash = '#/settings'; location.reload(); } catch (er) { setMsg(er.message); setBusy(false); } };
@@ -80,6 +80,9 @@ function EmailLogin() {
       <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="6 位验证码" value=${code} onInput=${(e) => setCode(e.target.value.replace(/\D/g, ''))} autofocus />
       <button class="btn sm primary" disabled=${busy || code.length < 6}>${busy ? '登录中…' : '登录'}</button>
       <button type="button" class="btn sm ghost" onClick=${() => { setStep('email'); setCode(''); setMsg(''); }}>换邮箱</button>`}
+    ${step === 'email' && html`<div class="mail-or"><span>或者</span></div>
+      <button type="button" class="btn sm google-btn" onClick=${() => { location.href = '/api/auth/google' + (invite ? '?invite=' + encodeURIComponent(invite) : ''); }}><span class="g-ic" dangerouslySetInnerHTML=${{ __html: GOOGLE_SVG }}></span>用 Google 登录</button>
+      ${!needInv && html`<button type="button" class="btn sm ghost" onClick=${() => setNeedInv(true)}>我有邀请码</button>`}`}
     ${msg && html`<p class="small mail-msg">${msg}</p>`}
   </form>`;
 }
@@ -191,13 +194,8 @@ export default function Settings() {
                 <${Field} label="Fine-grained token" hint="只给这个仓库的 Contents 读写权限，只保存在本机浏览器。"><input type="password" value=${s.settings.sync.token} placeholder="github_pat_…" onInput=${(e) => setSync('token', e.target.value.trim())} /><//>
               </div>
             </div>`}
-            <div class="int-row off">
-              <span class="int-ic" dangerouslySetInnerHTML=${{ __html: GOOGLE_SVG }}></span>
-              <div class="int-b"><b>Google</b><small>即将支持</small></div>
-              <span class="int-tag">Coming soon</span>
-            </div>
           </div>
-          ${authMsg && authMsg !== 'ok' && html`<p class="small" style="color:var(--red)">登录失败：${authMsg}</p>`}
+          ${authMsg && authMsg !== 'ok' && html`<p class="small" style="color:var(--red)">${authMsg === 'need-invite' ? '这个 Google 账号还没注册：在上面填上邀请码，再点「用 Google 登录」' : '登录失败：' + authMsg}</p>`}
           ${(connected || tokenMode) && html`<div class="sync-acts">
             <button class="btn sm ghost" disabled=${busy} onClick=${() => run(push, '已推送')}>推送（本地覆盖远端）</button>
             <button class="btn sm ghost" disabled=${busy} onClick=${async () => { if (await askConfirm('本地未同步的改动会丢失。', { title: '用远端数据覆盖本地？', ok: '拉取' })) run(pull, '已拉取'); }}>拉取（远端覆盖本地）</button>

@@ -6,6 +6,7 @@ import { env, seal, setCookie, COOKIE } from './_lib.js';
 const base = () => String(env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL') || '').replace(/\/+$/, '');
 const anon = () => env('SUPABASE_ANON_KEY') || env('NEXT_PUBLIC_SUPABASE_ANON_KEY') || '';
 const service = () => env('SUPABASE_SERVICE_ROLE_KEY') || '';
+export const supabaseUrl = base;
 export const cloudOn = () => !!(base() && anon() && service() && env('SESSION_SECRET'));
 export const owners = () => (env('OWNER_EMAILS') || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
 export const isOwner = (email) => owners().includes(String(email || '').toLowerCase());
@@ -41,4 +42,25 @@ export async function accessToken(s, res) {
   const ns = sessionFromAuth(r.data, s); Object.assign(s, ns);
   if (res) await writeSession(res, ns);
   return ns.a;
+}
+
+// 让一个刚通过 Supabase 验证的人进门：已经是成员 / 站长直接放行；新人要用掉一个邀请码（inviteCode），再写进成员表。
+// 返回 { ok: true } 或 { ok: false, status, error }
+export async function admit(uid, email, inviteCode) {
+  const m = await sb('/rest/v1/members?select=user_id&user_id=eq.' + encodeURIComponent(uid), { as: 'service' });
+  if (m.ok && Array.isArray(m.data) && m.data.length > 0) return { ok: true };
+  let by = 'owner';
+  if (!isOwner(email)) {
+    if (!inviteCode) return { ok: false, status: 403, error: '这个账号还没注册，需要邀请码' };
+    const inv = await sb('/rest/v1/invites?select=code,uses,max_uses&code=eq.' + encodeURIComponent(inviteCode), { as: 'service' });
+    const row = inv.ok && Array.isArray(inv.data) ? inv.data[0] : null;
+    if (!row || row.uses >= row.max_uses) return { ok: false, status: 403, error: '邀请码无效或已用完' };
+    // 只在 uses 没变的情况下 +1，两个人同时用最后一个名额时只有一个成功
+    const up = await sb(`/rest/v1/invites?code=eq.${encodeURIComponent(row.code)}&uses=eq.${row.uses}`, { as: 'service', method: 'PATCH', body: { uses: row.uses + 1 }, headers: { Prefer: 'return=representation' } });
+    if (!up.ok || !Array.isArray(up.data) || !up.data.length) return { ok: false, status: 409, error: '邀请码刚被别人用掉了' };
+    by = row.code;
+  }
+  const ins = await sb('/rest/v1/members', { as: 'service', method: 'POST', body: { user_id: uid, email, invited_by: by }, headers: { Prefer: 'resolution=ignore-duplicates' } });
+  if (!ins.ok) return { ok: false, status: 502, error: '写成员表失败：' + errMsg(ins) };
+  return { ok: true };
 }

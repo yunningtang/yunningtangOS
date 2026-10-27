@@ -3005,3 +3005,9 @@ html[data-skin="glass"][data-theme="dark"]{--link:#529cca}
 .b-text a[href]:hover,.md a[href]:hover{border-bottom-color:var(--link,var(--blue))}
 .b-text a.wiki,.md a.wiki{color:var(--link,var(--blue));border-bottom-color:color-mix(in srgb,var(--link,var(--blue)) 45%,transparent)}
 .b-text a.wiki:hover,.md a.wiki:hover{border-bottom-color:var(--link,var(--blue))}
+
+.mail-or{flex-basis:100%;display:flex;align-items:center;gap:10px;font-size:.72rem;color:var(--text-4);margin:2px 0}
+.mail-or::before,.mail-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.google-btn{display:inline-flex;align-items:center;gap:7px;background:var(--paper);box-shadow:0 0 0 1px var(--line-2)}
+.google-btn:hover{background:var(--hover)}
+.google-btn .g-ic{display:inline-flex}
