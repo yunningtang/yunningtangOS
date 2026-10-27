@@ -3287,7 +3287,7 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .br-in-t{flex:1;min-width:0;font-size:.9rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .br-in-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .br-in-acts button{font-size:.74rem;padding:3px 8px;border-radius:999px;border:1px solid transparent;background:var(--hover);color:var(--text-3);cursor:pointer;transition:background .15s,color .15s}
-.br-in-acts button:hover{background:var(--bg);color:var(--c);border-color:color-mix(in srgb,var(--c) 40%,transparent)}
+.br-in-acts button:hover{background:var(--rbg);color:var(--c);border-color:color-mix(in srgb,var(--c) 40%,transparent)}
 @media (max-width:900px){
   .br-grid{grid-template-columns:1fr}
   .br-in{flex-wrap:wrap}
@@ -3330,7 +3330,7 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .br-moods button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
 .br-rv-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
 .brain-card .bc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px}
-.bc-r{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;padding:8px 10px;border-radius:10px;background:var(--bg);background:color-mix(in srgb,var(--c) 10%,var(--card-bg,#fff));color:var(--c);text-decoration:none;transition:transform .2s}
+.bc-r{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;padding:8px 10px;border-radius:10px;background:var(--rbg);background:color-mix(in srgb,var(--c) 10%,var(--card-bg,#fff));color:var(--c);text-decoration:none;transition:transform .2s}
 .bc-r:hover{transform:translateY(-1px)}
 .bc-r b{font-size:.76rem;font-weight:600;color:color-mix(in srgb,var(--c) 80%,var(--text))}
 .bc-r span{font-size:1.05rem;font-weight:700;min-height:1.2em;display:flex;align-items:baseline;gap:6px}
@@ -3731,3 +3731,92 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .q-tag{flex:none;font-style:normal;font-size:.68rem;font-weight:650;padding:1px 6px;margin-right:8px;border-radius:999px;background:var(--hover-2);color:var(--text)}
 .fb-g{font-size:.72rem;font-weight:600;color:var(--text-4);margin:8px 6px 2px}
 .dw-picks button{display:flex;align-items:center}
+
+/* ---------- 搁浅：致敬死亡搁浅的界面——冷黑底、细白线、角标、窄体大写小标题、选中是白底黑字、手性蓝点缀、完成是金色 ---------- */
+html[data-skin="strand"],html[data-skin="strand"][data-theme="light"],html[data-skin="strand"][data-theme="dark"]{
+  --font:"Barlow","Inter","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --cond:"Barlow Condensed","Barlow","PingFang SC","Noto Sans SC",sans-serif;
+  --r:0px;--r2:0px;--r3:0px;--blur:0px;
+  --bg:#0b0e11;--side:#080a0c;--paper:#12171c;--card-bg:#11161b;
+  --ink:#ffffff;--text:#e6ebef;--text-2:#b9c2c9;--text-3:#7f8a93;--text-4:#56616a;
+  --line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.16);--hover:rgba(255,255,255,.05);--hover-2:rgba(255,255,255,.1);
+  --input:#0e1216;--tag-bg:rgba(255,255,255,.07);--sel:rgba(92,207,230,.28);--cal-bg:#0e1216;--code-bg:#080a0c;
+  --blue:#5ccfe6;--ac:92,207,230;--liq:rgba(255,255,255,.08);
+  --red:#ff5b3a;--amber:#e3b04b;--green:#7fd4a0;--teal:#5ccfe6;--violet:#a99cf0;--rose:#f07a9a;--orange:#f08a4b;
+  --shadow:0 0 0 1px rgba(255,255,255,.09);--shadow-h:0 0 0 1px rgba(92,207,230,.45);--pop:0 0 0 1px rgba(255,255,255,.16),0 14px 34px rgba(0,0,0,.7);
+  --glass:#11161b;--glass-side:#080a0c;--glass-line:transparent;--glass-edge:rgba(255,255,255,.09);--glass-edge-h:rgba(92,207,230,.45);--glass-hl:transparent;--glass-shadow:none;--glass-shadow-h:none;
+  --mist-top:#0b0e11;--mist-mid:#0b0e11;--mist-bot:#0b0e11;--blob1:transparent;--blob2:transparent;--blob3:transparent;--blob4:transparent;
+  --tick:rgba(230,240,245,.75);
+}
+/* 背景：冷雾 + 很淡的网格，像地图界面 */
+html[data-skin="strand"] body::before{background:radial-gradient(70% 45% at 50% -8%,rgba(92,207,230,.09),transparent 70%),radial-gradient(50% 35% at 100% 110%,rgba(227,176,75,.05),transparent 70%),repeating-linear-gradient(0deg,rgba(255,255,255,.022) 0 1px,transparent 1px 56px),repeating-linear-gradient(90deg,rgba(255,255,255,.022) 0 1px,transparent 1px 56px),#0b0e11}
+html[data-skin="strand"] .card,html[data-skin="strand"] .side,html[data-skin="strand"] .topbar,html[data-skin="strand"] .pop,html[data-skin="strand"] .popmenu,html[data-skin="strand"] .modal,html[data-skin="strand"] .cap,html[data-skin="strand"] .seal-panel{-webkit-backdrop-filter:none;backdrop-filter:none}
+html[data-skin="strand"] .card::after{display:none}
+/* 卡片：细边 + 四个角标 */
+html[data-skin="strand"] .card,html[data-skin="strand"] .modal{border-radius:0;box-shadow:0 0 0 1px var(--line);background:linear-gradient(var(--tick),var(--tick)) top left/9px 1px no-repeat,linear-gradient(var(--tick),var(--tick)) top left/1px 9px no-repeat,linear-gradient(var(--tick),var(--tick)) top right/9px 1px no-repeat,linear-gradient(var(--tick),var(--tick)) top right/1px 9px no-repeat,linear-gradient(var(--tick),var(--tick)) bottom left/9px 1px no-repeat,linear-gradient(var(--tick),var(--tick)) bottom left/1px 9px no-repeat,linear-gradient(var(--tick),var(--tick)) bottom right/9px 1px no-repeat,linear-gradient(var(--tick),var(--tick)) bottom right/1px 9px no-repeat,rgba(17,22,27,.92)}
+html[data-skin="strand"] .card:hover{box-shadow:0 0 0 1px rgba(92,207,230,.28)}
+html[data-skin="strand"] .card-h h3{font-family:var(--cond);text-transform:uppercase;letter-spacing:.16em;font-size:.84rem;font-weight:600;color:var(--text-2)}
+html[data-skin="strand"] .card-h h3::before{content:"";display:inline-block;width:6px;height:6px;margin:0 9px 1px 1px;border:1px solid var(--blue);transform:rotate(45deg);vertical-align:middle}
+html[data-skin="strand"] .page-h h1,html[data-skin="strand"] .hero .greet h1,html[data-skin="strand"] input.page-title{font-family:var(--cond);font-weight:600;letter-spacing:.05em}
+html[data-skin="strand"] .page-h{border-bottom:1px solid var(--line-2);padding-bottom:12px;position:relative}
+html[data-skin="strand"] .page-h::after{content:"";position:absolute;left:0;bottom:-2px;width:46px;height:3px;background:var(--text)}
+/* 侧栏与顶栏 */
+html[data-skin="strand"] .side{background:rgba(8,10,12,.94);border-right:1px solid var(--line-2)}
+html[data-skin="strand"] .topbar{--tb-bg:rgba(11,14,17,.92)}
+html[data-skin="strand"] body.scrolled .topbar{box-shadow:0 1px 0 var(--line-2)}
+html[data-skin="strand"] .nav>.liq,html[data-skin="strand"] .seg>.liq{display:none}
+html[data-skin="strand"] .nav>a{border-radius:0}
+html[data-skin="strand"] .nav>a.active{background:#e9eef2;color:#0b0e11;box-shadow:4px 0 0 var(--blue) inset}
+html[data-skin="strand"] .nav>a.active .ic,html[data-skin="strand"] .nav>a.active .cnt{color:#0b0e11}
+html[data-skin="strand"] .side-user{border-top:1px solid var(--line-2)}
+/* 按钮：细边框、窄体大写；悬停变白底黑字 */
+html[data-skin="strand"] .btn,html[data-skin="strand"] .sx-btn{background:transparent;border:1px solid rgba(255,255,255,.26);color:var(--text);border-radius:0;font-family:var(--cond);letter-spacing:.06em;text-transform:uppercase;box-shadow:none}
+html[data-skin="strand"] .btn:hover,html[data-skin="strand"] .sx-btn:hover{background:#e9eef2;border-color:#e9eef2;color:#0b0e11}
+html[data-skin="strand"] .btn.primary,html[data-skin="strand"] .fw-go,html[data-skin="strand"] .fp-go,html[data-skin="strand"] .cap-btn,html[data-skin="strand"] .sx-btn.primary{background:var(--blue);border-color:var(--blue);color:#061016;border-radius:0;box-shadow:0 0 14px rgba(92,207,230,.25);text-shadow:none}
+html[data-skin="strand"] .btn.primary:hover,html[data-skin="strand"] .fw-go:hover,html[data-skin="strand"] .fp-go:hover,html[data-skin="strand"] .cap-btn:hover{background:#e9eef2;border-color:#e9eef2;color:#0b0e11;filter:none}
+html[data-skin="strand"] .btn.danger-solid{background:var(--red);border-color:var(--red);color:#120604}
+html[data-skin="strand"] .sx-btn.danger{color:var(--red);border-color:rgba(255,91,58,.5)}html[data-skin="strand"] .sx-btn.danger:hover{background:var(--red);color:#120604}
+html[data-skin="strand"] .ibtn{border-radius:0}
+html[data-skin="strand"] .seg{background:transparent;border-radius:0;box-shadow:0 0 0 1px var(--line-2)}
+html[data-skin="strand"] .seg button{border-radius:0;font-family:var(--cond);letter-spacing:.05em}
+html[data-skin="strand"] .seg button.on{background:#e9eef2;color:#0b0e11}
+html[data-skin="strand"] .chip,html[data-skin="strand"] .dchip,html[data-skin="strand"] .tag{border-radius:0}
+html[data-skin="strand"] .dchip.on,html[data-skin="strand"] .chip.on{background:#e9eef2;color:#0b0e11;box-shadow:none}
+html[data-skin="strand"] .tag{box-shadow:none}
+/* 输入框 */
+html[data-skin="strand"] input[type=text],html[data-skin="strand"] input[type=url],html[data-skin="strand"] input[type=number],html[data-skin="strand"] input[type=password],html[data-skin="strand"] input[type=email],html[data-skin="strand"] textarea,html[data-skin="strand"] select,html[data-skin="strand"] .searchin,html[data-skin="strand"] .quickadd{background:var(--input);border-color:var(--line-2);color:var(--text);border-radius:0}
+html[data-skin="strand"] input:focus,html[data-skin="strand"] textarea:focus{border-color:var(--blue);box-shadow:0 0 0 1px rgba(92,207,230,.35)}
+/* 菜单与弹窗：选中项白底黑字（游戏菜单那种） */
+html[data-skin="strand"] .pop,html[data-skin="strand"] .popmenu,html[data-skin="strand"] .cap,html[data-skin="strand"] .ctx,html[data-skin="strand"] .seal-panel{background:#10151a;border-radius:0}
+html[data-skin="strand"] .modal{background-color:#10151a}
+html[data-skin="strand"] .modal-h h2,html[data-skin="strand"] .modal h2,html[data-skin="strand"] .modal h3{font-family:var(--cond);letter-spacing:.06em}
+html[data-skin="strand"] .pm{border-radius:0}
+html[data-skin="strand"] .pm:hover,html[data-skin="strand"] .pm.on{background:#e9eef2;color:#0b0e11}
+html[data-skin="strand"] .pm:hover *,html[data-skin="strand"] .pm.on *{color:#0b0e11}
+/* 待办勾选框方形，进度条是手性蓝 */
+html[data-skin="strand"] .todo .cb,html[data-skin="strand"] .fp-i .cb,html[data-skin="strand"] .nt-row .cb,html[data-skin="strand"] .bcard .cb{border-radius:0}
+html[data-skin="strand"] .prog{border-radius:0;height:3px}
+html[data-skin="strand"] .prog i{border-radius:0;background:var(--blue);box-shadow:0 0 8px rgba(92,207,230,.6)}
+html[data-skin="strand"] .tt-time{font-family:var(--cond);font-weight:500;letter-spacing:.04em}
+/* 正在做：像一张订单 */
+html[data-skin="strand"] .bwn{border-radius:0;background:linear-gradient(90deg,rgba(92,207,230,.08),transparent 60%);box-shadow:inset 3px 0 0 var(--blue),0 0 0 1px var(--line-2)}
+html[data-skin="strand"] .bwn-k{font-family:var(--cond);text-transform:uppercase;letter-spacing:.14em;color:var(--blue)}
+html[data-skin="strand"] .bwn-k::before{content:"◆ ";font-size:.6rem;vertical-align:1px}
+html[data-skin="strand"] .bwn-t{font-family:var(--cond);font-size:1.12rem;letter-spacing:.03em}
+html[data-skin="strand"] .bwn-goal{border-radius:0;background:rgba(8,10,12,.6)}
+html[data-skin="strand"] .bwn-bar{border-radius:0;height:3px}
+html[data-skin="strand"] .bwn-bar i{border-radius:0;background:var(--blue);box-shadow:0 0 8px rgba(92,207,230,.6)}
+html[data-skin="strand"] .bwn.won{box-shadow:inset 3px 0 0 var(--amber),0 0 0 1px rgba(227,176,75,.45);background:linear-gradient(90deg,rgba(227,176,75,.1),transparent 60%)}
+html[data-skin="strand"] .bwn.won .bwn-bar i{background:var(--amber);box-shadow:0 0 8px rgba(227,176,75,.6)}
+html[data-skin="strand"] .now-w.no-sky{color:var(--text)}
+html[data-skin="strand"] ::selection{background:rgba(92,207,230,.35);color:#fff}
+html[data-skin="strand"] *{scrollbar-color:rgba(255,255,255,.18) transparent;scrollbar-width:thin}
+/* 搁浅：药丸按钮都改成方的；计时器表盘换成暗色仪表、手性蓝扇区 */
+html[data-skin="strand"] :is(.tt-chip,.tt-go,.bw-cta,.bw-text,.sugg-go,.fb-do,.nxt-go,.br-ai,.br-chip,.br-rv-open,.br-stuck,.sm-quick button,.sugg-ic,.searchbox){border-radius:0}
+html[data-skin="strand"] :is(.tt-go,.bw-cta,.sugg-go,.fb-do,.nxt-go){font-family:var(--cond);letter-spacing:.06em}
+html[data-skin="strand"] .tt-chip.on{background:#e9eef2;color:#0b0e11}
+html[data-skin="strand"] .tt-card{--tt-rim1:#2a3138;--tt-rim2:#0d1115;--tt-groove1:#05070a;--tt-groove2:#252c33;--tt-face1:#141a20;--tt-face2:#0c1014;--tt-red1:#2fa9c4;--tt-red2:#5ccfe6;--tt-t1:#3b454e;--tt-t2:#7f8a93;--tt-t3:#e6ebef;--tt-num:#b9c2c9;--tt-hand:#e9eef2;--tt-sec:#5ccfe6}
+html[data-skin="strand"] .tt-card.break{--tt-red1:#b8862f;--tt-red2:#e3b04b;--tt-sec:#e3b04b}
+html[data-skin="strand"] .ttd svg{filter:drop-shadow(0 0 18px rgba(92,207,230,.12))}
+html[data-skin="strand"] :is(.br-in-acts button,.br-moods button,.bk-ic,.br-key,.bc-r,.q-tag,.st-cat,.bwn-goal,.nxt,.bc-tg){border-radius:0}
+html[data-skin="strand"] .br-moods button.on{background:#e9eef2;color:#0b0e11;border-color:#e9eef2}

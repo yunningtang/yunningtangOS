@@ -154,14 +154,14 @@ export default function Brain() {
     <div class="br-grid">
       <${Card} class="br-map-card" pad=${false}>
         <div class="br-map"><${BrainMap} count=${count} sel=${sel} pick=${pick} fx=${fx} hover=${hover} setHover=${setHover} focus=${focus} /></div>
-        <div class="br-keys">${REGIONS.map((r) => { const n = count[r.id]; const d = prog.by[r.id] || 0; const lit = focus && (focus.primary === r.id || focus.also.includes(r.id)); return html`<button type="button" key=${r.id} class=${'br-key ' + (sel === r.id ? 'on ' : '') + (hover === r.id || lit ? 'hi ' : '') + (n ? '' : 'nil ') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] : '')} style=${`--c:${r.color};--bg:${r.bg}`}
+        <div class="br-keys">${REGIONS.map((r) => { const n = count[r.id]; const d = prog.by[r.id] || 0; const lit = focus && (focus.primary === r.id || focus.also.includes(r.id)); return html`<button type="button" key=${r.id} class=${'br-key ' + (sel === r.id ? 'on ' : '') + (hover === r.id || lit ? 'hi ' : '') + (n ? '' : 'nil ') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] : '')} style=${`--c:${r.color};--rbg:${r.bg}`}
           onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${dropProps('todo', (x) => { const t = get().todos.find((y) => y.id === x.id); if (t) moveTo(t, r.id); })}>
           <span class="bk-ic"><${Icon} name=${r.icon} size=${14} /></span><span class="bk-t"><b>${r.label}</b><small>${r.name}</small></span>${d ? html`<em title="今天做完的">✓${d}</em>` : ''}<span class="bk-n">${n || ''}</span>
           ${fx[r.id] && fx[r.id].startsWith('done') && html`<span class="br-plus" key=${fx[r.id]}>✓</span>`}
         </button>`; })}</div>
         <div class="br-tip"><span>${tip}</span>${aiOn && html`<button type="button" class="br-ai" disabled=${!!aiBusy} onClick=${() => runAi(false)} title="没手动指定过的待办，让汤圆按意思重新分一遍（自己改过的不动）"><${Icon} name="sparkle" size=${12} />${aiBusy === 'all' ? '汤圆在分…' : '让汤圆分一遍'}</button>`}</div>
       <//>
-      <${Card} class="br-work" style=${`--c:${cur.color};--bg:${cur.bg}`}>
+      <${Card} class="br-work" style=${`--c:${cur.color};--rbg:${cur.bg}`}>
         <div class="card-h"><h3><span class="bk-ic" style=${`--c:${cur.color}`}><${Icon} name=${cur.icon} size=${15} /></span>${cur.label} <span class="muted small">${cur.name} · ${list.length} 件${doneHere ? ` · 做完 ${doneHere}` : ''}</span></h3></div>
         <p class="bw-desc">${cur.desc}</p>
         ${doing ? html`<${BattleCard} t=${doing} key=${doing.id} onEdit=${setEditing} label=${isDoing ? '正在做' : '这一类先做'} onPick=${isDoing ? null : () => setDoing(doing.id)} />` : html`<div class="bw-empty"><b>${scope === 'today' ? '今天' : ''}这里还没有事</b><span>在下面直接写，会自动放进「${cur.label}」。比如：${cur.example}</span></div>`}
@@ -201,7 +201,7 @@ function Review({ s, today, prog, by }) {
   return html`<${Card} class="br-review">
     <div class="card-h"><h3><${Icon} name="moon" size=${15} />今天的复盘</h3><button type="button" class="ibtn" title="收起" onClick=${() => setOpen(false)}><${Icon} name="x" size=${14} /></button></div>
     <p class="br-rv-line">${line}</p>
-    <div class="br-rv-bars">${REGIONS.map((r) => { const d = prog.by[r.id] || 0; const l = by[r.id].length; return html`<div class="br-rv-b" key=${r.id} style=${`--c:${r.color};--bg:${r.bg}`} title=${`${r.label}：做完 ${d}，还剩 ${l}`}>
+    <div class="br-rv-bars">${REGIONS.map((r) => { const d = prog.by[r.id] || 0; const l = by[r.id].length; return html`<div class="br-rv-b" key=${r.id} style=${`--c:${r.color};--rbg:${r.bg}`} title=${`${r.label}：做完 ${d}，还剩 ${l}`}>
       <span class="br-rv-n">${r.label}</span><span class="br-rv-track"><i class="d" style=${`flex:${d}`}></i><i class="l" style=${`flex:${l}`}></i>${!d && !l ? html`<i class="z"></i>` : ''}</span><small>${d}/${d + l}</small></div>`; })}</div>
     <div class="br-rv-row"><span class="br-rv-k">感觉</span>${moods}</div>
     <div class="br-rv-row"><span class="br-rv-k">一句话</span><input class="flex1" type="text" value=${note} placeholder="今天最想记住的一件事…" onInput=${(e) => setNote(e.target.value)} onBlur=${() => saveReview(today, { note: note.trim() })} /></div>
@@ -220,7 +220,7 @@ export function BrainCard({ s }) {
   s.todos.forEach((t) => { if (!t.done && (!t.due || t.due <= today)) { const id = brainOf(t, words); if (id in by) by[id]++; } });
   return html`<${Card} class="brain-card">
     <div class="card-h"><h3>今天的大脑</h3><div class="card-act"><a class="ibtn" href="#/brain" title="打开大脑"><${Icon} name="brain" size=${15} /></a></div></div>
-    <div class="bc-grid">${REGIONS.map((r) => html`<a key=${r.id} href="#/brain" class=${'bc-r ' + (by[r.id] ? '' : 'nil')} style=${`--c:${r.color};--bg:${r.bg}`} onClick=${() => { try { localStorage.setItem('ytos.brain.sel', r.id); } catch {} }}>
+    <div class="bc-grid">${REGIONS.map((r) => html`<a key=${r.id} href="#/brain" class=${'bc-r ' + (by[r.id] ? '' : 'nil')} style=${`--c:${r.color};--rbg:${r.bg}`} onClick=${() => { try { localStorage.setItem('ytos.brain.sel', r.id); } catch {} }}>
       <b><${Icon} name=${r.icon} size=${12} />${r.label}</b><span>${by[r.id] || ''}${prog.by[r.id] ? html`<small>✓${prog.by[r.id]}</small>` : ''}</span></a>`)}</div>
     <div class="br-prog sm"><span>今天</span><span class="br-prog-bar"><i style=${`width:${prog.pct}%`}></i></span><b>${prog.done}/${prog.total}</b></div>
   <//>`;

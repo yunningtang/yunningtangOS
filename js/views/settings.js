@@ -217,6 +217,7 @@ export default function Settings() {
     { v: 'glass', n: '暖白', bg: '#f7f7f5', card: '#ffffff', ac: '#37352f', line: 'rgba(55,53,47,.09)' },
     { v: 'claude', n: 'Claude', bg: '#f4f1ea', card: '#faf9f5', ac: '#c96442', line: 'rgba(60,50,30,.14)' },
     { v: 'steam', n: 'Steam', bg: '#1b2838', card: '#2a475e', ac: '#66c0f4', line: 'rgba(0,0,0,.4)' },
+    { v: 'strand', n: '搁浅', bg: '#0b0e11', card: '#12171c', ac: '#5ccfe6', line: 'rgba(255,255,255,.22)' },
     { v: 'xp', n: 'Windows XP', bg: 'linear-gradient(180deg,#3f7fd8,#8fc0f0 60%,#6fb24c)', card: '#ece9d8', ac: '#0a5fd6', line: '#0831d9' },
   ];
   const syncRow = (connected || tokenMode) && html`<${Row} icon="refresh" label="同步" hint=${err ? html`<span class="sx-err">同步出错：${err}</span>` : synced ? `上次 ${synced}` : '还没同步过'}>

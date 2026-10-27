@@ -93,6 +93,8 @@ function applyTheme(t, skin, fx, glow, accent) {
   if (fx !== undefined) document.documentElement.dataset.fx = fx === 'full' ? 'full' : 'lite';
   if (glow !== undefined) document.documentElement.dataset.glow = glow === false ? '0' : '1';
   if (accent !== undefined) document.documentElement.dataset.accent = accent || 'none';
+  // 搁浅用的窄体字：选了这个风格才去加载
+  if (skin === 'strand' && !document.getElementById('font-strand')) { const l = document.createElement('link'); l.id = 'font-strand'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap'; document.head.appendChild(l); }
   if (skin !== undefined) document.documentElement.dataset.skin = HIDDEN_SKINS.has(skin) ? 'glass' : (skin === 'win95' ? 'xp' : skin) || 'notion';
 }
 
