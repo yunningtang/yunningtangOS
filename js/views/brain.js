@@ -9,70 +9,68 @@ import { ctxMenu } from '../ctx.js';
 import { go, toast } from '../nav.js';
 import { aiEnabled } from '../ai.js';
 import { loginState } from '../sync.js';
-import { createBrain3D } from '../brain3d.js';
 import { REGIONS, THALAMUS, regionOf, brainOf, alsoOf, flowOf, moveTo, regionItems, aiSort, progress, MOODS, saveReview, pushOpenTo } from '../brain.js';
 
-// 脑图：一个侧面的大脑（额头朝左）。每块脑区是一条路径，大脑轮廓裁出来；小脑和杏仁核单独画
-const OUT = 'M30 100 C18 70 30 30 70 20 C100 8 150 8 180 22 C210 35 225 60 220 88 C217 105 205 115 190 118 L175 120 C168 140 150 150 128 148 C110 147 98 140 90 130 C75 130 60 128 48 122 C38 117 33 110 30 100 Z';
-const CEREB = 'M165 124 C178 114 208 114 215 128 C220 144 204 158 184 157 C167 156 156 146 160 132 Z';
-const STEM = 'M138 138 C141 154 139 168 134 184 L152 184 C152 168 155 152 160 140 Z';
-const OTHER = 'M128 0 L240 0 L240 74 C214 86 198 93 175 97 C155 100 135 101 113 103 C117 72 122 40 128 0 Z'; // 顶叶、枕叶：不放事，只是灰色
+// 脑图：一颗软乎乎的卡通大脑（额头朝左），跟汤圆一个画风：云朵一样鼓鼓的轮廓、几道粗粗的软褶、一张会眨眼的小脸。
+// 每块脑区是一条路径，用轮廓裁出来；小脑是后面的一个小圆包
+const CX = 122, CY = 80, RX = 100, RY = 64;
+// 云朵轮廓：沿椭圆取点，相邻两点之间往外鼓一个小包；下半边压扁一点
+const OUT = (() => {
+  const N = 15, pt = (t, k = 1) => [CX + RX * k * Math.cos(t), CY + RY * k * Math.sin(t) * (Math.sin(t) > 0 ? 0.92 : 1)];
+  let d = ''; for (let i = 0; i <= N; i++) { const t = (i / N) * Math.PI * 2 + 0.2; const [x, y] = pt(t); if (!i) { d = `M${x.toFixed(1)} ${y.toFixed(1)}`; continue; } const [qx, qy] = pt(t - Math.PI / N, 1.12); d += ` Q${qx.toFixed(1)} ${qy.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`; }
+  return d + ' Z';
+})();
+const CEREB = 'M162 124 C166 108 204 106 212 122 C218 136 204 148 186 147 C170 146 160 137 162 124 Z';
+const STEM = 'M146 130 C148 146 147 156 144 166 Q152 172 160 166 C158 156 159 144 164 130 Z';
+const OTHER = 'M128 0 L240 0 L240 74 C214 86 198 93 175 97 C155 100 135 101 113 103 C132 70 112 35 128 0 Z'; // 顶叶、枕叶：不放事，只是粉色的脑子
 const SHAPES = {
-  plan: { d: 'M0 0 L102 0 C97 40 93 72 90 106 L86 128 L86 150 L0 150 Z', at: [56, 62] },
-  move: { d: 'M102 0 L128 0 C122 40 117 72 113 103 L90 106 C93 72 97 40 102 0 Z', at: [108, 42] },
-  talk: { d: 'M90 106 C120 101 150 101 175 97 C198 93 214 86 240 74 L240 100 C214 106 198 110 175 114 C150 119 115 120 86 128 Z', at: [170, 107] },
-  memory: { d: 'M86 128 C115 120 150 119 175 114 C198 110 214 106 240 100 L240 200 L86 200 Z', at: [142, 133] },
-  habit: { d: CEREB, at: [190, 140], own: true },
-  alarm: { d: 'M92 131 C91 124 99 120 107 121 C115 122 117 128 113 133 C109 138 95 138 92 131 Z', at: [103, 129], own: true },
+  plan: { d: 'M0 0 L100 0 C84 35 104 70 90 106 L86 128 L86 160 L0 160 Z', at: [52, 58] },
+  move: { d: 'M100 0 L128 0 C112 35 132 70 113 103 L90 106 C104 70 84 35 100 0 Z', at: [107, 44] },
+  talk: { d: 'M90 106 C120 101 150 101 175 97 C198 93 214 86 240 74 L240 100 C214 106 198 110 175 114 C150 119 115 120 86 128 Z', at: [172, 105] },
+  memory: { d: 'M86 128 C115 120 150 119 175 114 C198 110 214 106 240 100 L240 200 L86 200 Z', at: [140, 128] },
+  habit: { d: CEREB, at: [190, 128], own: true },
+  alarm: { d: 'M95 132 C93 124 101 119 108 121 C115 123 116 130 112 135 C108 140 98 140 95 132 Z', at: [104, 129], own: true },
 };
-const SULCI = ['M45 45 C55 40 62 50 72 44', 'M36 76 C50 70 58 82 74 76', 'M58 100 C68 92 76 98 84 92', 'M138 30 C150 40 160 28 174 40', 'M148 62 C162 52 172 68 188 58', 'M190 38 C198 50 206 44 212 58', 'M120 135 C135 130 148 138 165 128'];
-const FOLIA = ['M166 130 C182 123 200 123 213 131', 'M164 140 C182 134 200 136 214 142', 'M170 150 C184 146 198 148 207 152'];
+// 软褶：几道粗粗的白色弯线，像毛绒玩具上的缝线
+const FOLDS = ['M36 70 C44 58 58 62 62 52', 'M30 100 C40 92 52 100 64 90', 'M58 30 C66 40 80 36 86 28', 'M140 30 C150 42 164 30 176 42', 'M150 64 C164 54 176 70 192 60', 'M196 36 C204 48 214 46 216 60', 'M200 82 C210 78 214 86 222 84', 'M122 136 C134 130 146 138 160 132'];
+const FOLIA = ['M170 120 C182 114 198 114 208 122', 'M168 132 C182 127 198 128 210 134'];
 
 function BrainMap({ count, sel, pick, fx, hover, setHover, focus }) {
   const max = Math.max(1, ...REGIONS.map((r) => count[r.id]));
   const drop = (id) => dropProps('todo', (d) => { const t = get().todos.find((x) => x.id === d.id); if (t) moveTo(t, id); });
-  // focus：悬停的那件事涉及哪些脑区（主 + 也涉及）。其余脑区淡下去，涉及的之间连一条线
   const inFocus = (id) => !focus || focus.primary === id || focus.also.includes(id);
-  const region = (r) => { const sh = SHAPES[r.id]; const n = count[r.id]; const k = n ? 22 + Math.round((n / max) * 30) : 0;
+  const region = (r) => { const sh = SHAPES[r.id]; const n = count[r.id]; const k = n ? 18 + Math.round((n / max) * 30) : 9;
     const cls = 'brs-r ' + (n ? '' : 'empty ') + (hover === r.id || sel === r.id ? 'hi ' : '') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] + ' ' : '') + (focus ? (focus.primary === r.id ? 'fp ' : focus.also.includes(r.id) ? 'fa ' : 'dim ') : '');
-    return html`<path key=${r.id} d=${sh.d} class=${cls} style=${`--c:${r.color};--bg:${r.bg};--k:${k}%`}
+    return html`<path key=${r.id} d=${sh.d} class=${cls} style=${`--c:${r.color};--k:${k}%`}
       onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${drop(r.id)}><title>${r.label} · ${r.name}${n ? ' · ' + n + ' 件' : ''}</title></path>`; };
-  const links = focus && focus.also.length ? focus.also.map((id) => { const [x1, y1] = SHAPES[focus.primary].at; const [x2, y2] = SHAPES[id].at; const mx = (x1 + x2) / 2, my = Math.min(y1, y2) - 22; return html`<path key=${id} d=${`M${x1} ${y1} Q${mx} ${my} ${x2} ${y2}`} class="brs-link" style=${`--c:${regionOf(focus.primary).color}`} />`; }) : null;
-  return html`<svg class=${'brs ' + (focus ? 'focusing' : '')} viewBox="0 0 240 190" role="img" aria-label="大脑脑区图">
+  // 通路：主脑区到每个「也涉及」的脑区，一条往上拱的虚点线，上面有个小点在跑
+  const links = focus && focus.also.length ? focus.also.map((id) => { const [x1, y1] = SHAPES[focus.primary].at; const [x2, y2] = SHAPES[id].at; const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1; const bend = 18 + L * 0.25; const mx = (x1 + x2) / 2 + (dy / L) * bend * (dx >= 0 ? 1 : -1) * 0.4, my = (y1 + y2) / 2 - bend; const d = `M${x1} ${y1} Q${mx.toFixed(1)} ${my.toFixed(1)} ${x2} ${y2}`;
+    return html`<g key=${id} class="brs-link" style=${`--c:${regionOf(focus.primary).color}`}><path d=${d} /><circle r="3.2"><animateMotion dur="1.6s" repeatCount="indefinite" path=${d} /></circle></g>`; }) : null;
+  return html`<svg class=${'brs cute ' + (focus ? 'focusing' : '')} viewBox="0 0 240 185" role="img" aria-label="大脑脑区图">
     <defs><clipPath id="brs-out"><path d=${OUT} /></clipPath><clipPath id="brs-cb"><path d=${CEREB} /></clipPath></defs>
-    <path d=${STEM} class="brs-stem" />
-    ${region(REGIONS.find((r) => r.id === 'habit'))}
-    <g clip-path="url(#brs-cb)" class="brs-lines">${FOLIA.map((d) => html`<path d=${d} />`)}</g>
-    <g clip-path="url(#brs-out)">
-      <path d=${OTHER} class="brs-other" />
-      ${REGIONS.filter((r) => !SHAPES[r.id].own).map(region)}
-      <g class="brs-lines">${SULCI.map((d) => html`<path d=${d} />`)}</g>
+    <ellipse cx="128" cy="172" rx="84" ry="6" class="brs-shadow" />
+    <g class="brs-body">
+      <path d=${STEM} class="brs-stem" />
+      ${region(REGIONS.find((r) => r.id === 'habit'))}
+      <path d=${CEREB} class="brs-edge" />
+      <g clip-path="url(#brs-cb)" class="brs-lines">${FOLIA.map((d) => html`<path d=${d} />`)}</g>
+      <g clip-path="url(#brs-out)">
+        <path d=${OTHER} class="brs-other" />
+        ${REGIONS.filter((r) => !SHAPES[r.id].own).map(region)}
+        <g class="brs-lines">${FOLDS.map((d) => html`<path d=${d} />`)}</g>
+        <ellipse cx="78" cy="30" rx="34" ry="9" transform="rotate(-14 78 30)" class="brs-gloss" />
+      </g>
+      <path d=${OUT} class="brs-edge" />
+      ${region(REGIONS.find((r) => r.id === 'alarm'))}
+      <g class="brs-face">
+        <ellipse cx="48" cy="106" rx="6" ry="3.6" class="brs-blush" /><ellipse cx="86" cy="106" rx="6" ry="3.6" class="brs-blush" />
+        <g class="brs-eyes"><ellipse cx="57" cy="98" rx="2.8" ry="3.4" /><ellipse cx="77" cy="98" rx="2.8" ry="3.4" /><circle cx="58" cy="97" r="0.9" class="hl" /><circle cx="78" cy="97" r="0.9" class="hl" /></g>
+        <path d="M63 104 Q67 108 67 104 Q67 108 71 104" class="brs-mouth" />
+      </g>
+      ${links}
+      ${REGIONS.map((r) => { const n = count[r.id]; const [x, y] = SHAPES[r.id].at; const show = n || (focus && inFocus(r.id)); return show ? html`<g key=${'b' + r.id} class=${'brs-badge ' + (sel === r.id ? 'on ' : '') + (focus && !inFocus(r.id) ? 'dim' : '')} style=${`--c:${r.color}`} onClick=${() => pick(r.id)}><circle cx=${x} cy=${y} r=${r.id === 'alarm' ? 7 : 8.5} /><text x=${x} y=${y + 3.6} text-anchor="middle">${n}</text></g>` : ''; })}
     </g>
-    <path d=${OUT} class="brs-outline" />
-    ${region(REGIONS.find((r) => r.id === 'alarm'))}
-    ${links}
-    ${REGIONS.map((r) => { const n = count[r.id]; const [x, y] = SHAPES[r.id].at; const show = n || (focus && inFocus(r.id)); return show ? html`<g key=${'b' + r.id} class=${'brs-badge ' + (sel === r.id ? 'on ' : '') + (focus && !inFocus(r.id) ? 'dim' : '')} style=${`--c:${r.color}`} onClick=${() => pick(r.id)}><circle cx=${x} cy=${y} r=${r.id === 'alarm' ? 6.5 : 8.5} /><text x=${x} y=${y + 3.6} text-anchor="middle">${n}</text></g>` : ''; })}
   </svg>`;
-}
-
-// 3D 脑模型；建不起来（没有 WebGL、three.js 加载失败）就退回上面的平面图
-function Brain3D(props) {
-  const { count, sel, pick, hover, setHover, focus, fx } = props;
-  const host = useRef(null); const eng = useRef(null); const [fail, setFail] = useState(false);
-  const cb = useRef({}); cb.current = { pick, setHover };
-  useEffect(() => {
-    let dead = false;
-    createBrain3D(host.current, {
-      onPick: (id) => cb.current.pick(id), onHover: (id) => cb.current.setHover(id),
-    }).then((e) => { if (dead) { e.destroy(); return; } eng.current = e; e.update({ count, sel, hover, focus, colors: Object.fromEntries(REGIONS.map((r) => [r.id, r.color])) }); })
-      .catch(() => { if (!dead) setFail(true); });
-    return () => { dead = true; eng.current && eng.current.destroy(); eng.current = null; };
-  }, []);
-  useEffect(() => { eng.current && eng.current.update({ count, sel, hover, focus }); }, [JSON.stringify(count), sel, hover, focus && focus.id]);
-  useEffect(() => { if (eng.current) Object.entries(fx).forEach(([id]) => eng.current.flash(id)); }, [fx]);
-  if (fail) return html`<${BrainMap} ...${props} />`;
-  // 把待办拖到 3D 脑上：dropProps 收到后，用鼠标位置去问引擎落在哪个脑区
-  return html`<div class="b3" ref=${host} ...${dropProps('todo', (d, { event }) => { const id = eng.current && eng.current.regionAt(event.clientX, event.clientY); const t = get().todos.find((x) => x.id === d.id); if (id && t) moveTo(t, id); })}><span class="b3-hint">拖动可以转</span></div>`;
 }
 
 // 一行待办：左边原来的待办行，右边一个脑区标签（点开就能换主脑区、勾「也涉及」——拖拽之外的明确入口）；有流转的下面画一条小路线
@@ -153,7 +151,7 @@ export default function Brain() {
     </div>
     <div class="br-grid">
       <${Card} class="br-map-card" pad=${false}>
-        <div class="br-map"><${Brain3D} count=${count} sel=${sel} pick=${pick} fx=${fx} hover=${hover} setHover=${setHover} focus=${focus} /></div>
+        <div class="br-map"><${BrainMap} count=${count} sel=${sel} pick=${pick} fx=${fx} hover=${hover} setHover=${setHover} focus=${focus} /></div>
         <div class="br-keys">${REGIONS.map((r) => { const n = count[r.id]; const d = prog.by[r.id] || 0; const lit = focus && (focus.primary === r.id || focus.also.includes(r.id)); return html`<button type="button" key=${r.id} class=${'br-key ' + (sel === r.id ? 'on ' : '') + (hover === r.id || lit ? 'hi ' : '') + (n ? '' : 'empty ') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] : '')} style=${`--c:${r.color};--bg:${r.bg}`}
           onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${dropProps('todo', (x) => { const t = get().todos.find((y) => y.id === x.id); if (t) moveTo(t, r.id); })}>
           <i></i><span class="bk-t"><b>${r.label}</b><small>${r.name}</small></span>${d ? html`<em title="今天做完的">✓${d}</em>` : ''}<span class="bk-n">${n || ''}</span>

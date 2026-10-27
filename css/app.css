@@ -3468,14 +3468,32 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
   .br-rv-bar .btn{margin-left:auto}
   .br-in-t{flex-basis:100%}
 }
-/* 3D 脑模型 */
-.b3{position:relative;width:100%;aspect-ratio:10/8;touch-action:pan-y}
-.b3-cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
-.b3-cv:active{cursor:grabbing}
-.b3-ov{position:absolute;inset:0;pointer-events:none}
-.b3-badge{position:absolute;left:0;top:0;min-width:22px;height:22px;padding:0 6px;border-radius:999px;border:1.5px solid var(--c);background:var(--card-bg,#fff);color:var(--c);font-size:.75rem;font-weight:700;display:none;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;box-shadow:0 2px 8px -2px rgba(0,0,0,.18);transition:opacity .25s,background .2s,color .2s}
-.b3-badge.show{display:flex}
-.b3-badge.on{background:var(--c);color:#fff;border-color:#fff}
-.b3-badge.dim{opacity:.25!important}
-.b3-hint{position:absolute;right:8px;bottom:4px;font-size:.7rem;color:var(--text-4);pointer-events:none}
-.b3.drop-over{outline:none}
+/* 大脑页 · 可爱版脑图：软乎乎的粉色大脑 + 粉彩脑区 + 小脸 */
+.brs.cute{--tissue:#fbe4e1;--edge:#e7b4ad;max-height:400px}
+.brs.cute .brs-shadow{fill:rgba(120,60,60,.08)}
+.brs.cute .brs-body{animation:brs-bob 4.5s ease-in-out infinite;transform-origin:50% 90%}
+@keyframes brs-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+.brs.cute .brs-other{fill:var(--tissue);stroke:none}
+.brs.cute .brs-r{fill:color-mix(in srgb,var(--c) var(--k),#fff6f4);stroke:#fff;stroke-width:2.2;stroke-linejoin:round}
+.brs.cute .brs-r.empty{fill:color-mix(in srgb,var(--c) 9%,var(--tissue))}
+.brs.cute .brs-r.hi{filter:brightness(1.03) saturate(1.25)}
+.brs.cute .brs-r.fp{filter:saturate(1.35)}
+.brs.cute .brs-r.fa{stroke:var(--c);stroke-width:1.6;stroke-dasharray:2 3}
+.brs.cute.focusing .brs-r.dim{fill:color-mix(in srgb,var(--c) 6%,var(--tissue));opacity:1}
+.brs.cute.focusing .brs-badge.dim{opacity:.35}
+.brs.cute .brs-edge{fill:none;stroke:var(--edge);stroke-width:2.2;stroke-linejoin:round;pointer-events:none}
+.brs.cute .brs-stem{fill:#f3cbc5;stroke:var(--edge);stroke-width:2}
+.brs.cute .brs-lines path{fill:none;stroke:#fff;stroke-opacity:.75;stroke-width:2.6;stroke-linecap:round;pointer-events:none}
+.brs.cute .brs-gloss{fill:#fff;opacity:.45;pointer-events:none}
+.brs.cute .brs-face{pointer-events:none}
+.brs.cute .brs-blush{fill:#ff8fa3;opacity:.35}
+.brs.cute .brs-eyes ellipse{fill:#3a2b2b}
+.brs.cute .brs-eyes .hl{fill:#fff}
+.brs.cute .brs-eyes{transform-box:fill-box;transform-origin:center;animation:brs-blink 5s infinite}
+@keyframes brs-blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+.brs.cute .brs-mouth{fill:none;stroke:#3a2b2b;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.brs.cute .brs-badge circle{fill:#fff;stroke:var(--c);stroke-width:1.6;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.12))}
+.brs.cute .brs-badge.on circle{fill:var(--c);stroke:#fff}
+.brs.cute .brs-link path{fill:none;stroke:var(--c);stroke-width:3;stroke-linecap:round;stroke-dasharray:.1 6;animation:brs-dash 1.2s linear infinite;pointer-events:none}
+.brs.cute .brs-link circle{fill:#fff;stroke:var(--c);stroke-width:1.8}
+@media (prefers-reduced-motion:reduce){.brs.cute .brs-body,.brs.cute .brs-eyes,.brs.cute .brs-link path{animation:none}}
