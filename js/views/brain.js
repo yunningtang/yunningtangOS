@@ -121,7 +121,7 @@ export default function Brain() {
   useEffect(() => { const h = () => setAiOn(aiEnabled(loginState())); addEventListener('ytos:login', h); return () => removeEventListener('ytos:login', h); }, []);
   const runAi = async (onlyUnsorted) => {
     if (aiBusy) return; setAiBusy(onlyUnsorted ? 'inbox' : 'all');
-    try { const r = await aiSort(get(), { onlyUnsorted }); toast(r.n ? `汤圆分好了 ${r.n} 件${r.reply ? '：' + r.reply : ''}` : r.reply || '汤圆没分出来，再试一次？'); }
+    try { const r = await aiSort(get(), { onlyUnsorted }); toast(r.reply || (r.n ? `汤圆分好了 ${r.n} 件` : '汤圆没分出来，再试一次？')); }
     catch (e) { toast('汤圆没分成：' + e.message); }
     setAiBusy('');
   };
@@ -185,7 +185,7 @@ export default function Brain() {
         ${doing ? html`<${Now} t=${doing} key=${doing.id} onEdit=${setEditing} />` : html`<div class="bw-empty"><b>${scope === 'today' ? '今天' : ''}这里还没有事</b><span>在下面直接写，会自动放进「${cur.label}」。比如：${cur.example}</span></div>`}
         ${rest.length > 0 && html`<div class="bw-sub">${doing ? '其他' : ''}</div><div class="bwls">${rest.map((t) => html`<${Line} key=${t.id} t=${t} words=${words} onPick=${pickTask} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`}
         ${alsoList.length > 0 && html`<div class="bw-sub">有步骤在「${cur.label}」</div><div class="bwls">${alsoList.map((t) => html`<${Line} key=${t.id} t=${t} words=${words} onPick=${pickTask} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`}
-        <${QuickAdd} defaults=${{ due: today, brain: sel }} placeholder=${`加到「${cur.label}」… 比如：${cur.example}`} />
+        <${QuickAdd} defaults=${{ due: today, brain: sel, brainBy: 'add' }} placeholder=${`加到「${cur.label}」… 比如：${cur.example}`} />
       <//>
     </div>
     ${inbox.length > 0 && html`<${Card} class="br-inbox">

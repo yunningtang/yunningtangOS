@@ -3,7 +3,7 @@ import { useStore, update, upsert, remove, toggleTodo, removeUndo, get } from '.
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select, useClock } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGet, lsSet, pad, weekStart, timeToMin, minToTime } from '../util.js';
 import { ctxMenu } from '../ctx.js';
-import { brainMenu, stepCat } from '../brain.js';
+import { brainMenu, stepCat, stepRegionItems } from '../brain.js';
 import { askConfirm, askDate, askPrompt } from '../confirm.js';
 import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
@@ -179,7 +179,8 @@ export function StepList({ t, autoAdd = false }) {
         : html`<span class="st-t" title="点击改名，拖动排序" onClick=${() => !x.done && setEdit({ id: x.id, title: x.title })}>${x.title}</span>`}
       ${minEdit === x.id
         ? html`<input class="st-min" type="number" min="5" max="180" step="5" autofocus value=${x.minutes} onKeyDown=${(e) => { if (e.key === 'Enter' || e.key === 'Escape') e.target.blur(); }} onBlur=${(e) => { const m = +e.target.value; if (m) setStep(t.id, x.id, { minutes: Math.max(5, Math.min(180, m)) }); setMinEdit(null); }} />`
-        : html`<button class="st-m" title="点击改分钟" onClick=${() => setMinEdit(x.id)}>${x.minutes} 分</button>`}
+        : html`<button class="st-m" title="点击改分钟" onClick=${() => setMinEdit(x.id)}>${clampMin(x.minutes)} 分</button>`}
+      ${(() => { const c = stepCat(x); return html`<button class=${'st-cat ' + (c ? '' : 'none')} title=${c ? `这一步是「${c.label}」· 点一下换` : '这一步还没分类 · 点一下选'} onClick=${(e) => ctxMenu(e, stepRegionItems(t.id, x), '这一步是')}><${Icon} name=${c ? c.icon : 'dots'} size=${11} />${c ? c.label : ''}</button>`; })()}
       ${!x.done && html`<button class="st-go" title="开始这一步（番茄钟）" onClick=${() => startStep(t, x)}><${Icon} name="play" size=${10} /></button>`}
       <button class="st-x" title="删除这一步" onClick=${() => removeStep(t.id, x.id)}><${Icon} name="x" size=${10} /></button>
     </li>`)}

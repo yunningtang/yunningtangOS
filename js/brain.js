@@ -37,9 +37,12 @@ export function guess(t, words = (get().settings.brainWords || {})) {
 const ownBrain = (t, words) => (t.brain === undefined || t.brain === null ? guess(t, words) : t.brain);
 // 步骤类型 → 脑区（汤圆拆解出来的步骤自带类型）
 const STEP_REGION = { 思考: 'plan', 记忆: 'memory', 语言: 'talk', 动手: 'move' };
-const stepRegion = (x) => (x && (x.brain || STEP_REGION[x.kind])) || '';
+const stepRegion = (x) => (x && (x.brain || STEP_REGION[x.kind] || guess(x))) || '';
 // 步骤的类别（颜色 + 名字），待办行里的小圆点用
 export const stepCat = (x) => { const id = stepRegion(x); return id ? regionOf(id) : null; };
+// 手动给一步换类别（汤圆以后重新分的时候不动它）
+export const setStepBrain = (todoId, stepId, id) => update((d) => { const t = d.todos.find((x) => x.id === todoId); const st = t && Array.isArray(t.steps) && t.steps.find((x) => x.id === stepId); if (st) { st.brain = id; st.brainBy = 'me'; } });
+export const stepRegionItems = (todoId, x) => { const cur = stepRegion(x); return [...REGIONS, THALAMUS].map((r) => ({ label: r.label, icon: r.icon, hint: cur === r.id ? '✓' : '', onClick: () => setStepBrain(todoId, x.id, r.id) })); };
 // 流转：步骤跨了两个以上脑区时，按步骤顺序排成几段；现在这段 = 第一个没做完的步骤所在的脑区
 export function flowOf(t) {
   const st = Array.isArray(t.steps) ? t.steps : []; const seq = [];
@@ -58,7 +61,7 @@ export function alsoOf(t, words) {
 
 // 手动换类别：记下这个标题开头的词，下次同样开头的就照这个分
 export function setBrain(t, id) {
-  upsert('todos', { id: t.id, brain: id, brainBy: '' });
+  upsert('todos', { id: t.id, brain: id, brainBy: 'me' });
   const w = headWord(t.title);
   if (w && id && id !== 'alarm') update((d) => { d.settings.brainWords = { ...(d.settings.brainWords || {}), [w]: id }; });
 }
@@ -103,19 +106,32 @@ export function pushOpenTo(s, today, tomorrow) {
   return ids.length;
 }
 
-// 让汤圆（AI）分：没手动指定过脑区的未完成待办，一次最多 60 件。AI 分的记成 brainBy: 'ai'，不拿来学习开头词
+// 让汤圆（AI）分：没做完的事和它们没做完的步骤，一起交给汤圆分。只有自己手动改过的（brainBy: 'me'）不动——
+// 包括以前版本里手动改的（那时记成 brainBy: ''）。在大脑页某一类里直接加的事也会重新分
+const isMine = (x) => x.brain != null && (x.brainBy === 'me' || x.brainBy === '');
 export async function aiSort(s, { onlyUnsorted = false } = {}) {
   const words = s.settings.brainWords || {};
-  const list = s.todos.filter((t) => !t.done && (onlyUnsorted ? !brainOf(t, words) : (t.brain == null || t.brainBy === 'ai'))).slice(0, 60);
-  if (!list.length) return { n: 0, reply: '没有要分的事' };
-  const text = list.map((t) => `${t.id} | ${String(t.title || '').replace(/\s+/g, ' ').slice(0, 60)}${t.note ? ' | ' + String(t.note).replace(/\s+/g, ' ').slice(0, 40) : ''}`).join('\n');
+  const open = s.todos.filter((t) => !t.done);
+  const todos = open.filter((t) => (onlyUnsorted ? !brainOf(t, words) : !isMine(t))).slice(0, 40);
+  const steps = onlyUnsorted ? [] : open.flatMap((t) => (Array.isArray(t.steps) ? t.steps : []).filter((x) => !x.done && x.title && !isMine(x)).map((x) => ({ t, x }))).slice(0, 40);
+  const kept = onlyUnsorted ? 0 : open.filter(isMine).length;
+  if (!todos.length && !steps.length) return { n: 0, reply: kept ? `都是你自己改过的（${kept} 件），汤圆就不动了` : '没有要分的事' };
+  const clip = (v, n) => String(v || '').replace(/\s+/g, ' ').slice(0, n);
+  const text = [...todos.map((t) => `${t.id} | ${clip(t.title, 50)}${t.note ? ' | ' + clip(t.note, 30) : ''}`), ...steps.map(({ t, x }) => `s:${t.id}:${x.id} | ${clip(x.title, 40)} | 「${clip(t.title, 20)}」里的一步`)].join('\n');
   const now = new Date();
   const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, signal: AbortSignal.timeout(90000), body: JSON.stringify({ mode: 'brain', text, context: { today: todayStr(), weekday: WEEKDAY_SUN[now.getDay()], now: `${pad(now.getHours())}:${pad(now.getMinutes())}` } }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
   recordUsage(j);
-  const ids = new Set(list.map((t) => t.id)); const picks = (j.picks || []).filter((p) => ids.has(p.id) && regionOf(p.region).id);
-  const m = Object.fromEntries(picks.map((p) => [p.id, p]));
-  if (picks.length) update((d) => { d.todos = d.todos.map((t) => { const p = m[t.id]; if (!p || !(t.brain == null || t.brainBy === 'ai')) return t; return { ...t, brain: p.region, brainBy: 'ai' }; }); });
-  return { n: picks.length, reply: j.reply || '' };
+  const m = Object.fromEntries((j.picks || []).filter((p) => regionOf(p.region).id).map((p) => [p.id, p.region]));
+  let n = 0, changed = 0, nSteps = 0;
+  update((d) => {
+    d.todos.forEach((t) => {
+      const reg = m[t.id];
+      if (reg && !isMine(t)) { n++; if (brainOf(t, words) !== reg) changed++; t.brain = reg; t.brainBy = 'ai'; }
+      (Array.isArray(t.steps) ? t.steps : []).forEach((x) => { const rs = m[`s:${t.id}:${x.id}`]; if (rs && !isMine(x)) { nSteps++; x.brain = rs; x.brainBy = 'ai'; } });
+    });
+  });
+  const bits = [`分了 ${n} 件`]; if (n) bits.push(changed ? `${changed} 件换了类别` : '类别都没变'); if (nSteps) bits.push(`${nSteps} 个步骤`); if (kept) bits.push(`你自己改过的 ${kept} 件没动`);
+  return { n: n + nSteps, reply: bits.join('，') + (j.reply ? '。' + j.reply : '') };
 }

@@ -185,8 +185,9 @@ const SYSTEM_BRAIN = `${PERSONA}
 - alarm 杏仁核：让人焦虑、一直拖着、害怕面对的事。只有标题或备注里明显看得出来（拖了很久、焦虑、害怕、催了好几次、逾期很久）才放这里，拿不准就不要放
 要点：
 1. 每一件都要给一个 region，按这件事最主要的那一步来判断。「准备组会汇报的 PPT」主要是做 PPT → plan；「跟导师汇报」→ talk。
-2. id 原样抄回来，不要改，不要漏，不要编新的。
-3. reply 用一句很短的话说说今天的事主要落在哪块（不超过 30 个字）。`;
+2. 有的行是某件事里的一步（id 以 s: 开头，后面写着属于哪件事）：按这一步本身要做什么来分，不要照搬那件事的类别。
+3. id 原样抄回来，不要改，不要漏，不要编新的。
+4. reply 用一句很短的话说说今天的事主要落在哪块（不超过 30 个字）。`;
 const SCHEMA_BRAIN = { type: 'object', additionalProperties: false, required: ['reply', 'picks'], properties: { reply: { type: 'string' }, picks: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'region'], properties: { id: { type: 'string' }, region: { type: 'string', enum: BRAIN_IDS } } } } } };
 const SCHEMA_DOC = { type: 'object', additionalProperties: false, required: ['reply', 'markdown'], properties: { reply: { type: 'string' }, markdown: S_OR_NULL } };
 const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'steps'], properties: { reply: { type: 'string' }, steps: { type: 'array', items: STEP } } };
@@ -435,7 +436,7 @@ export async function runAgent(body, cfg) {
     return { status: 200, body: { ...base, first: title ? { title, minutes: m } : null, tip: str(got.out.tip, 160) || '', next } };
   }
   if (mode === 'brain') {
-    const picks = (Array.isArray(got.out.picks) ? got.out.picks : []).filter((p) => p && typeof p.id === 'string' && BRAIN_IDS.includes(p.region)).map((p) => ({ id: p.id.slice(0, 40), region: p.region })).slice(0, 80);
+    const picks = (Array.isArray(got.out.picks) ? got.out.picks : []).filter((p) => p && typeof p.id === 'string' && BRAIN_IDS.includes(p.region)).map((p) => ({ id: p.id.slice(0, 80), region: p.region })).slice(0, 80);
     return { status: 200, body: { ...base, picks } };
   }
   if (mode === 'breakdown') {
