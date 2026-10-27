@@ -41,7 +41,7 @@ function BrainMap({ count, sel, pick, fx, hover, setHover, focus }) {
   const drop = (id) => dropProps('todo', (d) => { const t = get().todos.find((x) => x.id === d.id); if (t) moveTo(t, id); });
   const inFocus = (id) => !focus || focus.primary === id || focus.also.includes(id);
   const region = (r) => { const sh = SHAPES[r.id]; const n = count[r.id]; const k = n ? 18 + Math.round((n / max) * 30) : 9;
-    const cls = 'brs-r ' + (n ? '' : 'empty ') + (hover === r.id || sel === r.id ? 'hi ' : '') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] + ' ' : '') + (focus ? (focus.primary === r.id ? 'fp ' : focus.also.includes(r.id) ? 'fa ' : 'dim ') : '');
+    const cls = 'brs-r ' + (n ? '' : 'nil ') + (hover === r.id || sel === r.id ? 'hi ' : '') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] + ' ' : '') + (focus ? (focus.primary === r.id ? 'fp ' : focus.also.includes(r.id) ? 'fa ' : 'dim ') : '');
     return html`<path key=${r.id} d=${sh.d} class=${cls} style=${`--c:${r.color};--k:${k}%`}
       onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${drop(r.id)}><title>${r.label} · ${r.name}${n ? ' · ' + n + ' 件' : ''}</title></path>`; };
   // 通路：主脑区到每个「也涉及」的脑区，一条往上拱的虚点线，上面有个小点在跑
@@ -151,7 +151,7 @@ export default function Brain() {
     <div class="br-grid">
       <${Card} class="br-map-card" pad=${false}>
         <div class="br-map"><${BrainMap} count=${count} sel=${sel} pick=${pick} fx=${fx} hover=${hover} setHover=${setHover} focus=${focus} /></div>
-        <div class="br-keys">${REGIONS.map((r) => { const n = count[r.id]; const d = prog.by[r.id] || 0; const lit = focus && (focus.primary === r.id || focus.also.includes(r.id)); return html`<button type="button" key=${r.id} class=${'br-key ' + (sel === r.id ? 'on ' : '') + (hover === r.id || lit ? 'hi ' : '') + (n ? '' : 'empty ') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] : '')} style=${`--c:${r.color};--bg:${r.bg}`}
+        <div class="br-keys">${REGIONS.map((r) => { const n = count[r.id]; const d = prog.by[r.id] || 0; const lit = focus && (focus.primary === r.id || focus.also.includes(r.id)); return html`<button type="button" key=${r.id} class=${'br-key ' + (sel === r.id ? 'on ' : '') + (hover === r.id || lit ? 'hi ' : '') + (n ? '' : 'nil ') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] : '')} style=${`--c:${r.color};--bg:${r.bg}`}
           onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${dropProps('todo', (x) => { const t = get().todos.find((y) => y.id === x.id); if (t) moveTo(t, r.id); })}>
           <i></i><span class="bk-t"><b>${r.label}</b><small>${r.name}</small></span>${d ? html`<em title="今天做完的">✓${d}</em>` : ''}<span class="bk-n">${n || ''}</span>
           ${fx[r.id] && fx[r.id].startsWith('done') && html`<span class="br-plus" key=${fx[r.id]}>✓</span>`}
@@ -161,7 +161,7 @@ export default function Brain() {
       <${Card} class="br-work" style=${`--c:${cur.color};--bg:${cur.bg}`}>
         <div class="card-h"><h3><i class="br-dot" style=${`background:${cur.color}`}></i>${cur.label} <span class="muted small">${cur.name} · ${list.length} 件${doneHere ? ` · 做完 ${doneHere}` : ''}</span></h3></div>
         <p class="bw-desc">${cur.desc}</p>
-        ${next && html`<div class="bw-next"><span class="bw-next-k">下一步</span><span class="bw-next-t" onClick=${() => setEditing(next)}>${next.title}</span><button type="button" class="btn ghost sm" onClick=${() => openStuck(next)} title="不知道怎么推进？问问汤圆">卡住了</button><button type="button" class="btn sm" onClick=${() => go('focus?todo=' + next.id)}><${Icon} name="clock" size=${13} />开始专注</button></div>`}
+        ${next && html`<div class="bw-next"><span class="bw-next-k">下一步</span><span class="bw-next-t" onClick=${() => setEditing(next)}>${next.title}</span><button type="button" class="bw-text" onClick=${() => openStuck(next)} title="不知道怎么推进？问问汤圆">卡住了</button><button type="button" class="bw-cta" onClick=${() => go('focus?todo=' + next.id)}><${Icon} name="play" size=${11} />开始专注</button></div>`}
         ${list.length ? html`<div class="br-rows">${list.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`
           : html`<div class="bw-empty"><b>${scope === 'today' ? '今天' : ''}这里还没有事</b><span>在下面直接写，会自动放进「${cur.label}」。比如：${cur.example}</span></div>`}
         ${alsoList.length > 0 && html`<div class="bw-also"><div class="bw-sub">也涉及「${cur.label}」</div><div class="br-rows">${alsoList.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div></div>`}
@@ -217,7 +217,7 @@ export function BrainCard({ s }) {
   s.todos.forEach((t) => { if (!t.done && (!t.due || t.due <= today)) { const id = brainOf(t, words); if (id in by) by[id]++; } });
   return html`<${Card} class="brain-card">
     <div class="card-h"><h3>今天的大脑</h3><div class="card-act"><a class="ibtn" href="#/brain" title="打开大脑"><${Icon} name="brain" size=${15} /></a></div></div>
-    <div class="bc-grid">${REGIONS.map((r) => html`<a key=${r.id} href="#/brain" class=${'bc-r ' + (by[r.id] ? '' : 'empty')} style=${`--c:${r.color};--bg:${r.bg}`} onClick=${() => { try { localStorage.setItem('ytos.brain.sel', r.id); } catch {} }}>
+    <div class="bc-grid">${REGIONS.map((r) => html`<a key=${r.id} href="#/brain" class=${'bc-r ' + (by[r.id] ? '' : 'nil')} style=${`--c:${r.color};--bg:${r.bg}`} onClick=${() => { try { localStorage.setItem('ytos.brain.sel', r.id); } catch {} }}>
       <b>${r.label}</b><span>${by[r.id] || ''}${prog.by[r.id] ? html`<small>✓${prog.by[r.id]}</small>` : ''}</span></a>`)}</div>
     <div class="br-prog sm"><span>今天</span><span class="br-prog-bar"><i style=${`width:${prog.pct}%`}></i></span><b>${prog.done}/${prog.total}</b></div>
   <//>`;

@@ -3335,7 +3335,7 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .bc-r b{font-size:.76rem;font-weight:600;color:color-mix(in srgb,var(--c) 80%,var(--text))}
 .bc-r span{font-size:1.05rem;font-weight:700;min-height:1.2em;display:flex;align-items:baseline;gap:6px}
 .bc-r small{font-size:.7rem;font-weight:500;opacity:.8}
-.bc-r.empty b{opacity:.6}
+.bc-r.nil b{opacity:.6}
 @media (max-width:900px){
   .br-rv-bars{grid-template-columns:1fr}
   .br-dop-bar{width:70px}
@@ -3348,7 +3348,7 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .brs-stem{fill:var(--hover-2)}
 .brs-other{fill:var(--hover);stroke:var(--card-bg,#fff);stroke-width:1.6}
 .brs-r{fill:color-mix(in srgb,var(--c) var(--k),var(--bg));stroke:var(--card-bg,#fff);stroke-width:1.6;stroke-linejoin:round;cursor:pointer;transition:fill .35s,filter .2s}
-.brs-r.empty{fill:var(--bg)}
+.brs-r.nil{fill:var(--bg)}
 .brs-r.hi{filter:brightness(1.04) saturate(1.15)}
 .brs-r.fx-in{animation:brs-in .8s ease-out}
 .brs-r.fx-done{animation:brs-in .9s ease-out}
@@ -3362,7 +3362,7 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .brs-badge.on text{fill:#fff}
 .brs-r.on{filter:saturate(1.2)}
 .brs-badge text{fill:color-mix(in srgb,var(--c) 85%,#000);font-size:10px;font-weight:700;font-family:inherit}
-html[data-theme="dark"] .brs-r.empty{fill:color-mix(in srgb,var(--c) 10%,var(--card-bg))}
+html[data-theme="dark"] .brs-r.nil{fill:color-mix(in srgb,var(--c) 10%,var(--card-bg))}
 html[data-theme="dark"] .brs-r{fill:color-mix(in srgb,var(--c) var(--k),var(--card-bg))}
 html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .br-keys{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;padding:6px 14px 10px}
@@ -3370,13 +3370,13 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .br-key:hover,.br-key.hi{background:var(--hover)}
 .br-key.on{background:color-mix(in srgb,var(--c) 12%,transparent)}
 .br-key>i{width:12px;height:12px;border-radius:4px;flex:none;background:var(--c)}
-.br-key.empty>i{background:color-mix(in srgb,var(--c) 35%,transparent)}
+.br-key.nil>i{background:color-mix(in srgb,var(--c) 35%,transparent)}
 .bk-t{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;overflow:hidden}
 .bk-t b{font-size:.88rem;font-weight:600;color:var(--text);white-space:nowrap}
 .bk-t small{font-size:.75rem;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .br-key em{font-style:normal;font-size:.72rem;color:var(--c);font-weight:600}
 .bk-n{min-width:16px;text-align:right;font-size:.9rem;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
-.br-key.empty .bk-n{color:var(--text-4)}
+.br-key.nil .bk-n{color:var(--text-4)}
 .br-key.drop-over{background:color-mix(in srgb,var(--c) 18%,transparent);box-shadow:inset 0 0 0 1.5px var(--c)}
 .br-key.fx-in{animation:br-in .7s cubic-bezier(.2,.9,.3,1.4)}
 .br-key .br-plus{top:-4px;left:auto;right:30px}
@@ -3473,7 +3473,7 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .brs.cute .brs-shadow{fill:rgba(120,60,60,.08)}
 .brs.cute .brs-other{fill:var(--tissue);stroke:none}
 .brs.cute .brs-r{fill:color-mix(in srgb,var(--c) var(--k),#fff6f4);stroke:#fff;stroke-width:2.2;stroke-linejoin:round}
-.brs.cute .brs-r.empty{fill:color-mix(in srgb,var(--c) 9%,var(--tissue))}
+.brs.cute .brs-r.nil{fill:color-mix(in srgb,var(--c) 9%,var(--tissue))}
 .brs.cute .brs-r.hi{filter:brightness(1.03) saturate(1.25)}
 .brs.cute .brs-r.fp{filter:saturate(1.35)}
 .brs.cute .brs-r.fa{stroke:var(--c);stroke-width:1.6;stroke-dasharray:2 3}
@@ -3499,32 +3499,7 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .br-stuck{flex:none;font-size:.72rem;padding:3px 8px;border-radius:999px;border:1px solid var(--line-2);background:var(--card-bg,#fff);color:var(--text-3);cursor:pointer;opacity:0;transition:opacity .15s,color .15s}
 .br-row:hover .br-stuck,.br-stuck:focus-visible{opacity:1}
 .br-stuck:hover{color:var(--text)}
-.stuck{display:flex;flex-direction:column;gap:12px}
-.stuck-t{margin:0;font-weight:600;color:var(--text)}
-.stuck-sub{margin:-4px 0 0;color:var(--text-3);font-size:.88rem}
-.stuck-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.stuck-opt{display:flex;align-items:center;gap:10px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card-bg,#fff);color:var(--text-2);font-size:.9rem;text-align:left;cursor:pointer;transition:all .15s}
-.stuck-opt:hover{border-color:var(--line-2);background:var(--hover);color:var(--text)}
-.stuck-opt svg{color:var(--text-3);flex:none}
-.stuck-own{display:flex;gap:8px}
-.stuck-own input{flex:1}
-.stuck-wait{color:var(--text-3);padding:24px 0;text-align:center;margin:0}
-.stuck-reply{padding:12px 14px;border-radius:12px;background:var(--hover);color:var(--text);line-height:1.6}
-.stuck-first{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;padding:14px;border-radius:12px;border:1px solid var(--line-2)}
-.stuck-first b{font-size:1rem;color:var(--text)}
-.stuck-first small{color:var(--text-3)}
-.stuck-k{width:100%;font-size:.74rem;font-weight:600;color:var(--text-3)}
-.stuck-acts{width:100%;display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
-.stuck-acts .btn{display:inline-flex;align-items:center;gap:5px}
-.stuck-tip{margin:0;font-size:.86rem;color:var(--text-2);line-height:1.6}
-.stuck-next ol{margin:4px 0 8px;padding-left:20px;color:var(--text-2);font-size:.9rem;line-height:1.7}
-.stuck-link{align-self:flex-start;border:0;background:none;padding:0;color:var(--text-3);font-size:.82rem;text-decoration:underline;cursor:pointer}
-.stuck-fb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.82rem;color:var(--text-3);padding-top:10px;border-top:1px solid var(--line)}
-.stuck-fb button{font-size:.8rem;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--text-2);cursor:pointer}
-.stuck-fb button:hover{background:var(--hover)}
-.stuck-fb .stuck-again{margin-left:auto;border:0;text-decoration:underline;color:var(--text-3)}
-.stuck-note{margin:0;font-size:.76rem;color:var(--text-4)}
-@media (max-width:900px){.stuck-opts{grid-template-columns:1fr}.br-stuck{opacity:1}}
+@media (max-width:900px){.br-stuck{opacity:1}}
 /* 大脑页 · 对齐整理：跟待办页同一套页头、卡片标题；卡片等高；工作区里所有内容左边对齐到待办的勾选框 */
 .brain .br-grid{align-items:stretch}
 .brain .br-map-card{display:flex;flex-direction:column}
@@ -3544,3 +3519,27 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .br-work .card-h h3{display:flex;align-items:center;gap:8px}
 .br-work .card-h h3 .muted{font-weight:400}
 @media (max-width:900px){.br-row .br-stuck{display:none}}
+/* 汤圆对话里的「卡住了」：快捷回复 + 跟拆解同款的卡片 */
+.sm-quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sm-quick button{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--line-2);background:var(--paper,#fff);color:var(--text-2);font-size:.8rem;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.sm-quick button svg{color:var(--text-4)}
+.sm-quick button:hover{background:var(--hover);color:var(--text);border-color:var(--text-4)}
+.sm-quick button:disabled{opacity:.5;cursor:default}
+.stuck-ac .ac-row{cursor:pointer}
+.stuck-ac .ac-row.off-ish{cursor:default}
+.stuck-ac .ac-row.off-ish .ac-t{color:var(--text-2)}
+.stuck-ac .ac-row.off-ish:hover{background:transparent}
+.stuck-ac .ac-min{font-size:.72rem;color:var(--text-4)}
+.ac-tip{padding:9px 14px 10px;border-top:1px solid var(--line);font-size:.78rem;line-height:1.6;color:var(--text-3)}
+.ac-fb{border:0;background:none;padding:2px 4px;font-size:.72rem;color:var(--text-3);cursor:pointer;border-radius:6px}
+.ac-fb:hover{background:var(--hover-2);color:var(--text)}
+.sm-note{margin-top:6px;font-size:.7rem;color:var(--text-4)}
+/* 下一步：中性底色，只有一个实心主按钮（跟汤圆对话里的主按钮同款） */
+.br-work .bw-next{background:var(--hover);border-radius:12px;padding:8px 8px 8px 10px}
+.br-work .bw-next-k{background:none;padding:0;color:var(--text-4);font-weight:500;font-size:.74rem}
+.br-work .bw-next-t{font-weight:600}
+.bw-text{border:0;background:none;padding:6px 8px;font-size:.8rem;color:var(--text-3);border-radius:8px;cursor:pointer}
+.bw-text:hover{background:var(--hover-2);color:var(--text)}
+.bw-cta{display:inline-flex;align-items:center;gap:6px;border:0;padding:7px 14px;border-radius:999px;background:var(--text);color:var(--bg);font-size:.8rem;font-weight:600;cursor:pointer;transition:opacity .15s,transform .15s}
+.bw-cta:hover{opacity:.88}
+.bw-cta:active{transform:scale(.97)}

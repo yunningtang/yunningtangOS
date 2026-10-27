@@ -31,7 +31,6 @@ export { go, toast };
 
 import { Capture } from './capture.js';
 import { Seal } from './seal.js';
-import { StuckPanel } from './views/stuck.js';
 import { dueCount } from './review.js';
 
 export const ROUTES = [
@@ -177,7 +176,6 @@ function App() {
     <${SearchPalette} open=${search} onClose=${() => setSearch(false)} />
     <${Capture} open=${cap} onClose=${() => setCap(false)} />
     <${Seal} key=${s.settings.seal === false ? 'ghost' : 'seal'} ghost=${s.settings.seal === false} />
-    <${StuckPanel} />
     <nav class="tabbar">
       ${[['home', '总览', 'home', (r) => r.path === 'home'], ['todos', '待办', 'checksq', (r) => r.path === 'todos'], ['plan/day', '今天', 'sun', (r) => r.path === 'plan' && r.sub === 'day'], ['notes', '笔记', 'note', (r) => r.path === 'notes']].map(([h, n, ic, m]) => html`<a key=${h} href=${'#/' + h} class=${m(route) ? 'active' : ''}><${Icon} name=${ic} size=${20} /><span>${n}</span></a>`)}
       <button class="tab-cap" onClick=${capture} title="记一下（问汤圆）"><${Icon} name="plus" size=${22} /></button>

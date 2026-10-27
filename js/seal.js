@@ -17,6 +17,7 @@ import { parseRoute, pageContext, contextPrompts, fillVars } from './prompts.js'
 import { aiHeaders, aiEnabled, aiLabel, aiOptions, aiConfig, setAiConfig, recordUsage } from './ai.js';
 import { stepsOf, addSteps, clampMin } from './steps.js';
 import { go, toast } from './nav.js';
+import { REASONS as STUCK_REASONS, getHelp, feedback as stuckFeedback, addSteps as stuckAddSteps, toStress } from './views/stuck.js';
 import { loadThree, buildSeal } from './seal3d.js';
 export { loadThree, buildSeal };
 
@@ -644,6 +645,27 @@ export function Seal({ ghost = false } = {}) {
     if (!openRef.current) setBadge((b) => b + 1);
     api.current.happy && api.current.happy(1.2);
   };
+  // 「卡住了」：在对话里进行。先问卡在哪（快捷回复），再给一张跟拆解同款的卡片
+  const stuckStart = (id) => {
+    const t = get().todos.find((x) => x.id === id); if (!t) return;
+    setView('chat'); setOpen(true);
+    push({ who: 'me', text: `卡住了：「${t.title}」` });
+    push({ who: 'bot', text: '没关系，先看看是什么卡住了？', stuckAsk: t.id });
+  };
+  const stuckPick = async (m, r) => {
+    const t = get().todos.find((x) => x.id === m.stuckAsk); if (!t || busy) return;
+    setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, picked: r.id } : x));
+    push({ who: 'me', text: r.label }); setBusy(true); api.current.flap && api.current.flap();
+    const res = await getHelp(t, r.id);
+    setBusy(false);
+    push({ who: 'bot', text: res.reply || '先从一个小动作开始。', stuck: { todoId: t.id, title: t.title, first: res.first, tip: res.tip || '', next: res.next || [], at: res.at, reason: res.reason, src: res.src, done: {} } });
+    api.current.happy && api.current.happy(1.1);
+  };
+  const stuckMark = (m, patch) => setMsgs((list) => list.map((x) => x.id === m.id ? { ...x, stuck: { ...x.stuck, done: { ...x.stuck.done, ...patch } } } : x));
+  const stuckAdd = (m) => { const k = m.stuck; stuckAddSteps(k.todoId, k.first, k.next, k.at); stuckMark(m, { added: true }); toast(`加进了「${k.title}」的步骤`); };
+  const stuckGo = (m) => { const k = m.stuck; if (!k.done.added) stuckAddSteps(k.todoId, k.first, [], k.at); stuckMark(m, { added: true, started: true }); pomo.start({ label: k.first.title, todoId: k.todoId, workLen: clampMin(k.first.minutes) }); toast(`开始：${k.first.title} · ${k.first.minutes} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
+  const stuckFb = (m, ok) => { stuckFeedback(m.stuck.todoId, m.stuck.at, ok); stuckMark(m, { fb: ok ? 'yes' : 'no' }); };
+  useEffect(() => { const h = (e) => stuckStart(e.detail); window.addEventListener('stuck:open', h); return () => window.removeEventListener('stuck:open', h); });
   useEffect(() => {
     const h = (e) => { setOpen(true); const t = e.detail; if (t) setTimeout(() => ask(t), 60); };
     const hb = (e) => { setOpen(true); const t = e.detail; if (t) setTimeout(() => breakdown(t), 60); };
@@ -769,7 +791,22 @@ export function Seal({ ghost = false } = {}) {
         ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who}>
           ${m.who === 'bot' ? html`<div class="sm-t md" onContextMenu=${(e) => botMenu(e, m)} dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : (editMsg && editMsg.id === m.id ? html`<div class="sm-edit"><textarea rows="1" value=${editMsg.text} ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }} onInput=${(e) => setEditMsg({ ...editMsg, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); resend(m, editMsg.text); } if (e.key === 'Escape') { e.stopPropagation(); setEditMsg(null); } }}></textarea><div class="sm-edit-f"><span class="flex1"></span><button type="button" class="sm-ic" title="取消（Esc）" onClick=${() => setEditMsg(null)}><${Icon} name="x" size=${15} /></button><button type="button" class="sm-ic go" title="重新发送（回车）· 后面的回复会被替换" disabled=${!editMsg.text.trim() || busy} onClick=${() => resend(m, editMsg.text)}><${Icon} name="up" size=${15} /></button></div></div>`
             : html`<div class="sm-t" onContextMenu=${(e) => meMenu(e, m)} onDblClick=${() => !busy && setEditMsg({ id: m.id, text: m.text })} title="双击或右键可以改了重新发">${m.text}</div><div class="sm-acts me"><button type="button" title="编辑并重新发送" disabled=${busy} onClick=${() => setEditMsg({ id: m.id, text: m.text })}><${Icon} name="edit" size=${13} /></button><button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button></div>`)}
-          ${m.who === 'bot' && !m.items?.length && !m.steps?.length && !busy && html`<div class="sm-acts">
+          ${m.stuckAsk && !m.picked && html`<div class="sm-quick">${STUCK_REASONS.map((r) => html`<button type="button" key=${r.id} disabled=${busy} onClick=${() => stuckPick(m, r)}><${Icon} name=${r.icon} size=${13} />${r.label}</button>`)}</div>`}
+          ${m.stuck && m.stuck.first && (() => { const k = m.stuck, d = k.done; return html`<div class=${'ac stuck-ac ' + (d.started ? 'saved' : '')}>
+            <div class="ac-h"><span>先做这个</span><small>「${k.title}」</small></div>
+            <div class="ac-row" onClick=${() => !d.started && stuckGo(m)}><span class="ac-n">1</span><span class="ac-b"><span class="ac-t">${k.first.title}</span></span><span class="ac-m"><span class="ac-min">${k.first.minutes} 分</span></span><button class="ac-go" title=${`现在开始 · ${k.first.minutes} 分钟`} onClick=${(e) => { e.stopPropagation(); stuckGo(m); }}><${Icon} name="play" size=${11} /></button></div>
+            ${k.next.map((n, i) => html`<div class="ac-row off-ish" key=${i}><span class="ac-n">${i + 2}</span><span class="ac-b"><span class="ac-t">${n}</span></span></div>`)}
+            ${k.tip && html`<div class="ac-tip">${k.tip}</div>`}
+            <div class="ac-f">
+              ${d.fb ? html`<span class="ac-hint">${d.fb === 'yes' ? '记下了，下次还这么帮你' : '记下了，下次换个法子'}</span>` : html`<span class="ac-hint">有用吗？</span><button type="button" class="ac-fb" onClick=${() => stuckFb(m, true)}>有用</button><button type="button" class="ac-fb" onClick=${() => stuckFb(m, false)}>没什么用</button>`}
+              <span class="flex1"></span>
+              ${k.reason === 'stress' && html`<button class="btn sm ghost" title="大脑页上会单独标出来" onClick=${() => { toStress(get().todos.find((x) => x.id === k.todoId) || { id: k.todoId }); stuckMark(m, { stress: true }); }} disabled=${d.stress}>${d.stress ? '已放进「压力」' : '放进「压力」'}</button>`}
+              ${!k.first.fromStep && html`<button class="btn sm ghost" disabled=${d.added} onClick=${() => stuckAdd(m)}>${d.added ? '已加进步骤' : '加进步骤'}</button>`}
+              <button class="btn primary sm ac-save" disabled=${d.started} onClick=${() => stuckGo(m)}>${d.started ? '已开始' : `开始 ${k.first.minutes} 分钟`}</button>
+            </div>
+          </div>`; })()}
+          ${m.stuck && m.stuck.src === 'local' && html`<div class="sm-note">没接 AI，这是简单版的建议。</div>`}
+          ${m.who === 'bot' && !m.items?.length && !m.steps?.length && !m.stuck && !m.stuckAsk && !busy && html`<div class="sm-acts">
             <button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button>
             ${mi > 0 && msgs[mi - 1].who === 'me' && html`<button type="button" title="重新生成" onClick=${() => regen(m)}><${Icon} name="refresh" size=${13} /></button>`}
           </div>`}
