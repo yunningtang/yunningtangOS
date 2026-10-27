@@ -1,0 +1,42 @@
+// 「大脑」：把待办按处理方式分到 6 个脑区。只是一个好玩的比喻，不是神经科学。
+// 分法：自己指定的（todo.brain）> 学到的习惯（settings.brainWords：标题开头的词 → 脑区）> 动词规则 > 还没分（丘脑）
+import { get, update, upsert } from './store.js';
+
+export const REGIONS = [
+  { id: 'plan', name: '前额叶', role: '计划与决策', color: '#2383E2', bg: '#E7F3F8', icon: 'target' },
+  { id: 'memory', name: '海马体', role: '学习与复习', color: '#9065B0', bg: '#F6F3F9', icon: 'book' },
+  { id: 'talk', name: '语言区', role: '沟通', color: '#D9730D', bg: '#FBECDD', icon: 'chat' },
+  { id: 'move', name: '运动皮层', role: '体力与跑腿', color: '#CB912F', bg: '#FBF3DB', icon: 'zap' },
+  { id: 'habit', name: '小脑', role: '习惯与例行', color: '#448361', bg: '#EDF3EC', icon: 'refresh' },
+  { id: 'alarm', name: '杏仁核', role: '让人焦虑的事', color: '#E03E3E', bg: '#FDEBEC', icon: 'flag' },
+];
+export const THALAMUS = { id: '', name: '丘脑', role: '还没分', color: '#9B9A97', bg: '#F1F1EF', icon: 'layers' };
+export const regionOf = (id) => REGIONS.find((r) => r.id === id) || THALAMUS;
+
+// 动词规则：从上往下第一个命中的算数（「规划论文」算前额叶，所以计划排在学习前面）。杏仁核不猜——焦不焦虑只有自己知道
+const RULES = [
+  ['habit', /每天|每日|每周|坚持|打卡|冥想|早起|喝水|习惯/],
+  ['talk', /回复|回信|回邮件|邮件|发消息|消息|打电话|电话|聊|联系|沟通|开会|会议|汇报|约|面谈|问一下|告诉/],
+  ['move', /买|取|寄|快递|跑步|跑|运动|健身|游泳|散步|搬|打扫|收拾|洗|做饭|家务|出门|机票|体检|办理|去/],
+  ['plan', /计划|规划|想|定|决定|拆|梳理|整理|安排|设计|方案|准备|思考|写|做.*(PPT|ppt|报告)/],
+  ['memory', /复习|背|学|课|读|阅读|看书|论文|单词|雅思|托福|考试|练习|笔记|看完/],
+];
+// 标题开头的「词」：英文取第一个单词，中文取开头连着的前两个汉字（不够两个就不学）
+const headWord = (title) => { const t = String(title || '').trim(); const m = t.match(/^[A-Za-z]{2,}/); if (m) return m[0].toLowerCase(); const c = t.match(/^[\u4e00-\u9fff]{2}/); return c ? c[0] : ''; };
+
+export function guess(t, words = (get().settings.brainWords || {})) {
+  const w = headWord(t.title); if (w && words[w]) return words[w];
+  if (t.repeat) return 'habit';
+  for (const [id, re] of RULES) if (re.test(t.title || '')) return id;
+  return '';
+}
+export const brainOf = (t, words) => (t.brain === undefined || t.brain === null ? guess(t, words) : t.brain);
+
+// 手动换脑区：记下这个标题开头的词，下次同样开头的就照这个分
+export function setBrain(t, id) {
+  upsert('todos', { id: t.id, brain: id });
+  const w = headWord(t.title);
+  if (w && id && id !== 'alarm') update((d) => { d.settings.brainWords = { ...(d.settings.brainWords || {}), [w]: id }; });
+}
+export const unsortedCount = (s) => { const words = s.settings.brainWords || {}; return s.todos.filter((t) => !t.done && !brainOf(t, words)).length; };
+export const brainMenu = (t) => ({ label: '换脑区', icon: 'layers', hint: regionOf(brainOf(t)).name, sub: [...REGIONS, THALAMUS].map((r) => ({ label: `${r.name} · ${r.role}`, color: r.color, icon: brainOf(t) === r.id ? 'check' : '', onClick: () => setBrain(t, r.id) })) });

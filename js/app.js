@@ -13,6 +13,8 @@ import Vision from './views/vision.js';
 import Explore from './views/explore.js';
 import Settings from './views/settings.js';
 import Focus, { MiniPomo } from './views/focus.js';
+import Brain from './views/brain.js';
+import { unsortedCount } from './brain.js';
 import { SearchPalette } from './search.js';
 import { PageTree, useTreeState, newNote, newNotebook, ancestors, noteTitle, notebookMenu, movePage } from './views/notes.js';
 import { dragProps, dropProps } from './dnd.js';
@@ -35,6 +37,7 @@ export const ROUTES = [
   { path: 'home', name: '总览', icon: 'home', view: Dashboard },
   { sep: '每一天' },
   { path: 'todos', name: '待办', icon: 'checksq', view: Todos, count: (s) => s.todos.filter((t) => !t.done).length },
+  { path: 'brain', name: '大脑', icon: 'brain', view: Brain, count: unsortedCount, show: (s) => s.settings.brainNav !== false },
   { path: 'plan', href: 'plan/day', name: '今天', icon: 'sun', nav: true, match: (r) => r.path === 'plan' && r.sub === 'day' },
   { path: 'plan', name: '计划', icon: 'calendar', view: Planner, match: (r) => r.path === 'plan' && r.sub !== 'day' },
   { path: 'focus', name: '专注', icon: 'clock', view: Focus },
@@ -138,7 +141,7 @@ function App() {
       <nav class="nav" data-liquid=".nav > a, .pt-row"><span class="liq"></span>
         ${(() => { let section = ''; return ROUTES.map((r) => {
           if (r.sep !== undefined) { section = r.sep; return r.sep ? html`<button class=${'sep ' + (navOpen['s:' + r.sep] === false ? 'closed' : '')} onClick=${() => toggleNav('s:' + r.sep)}><span>${r.sep}</span><${Icon} name="down" size=${11} /></button>` : html`<div class="sep"></div>`; }
-          if (r.hidden) return null;
+          if (r.hidden || (r.show && !r.show(s))) return null;
           if (section && navOpen['s:' + section] === false && !mini) return null;
           const isActive = r.match ? r.match(route) : route.path === r.path;
           return html`<a href=${'#/' + (r.href || r.path)} class=${isActive ? 'active' : ''} data-tip=${r.name} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && r.view && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && r.view && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>

@@ -268,6 +268,9 @@ export default function Settings() {
         ${WIDGETS.map(([id, label]) => html`<${Row} key=${id} icon=${WIDGET_ICON[id] || 'grid'} label=${label}><${Switch} label=${label} on=${!dash.hidden.includes(id)} onChange=${(v) => update((d) => { d.settings.dash = toggleWidget(d.settings.dash, id, v); })} /><//>`)}
       <//>
       <p class="sx-foot">顺序和大小在总览右上角「自定义」里拖动调整。</p>
+      <${Group} title="侧栏">
+        <${Row} icon="brain" label="大脑" hint="按脑区看待办"><${Switch} label="侧栏显示大脑" on=${s.settings.brainNav !== false} onChange=${(v) => update((d) => { d.settings.brainNav = v; })} /><//>
+      <//>
     <//>`,
     seal: () => html`<${Page} title="汤圆" sub="角落里的小海豹">
       <${Group}>

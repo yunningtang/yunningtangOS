@@ -3,6 +3,7 @@ import { useStore, update, upsert, remove, toggleTodo, removeUndo, get } from '.
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select, useClock } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGet, lsSet, pad, weekStart, timeToMin, minToTime } from '../util.js';
 import { ctxMenu } from '../ctx.js';
+import { brainMenu } from '../brain.js';
 import { askConfirm, askDate, askPrompt } from '../confirm.js';
 import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
@@ -131,6 +132,7 @@ export function todoMenu(t, onEdit) {
     { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
     !t.done && { label: '拆解成步骤', icon: 'sparkle', hint: '前额叶 · 汤圆', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t })) },
     !t.done && { label: stepsOf(t).length ? '添加一步' : '添加子步骤', icon: 'list', onClick: () => window.dispatchEvent(new CustomEvent('todo:addstep', { detail: t.id })) },
+    !t.done && brainMenu(t),
     { label: t.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) },
     onEdit && { label: '编辑', icon: 'edit', onClick: () => onEdit(t) },
     !t.done && t.due && { label: lateState(t) ? '推迟…' : '改期…', icon: 'right', sub: postponeItems(t) },
