@@ -52,7 +52,7 @@ export function NowWidget() {
   const locate = async () => {
     setBusy(true); setErr('');
     try { const pos = await getPosition(); const geo = await reverseGeo(pos.lat, pos.lng); setPlace({ ...geo, ...pos, auto: true }); }
-    catch (e) { setErr(e && e.code === 1 ? '浏览器没有允许定位，可以手动选一个城市。' : '定位失败，可以手动选一个城市。'); }
+    catch (e) { setErr(e && e.code === 1 ? '没有定位权限' : '定位失败'); }
     setBusy(false);
   };
   // first run: ask for the position once
@@ -101,7 +101,7 @@ export function NowWidget() {
         <div class="now-feel"><span>体感 <b>${wx.feels}°</b></span><span>风 <b>${wx.wind}</b> km/h</span>${wx.humidity != null && html`<span>湿度 <b>${wx.humidity}</b>%</span>`}</div>
         <div class="now-days">${wx.days.map((x) => { const dd = describe(x.code, true); const dt = new Date(x.date + 'T00:00:00'); const span = Math.max(1, wx.days.reduce((m, y) => Math.max(m, y.hi), -99) - wx.days.reduce((m, y) => Math.min(m, y.lo), 99)); const lo = wx.days.reduce((m, y) => Math.min(m, y.lo), 99); return html`<div key=${x.date}><span>周${WD[dt.getDay()]}</span><${Icon} name=${dd.icon} size=${16} /><small>${x.lo}°</small><i class="nd-bar"><b style=${`left:${((x.lo - lo) / span) * 100}%;width:${((x.hi - x.lo) / span) * 100}%`}></b></i><small>${x.hi}°</small></div>`; })}</div>`
       : place ? html`<div class="now-msg">${err || '正在获取天气…'}</div>`
-      : html`<div class="now-msg">${err || '允许定位后显示这里的天气。'}<${Btn} small kind="ghost" onClick=${locate} disabled=${busy}>使用当前位置<//><${Btn} small kind="ghost" onClick=${() => { setSearch({ q: '', results: [] }); setTimeout(() => inRef.current && inRef.current.focus(), 50); }}>选择城市<//></div>`}
+      : html`<div class="now-msg"><span class="now-msg-t">${err || '设个位置，看这里的天气'}</span><${Btn} small kind="ghost" onClick=${locate} disabled=${busy}>定位<//><${Btn} small kind="ghost" onClick=${() => { setSearch({ q: '', results: [] }); setTimeout(() => inRef.current && inRef.current.focus(), 50); }}>选择城市<//></div>`}
     </div>
   <//>`;
 }

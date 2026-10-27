@@ -15,6 +15,7 @@ import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
 import { NowWidget } from './now.js';
 import { PhotoWidget } from './photo.js';
+import { SPAN, DEFAULT_LAYOUT, normLayout } from '../widgets.js';
 import { dailySuggestions } from '../prompts.js';
 import { lsGet, lsSet } from '../util.js';
 
@@ -142,23 +143,8 @@ export default function Dashboard() {
 
   // 一行三张卡等高。高度不会变的（此刻 / 月历 / 专注）放一行，内容会长的（今天 / 待办 / 笔记）放一行，
   // 这样一张卡变长不会把不相干的卡拉得空一截。
-  const SPAN = { profile: 3, now: 1, ai: 1, calendar: 1, focus: 1, timeline: 1, todos: 1, notes: 1, pages: 2, links: 1, goals: 2, week: 1, focusweek: 3, photo: 1 };
-  const ORDER = ['profile', 'now', 'ai', 'calendar', 'focus', 'timeline', 'todos', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek', 'photo'];
-  const OLD_ORDER = ['profile', 'now', 'timeline', 'todos', 'focus', 'calendar', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek'];
-  const DEFAULT = { v: 3, order: ORDER, hidden: [], sizes: {} };
-  const layout = useMemo(() => {
-    const saved = s.settings.dash;
-    // 旧默认布局（没自己改过顺序的）直接换成新的分组；自己排过的保留
-    const isOldDefault = saved && saved.v === 2 && Array.isArray(saved.order) && saved.order.join() === OLD_ORDER.join() && !(saved.hidden || []).length;
-    const l = saved && saved.v >= 2 && !isOldDefault ? saved : DEFAULT; const known = new Set(ORDER);
-    const base = l.order || [...(l.main || []), ...(l.side || [])]; // older two-column layouts fold into one list
-    const hidden = (l.hidden || []).filter((id) => known.has(id));
-    const used = new Set([...base, ...hidden]);
-    let order = base.filter((id) => known.has(id)).concat(ORDER.filter((id) => !used.has(id) && id !== 'now'));
-    if (!used.has('now')) order.splice(Math.min(1, order.length), 0, 'now'); // new widget lands right under the profile card
-    if (!used.has('ai')) order.splice(Math.min(order.indexOf('now') + 1 || 1, order.length), 0, 'ai'); // 汤圆的建议：放在「此刻」后面
-    return { order, hidden, sizes: l.sizes || {} };
-  }, [s.settings.dash]);
+  const DEFAULT = DEFAULT_LAYOUT;
+  const layout = useMemo(() => normLayout(s.settings.dash), [s.settings.dash]);
   const setLayout = (next) => update((d) => { d.settings.dash = { ...next, v: 3 }; });
   const [drag, setDrag] = useState(null); // { id }
   const [over, setOver] = useState(null); // { id, after } | { col }
@@ -211,7 +197,7 @@ export default function Dashboard() {
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl-wrap" ref=${tlRef} onScroll=${onTlScroll}>
         <div class="mini-tl" style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
-          ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}><span>${pad(from + i)}:00</span></div>`)}
+          ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}>${Math.abs(i * hourH - y(nowMin)) > 12 && html`<span>${pad(from + i)}:00</span>`}</div>`)}
           ${laid.map(({ b, a, e, lane, lanes, top, h }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const w = 100 / lanes; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin ? ' past' : '') + (h < 36 ? ' one' : '')} key=${b.id} style=${`top:${top}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) }], b.title)} title=${`${b.title} ${b.start} – ${b.end}`}><b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small></div>`; })}
           <div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>
         </div>
@@ -292,7 +278,7 @@ export default function Dashboard() {
   const gridRef = useRef();
   useEffect(() => {
     const g = gridRef.current; if (!g || typeof ResizeObserver === 'undefined') return;
-    const fit = () => { const cs = getComputedStyle(g); const unit = parseFloat(cs.gridAutoRows) || 4, gap = parseFloat(cs.rowGap) || 16; if (g.offsetWidth < 900) { g.querySelectorAll(':scope > .widget, :scope > .custom-bar').forEach((w) => { w.style.gridRowEnd = ''; }); return; } g.querySelectorAll(':scope > .widget, :scope > .custom-bar').forEach((w) => { const c = w.classList.contains('custom-bar') ? w : w.firstElementChild; if (!c) return; const h = c.getBoundingClientRect().height; w.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + gap) / (unit + gap))); }); };
+    const fit = () => { const cs = getComputedStyle(g); const unit = parseFloat(cs.gridAutoRows), gap = parseFloat(cs.rowGap) || 16; if (!(unit < 10)) { /* 行高没被 CSS 设成很小（窄屏）：交给普通网格，跟 CSS 的断点一致 */ g.querySelectorAll(':scope > .widget, :scope > .custom-bar').forEach((w) => { w.style.gridRowEnd = ''; }); return; } g.querySelectorAll(':scope > .widget, :scope > .custom-bar').forEach((w) => { const c = w.classList.contains('custom-bar') ? w : w.firstElementChild; if (!c) return; const h = c.getBoundingClientRect().height; w.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + gap) / (unit + gap))); }); };
     const ro = new ResizeObserver(() => requestAnimationFrame(fit)); g.querySelectorAll(':scope > .widget > *').forEach((c) => ro.observe(c)); ro.observe(g); fit();
     return () => ro.disconnect();
   }, [layout, custom]);

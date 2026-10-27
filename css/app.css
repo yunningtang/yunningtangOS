@@ -3120,3 +3120,86 @@ html[data-skin="glass"] .focus-w .fw-top .fh-k{font-weight:650}
   .st-input{width:100%}
   .signin{max-width:none}
 }
+
+/* ===================================================================
+   设置（照 Notion 的设置）：左边灰底分组导航，右边一页一页
+   =================================================================== */
+.sx{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:calc(100vh - 96px);border-radius:14px;overflow:hidden;background:var(--paper);box-shadow:0 0 0 1px var(--line)}
+.sx-nav{background:var(--side,var(--bg));padding:12px 8px 24px;display:flex;flex-direction:column;gap:14px;border-right:1px solid var(--line)}
+.sx-search{display:flex;align-items:center;gap:7px;height:30px;padding:0 9px;margin:0 2px;border-radius:7px;background:var(--paper);box-shadow:0 0 0 1px var(--line);color:var(--text-4)}
+.sx-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;box-shadow:none;padding:0;height:auto;font:inherit;font-size:.82rem;color:var(--text)}
+.sx-search input:focus{box-shadow:none;background:transparent}
+.sx-ng{display:flex;flex-direction:column;gap:1px}
+.sx-gh{font-size:.72rem;color:var(--text-4);padding:0 10px 4px;font-weight:500}
+.sx-ni{display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:6px;font-size:.86rem;color:var(--text-2);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sx-ni svg{color:var(--text-3);flex:none}
+.sx-ni:hover{background:var(--hover)}
+.sx-ni.on{background:var(--hover-2,var(--hover));color:var(--text);font-weight:550}
+.sx-av{width:20px;height:20px;border-radius:50%;flex:none;overflow:hidden;display:grid;place-items:center;background:var(--hover-2,var(--hover));font-size:.66rem;font-weight:650;color:var(--text-2)}
+.sx-av img{width:100%;height:100%;object-fit:cover}
+.sx-main{padding:48px 56px 96px;overflow:auto}
+.sx-page{max-width:640px;margin:0 auto}
+.sx-top{margin-bottom:32px}
+.sx-top h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;color:var(--text);line-height:1.2}
+.sx-top p{margin-top:6px;font-size:.95rem;color:var(--text-3)}
+.sx-group{margin-bottom:36px}
+.sx-group h3{font-size:.95rem;font-weight:600;color:var(--text);padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.sx-row{display:flex;align-items:center;gap:20px;padding:13px 0;min-height:56px}
+.sx-row.stack{flex-direction:column;align-items:stretch;gap:12px}
+.sx-l{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sx-l b{font-size:.88rem;font-weight:500;color:var(--text)}
+.sx-l small{font-size:.78rem;color:var(--text-3);overflow:hidden;text-overflow:ellipsis}
+.sx-c{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none;flex-wrap:wrap}
+.sx-row.stack .sx-c{display:block}
+.sx-btn{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 12px;border-radius:7px;font-size:.84rem;font-weight:500;color:var(--text);background:var(--paper);box-shadow:0 0 0 1px var(--line-2);white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .15s}
+.sx-btn:hover:not(:disabled){background:var(--hover)}
+.sx-btn:disabled{opacity:.45;cursor:default}
+.sx-btn.danger{color:var(--red);box-shadow:0 0 0 1px color-mix(in srgb,var(--red) 30%,transparent)}
+.sx-btn.danger:hover:not(:disabled){background:color-mix(in srgb,var(--red) 7%,transparent)}
+.sx-input{height:32px;width:260px;max-width:100%;padding:0 10px;border-radius:7px;border:0;box-shadow:0 0 0 1px var(--line-2);background:var(--input,var(--hover));font:inherit;font-size:.86rem;color:var(--text);outline:0;transition:box-shadow .15s}
+.sx-input:focus{box-shadow:0 0 0 1px var(--text-4),0 0 0 4px var(--hover);background:var(--paper)}
+.sx-val{font-size:.86rem;color:var(--text-2)}
+.sx-err{font-size:.8rem;color:var(--red)}
+.sx-err.block{display:block;margin-top:8px}
+.sx-foot{font-size:.8rem;color:var(--text-3);margin-top:-20px}
+.sx-sub{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 0 14px}
+.sx-sub .sx-input{width:100%}
+.sx-more{margin-top:6px;font-size:.82rem;color:var(--text-3)}
+.sx-more summary{cursor:pointer;padding:8px 0;list-style:none;display:inline-flex;align-items:center;gap:6px}
+.sx-more summary::-webkit-details-marker{display:none}
+.sx-more summary::before{content:"";border-left:4px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+.sx-more[open] summary::before{transform:rotate(90deg)}
+/* 开关 */
+.sx-sw{width:34px;height:20px;border-radius:999px;background:var(--line-2);position:relative;transition:background .2s;flex:none;padding:0}
+.sx-sw i{position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(15,15,15,.2);transition:transform .2s cubic-bezier(.3,1.3,.5,1)}
+.sx-sw.on{background:var(--blue)}
+html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
+.sx-sw.on i{transform:translateX(14px)}
+/* 档案 */
+.sx-profile{display:flex;align-items:flex-start;gap:20px;padding:16px 0 4px}
+.sx-pf{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+.sx-pf label{display:flex;flex-direction:column;gap:5px}
+.sx-pf span{font-size:.76rem;color:var(--text-3)}
+.sx-pf .sx-input{width:100%;max-width:320px}
+.sx .skin-pick{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+.sx .skin-opt b{font-size:.82rem}
+.sx .keys{margin-top:0}
+.sx .pr-list{margin-top:0}
+/* 登录面板（放在设置里） */
+.sx .signin{max-width:320px;margin:4px 0 0;padding:0;border:0;background:none;gap:10px}
+.si-tip{font-size:.84rem;color:var(--text-3)}
+.si-tip b{color:var(--text);font-weight:550}
+.sx .si-btn{height:36px}
+.sx .si-form input{height:36px}
+.sx .si-form .si-code{height:48px}
+.si-foot{display:flex;gap:14px}
+@media (max-width:900px){
+  .sx{grid-template-columns:1fr;min-height:0;border-radius:12px}
+  .sx-nav{flex-direction:row;overflow-x:auto;gap:4px;padding:8px;border-right:0;border-bottom:1px solid var(--line);scrollbar-width:none}
+  .sx-search,.sx-gh{display:none}
+  .sx-ng{flex-direction:row}
+  .sx-ni{flex:none}
+  .sx-main{padding:28px 18px 64px}
+  .sx-row{flex-wrap:wrap}
+  .sx-input{width:100%}
+}
