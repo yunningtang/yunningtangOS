@@ -1,5 +1,5 @@
 // Global context menu. Call ctxMenu(event, items) from any onContextMenu handler.
-// items: [{ label, icon?, danger?, onClick }, 'sep', { label: '...', sub: [...] }]
+// items: [{ label, icon?, danger?, onClick }, 'sep', { label: '...', sub: [...] }, { head: '小标题' }]
 import { html, render, useEffect, useState, useRef, useLayoutEffect } from '../vendor/preact.js';
 import { Icon } from './ui.js';
 
@@ -29,7 +29,7 @@ function Menu() {
   return html`<div class="ctx popmenu" ref=${ref} style=${`left:${m.x}px;top:${m.y}px;visibility:hidden`} onContextMenu=${(e) => e.preventDefault()}>
     ${m.title && html`<div class="pm-sec">${m.title}</div>`}
     ${m.grid && html`<div class="ctx-grid">${m.items.filter((it) => it !== 'sep' && it.color).map((it, i) => html`<button key=${i} type="button" class=${'ctx-sw ' + (m.grid === 'text' ? 'txt ' : '') + (it.icon === 'check' ? 'on' : '')} title=${it.label} style=${`--c:${it.color}`} onClick=${() => { set(null); it.onClick && it.onClick(); }}>${m.grid === 'text' ? 'A' : ''}</button>`)}</div>`}
-    ${(m.grid ? m.items.filter((it) => it === 'sep' || !it.color) : m.items).map((it, i) => it === 'sep' ? html`<div class="ctx-sep" key=${i}></div>` : html`<div key=${i} class=${'pm ' + (it.danger ? 'danger' : '') + (it.disabled ? ' disabled' : '')} onClick=${() => { if (it.disabled) return; if (it.sub) { set({ ...m, title: it.label, items: [{ label: '返回', icon: 'left', onClick: () => set(m) }, 'sep', ...it.sub.filter(Boolean)] }); return; } set(null); it.onClick && it.onClick(); }}>${it.color ? html`<span class="ic"><i class="ctx-dot" style=${`background:${it.color}`}></i></span>` : it.icon ? html`<${Icon} name=${it.icon} size=${14} />` : html`<span class="ic"></span>`}<b>${it.label}</b>${it.sub ? html`<small>›</small>` : it.color && it.icon === 'check' ? html`<small>✓</small>` : it.hint && !it.color ? html`<small>${it.hint}</small>` : html`<span></span>`}</div>`)}
+    ${(m.grid ? m.items.filter((it) => it === 'sep' || !it.color) : m.items).map((it, i) => it === 'sep' ? html`<div class="ctx-sep" key=${i}></div>` : it.head ? html`<div class="pm-sec sub" key=${i}>${it.head}</div>` : html`<div key=${i} class=${'pm ' + (it.danger ? 'danger' : '') + (it.disabled ? ' disabled' : '')} onClick=${() => { if (it.disabled) return; if (it.sub) { set({ ...m, title: it.label, items: [{ label: '返回', icon: 'left', onClick: () => set(m) }, 'sep', ...it.sub.filter(Boolean)] }); return; } set(null); it.onClick && it.onClick(); }}>${it.color ? html`<span class="ic"><i class="ctx-dot" style=${`background:${it.color}`}></i></span>` : it.icon ? html`<${Icon} name=${it.icon} size=${14} />` : html`<span class="ic"></span>`}<b>${it.label}</b>${it.sub ? html`<small>›</small>` : it.color && it.icon === 'check' ? html`<small>✓</small>` : it.hint && !it.color ? html`<small>${it.hint}</small>` : html`<span></span>`}</div>`)}
   </div>`;
 }
 

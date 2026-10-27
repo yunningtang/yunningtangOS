@@ -78,9 +78,11 @@ export function moveTo(t, id) {
 export function regionItems(t) {
   const p = brainOf(t); const also = alsoOf(t);
   return [
-    ...[...REGIONS, THALAMUS].map((r) => ({ label: `${r.label} · ${r.name}`, color: r.color, icon: p === r.id ? 'check' : '', onClick: () => moveTo(t, r.id) })),
+    { head: '主要是哪一类（选一个）' },
+    ...[...REGIONS, THALAMUS].map((r) => ({ label: r.id ? `${r.label} · ${r.name}` : '先不分', color: r.color, icon: p === r.id ? 'check' : '', onClick: () => moveTo(t, r.id) })),
     'sep',
-    ...REGIONS.filter((r) => r.id !== p).map((r) => ({ label: `也涉及${r.label}`, color: r.color, icon: also.includes(r.id) ? 'check' : '', onClick: () => setAlso(t, r.id, !also.includes(r.id)) })),
+    { head: '也会用到（可以多选）' },
+    ...REGIONS.filter((r) => r.id !== p).map((r) => ({ label: r.label, color: r.color, icon: also.includes(r.id) ? 'check' : '', onClick: () => setAlso(t, r.id, !also.includes(r.id)) })),
   ];
 }
 export const brainMenu = (t) => ({ label: '换脑区', icon: 'layers', hint: regionOf(brainOf(t)).label, sub: regionItems(t) });

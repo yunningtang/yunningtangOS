@@ -82,7 +82,7 @@ function Row({ t, words, sel, onEdit, setFocus }) {
     <div class="br-row-main">
       <div class="flex1"><${TodoItem} t=${t} compact onEdit=${onEdit} /></div>
       <button type="button" class="br-stuck" title="卡住了？问问汤圆" onClick=${() => openStuck(t)}>卡住了</button>
-      <button type="button" class="br-chip" style=${`--c:${r.color};--bg:${r.bg}`} title="换脑区 / 也涉及" onClick=${(e) => ctxMenu(e, regionItems(t), t.title)}>
+      <button type="button" class="br-chip" style=${`--c:${r.color};--bg:${r.bg}`} title="这件事属于哪一类、还会用到哪些" onClick=${(e) => ctxMenu(e, regionItems(t), t.title)}>
         <i></i>${p === sel ? '' : r.label}${also.length ? html`<span class="br-chip-more">${also.map((id) => html`<i key=${id} style=${`background:${regionOf(id).color}`}></i>`)}</span>` : ''}<${Icon} name="down" size=${10} />
       </button>
     </div>
