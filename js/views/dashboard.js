@@ -290,7 +290,7 @@ export default function Dashboard() {
   const gridRef = useRef();
   useEffect(() => {
     const g = gridRef.current; if (!g || typeof ResizeObserver === 'undefined') return;
-    const fit = () => { const cs = getComputedStyle(g); const unit = parseFloat(cs.gridAutoRows) || 4, gap = parseFloat(cs.rowGap) || 16; if (g.offsetWidth < 900) { g.querySelectorAll(':scope > .widget').forEach((w) => { w.style.gridRowEnd = ''; }); return; } g.querySelectorAll(':scope > .widget').forEach((w) => { const c = w.firstElementChild; if (!c) return; const h = c.getBoundingClientRect().height; w.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + gap) / (unit + gap))); }); };
+    const fit = () => { const cs = getComputedStyle(g); const unit = parseFloat(cs.gridAutoRows) || 4, gap = parseFloat(cs.rowGap) || 16; if (g.offsetWidth < 900) { g.querySelectorAll(':scope > .widget, :scope > .custom-bar').forEach((w) => { w.style.gridRowEnd = ''; }); return; } g.querySelectorAll(':scope > .widget, :scope > .custom-bar').forEach((w) => { const c = w.classList.contains('custom-bar') ? w : w.firstElementChild; if (!c) return; const h = c.getBoundingClientRect().height; w.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + gap) / (unit + gap))); }); };
     const ro = new ResizeObserver(() => requestAnimationFrame(fit)); g.querySelectorAll(':scope > .widget > *').forEach((c) => ro.observe(c)); ro.observe(g); fit();
     return () => ro.disconnect();
   }, [layout, custom]);

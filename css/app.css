@@ -3014,3 +3014,9 @@ html[data-skin] .tt-card.focus-w:not(.full) .fw-hero{padding:18px 20px}
 .focus-w .fw-top{margin-bottom:8px}
 .focus-w .fw-top .fh-k{font-size:var(--fs-lg);font-weight:600;letter-spacing:-.01em;text-transform:none;color:var(--text)}
 html[data-skin="glass"] .focus-w .fw-top .fh-k{font-weight:650}
+
+/* 自定义总览：工具钮骑在卡片上沿，不压住卡片里的内容；提示条按自己的高度占位 */
+.dash-home .w-tools{top:-13px;right:14px;padding:1px;border-radius:999px;background:var(--paper);box-shadow:0 0 0 1px var(--line-2),0 4px 12px -6px rgba(15,15,15,.25)}
+.dash-home .w-dots{border-radius:999px}
+.dash-home .w-menu{top:30px}
+.dash-home>.custom-bar{align-self:start}
