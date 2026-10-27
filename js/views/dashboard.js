@@ -294,9 +294,7 @@ export default function Dashboard() {
     const ro = new ResizeObserver(() => requestAnimationFrame(fit)); g.querySelectorAll(':scope > .widget > *').forEach((c) => ro.observe(c)); ro.observe(g); fit();
     return () => ro.disconnect();
   }, [layout, custom]);
-  // 卡片上跟着鼠标的一点光（墨白主题的 CSS 用 --mx / --my）
-  const glow = (e) => { const c = e.target.closest && e.target.closest('.card'); if (!c) return; const r = c.getBoundingClientRect(); c.style.setProperty('--mx', e.clientX - r.left + 'px'); c.style.setProperty('--my', e.clientY - r.top + 'px'); };
-  return html`<div ref=${gridRef} class=${'dash3 dash-home ' + (custom ? 'customizing' : '')} onPointerMove=${glow} onDragOver=${(e) => drag && e.preventDefault()} onDrop=${(e) => { if (e.target.closest('.widget')) return; onDrop(e, null); }}>
+  return html`<div ref=${gridRef} class=${'dash3 dash-home ' + (custom ? 'customizing' : '')} onDragOver=${(e) => drag && e.preventDefault()} onDrop=${(e) => { if (e.target.closest('.widget')) return; onDrop(e, null); }}>
     ${custom && html`<div class="custom-bar">
       <span><${Icon} name="grid" size=${14} /> 拖动卡片排序；拖卡片右边缘改宽度（⅓ / ⅔ / 整行），下边缘改高度。</span>
       ${layout.hidden.length > 0 && html`<span class="muted">已隐藏：</span>${layout.hidden.map((id) => html`<button class="btn sm" key=${id} onClick=${() => moveTo(id, null)}>+ ${W[id] ? W[id].title : id}</button>`)}`}

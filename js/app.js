@@ -75,7 +75,7 @@ function applyTheme(t, skin, fx, glow, accent) {
   if (fx !== undefined) document.documentElement.dataset.fx = fx === 'full' ? 'full' : 'lite';
   if (glow !== undefined) document.documentElement.dataset.glow = glow === false ? '0' : '1';
   if (accent !== undefined) document.documentElement.dataset.accent = accent || 'none';
-  if (skin !== undefined) document.documentElement.dataset.skin = HIDDEN_SKINS.has(skin) ? 'glass' : (skin === 'win95' ? 'xp' : skin) || 'glass';
+  if (skin !== undefined) document.documentElement.dataset.skin = HIDDEN_SKINS.has(skin) ? 'glass' : (skin === 'win95' ? 'xp' : skin) || 'notion';
 }
 
 function App() {
@@ -97,7 +97,7 @@ function App() {
   const View = active.view;
 
   useEffect(() => {
-    applyTheme(s.settings.theme, s.settings.skin || 'glass', s.settings.fx || 'lite', s.settings.sealGlow !== false, s.settings.sealAccent || 'none');
+    applyTheme(s.settings.theme, s.settings.skin || 'notion', s.settings.fx || 'lite', s.settings.sealGlow !== false, s.settings.sealAccent || 'none');
     const mq = matchMedia('(prefers-color-scheme: dark)');
     const h = () => s.settings.theme === 'auto' && applyTheme('auto');
     mq.addEventListener('change', h);
