@@ -40,3 +40,30 @@ export function setBrain(t, id) {
 }
 export const unsortedCount = (s) => { const words = s.settings.brainWords || {}; return s.todos.filter((t) => !t.done && !brainOf(t, words)).length; };
 export const brainMenu = (t) => ({ label: '换脑区', icon: 'layers', hint: regionOf(brainOf(t)).name, sub: [...REGIONS, THALAMUS].map((r) => ({ label: `${r.name} · ${r.role}`, color: r.color, icon: brainOf(t) === r.id ? 'check' : '', onClick: () => setBrain(t, r.id) })) });
+
+// 多巴胺：今天做完的事攒出来的「爽感」。每件 10，杏仁核里的 25（最难开头的事最值），
+// 今天动过的脑区每多一块再加 5（换着做比一直做同一类更提神）。满 100 封顶
+export function dopamine(s, date) {
+  const words = s.settings.brainWords || {};
+  const done = s.todos.filter((t) => t.done && t.completedAt === date);
+  const by = {}; done.forEach((t) => { const id = brainOf(t, words) || ''; by[id] = (by[id] || 0) + 1; });
+  const regions = Object.keys(by).filter(Boolean).length;
+  const raw = done.reduce((n, t) => n + (brainOf(t, words) === 'alarm' ? 25 : 10), 0) + Math.max(0, regions - 1) * 5;
+  return { value: Math.min(100, raw), done: done.length, by, regions };
+}
+export const dopamineWord = (v) => (v >= 80 ? '满格' : v >= 50 ? '很不错' : v >= 20 ? '在涨' : v > 0 ? '起步了' : '还没开始');
+
+// 晚上复盘：settings.brainReview[日期] = { mood, note }，只留最近 60 天
+export const MOODS = [{ v: 1, label: '好累' }, { v: 2, label: '一般' }, { v: 3, label: '还行' }, { v: 4, label: '不错' }, { v: 5, label: '很好' }];
+export function saveReview(date, patch) {
+  update((d) => {
+    const all = { ...(d.settings.brainReview || {}), [date]: { ...((d.settings.brainReview || {})[date] || {}), ...patch, at: Date.now() } };
+    d.settings.brainReview = Object.fromEntries(Object.entries(all).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 60));
+  });
+}
+// 今天没做完、日期在今天或更早的 → 挪到明天
+export function pushOpenTo(s, today, tomorrow) {
+  const ids = s.todos.filter((t) => !t.done && t.due && t.due <= today).map((t) => t.id);
+  if (ids.length) update((d) => { d.todos = d.todos.map((t) => (ids.includes(t.id) ? { ...t, due: tomorrow } : t)); });
+  return ids.length;
+}

@@ -1,8 +1,8 @@
 // 总览上的卡片：名字、默认顺序、默认宽度。总览页和设置里的「总览」共用
-export const WIDGETS = [['profile', '问候'], ['now', '此刻'], ['ai', '汤圆的建议'], ['calendar', '月历'], ['focus', '专注'], ['timeline', '今天'], ['todos', '待办'], ['notes', '笔记'], ['pages', '最近页面'], ['links', '收藏'], ['goals', '本月目标'], ['week', '本周'], ['focusweek', '本周焦点'], ['photo', '图片']];
-export const SPAN = { profile: 3, now: 1, ai: 1, calendar: 1, focus: 1, timeline: 1, todos: 1, notes: 1, pages: 2, links: 1, goals: 2, week: 1, focusweek: 3, photo: 1 };
+export const WIDGETS = [['profile', '问候'], ['now', '此刻'], ['ai', '汤圆的建议'], ['calendar', '月历'], ['focus', '专注'], ['timeline', '今天'], ['todos', '待办'], ['notes', '笔记'], ['pages', '最近页面'], ['links', '收藏'], ['goals', '本月目标'], ['week', '本周'], ['focusweek', '本周焦点'], ['photo', '图片'], ['brain', '今天的大脑']];
+export const SPAN = { profile: 3, now: 1, ai: 1, calendar: 1, focus: 1, timeline: 1, todos: 1, notes: 1, pages: 2, links: 1, goals: 2, week: 1, focusweek: 3, photo: 1, brain: 1 };
 export const ORDER = WIDGETS.map(([id]) => id);
-const DEFAULT_HIDDEN = ['photo']; // 默认不显示，在设置或自定义里打开
+const DEFAULT_HIDDEN = ['photo', 'brain']; // 默认不显示，在设置或自定义里打开
 const OLD_ORDER = ['profile', 'now', 'timeline', 'todos', 'focus', 'calendar', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek'];
 export const DEFAULT_LAYOUT = { v: 3, order: ORDER.filter((id) => !DEFAULT_HIDDEN.includes(id)), hidden: [...DEFAULT_HIDDEN], sizes: {} };
 

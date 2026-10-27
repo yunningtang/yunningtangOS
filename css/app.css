@@ -3319,3 +3319,55 @@ html[data-theme="dark"] .br-r b,html[data-theme="dark"] .br-r small,html[data-th
   .br-in-acts{justify-content:flex-start}
 }
 @media (prefers-reduced-motion:reduce){.br-r.alarm{animation:none}}
+/* 大脑页 · 第二轮：多巴胺、流转、复盘、总览小卡 */
+.br-head-r{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.br-dop{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--text-3);padding:6px 12px;border-radius:999px;background:var(--hover);cursor:default}
+.br-dop-bar{position:relative;width:96px;height:6px;border-radius:3px;background:var(--hover-2);overflow:hidden}
+.br-dop-bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:linear-gradient(90deg,#CB912F,#D9730D,#E03E3E);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.br-dop b{font-size:.88rem;font-weight:650;color:var(--text);min-width:20px;text-align:right;font-variant-numeric:tabular-nums}
+.br-dop small{font-size:.74rem;color:var(--text-3)}
+.br-dop.sm{padding:4px 0 0;background:none}
+.br-dop.sm .br-dop-bar{flex:1;width:auto}
+.br-done{position:absolute;top:9px;left:11px;font-size:.7rem;font-weight:600;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,#fff 70%,transparent);color:color-mix(in srgb,var(--c) 85%,#000)}
+.br-plus{position:absolute;left:50%;top:40%;transform:translate(-50%,0);font-weight:700;font-size:1.1rem;color:var(--c);pointer-events:none;animation:br-plus 1s ease-out forwards;text-shadow:0 1px 0 #fff}
+@keyframes br-plus{0%{opacity:0;transform:translate(-50%,8px) scale(.7)}25%{opacity:1;transform:translate(-50%,-6px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-34px) scale(1)}}
+.br-r.fx-in{animation:br-in .7s cubic-bezier(.2,.9,.3,1.4)}
+.br-r.fx-done{animation:br-done .9s ease-out}
+@keyframes br-in{0%{transform:scale(1)}35%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes br-done{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 45%,transparent)}100%{box-shadow:0 0 0 18px color-mix(in srgb,var(--c) 0%,transparent)}}
+.br-rv-open{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;font-size:.84rem;color:var(--text-3);background:none;border:1px dashed var(--line-2);border-radius:999px;padding:6px 14px;cursor:pointer;transition:color .15s,border-color .15s}
+.br-rv-open:hover{color:var(--text);border-color:var(--text-4)}
+.br-rv-done{display:flex;align-items:center;gap:8px;font-size:.86rem;color:var(--text-3);padding:4px 2px}
+.br-rv-done span{color:var(--text-2)}
+.br-rv-done .btn{margin-left:auto}
+.br-review .card-h h3{display:flex;align-items:center;gap:8px}
+.br-rv-line{margin:0 0 14px;font-size:.92rem;color:var(--text-2);line-height:1.6}
+.br-rv-bars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px;margin-bottom:16px}
+.br-rv-b{display:flex;align-items:center;gap:10px;font-size:.8rem}
+.br-rv-n{width:56px;flex:none;color:var(--text-2)}
+.br-rv-track{flex:1;display:flex;gap:2px;height:8px;border-radius:4px;overflow:hidden;background:var(--hover)}
+.br-rv-track i{display:block;min-width:0}
+.br-rv-track .d{background:var(--c)}
+.br-rv-track .l{background:color-mix(in srgb,var(--c) 22%,transparent)}
+.br-rv-track .z{flex:1}
+.br-rv-b small{width:30px;text-align:right;color:var(--text-4);font-variant-numeric:tabular-nums}
+.br-rv-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.br-rv-k{width:64px;flex:none;font-size:.82rem;color:var(--text-3)}
+.br-moods{display:flex;gap:6px;flex-wrap:wrap}
+.br-moods button{font-size:.8rem;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--text-2);cursor:pointer;transition:all .15s}
+.br-moods button:hover{background:var(--hover)}
+.br-moods button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.br-rv-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.brain-card .bc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.bc-r{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;padding:8px 10px;border-radius:10px;background:var(--bg);background:color-mix(in srgb,var(--c) 10%,var(--card-bg,#fff));color:var(--c);text-decoration:none;transition:transform .2s}
+.bc-r:hover{transform:translateY(-1px)}
+.bc-r b{font-size:.76rem;font-weight:600;color:color-mix(in srgb,var(--c) 80%,var(--text))}
+.bc-r span{font-size:1.05rem;font-weight:700;min-height:1.2em;display:flex;align-items:baseline;gap:6px}
+.bc-r small{font-size:.7rem;font-weight:500;opacity:.8}
+.bc-r.empty b{opacity:.6}
+@media (max-width:900px){
+  .br-rv-bars{grid-template-columns:1fr}
+  .br-dop-bar{width:70px}
+  .br-done{display:none}
+}
+@media (prefers-reduced-motion:reduce){.br-r.fx-in,.br-r.fx-done,.br-plus{animation:none}}
