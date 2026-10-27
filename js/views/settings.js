@@ -109,7 +109,7 @@ function SignIn() {
         <input type="password" required autocomplete="current-password" placeholder="密码" value=${pw} onInput=${(e) => setPw(e.target.value)} />
         <button class="si-btn primary" disabled=${busy || !email || !pw}>${busy ? '登录中…' : '登录'}</button>
       </form>
-      <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('email'); setMsg(''); }}>用验证码登录</button><button type="button" class="si-link" onClick=${() => { setStep('email'); setMsg(email ? '点「用邮箱继续」收验证码，登录后在这里设新密码' : '填邮箱收验证码，登录后在这里设新密码'); }}>忘记密码？</button></div>`
+      <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('email'); setMsg(''); }}>用验证码登录</button><button type="button" class="si-link" onClick=${() => { setStep('email'); setMsg('tip:' + (email ? '点「用邮箱继续」收验证码，登录后在这里设新密码' : '填邮箱收验证码，登录后在这里设新密码')); }}>忘记密码？</button></div>`
     : step === 'email' ? html`
       <button type="button" class="si-btn" onClick=${google}><span class="g-ic" dangerouslySetInnerHTML=${{ __html: GOOGLE_SVG }}></span>用 Google 继续</button>
       <div class="mail-or"><span>或</span></div>
@@ -126,7 +126,7 @@ function SignIn() {
         <button class="si-btn primary" disabled=${busy || code.length < 6}>${busy ? '登录中…' : '登录'}</button>
       </form>
       <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('email'); setCode(''); setMsg(''); }}>换个邮箱</button><button type="button" class="si-link" disabled=${wait > 0 || busy} onClick=${() => send()}>${wait > 0 ? `${wait}s 后重发` : '重新发送'}</button></div>`}
-    ${msg && html`<p class="si-msg">${msg}</p>`}
+    ${msg && html`<p class=${msg.startsWith('tip:') ? 'si-tip' : 'si-msg'}>${msg.replace(/^tip:/, '')}</p>`}
   </div>`;
 }
 
