@@ -70,10 +70,11 @@ function Page({ title, sub, children }) {
   return html`<div class="sx-page"><header class="sx-top"><h1>${title}</h1>${sub && html`<p>${sub}</p>`}</header>${children}</div>`;
 }
 function Group({ title, children }) {
-  return html`<section class="sx-group">${title && html`<h3>${title}</h3>`}<div class="sx-list">${children}</div></section>`;
+  return html`<section class="card sx-group">${title && html`<h3>${title}</h3>`}<div class="sx-list">${children}</div></section>`;
 }
-function Row({ label, hint, stack, children }) {
+function Row({ label, hint, stack, icon, children }) {
   return html`<div class=${'sx-row' + (stack ? ' stack' : '')}>
+    ${icon && html`<span class="sx-ic"><${Icon} name=${icon} size=${15} /></span>`}
     <div class="sx-l"><b>${label}</b>${hint && html`<small>${hint}</small>`}</div>
     <div class="sx-c">${children}</div>
   </div>`;
@@ -81,6 +82,7 @@ function Row({ label, hint, stack, children }) {
 function Switch({ on, onChange, label }) {
   return html`<button type="button" role="switch" aria-checked=${on ? 'true' : 'false'} aria-label=${label} class=${'sx-sw ' + (on ? 'on' : '')} onClick=${() => onChange(!on)}><i></i></button>`;
 }
+const WIDGET_ICON = { profile: 'heart', now: 'cloudsun', ai: 'sparkle', calendar: 'calendar', focus: 'clock', timeline: 'list', todos: 'checksq', notes: 'note', pages: 'file', links: 'link', goals: 'target', week: 'zap', focusweek: 'flag', photo: 'image' };
 const NAV = [
   ['帐号', [['account', '', '']]],
   ['偏好', [['look', '外观', 'sun'], ['dash', '总览', 'grid']]],
@@ -139,7 +141,7 @@ function PasswordRow() {
     if (a !== b) return setMsg('两次输入的不一样');
     setBusy(true); try { await post('/api/auth/password', { password: a }); setOpen(false); setA(''); setB(''); toast('密码已保存'); } catch (er) { setMsg(er.message); } setBusy(false);
   };
-  return html`<${Row} label="密码" hint="可以用邮箱 + 密码登录；忘了就用验证码登录再改" stack=${open}>
+  return html`<${Row} icon="key" label="密码" hint="可以用邮箱 + 密码登录；忘了就用验证码登录再改" stack=${open}>
     ${open ? html`<form class="sx-pw" onSubmit=${save}>
       <input class="sx-input" type="password" autocomplete="new-password" placeholder="新密码（至少 8 位）" value=${a} onInput=${(e) => setA(e.target.value)} autofocus />
       <input class="sx-input" type="password" autocomplete="new-password" placeholder="再输一次" value=${b} onInput=${(e) => setB(e.target.value)} />
@@ -206,11 +208,11 @@ export default function Settings() {
     { v: 'steam', n: 'Steam', bg: '#1b2838', card: '#2a475e', ac: '#66c0f4', line: 'rgba(0,0,0,.4)' },
     { v: 'xp', n: 'Windows XP', bg: 'linear-gradient(180deg,#3f7fd8,#8fc0f0 60%,#6fb24c)', card: '#ece9d8', ac: '#0a5fd6', line: '#0831d9' },
   ];
-  const syncRow = (connected || tokenMode) && html`<${Row} label="同步" hint=${err ? html`<span class="sx-err">同步出错：${err}</span>` : synced ? `上次 ${synced}` : '还没同步过'}>
+  const syncRow = (connected || tokenMode) && html`<${Row} icon="refresh" label="同步" hint=${err ? html`<span class="sx-err">同步出错：${err}</span>` : synced ? `上次 ${synced}` : '还没同步过'}>
     <button class="sx-btn" disabled=${busy} onClick=${() => run(smartSync)}>${busy ? '同步中…' : '立即同步'}</button>
   <//>`;
   const ghRows = html`
-    <${Row} label="GitHub" hint=${connected ? `${login.target.repo} · ${login.target.branch}` : '同步到自己的私人仓库'}>
+    <${Row} icon="github" label="GitHub" hint=${connected ? `${login.target.repo} · ${login.target.branch}` : '同步到自己的私人仓库'}>
       ${connected ? html`<button class="sx-btn" onClick=${logout}>断开</button>` : login && login.configured ? html`<a class="sx-btn" href="/api/auth/login">连接</a>` : html`<button class="sx-btn" onClick=${() => setTokOpen((v) => !v)}>${tokOpen ? '收起' : '配置'}</button>`}
     <//>
     ${!connected && !(login && login.configured) && tokOpen && html`<div class="sx-sub">
@@ -221,63 +223,68 @@ export default function Settings() {
     </div>`}`;
 
   const pages = {
-    account: () => html`<${Page} title="帐号" sub="档案、登录和同步">
-      <${Group} title="档案">
-        <div class="sx-profile">
-          <${AvatarPicker} size=${64} />
-          <div class="sx-pf">
-            <label><span>名字</span><input class="sx-input" type="text" value=${s.profile.name} onInput=${(e) => setP('name', e.target.value)} /></label>
-            <label><span>座右铭</span><input class="sx-input" type="text" value=${s.profile.motto} onInput=${(e) => setP('motto', e.target.value)} /></label>
-          </div>
+    account: () => html`<div class="sx-page">
+      <section class="card sx-hero">
+        <${AvatarPicker} size=${64} />
+        <div class="sx-hero-b">
+          <b>${name}</b>
+          <small>${cloudUser ? login.user.email : connected ? `GitHub · ${login.user.login}` : '还没有登录 · 数据只在这台设备上'}</small>
+          ${(connected || tokenMode) && html`<span class=${'sx-pill ' + (err ? 'err' : synced ? 'ok' : 'warn')}><i></i>${err ? '同步出错' : synced ? `已同步 · ${synced}` : '还没同步'}</span>`}
         </div>
+        ${(connected || tokenMode) && html`<div class="sx-hero-a">
+          <button class="sx-btn" disabled=${busy} onClick=${() => run(smartSync)}><${Icon} name="refresh" size=${13} />${busy ? '同步中…' : '同步'}</button>
+          ${connected && html`<button class="sx-btn ghost" onClick=${logout}>${cloudUser ? '退出登录' : '断开'}</button>`}
+        </div>`}
+      </section>
+      ${!connected && login && login.cloud && html`<section class="card sx-login">
+        <div class="sx-login-h"><span class="sx-seal" aria-hidden="true"><svg viewBox="0 0 120 100" width="34"><path d="M16 74 C12 42 32 12 60 12 C88 12 108 42 104 74 C102 88 84 92 60 92 C36 92 18 88 16 74 Z" fill="#EEF0F3" stroke="currentColor" stroke-width="4"></path><circle cx="42" cy="52" r="6" fill="currentColor"></circle><circle cx="78" cy="52" r="6" fill="currentColor"></circle><circle cx="33" cy="63" r="4" fill="#F2C3B8" opacity=".7"></circle><circle cx="87" cy="63" r="4" fill="#F2C3B8" opacity=".7"></circle></svg></span><div><b>登录 sealonote</b><small>换一台设备，数据也在</small></div></div>
+        <${SignIn} />
+      </section>`}
+      ${authMsg && authMsg !== 'ok' && html`<p class="sx-err block">${authMsg === 'need-invite' ? '这个 Google 帐号还没注册，先填邀请码再继续。' : '登录失败：' + authMsg}</p>`}
+      <${Group} title="档案">
+        <${Row} icon="heart" label="名字"><input class="sx-input" type="text" value=${s.profile.name} onInput=${(e) => setP('name', e.target.value)} /><//>
+        <${Row} icon="quote" label="座右铭"><input class="sx-input" type="text" value=${s.profile.motto} onInput=${(e) => setP('motto', e.target.value)} /><//>
       <//>
-      <${Group} title="登录与同步">
-        ${cloudUser ? html`
-          <${Row} label="邮件地址" hint=${login.user.email}><button class="sx-btn" onClick=${logout}>退出登录</button><//>
-          <${PasswordRow} />
-          ${syncRow}
-          ${login.aiQuota != null && html`<${Row} label="AI 额度" hint="内置 AI 每月免费次数"><span class="sx-val">${login.aiQuota} 次 / 月</span><//>`}`
-        : connected ? html`${ghRows}${syncRow}`
-        : html`
-          <${Row} label="还没有登录" hint="数据只存在这台设备上" stack>${login && login.cloud ? html`<${SignIn} />` : ''}<//>
-          ${login && login.cloud ? html`<details class="sx-more"><summary>其他方式</summary>${ghRows}</details>` : ghRows}
-          ${syncRow}`}
-        ${authMsg && authMsg !== 'ok' && html`<p class="sx-err block">${authMsg === 'need-invite' ? '这个 Google 帐号还没注册，先填邀请码再继续。' : '登录失败：' + authMsg}</p>`}
-      <//>
-    <//>`,
+      ${cloudUser && html`<${Group} title="登录">
+        <${PasswordRow} />
+        ${login.aiQuota != null && html`<${Row} icon="zap" label="AI 额度" hint="内置 AI 每月免费次数"><span class="sx-val">${login.aiQuota} 次 / 月</span><//>`}
+      <//>`}
+      ${connected && !cloudUser && html`<${Group} title="同步">${ghRows}<//>`}
+      ${!connected && html`<${Group} title=${login && login.cloud ? '其他同步方式' : '同步'}>${ghRows}<//>`}
+    </div>`,
     look: () => html`<${Page} title="外观" sub="颜色、主题和质感">
       <${Group}>
-        <${Row} label="深浅色"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
-        <${Row} label="主题" stack>
+        <${Row} icon="moon" label="深浅色"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
+        <${Row} icon="layers" label="主题" stack>
           <div class="skin-pick">${skins.map((k) => html`<button type="button" key=${k.v} class=${'skin-opt ' + ((s.settings.skin || 'notion') === k.v ? 'on' : '')} onClick=${() => update((d) => { d.settings.skin = k.v; })}>
             <span class="skin-prev" style=${`background:${k.bg}`}><i style=${`left:6px;top:6px;width:18px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:6px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:29px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:88px;top:6px;right:6px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:92px;top:12px;width:22px;height:6px;border-radius:3px;background:${k.ac}`}></i></span>
             <b>${k.n}</b></button>`)}</div>
         <//>
-        <${Row} label="毛玻璃" hint="老电脑上可能会卡"><${Switch} label="毛玻璃" on=${s.settings.fx === 'full'} onChange=${(v) => update((d) => { d.settings.fx = v ? 'full' : 'lite'; })} /><//>
+        <${Row} icon="sparkle" label="毛玻璃" hint="老电脑上可能会卡"><${Switch} label="毛玻璃" on=${s.settings.fx === 'full'} onChange=${(v) => update((d) => { d.settings.fx = v ? 'full' : 'lite'; })} /><//>
       <//>
     <//>`,
     dash: () => html`<${Page} title="总览" sub="选择总览上显示哪些卡片">
       <${Group}>
-        ${WIDGETS.map(([id, label]) => html`<${Row} key=${id} label=${label}><${Switch} label=${label} on=${!dash.hidden.includes(id)} onChange=${(v) => update((d) => { d.settings.dash = toggleWidget(d.settings.dash, id, v); })} /><//>`)}
+        ${WIDGETS.map(([id, label]) => html`<${Row} key=${id} icon=${WIDGET_ICON[id] || 'grid'} label=${label}><${Switch} label=${label} on=${!dash.hidden.includes(id)} onChange=${(v) => update((d) => { d.settings.dash = toggleWidget(d.settings.dash, id, v); })} /><//>`)}
       <//>
       <p class="sx-foot">顺序和大小在总览右上角「自定义」里拖动调整。</p>
     <//>`,
     seal: () => html`<${Page} title="汤圆" sub="角落里的小海豹">
       <${Group}>
-        <${Row} label="显示汤圆"><${Switch} label="显示汤圆" on=${s.settings.seal !== false} onChange=${(v) => update((d) => { d.settings.seal = v; })} /><//>
-        <${Row} label="闲时贴边" hint="没人理时缩到屏幕边"><${Switch} label="闲时贴边" on=${s.settings.sealTuck === true} onChange=${(v) => update((d) => { d.settings.sealTuck = v; })} /><//>
-        <${Row} label="光效"><${Switch} label="光效" on=${s.settings.sealGlow !== false} onChange=${(v) => update((d) => { d.settings.sealGlow = v; })} /><//>
-        <${Row} label="强调色"><${Seg} options=${[{ v: 'none', label: '黑白' }, { v: 'ice', label: '冰蓝' }, { v: 'teal', label: '青绿' }]} value=${s.settings.sealAccent || 'none'} onChange=${(v) => update((d) => { d.settings.sealAccent = v; })} /><//>
+        <${Row} icon="eye" label="显示汤圆"><${Switch} label="显示汤圆" on=${s.settings.seal !== false} onChange=${(v) => update((d) => { d.settings.seal = v; })} /><//>
+        <${Row} icon="right" label="闲时贴边" hint="没人理时缩到屏幕边"><${Switch} label="闲时贴边" on=${s.settings.sealTuck === true} onChange=${(v) => update((d) => { d.settings.sealTuck = v; })} /><//>
+        <${Row} icon="sparkle" label="光效"><${Switch} label="光效" on=${s.settings.sealGlow !== false} onChange=${(v) => update((d) => { d.settings.sealGlow = v; })} /><//>
+        <${Row} icon="star" label="强调色"><${Seg} options=${[{ v: 'none', label: '黑白' }, { v: 'ice', label: '冰蓝' }, { v: 'teal', label: '青绿' }]} value=${s.settings.sealAccent || 'none'} onChange=${(v) => update((d) => { d.settings.sealAccent = v; })} /><//>
       <//>
     <//>`,
     ai: () => html`<${Page} title="AI" sub=${login && login.ai ? `当前模型 ${login.aiModel || '服务器配置'}` : '汤圆用来理解你说的话'}>
       <${Group}>
-        <${Row} label="来源" hint=${ai.provider === 'deepseek' || ai.provider === 'anthropic' ? '密钥只存在这台浏览器里' : ''}><${Seg} options=${[{ v: 'server', label: '内置' }, { v: 'deepseek', label: 'DeepSeek' }, { v: 'anthropic', label: 'Claude' }, { v: 'local', label: '不用' }]} value=${ai.provider} onChange=${(v) => saveAi({ provider: v })} /><//>
+        <${Row} icon="cloud" label="来源" hint=${ai.provider === 'deepseek' || ai.provider === 'anthropic' ? '密钥只存在这台浏览器里' : ''}><${Seg} options=${[{ v: 'server', label: '内置' }, { v: 'deepseek', label: 'DeepSeek' }, { v: 'anthropic', label: 'Claude' }, { v: 'local', label: '不用' }]} value=${ai.provider} onChange=${(v) => saveAi({ provider: v })} /><//>
         ${(ai.provider === 'deepseek' || ai.provider === 'anthropic') && html`
-          <${Row} label="密钥"><input class="sx-input" type="password" value=${ai.key} placeholder=${ai.provider === 'deepseek' ? 'sk-…' : 'sk-ant-…'} autocomplete="off" onInput=${(e) => saveAi({ key: e.target.value.trim() })} /><//>
-          <${Row} label="模型"><input class="sx-input" type="text" value=${ai.model} placeholder=${ai.provider === 'deepseek' ? 'deepseek-chat' : 'claude-opus-5-5'} onInput=${(e) => saveAi({ model: e.target.value.trim() })} /><//>`}
-        ${ai.provider !== 'local' && html`<${Row} label="测试连接" hint=${aiMsg || (connected ? '' : '登录后可用')}><button class="sx-btn" onClick=${testAi} disabled=${!connected}>测试</button><//>`}
-        <${Row} label="本月用量" hint=${bal ? (bal.loading ? '查询中…' : bal.error ? '查余额失败' : bal.supported === false ? '这家没有余额接口' : `余额 ${bal.currency === 'USD' ? '$' : '¥'}${bal.total.toFixed(2)}`) : `${usage.calls} 次 · 约 ${cost.text}`}>
+          <${Row} icon="key" label="密钥"><input class="sx-input" type="password" value=${ai.key} placeholder=${ai.provider === 'deepseek' ? 'sk-…' : 'sk-ant-…'} autocomplete="off" onInput=${(e) => saveAi({ key: e.target.value.trim() })} /><//>
+          <${Row} icon="zap" label="模型"><input class="sx-input" type="text" value=${ai.model} placeholder=${ai.provider === 'deepseek' ? 'deepseek-chat' : 'claude-opus-5-5'} onInput=${(e) => saveAi({ model: e.target.value.trim() })} /><//>`}
+        ${ai.provider !== 'local' && html`<${Row} icon="refresh" label="测试连接" hint=${aiMsg || (connected ? '' : '登录后可用')}><button class="sx-btn" onClick=${testAi} disabled=${!connected}>测试</button><//>`}
+        <${Row} icon="clock" label="本月用量" hint=${bal ? (bal.loading ? '查询中…' : bal.error ? '查余额失败' : bal.supported === false ? '这家没有余额接口' : `余额 ${bal.currency === 'USD' ? '$' : '¥'}${bal.total.toFixed(2)}`) : `${usage.calls} 次 · 约 ${cost.text}`}>
           ${(ai.provider === 'deepseek' || (ai.provider === 'server' && login && /deepseek/i.test(login.aiModel || ''))) && html`<button class="sx-btn" onClick=${checkBal} disabled=${!connected}>查余额</button>`}
           ${usage.calls > 0 && html`<button class="sx-btn" onClick=${() => { clearUsage(); bump((x) => x + 1); }}>清零</button>`}
         <//>
@@ -288,17 +295,17 @@ export default function Settings() {
     <//>`,
     data: () => html`<${Page} title="数据" sub=${`待办 ${s.todos.length} · 笔记 ${s.notes.length} · 书 ${s.books.length} · 收藏 ${s.links.length}`}>
       <${Group} title="备份">
-        <${Row} label="导出" hint="不含密钥"><button class="sx-btn" onClick=${() => download(`sealonote-${todayStr()}.json`, exportJSON())}>导出 JSON</button><//>
-        <${Row} label="导入" hint="会替换现在的数据"><label class="sx-btn">选择文件<input type="file" accept="application/json" style="display:none" onChange=${importFile} /></label><//>
-        ${!s.settings.seeded && html`<${Row} label="示例数据"><button class="sx-btn" onClick=${() => { seed(); toast('已载入示例数据'); }}>载入</button><//>`}
+        <${Row} icon="download" label="导出" hint="不含密钥"><button class="sx-btn" onClick=${() => download(`sealonote-${todayStr()}.json`, exportJSON())}>导出 JSON</button><//>
+        <${Row} icon="upload" label="导入" hint="会替换现在的数据"><label class="sx-btn">选择文件<input type="file" accept="application/json" style="display:none" onChange=${importFile} /></label><//>
+        ${!s.settings.seeded && html`<${Row} icon="sparkle" label="示例数据"><button class="sx-btn" onClick=${() => { seed(); toast('已载入示例数据'); }}>载入</button><//>`}
       <//>
       ${(connected || tokenMode) && html`<${Group} title="手动同步">
-        <${Row} label="本机覆盖云端"><button class="sx-btn" disabled=${busy} onClick=${() => run(push, '已用本机数据覆盖云端')}>覆盖</button><//>
-        <${Row} label="云端覆盖本机"><button class="sx-btn" disabled=${busy} onClick=${async () => { if (await askConfirm('本机还没同步上去的改动会丢失。', { title: '用云端数据覆盖本机？', ok: '覆盖本机' })) run(pull, '已用云端数据覆盖本机'); }}>覆盖</button><//>
+        <${Row} icon="upload" label="本机覆盖云端"><button class="sx-btn" disabled=${busy} onClick=${() => run(push, '已用本机数据覆盖云端')}>覆盖</button><//>
+        <${Row} icon="download" label="云端覆盖本机"><button class="sx-btn" disabled=${busy} onClick=${async () => { if (await askConfirm('本机还没同步上去的改动会丢失。', { title: '用云端数据覆盖本机？', ok: '覆盖本机' })) run(pull, '已用云端数据覆盖本机'); }}>覆盖</button><//>
       <//>`}
       <${Group} title="危险操作">
-        <${Row} label="清空笔记" hint="30 天内可在最近删除里恢复"><button class="sx-btn danger" disabled=${!s.notes.length} onClick=${async () => { const n = s.notes.length; if (await askConfirm(`${n} 页会移到「最近删除」，30 天内可以恢复。`, { title: '清空所有笔记？', ok: '清空笔记' })) { trashPages(s.notes.map((x) => x.id)); toast(`清了 ${n} 页`); } }}>清空</button><//>
-        <${Row} label="清空全部数据"><button class="sx-btn danger" onClick=${async () => { if (await askConfirm('所有待办、笔记、书、收藏、足迹都会被清除。建议先导出。', { title: '清空全部数据？', ok: '清空' })) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空</button><//>
+        <${Row} icon="note" label="清空笔记" hint="30 天内可在最近删除里恢复"><button class="sx-btn danger" disabled=${!s.notes.length} onClick=${async () => { const n = s.notes.length; if (await askConfirm(`${n} 页会移到「最近删除」，30 天内可以恢复。`, { title: '清空所有笔记？', ok: '清空笔记' })) { trashPages(s.notes.map((x) => x.id)); toast(`清了 ${n} 页`); } }}>清空</button><//>
+        <${Row} icon="trash" label="清空全部数据"><button class="sx-btn danger" onClick=${async () => { if (await askConfirm('所有待办、笔记、书、收藏、足迹都会被清除。建议先导出。', { title: '清空全部数据？', ok: '清空' })) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空</button><//>
       <//>
     <//>`,
     keys: () => html`<${Page} title="快捷键">

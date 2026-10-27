@@ -3209,3 +3209,62 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .sx-pw-acts{display:flex;gap:8px;justify-content:flex-end}
 .sx-btn.primary{background:var(--ink);color:var(--bg);box-shadow:none}
 .sx-btn.primary:hover:not(:disabled){background:var(--ink);opacity:.88}
+
+/* ===================================================================
+   设置 v3：跟 App 一个风格 —— 导航像侧栏，分组是卡片，每行前面一个小图标
+   =================================================================== */
+.sx{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;min-height:0;border-radius:0;overflow:visible;background:none;box-shadow:none;align-items:start}
+.sx-nav{position:sticky;top:64px;background:none;border-right:0;padding:4px 0 24px;gap:16px}
+.sx-search{margin:0;height:32px;border-radius:var(--r2);background:var(--hover);box-shadow:none}
+.sx-search:focus-within{background:var(--paper);box-shadow:0 0 0 1px var(--line-2)}
+.sx-gh{padding:0 10px 4px;font-size:.7rem;letter-spacing:.02em}
+.sx-ni{height:32px;border-radius:var(--r2);color:var(--text-3);font-size:.875rem}
+.sx-ni svg{color:var(--text-4)}
+.sx-ni:hover{background:var(--hover);color:var(--text)}
+.sx-ni.on{background:var(--hover-2,var(--hover));color:var(--text);font-weight:600}
+.sx-ni.on svg{color:var(--text)}
+.sx-main{padding:0 0 96px;overflow:visible}
+.sx-page{max-width:720px;margin:0;display:flex;flex-direction:column;gap:16px}
+.sx-top{margin:4px 0 6px}
+.sx-top h1{font-size:1.5rem}
+.sx-top p{font-size:.88rem}
+.sx-group{margin:0;padding:6px 20px 6px}
+.sx-group h3{font-size:var(--fs-lg);font-weight:600;padding:14px 0 8px;border-bottom:0;margin:0}
+.sx-list>.sx-row+.sx-row,.sx-list>.sx-row+details,.sx-list>details+.sx-row{border-top:1px solid var(--line)}
+.sx-row{gap:14px;padding:12px 0;min-height:58px}
+.sx-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;background:var(--paper);color:var(--text-2);box-shadow:0 0 0 1px var(--line);align-self:center}
+.sx-row.stack{display:grid;grid-template-columns:30px minmax(0,1fr);gap:4px 14px;align-items:start}
+.sx-row.stack:not(:has(.sx-ic)){grid-template-columns:minmax(0,1fr)}
+.sx-row.stack .sx-ic{grid-row:1}
+.sx-row.stack .sx-c{grid-column:-2;margin-top:8px}
+.sx-btn{border-radius:var(--r2)}
+.sx-btn svg{margin-right:5px}
+.sx-btn.ghost{box-shadow:none;color:var(--text-3)}
+.sx-btn.ghost:hover:not(:disabled){color:var(--text)}
+.sx-input{border-radius:var(--r2);width:280px}
+.sx .skin-pick{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+.sx-foot{margin:0;padding:0 4px}
+/* 帐号卡：跟总览的问候卡同款 */
+.sx-hero{display:flex;flex-direction:row;align-items:center;gap:16px;padding:18px 20px}
+.sx-hero-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.sx-hero-b b{font-size:var(--fs-xl);font-weight:650;letter-spacing:-.01em;color:var(--text)}
+.sx-hero-b small{font-size:var(--fs-sm);color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.sx-pill{display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:.74rem;color:var(--text-2);background:var(--hover);border-radius:999px;padding:3px 10px 3px 8px}
+.sx-pill i{width:6px;height:6px;border-radius:50%;background:var(--text-4)}
+.sx-pill.ok i{background:var(--green)}.sx-pill.warn i{background:var(--amber)}.sx-pill.err{color:var(--red)}.sx-pill.err i{background:var(--red)}
+.sx-hero-a{display:flex;gap:6px;flex:none}
+/* 登录卡 */
+.sx-login{padding:22px 20px}
+.sx-login-h{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.sx-login-h b{display:block;font-size:var(--fs-lg);font-weight:650;color:var(--text)}
+.sx-login-h small{font-size:.8rem;color:var(--text-3)}
+.sx-seal{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:var(--hover);color:var(--text)}
+.sx .sx-login .signin{max-width:340px}
+@media (max-width:900px){
+  .sx{grid-template-columns:1fr;gap:12px}
+  .sx-nav{position:sticky;top:52px;z-index:5;background:var(--bg);padding:6px 0;flex-direction:row}
+  .sx-group{padding:4px 16px}
+  .sx-hero{flex-wrap:wrap}
+  .sx-hero-a{width:100%}
+  .sx-input{width:100%}
+}
