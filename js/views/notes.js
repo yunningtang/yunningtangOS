@@ -2,7 +2,7 @@ import { html, useState, useMemo, useEffect, useRef, Component } from '../../ven
 import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field , tagMenu, colorSub } from '../ui.js';
-import { uid, todayStr, addDays, sortBy, debounce, escapeHtml, download, tagColor, fmtShort } from '../util.js';
+import { uid, todayStr, addDays, sortBy, debounce, escapeHtml, download, tagColor, fmtShort, nowISO } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
 import { askConfirm, askPrompt } from '../confirm.js';
@@ -83,7 +83,7 @@ export function notebookMenu(nb, s, onRename) {
 }
 export function trashPages(ids, label) {
   const set = ids instanceof Set ? ids : new Set(ids);
-  const now = new Date().toISOString();
+  const now = nowISO();
   let moved = [];
   update((d) => {
     moved = d.notes.filter((n) => set.has(n.id)).map((n) => ({ ...n, deletedAt: now }));
@@ -122,7 +122,7 @@ export function movePage(pageId, { nb, parent = null, before = null, after = nul
 }
 export function newNote(patch = {}) {
   const inherit = patch.parent ? (get().notes.find((x) => x.id === patch.parent) || {}).nb : null;
-  const n = { id: uid(), title: '', body: '', tags: [], parent: null, nb: inherit || patch.nb || currentNb() || 'nb-inbox', order: Date.now(), pinned: false, icon: '', created: todayStr(), updated: new Date().toISOString(), ...patch };
+  const n = { id: uid(), title: '', body: '', tags: [], parent: null, nb: inherit || patch.nb || currentNb() || 'nb-inbox', order: Date.now(), pinned: false, icon: '', created: todayStr(), updated: nowISO(), ...patch };
   upsert('notes', n);
   return n;
 }
@@ -145,7 +145,7 @@ export function linkifyMentions(n, title) {
     const html = b.html.split(/(<[^>]+>)/).map((part, i) => (i % 2 ? part : part.split(esc).join(anchor))).join('');
     return { ...b, html };
   });
-  upsert('notes', { id: n.id, blocks, body: blocksToMd(blocks), updated: new Date().toISOString() });
+  upsert('notes', { id: n.id, blocks, body: blocksToMd(blocks), updated: nowISO() });
 }
 export function allTags(notes) { const m = new Map(); notes.forEach((n) => (n.tags || []).forEach((t) => m.set(t, (m.get(t) || 0) + 1))); return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); }
 export function renameTag(from, to) { const t = (to || '').trim().replace(/^#/, ''); if (!t || t === from) return; update((d) => { d.notes.forEach((n) => { if (n.tags.includes(from)) n.tags = [...new Set(n.tags.map((x) => (x === from ? t : x)))]; }); }); }
@@ -168,7 +168,7 @@ export function pageMenu(n, notes, extra = {}) {
     'sep',
     { label: '新建子页面', icon: 'plus', onClick: () => { const c = newNote({ parent: n.id }); extra.openPath && extra.openPath([n.id]); go('notes/' + c.id); } },
     { label: n.pinned ? '取消收藏' : '收藏', icon: 'star', onClick: () => upsert('notes', { id: n.id, pinned: !n.pinned }) },
-    { label: '复制一份', icon: 'layers', onClick: () => { const c = newNote({ ...n, id: undefined, ref: undefined, title: n.title + ' 副本', pinned: false, created: todayStr(), updated: new Date().toISOString(), blocks: (n.blocks || []).map((b) => ({ ...b, id: uid() })) }); go('notes/' + c.id); } },
+    { label: '复制一份', icon: 'layers', onClick: () => { const c = newNote({ ...n, id: undefined, ref: undefined, title: n.title + ' 副本', pinned: false, created: todayStr(), updated: nowISO(), blocks: (n.blocks || []).map((b) => ({ ...b, id: uid() })) }); go('notes/' + c.id); } },
     { label: '复制链接', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(location.origin + location.pathname + '#/notes/' + n.id); toast('已复制链接'); } },
     extra.move && { label: '移动到…', icon: 'layers', onClick: extra.move },
     ...(extra.notebooks ? ['sep', ...extra.notebooks.map((b) => ({ label: `放入「${b.name}」`, icon: b.id === n.nb ? 'check' : 'book', onClick: () => { const ids = new Set([n.id]); let grew = true; while (grew) { grew = false; notes.forEach((x) => { if (x.parent && ids.has(x.parent) && !ids.has(x.id)) { ids.add(x.id); grew = true; } }); } update((d) => { d.notes.forEach((x) => { if (ids.has(x.id)) x.nb = b.id; if (x.id === n.id) x.parent = null; }); }); } }))] : []),
@@ -432,7 +432,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   const onOut = (e) => { if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.wiki-peek, a.wiki')) return; clearTimeout(peekTimer.current); peekTimer.current = setTimeout(() => setPeek(null), 200); };
   const [focus, setFocus] = useState(() => document.body.classList.contains('focus-mode'));
   useEffect(() => { document.body.classList.toggle('focus-mode', focus); const k = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal-bg, .popmenu, .ctx')) setFocus(false); }; window.addEventListener('keydown', k); return () => { window.removeEventListener('keydown', k); document.body.classList.remove('focus-mode'); }; }, [focus]);
-  const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: new Date().toISOString() }), 250), []);
+  const save = useMemo(() => debounce((patch) => upsert('notes', { ...patch, updated: nowISO() }), 250), []);
   const [titleTxt, setTitleTxt] = useState(note.title);
   const titleRef = useRef();
   useEffect(() => { if (document.activeElement !== titleRef.current) setTitleTxt(note.title); }, [note.title]);
@@ -441,7 +441,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   const backToTitle = useMemo(() => () => { const t = titleRef.current; if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, []);
   // 同步从别的设备拉回这一页的新版本时，编辑器没在输入就换成新版本；在输入就先不动，免得打断（本机改动会在下一次合并时按时间戳处理）
   const seededAt = useRef(note.updated); const [extVer, setExtVer] = useState(0);
-  const onBlocks = useMemo(() => (blocks) => { const updated = new Date().toISOString(); seededAt.current = updated; const body = blocksToMd(blocks); upsert('notes', { id: note.id, blocks, body, updated }); clearTimeout(snapTimer.current); snapTimer.current = setTimeout(() => snapshot({ ...noteRef.current, blocks, body }), 3000); }, [note.id]);
+  const onBlocks = useMemo(() => (blocks) => { const updated = nowISO(); seededAt.current = updated; const body = blocksToMd(blocks); upsert('notes', { id: note.id, blocks, body, updated }); clearTimeout(snapTimer.current); snapTimer.current = setTimeout(() => snapshot({ ...noteRef.current, blocks, body }), 3000); }, [note.id]);
   useEffect(() => { if (note.updated === seededAt.current) return; const ed = document.querySelector('.beditor'); const typing = ed && ed.contains(document.activeElement); if (!typing) { seededAt.current = note.updated; setExtVer((v) => v + 1); } }, [note.updated]);
   const blocks = useMemo(() => (note.blocks && note.blocks.length ? note.blocks : mdToBlocks(note.body)), [note.id, extVer]);
   const notesRef = useRef(notes); notesRef.current = notes;
@@ -450,7 +450,7 @@ function Page({ note, notes, notebooks = [], onCreateChild }) {
   const createLinkedStable = useMemo(() => (t) => createRef.current(t), []);
   const fmtHost = useRef(); // 顶部格式栏挂在这里（编辑器通过 portal 渲染进来）
   const [fmtOn, setFmtOn] = useState(() => { try { return localStorage.getItem('ytos.fmtbar') !== 'off'; } catch { return true; } });
-  const importTitleRef = useRef(); importTitleRef.current = (t) => { if (titleTxt.trim() || !t) return false; setTitleTxt(t); upsert('notes', { id: note.id, title: t, updated: new Date().toISOString() }); return true; };
+  const importTitleRef = useRef(); importTitleRef.current = (t) => { if (titleTxt.trim() || !t) return false; setTitleTxt(t); upsert('notes', { id: note.id, title: t, updated: nowISO() }); return true; };
   const importTitleStable = useMemo(() => (t) => importTitleRef.current(t), []);
   const crumbs = ancestors(notes, note);
   const kids = childrenOf(notes, note.id);

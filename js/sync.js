@@ -7,7 +7,7 @@ import { get, replace, update, exportJSON } from './store.js';
 import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob, kvGet, kvSet } from './files.js';
 import { seedDoc } from './seed.js';
 import { merge3, syncView, SHARED_SETTINGS } from './merge.js';
-import { debounce } from './util.js';
+import { debounce, nowISO, syncClock } from './util.js';
 
 const API = 'https://api.github.com';
 let api = null; // { configured, user, target } or null when /api is unavailable
@@ -29,6 +29,7 @@ export function loggedIn() { return !!(api && api.user); }
 const MAX_DOC = 4.2 * 1048576;
 // 读接口返回：服务器出错时可能不是 JSON（413 太大、504 超时的网页），给一句看得懂的话；409 = 另一台设备刚同步过
 async function readRes(r) {
+  const d = r.headers && r.headers.get('date'); if (d) syncClock(Date.parse(d)); // 顺便对一下设备时钟
   let j = null; try { j = await r.json(); } catch {}
   if (r.ok && j) return j;
   const msg = (j && j.error) || (r.status === 413 ? '数据太大了，云端收不下（约 4 MB 上限）' : r.status === 401 ? '登录过期了，重新登录一下' : r.status >= 500 ? `云端暂时出错了（${r.status}），等一下会自动再试` : `HTTP ${r.status}`);
@@ -65,7 +66,7 @@ const viaToken = {
   },
   async push(content, sha) {
     const c = cfg();
-    const body = { message: `os: sync ${new Date().toISOString()}`, content: b64(content), branch: c.branch };
+    const body = { message: `os: sync ${nowISO()}`, content: b64(content), branch: c.branch };
     if (sha) body.sha = sha;
     const r = await fetch(`${API}/repos/${c.repo}/contents/${c.path}`, { method: 'PUT', headers: { ...headers(c.token), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(`GitHub ${r.status}: ${(await r.json()).message || ''}`);
@@ -102,6 +103,31 @@ export async function fetchAttachment(id, meta = {}) {
 }
 export const canSyncFiles = () => { try { return loggedIn() || !!(get().settings.sync.repo && get().settings.sync.token); } catch { return false; } };
 
+/* ---- 清理云端没用的附件 ---- */
+// 判断「没用」很保守：id 不出现在同步数据的任何地方（包括最近删除）、也不在这台设备的页面历史版本里、
+// 而且上传超过 7 天（别的设备刚传的图，可能它的笔记还没同步过来）
+const KEEP_DAYS = 7;
+export async function findUnusedAttachments() {
+  if (!loggedIn()) throw new Error('登录云端帐号后才能清理');
+  await guarded(smartSync).catch(() => {}); // 先同步一次，用最新的数据判断
+  const r = await fetch('/api/file?list=1', { cache: 'no-store' }); const j = await readRes(r);
+  const doc = JSON.stringify(get());
+  const { kvKeys } = await import('./files.js'); let hist = '';
+  for (const k of await kvKeys('hist:')) hist += JSON.stringify(await kvGet(k) || '');
+  const cutoff = Date.now() - KEEP_DAYS * 86400000;
+  const unused = (j.files || []).filter((f) => f.id && !doc.includes(f.id) && !hist.includes(f.id) && f.created && new Date(f.created).getTime() < cutoff);
+  return { files: unused, bytes: unused.reduce((n, f) => n + (f.size || 0), 0), total: (j.files || []).length };
+}
+export async function deleteAttachments(ids) {
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += 50) {
+    const r = await fetch('/api/file', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: ids.slice(i, i + 50) }) });
+    deleted += (await readRes(r)).deleted || 0;
+  }
+  const { deleteFile } = await import('./files.js'); for (const id of ids) { try { await deleteFile(id); } catch {} }
+  return deleted;
+}
+
 /* ---- operations ---- */
 let busy = false;
 export const status = { busy: false, error: '', last: null, listeners: new Set() };
@@ -133,14 +159,14 @@ async function setBase(doc) {
   const ok = await kvSet(BASE_KEY, copy);
   try { if (ok) localStorage.removeItem(BASE_LS); else localStorage.setItem(BASE_LS, JSON.stringify(copy)); } catch {}
 }
-const keepLocal = (doc) => { const l = get(); return { ...doc, settings: { ...(doc.settings || {}), sync: l.settings.sync, theme: l.settings.theme, seeded: l.settings.seeded, lastSync: new Date().toISOString() } }; };
+const keepLocal = (doc) => { const l = get(); return { ...doc, settings: { ...(doc.settings || {}), sync: l.settings.sync, theme: l.settings.theme, seeded: l.settings.seeded, lastSync: nowISO() } }; };
 
 // force: local overwrites remote
 export async function push() {
   const remote = await pullRemote();
   const sent = exportJSON();
   await transport().push(sent, remote ? remote.sha : undefined);
-  update((d) => { d.settings.lastSync = new Date().toISOString(); });
+  update((d) => { d.settings.lastSync = nowISO(); });
   await setBase(sent);
   pushAttachments().catch(() => {});
 }
@@ -164,7 +190,7 @@ export async function smartSync() {
 async function syncOnce() {
   const remote = await pullRemote();
   const local = get();
-  if (!remote) { const sent = exportJSON(); await transport().push(sent); update((d) => { d.settings.lastSync = new Date().toISOString(); }); await setBase(sent); pushAttachments().catch(() => {}); return 'pushed'; }
+  if (!remote) { const sent = exportJSON(); await transport().push(sent); update((d) => { d.settings.lastSync = nowISO(); }); await setBase(sent); pushAttachments().catch(() => {}); return 'pushed'; }
   const base = await getBase();
   // 这台设备第一次同步（没有 base）：不能拿远端当 base，否则本地没有的东西全被当成「本地删除」，会把远端清掉。
   // 本地只是一份没动过的示例数据 → 直接以远端为准；本地有自己的内容 → 以空 base 合并（只加不删）。
@@ -185,7 +211,7 @@ async function syncOnce() {
   // 不能在 await 之后再取 get()——推送的这几秒里删掉的东西，会被当成「云端新加的」又合并回来
   const sent = exportJSON();
   if (remoteChanged) await transport().push(sent, remote.sha);
-  update((d) => { d.settings.lastSync = new Date().toISOString(); });
+  update((d) => { d.settings.lastSync = nowISO(); });
   await setBase(remoteChanged ? sent : remote.data);
   if (remoteChanged) pushAttachments().then((r) => { if (r.failed) setStatus({ error: `有 ${r.failed} 个附件（图片 / 文件）没传上去，下次同步会再试` }); }).catch(() => {});
   return remoteChanged ? (localChanged ? 'merged' : 'pushed') : (localChanged ? 'pulled' : 'same');
@@ -195,7 +221,7 @@ let again = null; // 正在同步时又来了一次：等这次完了再跑一�
 export async function guarded(fn) {
   if (busy) { again = fn; return; }
   busy = true; setStatus({ busy: true, error: '' });
-  try { const r = await fn(); setStatus({ last: new Date().toISOString() }); return r; } catch (e) { setStatus({ error: e.message }); throw e; } finally { busy = false; setStatus({ busy: false }); if (again) { const f = again; again = null; setTimeout(() => guarded(f).catch(() => {}), 300); } }
+  try { const r = await fn(); setStatus({ last: nowISO() }); return r; } catch (e) { setStatus({ error: e.message }); throw e; } finally { busy = false; setStatus({ busy: false }); if (again) { const f = again; again = null; setTimeout(() => guarded(f).catch(() => {}), 300); } }
 }
 
 /* ---- auto sync when logged in: pull on open, push shortly after edits ---- */

@@ -1,7 +1,7 @@
 // Pomodoro state machine, persisted so it survives reloads. Views subscribe for ticks.
 import { upsert } from './store.js';
 import { markStepDone, insertNext } from './steps.js';
-import { uid, todayStr, minToTime } from './util.js';
+import { uid, todayStr, minToTime, nowISO } from './util.js';
 
 const KEY = 'ytos.pomo';
 const subs = new Set();
@@ -34,7 +34,7 @@ function finish() {
     const mins = Math.max(1, Math.round((end - start) / 60000));
     const pad = (n) => String(n).padStart(2, '0');
     const sid = uid();
-    upsert('sessions', { id: sid, goal: st.goal || '', date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: new Date().toISOString() });
+    upsert('sessions', { id: sid, goal: st.goal || '', date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: nowISO() });
     st.review = { sid, todoId: st.todoId || '', label: st.label || '', goal: st.goal || '', mins }; // 等一个检查点：做到哪了、下一步
     if (st.restoreLen) { st.workLen = st.restoreLen; st.restoreLen = 0; }
     st.count += 1;
@@ -70,7 +70,7 @@ export function setGoal(goal) { st = { ...st, goal }; save(); emit(); }
 // 检查点：这一轮做到哪了、下一步是什么。写进这段专注和对应的待办，下次选同一件事时会带出来
 export function checkpoint({ note = '', next = '', done = false } = {}) {
   const r = st.review; if (!r) return;
-  if (note || next) upsert('sessions', { id: r.sid, note: note.trim(), next: next.trim(), updated: new Date().toISOString() });
+  if (note || next) upsert('sessions', { id: r.sid, note: note.trim(), next: next.trim(), updated: nowISO() });
   // 写的「下一步」变成这件事的一个步骤（插在下一个没做完的前面），不再单独存一份
   if (r.todoId && next.trim() && !done) insertNext(r.todoId, next.trim());
   if (r.todoId) upsert('todos', { id: r.todoId, next: '', ...(note.trim() ? { lastNote: note.trim() } : {}), ...(done ? { done: true, completedAt: todayStr() } : {}) });

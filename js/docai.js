@@ -3,7 +3,7 @@
 import { get, upsert } from './store.js';
 import { aiHeaders, recordUsage } from './ai.js';
 import { blocksToMd, mdToBlocks, textOf } from './blocks.js';
-import { todayStr } from './util.js';
+import { todayStr, nowISO } from './util.js';
 
 const running = new Map(); // blockId -> true，防止重复点
 
@@ -39,7 +39,7 @@ export function fillPending(noteId, pending, blocks) {
     const n = get().notes.find((x) => x.id === noteId); if (!n || !Array.isArray(n.blocks)) return;
     const i = n.blocks.findIndex((b) => b.id === pending.id); if (i < 0) return;
     const next = [...n.blocks]; if (replacement) next.splice(i, 1, ...replacement); else next[i] = { ...next[i], ...patch };
-    upsert('notes', { id: noteId, blocks: next, body: blocksToMd(next), updated: new Date().toISOString() });
+    upsert('notes', { id: noteId, blocks: next, body: blocksToMd(next), updated: nowISO() });
   };
   apply({ status: 'writing', error: '' });
   const note = get().notes.find((x) => x.id === noteId);

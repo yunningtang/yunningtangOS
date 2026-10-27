@@ -2,7 +2,7 @@
 // the document is synced as one file. Each record: { id, name, type, size, blob, created, synced }.
 // When a GitHub sync target is configured the blob is also pushed to assets/<id> in the data repo,
 // and fetched from there on another device the first time it is needed.
-import { uid } from './util.js';
+import { uid, nowISO } from './util.js';
 
 const DB = 'ytos-files', STORE = 'files', KV = 'kv';
 let dbp;
@@ -22,11 +22,13 @@ function tx(mode, fn) {
 export function kvGet(key) { return db().then((d) => new Promise((res) => { const t = d.transaction(KV, 'readonly'); const q = t.objectStore(KV).get(key); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); })).catch(() => undefined); }
 export function kvSet(key, val) { return db().then((d) => new Promise((res) => { const t = d.transaction(KV, 'readwrite'); t.objectStore(KV).put(val, key); t.oncomplete = () => res(true); t.onerror = () => res(false); })).catch(() => false); }
 
+// 列出某个前缀开头的 key（比如所有页面的历史版本 'hist:'）
+export function kvKeys(prefix = '') { return db().then((d) => new Promise((res) => { const t = d.transaction(KV, 'readonly'); const q = t.objectStore(KV).getAllKeys(); q.onsuccess = () => res((q.result || []).filter((k) => typeof k === 'string' && k.startsWith(prefix))); q.onerror = () => res([]); })).catch(() => []); }
 export const fmtSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
 export const isPdf = (f) => f && (f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''));
 
 export async function saveFile(file) {
-  const rec = { id: uid(), name: file.name || 'file', type: file.type || 'application/octet-stream', size: file.size, blob: file, created: new Date().toISOString(), synced: false };
+  const rec = { id: uid(), name: file.name || 'file', type: file.type || 'application/octet-stream', size: file.size, blob: file, created: nowISO(), synced: false };
   await tx('readwrite', (s) => s.put(rec));
   return rec;
 }
@@ -34,7 +36,7 @@ export async function getFile(id) { try { return await tx('readonly', (s) => s.g
 export async function listFiles() { try { return (await tx('readonly', (s) => s.getAll())) || []; } catch { return []; } }
 export async function deleteFile(id) { return tx('readwrite', (s) => s.delete(id)); }
 export async function markSynced(id) { const r = await getFile(id); if (r) { r.synced = true; await tx('readwrite', (s) => s.put(r)); } }
-export async function putRemote(id, name, type, blob) { const rec = { id, name, type, size: blob.size, blob, created: new Date().toISOString(), synced: true }; await tx('readwrite', (s) => s.put(rec)); return rec; }
+export async function putRemote(id, name, type, blob) { const rec = { id, name, type, size: blob.size, blob, created: nowISO(), synced: true }; await tx('readwrite', (s) => s.put(rec)); return rec; }
 
 // object URLs are cached per id so previews don't leak
 const urls = new Map();

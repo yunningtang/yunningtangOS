@@ -3,7 +3,7 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact.js';
 import { get, upsert } from './store.js';
 import { Icon } from './ui.js';
-import { uid } from './util.js';
+import { uid, nowISO } from './util.js';
 import { docAsk } from './docai.js';
 import { mdToBlocks, blocksToMd } from './blocks.js';
 import { toast } from './nav.js';
@@ -12,7 +12,7 @@ import { askConfirm } from './confirm.js';
 
 export const openCounts = (note) => { const m = {}; (note.comments || []).forEach((c) => { if (!c.resolved) m[c.bid] = (m[c.bid] || 0) + 1; }); return m; };
 const me = () => (get().profile && get().profile.name) || '我';
-const now = () => new Date().toISOString();
+const now = () => nowISO();
 function patch(noteId, fn) { const n = get().notes.find((x) => x.id === noteId); if (!n) return; const list = (n.comments || []).map((c) => ({ ...c, replies: [...(c.replies || [])] })); fn(list); upsert('notes', { id: noteId, comments: list, updated: now() }); }
 export function addThread(noteId, bid, quote, body) { const t = { id: uid(), bid, quote: String(quote || '').slice(0, 160), body, by: me(), at: now(), replies: [], resolved: false }; patch(noteId, (l) => l.push(t)); return t.id; }
 export function replyTo(noteId, tid, body, by = me(), ai = false) { patch(noteId, (l) => { const t = l.find((x) => x.id === tid); if (t) t.replies.push({ id: uid(), body, by, at: now(), ai }); }); }

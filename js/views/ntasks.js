@@ -3,7 +3,7 @@ import { html, useState, useMemo } from '../../vendor/preact.js';
 import { update, upsert } from '../store.js';
 import { Icon, Empty, Seg, Btn } from '../ui.js';
 import { textOf, blocksToMd } from '../blocks.js';
-import { uid, todayStr } from '../util.js';
+import { uid, todayStr, nowISO } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
 import { NotesBack } from './notes.js';
@@ -18,7 +18,7 @@ export function toggleNoteTask(noteId, blockId) {
   update((d) => {
     const n = d.notes.find((x) => x.id === noteId); if (!n) return;
     const b = (n.blocks || []).find((x) => x.id === blockId); if (!b) return;
-    b.checked = !b.checked; n.body = blocksToMd(n.blocks); n.updated = new Date().toISOString();
+    b.checked = !b.checked; n.body = blocksToMd(n.blocks); n.updated = nowISO();
   });
 }
 

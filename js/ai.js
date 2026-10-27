@@ -1,6 +1,6 @@
 // 汤圆的本机 AI 设置和用量统计。
 // 密钥只存在这台浏览器的 localStorage（ytos.ai），不进同步文档、不进导出备份；每次请求放在请求头里发给自己的 /api/agent。
-import { lsGet, lsSet } from './util.js';
+import { lsGet, lsSet, nowISO } from './util.js';
 
 const CFG_KEY = 'ytos.ai', USE_KEY = 'ytos.ai.usage';
 const read = (k, d) => { try { return JSON.parse(lsGet(k, 'null')) || d; } catch { return d; } };
@@ -44,7 +44,7 @@ export function aiOptions(login) {
 }
 
 /* ---- 用量：按月累计，本机 ---- */
-const month = () => new Date().toISOString().slice(0, 7);
+const month = () => nowISO().slice(0, 7);
 export function recordUsage(resp) {
   if (!resp || !resp.usage) return;
   const u = read(USE_KEY, {}); const m = month();

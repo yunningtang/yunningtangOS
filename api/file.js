@@ -1,6 +1,8 @@
 // Attachments in the data repo: assets/<id> next to the data file.
 // GET  ?id=...            -> { name, type, content (base64) }
+// GET  ?list=1            -> { files: [{ id, size, created }] }   列出云端的全部附件（清理没用的附件时用）
 // PUT  { id, name, type, content (base64) }  -> writes / updates the file as a commit
+// DELETE { ids: [...] }   -> { deleted }                            删掉这些附件（最多 200 个）
 import { session, json, gh, dataTarget, readJson, resolveBranch } from './_lib.js';
 import { sb, accessToken, errMsg } from './_cloud.js';
 
@@ -8,6 +10,24 @@ import { sb, accessToken, errMsg } from './_cloud.js';
 async function cloud(req, res, s) {
   let tok; try { tok = await accessToken(s, res); } catch (e) { return json(res, 401, { error: e.message }); }
   const url = new URL(req.url, 'http://x');
+  if (req.method === 'GET' && url.searchParams.get('list')) {
+    const files = [];
+    for (let offset = 0; offset < 20000; offset += 1000) {
+      const r = await sb('/storage/v1/object/list/attachments', { as: tok, method: 'POST', body: { prefix: s.uid + '/', limit: 1000, offset, sortBy: { column: 'name', order: 'asc' } } });
+      if (!r.ok) return json(res, 502, { error: errMsg(r) });
+      const rows = Array.isArray(r.data) ? r.data : [];
+      rows.forEach((x) => { if (x && x.name && x.id) files.push({ id: x.name, size: (x.metadata && x.metadata.size) || 0, created: x.created_at || '' }); });
+      if (rows.length < 1000) break;
+    }
+    return json(res, 200, { files });
+  }
+  if (req.method === 'DELETE') {
+    const body = await readJson(req); const ids = (body && Array.isArray(body.ids) ? body.ids : []).map((x) => String(x).replace(/[^\w-]/g, '')).filter(Boolean).slice(0, 200);
+    if (!ids.length) return json(res, 400, { error: 'ids required' });
+    const r = await sb('/storage/v1/object/attachments', { as: tok, method: 'DELETE', body: { prefixes: ids.map((id) => `${s.uid}/${id}`) } });
+    if (!r.ok) return json(res, 502, { error: errMsg(r) });
+    return json(res, 200, { deleted: Array.isArray(r.data) ? r.data.length : ids.length });
+  }
   if (req.method === 'GET') {
     const id = (url.searchParams.get('id') || '').replace(/[^\w-]/g, ''); if (!id) return json(res, 400, { error: 'id required' });
     const r = await sb(`/storage/v1/object/authenticated/attachments/${s.uid}/${id}`, { as: tok, raw: true });
@@ -36,6 +56,23 @@ export default async function handler(req, res) {
   const branch = await resolveBranch(s.t, repo, wanted);
   const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) + '/assets' : 'assets';
   const url = new URL(req.url, 'http://x');
+  if (req.method === 'GET' && url.searchParams.get('list')) {
+    const r = await gh(s.t, `/repos/${repo}/contents/${dir}?ref=${encodeURIComponent(branch)}`);
+    if (r.status === 404) return json(res, 200, { files: [] });
+    if (!r.ok || !Array.isArray(r.body)) return json(res, r.status || 502, { error: r.body?.message || 'github error' });
+    return json(res, 200, { files: r.body.filter((x) => x.type === 'file').map((x) => ({ id: x.name, size: x.size || 0, created: '', sha: x.sha })) });
+  }
+  if (req.method === 'DELETE') {
+    const body = await readJson(req); const ids = (body && Array.isArray(body.ids) ? body.ids : []).map((x) => String(x).replace(/[^\w-]/g, '')).filter(Boolean).slice(0, 50);
+    if (!ids.length) return json(res, 400, { error: 'ids required' });
+    let deleted = 0;
+    for (const id of ids) {
+      const f = `/repos/${repo}/contents/${dir}/${id}`; const cur = await gh(s.t, `${f}?ref=${encodeURIComponent(branch)}`); if (!cur.ok || !cur.body || !cur.body.sha) continue;
+      const r = await gh(s.t, f, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `os: remove unused attachment ${id}`, sha: cur.body.sha, branch }) });
+      if (r.ok) deleted++;
+    }
+    return json(res, 200, { deleted });
+  }
   if (req.method === 'GET') {
     const id = (url.searchParams.get('id') || '').replace(/[^\w-]/g, '');
     if (!id) return json(res, 400, { error: 'id required' });

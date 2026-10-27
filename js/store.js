@@ -1,7 +1,7 @@
 // Single-document state. Everything lives in one object persisted to localStorage;
 // views subscribe through useStore() and mutate through update().
 import { useEffect, useReducer } from '../vendor/preact.js';
-import { debounce, todayStr } from './util.js';
+import { debounce, todayStr, nowISO } from './util.js';
 import { mdToBlocks, sanitizeBlocks, sanitize } from './blocks.js';
 import { merge3 } from './merge.js';
 
@@ -55,7 +55,7 @@ function migrate(s) {
   out.sessions = out.sessions || [];
   // pomodoro records used to be timeline blocks (pomo: true); move them into sessions
   const moved = (out.blocks || []).filter((b) => b.pomo || (b.kind === 'focus' && typeof b.note === 'string' && b.note.startsWith('todo:')));
-  if (moved.length) { moved.forEach((b) => { if (!out.sessions.some((x) => x.id === b.id)) out.sessions.push({ id: b.id, date: b.date, start: b.start, end: b.end, mins: Math.max(1, toMin(b.end) - toMin(b.start)), title: b.title || '专注', todo: (b.note || '').startsWith('todo:') ? b.note.slice(5) : '', note: '', updated: new Date().toISOString() }); }); out.blocks = out.blocks.filter((b) => !b.pomo); }
+  if (moved.length) { moved.forEach((b) => { if (!out.sessions.some((x) => x.id === b.id)) out.sessions.push({ id: b.id, date: b.date, start: b.start, end: b.end, mins: Math.max(1, toMin(b.end) - toMin(b.start)), title: b.title || '专注', todo: (b.note || '').startsWith('todo:') ? b.note.slice(5) : '', note: '', updated: nowISO() }); }); out.blocks = out.blocks.filter((b) => !b.pomo); }
   out.canvases = (out.canvases || []).map((c) => { const x = { nodes: [], edges: [], strokes: [], ...c }; x.nodes = (Array.isArray(x.nodes) ? x.nodes : []).filter((n) => n && typeof n === 'object').map((n) => (typeof n.html === 'string' && /[<&]/.test(n.html) ? { ...n, html: sanitize(n.html) } : n)); x.edges = Array.isArray(x.edges) ? x.edges : []; x.strokes = (Array.isArray(x.strokes) ? x.strokes : []).filter((st) => st && Array.isArray(st.pts)); return x; });
   out.trash = out.trash.map((n) => (Array.isArray(n.blocks) ? { ...n, blocks: sanitizeBlocks(n.blocks), tags: Array.isArray(n.tags) ? n.tags : [] } : n));
   // 拆解出来的步骤以前写在待办的关联页面里；现在挂在待办自己身上（t.steps），页面里的那段搬过来
@@ -125,7 +125,7 @@ export let persistError = '';
 const TOMB_LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions'];
 function tombDiff(prev, next) {
   if (!prev || !next || prev === next) return next;
-  const now = new Date().toISOString(); let tombs = null;
+  const now = nowISO(); let tombs = null;
   for (const k of TOMB_LISTS) {
     const a = prev[k], b = next[k]; if (a === b || !Array.isArray(a) || !Array.isArray(b)) continue;
     const before = new Set(a.map((x) => x && x.id).filter(Boolean)), after = new Set(b.map((x) => x && x.id).filter(Boolean));
@@ -193,7 +193,7 @@ export function update(fn) {
   const draft = structuredClone(state);
   const r = fn(draft);
   state = tombDiff(prev, r === undefined ? draft : r);
-  state.updatedAt = new Date().toISOString();
+  state.updatedAt = nowISO();
   persist();
   subs.forEach((f) => f());
 }
@@ -202,7 +202,7 @@ export function replace(next) {
   const keepToken = state && state.settings && state.settings.sync && state.settings.sync.token;
   state = migrate(next);
   if (keepToken && !(state.settings.sync && state.settings.sync.token)) state.settings.sync.token = keepToken;
-  state.updatedAt = new Date().toISOString();
+  state.updatedAt = nowISO();
   persist();
   subs.forEach((f) => f());
 }
@@ -230,7 +230,7 @@ export function listOf(s, name) {
 
 // Hot paths avoid cloning the whole document: only the touched collection is copied.
 function commit(next) {
-  state = { ...tombDiff(state, next), updatedAt: new Date().toISOString() };
+  state = { ...tombDiff(state, next), updatedAt: nowISO() };
   persist();
   subs.forEach((f) => f());
 }
@@ -239,7 +239,7 @@ export function upsert(name, item) {
   const list = state[name];
   const i = list.findIndex((x) => x.id === item.id);
   // 改了才盖时间戳：同步合并冲突时「谁更新谁赢」要靠它
-  const stamp = new Date().toISOString();
+  const stamp = nowISO();
   const next = i >= 0 ? list.map((x, j) => { if (j !== i) return x; const merged = { ...x, ...item }; return JSON.stringify(merged) === JSON.stringify(x) ? x : { ...merged, updated: item.updated || stamp }; }) : [{ updated: stamp, ...item }, ...list];
   commit({ ...state, [name]: next });
 }
@@ -270,12 +270,12 @@ export function renameTag(from, to) {
   const a = String(from).trim(), b = String(to).trim().replace(/^#/, '');
   if (!a || !b || a === b) return 0;
   let n = 0;
-  update((d) => { for (const k of TAGGED) for (const it of d[k] || []) if (Array.isArray(it.tags) && it.tags.includes(a)) { it.tags = [...new Set(it.tags.map((t) => (t === a ? b : t)))]; it.updated = new Date().toISOString(); n++; } });
+  update((d) => { for (const k of TAGGED) for (const it of d[k] || []) if (Array.isArray(it.tags) && it.tags.includes(a)) { it.tags = [...new Set(it.tags.map((t) => (t === a ? b : t)))]; it.updated = nowISO(); n++; } });
   return n;
 }
 export function removeTag(name) {
   const a = String(name).trim(); let n = 0;
-  update((d) => { for (const k of TAGGED) for (const it of d[k] || []) if (Array.isArray(it.tags) && it.tags.includes(a)) { it.tags = it.tags.filter((t) => t !== a); it.updated = new Date().toISOString(); n++; } });
+  update((d) => { for (const k of TAGGED) for (const it of d[k] || []) if (Array.isArray(it.tags) && it.tags.includes(a)) { it.tags = it.tags.filter((t) => t !== a); it.updated = nowISO(); n++; } });
   return n;
 }
 export function countTag(name) {

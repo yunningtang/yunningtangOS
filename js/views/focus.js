@@ -2,7 +2,7 @@ import { html, useState, useEffect, useMemo, useRef } from '../../vendor/preact.
 import { useStore, update, upsert, toggleTodo, removeUndo, get } from '../store.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
-import { uid, lsGet, lsSet } from '../util.js';
+import { uid, lsGet, lsSet, nowISO } from '../util.js';
 
 
 import { Icon, Card, Btn, Seg, Empty, Tag, Select } from '../ui.js';
@@ -43,8 +43,8 @@ export default function Focus({ route }) {
   useEffect(() => { document.title = st.phase === 'idle' ? '专注 · yunningtang OS' : `${pomo.fmt(rem)} · ${st.phase === 'break' ? '休息' : st.label || '专注'}`; return () => { document.title = 'yunningtang OS'; }; }, [rem, st.phase]);
   const focusedOn = useMemo(() => { const m = new Map(); sessions.forEach((b) => { if (b.todo) m.set(b.todo, (m.get(b.todo) || 0) + (b.mins || 0)); }); return m; }, [sessions]);
   const sessMenu = (e, b) => ctxMenu(e, [
-    { label: b.note ? '编辑备注' : '添加备注', icon: 'edit', onClick: async () => { const v = await askPrompt('这一段做了什么、感觉如何？', b.note || '', { title: '备注' }); if (v != null) upsert('sessions', { id: b.id, note: v.trim(), updated: new Date().toISOString() }); } },
-    { label: '改名', icon: 'tag', onClick: async () => { const v = await askPrompt('名称', b.title || '', { title: '这一段专注' }); if (v != null && v.trim()) upsert('sessions', { id: b.id, title: v.trim(), updated: new Date().toISOString() }); } },
+    { label: b.note ? '编辑备注' : '添加备注', icon: 'edit', onClick: async () => { const v = await askPrompt('这一段做了什么、感觉如何？', b.note || '', { title: '备注' }); if (v != null) upsert('sessions', { id: b.id, note: v.trim(), updated: nowISO() }); } },
+    { label: '改名', icon: 'tag', onClick: async () => { const v = await askPrompt('名称', b.title || '', { title: '这一段专注' }); if (v != null && v.trim()) upsert('sessions', { id: b.id, title: v.trim(), updated: nowISO() }); } },
     'sep',
     { label: '删除这一段', icon: 'trash', danger: true, onClick: () => removeUndo('sessions', b.id, b.title || '专注') },
   ], `${b.start}–${b.end}`);

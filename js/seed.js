@@ -1,13 +1,13 @@
 // Sample content so the OS doesn't open empty. Everything here can be cleared in Settings.
 import { get, replace, loadError } from './store.js';
-import { uid, todayStr, addDays, monthKey, weekKey, weekStart, weekDays } from './util.js';
+import { uid, todayStr, addDays, monthKey, weekKey, weekStart, weekDays, nowISO } from './util.js';
 
 // 只生成示例文档，不写入（同步时用来判断「这台设备是不是只有一份没动过的示例数据」）
 export function seedDoc(base) {
   const s = structuredClone(base || get());
   const t = todayStr();
   const ws = weekStart(t), wd = weekDays(ws), wk = weekKey(t), mk = monthKey();
-  const now = new Date().toISOString();
+  const now = nowISO();
 
   s.todos = [
     { id: uid(), title: '整理这周读的三篇论文笔记', done: false, priority: 1, due: t, time: '10:00', tags: ['研究'], area: '学习', note: '', created: t },

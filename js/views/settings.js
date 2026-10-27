@@ -3,7 +3,8 @@ import { useStore, update, replace, exportJSON, blank } from '../store.js';
 import { WIDGETS, normLayout, toggleWidget } from '../widgets.js';
 import { Icon, Btn, Card, Field, Seg, confirmDel } from '../ui.js';
 import { download, readFile, todayStr, pickFile, imageToSquare } from '../util.js';
-import { push, pull, smartSync, guarded, loginState, detectLogin, status as syncStatus } from '../sync.js';
+import { push, pull, smartSync, guarded, loginState, detectLogin, status as syncStatus, findUnusedAttachments, deleteAttachments } from '../sync.js';
+import { fmtSize } from '../files.js';
 import { seed } from '../seed.js';
 import { toast } from '../nav.js';
 import { askConfirm, askPrompt } from '../confirm.js';
@@ -197,6 +198,16 @@ export default function Settings() {
 
   const connected = !!(login && login.user);
   const cloudUser = connected && login.cloud && login.user.email;
+  const cleanFiles = async () => {
+    setBusy(true);
+    try {
+      const r = await findUnusedAttachments();
+      if (!r.files.length) { toast(`云端 ${r.total} 个附件都还在用`); return; }
+      if (!(await askConfirm(`有 ${r.files.length} 个附件（${fmtSize(r.bytes)}）已经没有笔记在用了。删掉后这些图片和文件就找不回来了。`, { title: '清理没用的附件？', ok: '删除' }))) return;
+      const n = await deleteAttachments(r.files.map((f) => f.id));
+      toast(`清理了 ${n} 个附件`);
+    } catch (x) { toast(x.message || '清理失败'); } finally { setBusy(false); }
+  };
   const tokenMode = !connected && !(login && login.configured) && !!(s.settings.sync.repo && s.settings.sync.token);
   const synced = s.settings.lastSync ? new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   const name = s.profile.name || (connected ? login.user.login : '') || '未命名';
@@ -305,6 +316,7 @@ export default function Settings() {
       ${(connected || tokenMode) && html`<${Group} title="手动同步">
         <${Row} icon="upload" label="本机覆盖云端"><button class="sx-btn" disabled=${busy} onClick=${() => run(push, '已用本机数据覆盖云端')}>覆盖</button><//>
         <${Row} icon="download" label="云端覆盖本机"><button class="sx-btn" disabled=${busy} onClick=${async () => { if (await askConfirm('本机还没同步上去的改动会丢失。', { title: '用云端数据覆盖本机？', ok: '覆盖本机' })) run(pull, '已用云端数据覆盖本机'); }}>覆盖</button><//>
+        ${cloudUser && html`<${Row} icon="trash" label="清理没用的附件" hint="云端里已经没有笔记在用、超过 7 天的图片和文件"><button class="sx-btn" disabled=${busy} onClick=${cleanFiles}>检查</button><//>`}
       <//>`}
       <${Group} title="危险操作">
         <${Row} icon="note" label="清空笔记" hint="30 天内可在最近删除里恢复"><button class="sx-btn danger" disabled=${!s.notes.length} onClick=${async () => { const n = s.notes.length; if (await askConfirm(`${n} 页会移到「最近删除」，30 天内可以恢复。`, { title: '清空所有笔记？', ok: '清空笔记' })) { trashPages(s.notes.map((x) => x.id)); toast(`清了 ${n} 页`); } }}>清空</button><//>

@@ -2,6 +2,15 @@
 
 export const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } };
 export const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+// 「什么时候改的」用的时间：设备时钟和云端服务器差了 2 分钟以上，就按服务器的时间算，
+// 免得时间不准的那台设备在两边合并时总是赢（或总是输）。偏差在每次和云端同步时更新
+let clockOff = 0; try { clockOff = Number(localStorage.getItem('ytos.clock')) || 0; } catch {}
+export const nowISO = () => new Date(Date.now() + clockOff).toISOString();
+export function syncClock(serverMs) {
+  if (!serverMs || Number.isNaN(serverMs)) return;
+  const off = serverMs - Date.now(); clockOff = Math.abs(off) > 120000 ? Math.round(off) : 0;
+  try { if (clockOff) localStorage.setItem('ytos.clock', String(clockOff)); else localStorage.removeItem('ytos.clock'); } catch {}
+}
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 export const pad = (n) => String(n).padStart(2, '0');

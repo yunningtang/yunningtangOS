@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select, colorSub } from '../ui.js';
-import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet, KIND_COLOR_NAMES } from '../util.js';
+import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet, KIND_COLOR_NAMES, nowISO } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
@@ -11,7 +11,7 @@ import { dragProps, dropProps } from '../dnd.js';
 import { stepsOf, toggleStep } from '../steps.js';
 
 function kindMenu(e, k) {
-  const save = (fn) => update((d) => { const it = (d.settings.kinds || []).find((x) => x.v === k.v); if (it) { fn(it); it.updated = new Date().toISOString(); } });
+  const save = (fn) => update((d) => { const it = (d.settings.kinds || []).find((x) => x.v === k.v); if (it) { fn(it); it.updated = nowISO(); } });
   ctxMenu(e, [
     { label: '重命名', icon: 'edit', onClick: async () => { const v = await askPrompt('类型名称', k.name, { title: '重命名类型' }); if (v && v.trim()) save((it) => { it.name = v.trim(); }); } },
     { label: '换颜色', icon: 'tag', sub: colorSub(k.color, KIND_COLORS, KIND_COLOR_NAMES, (c) => save((it) => { it.color = c; })) },
@@ -98,7 +98,7 @@ export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
         <${Field} label="开始"><${TimeInput} value=${f.start} clearable=${false} onChange=${(v) => set('start', v)} /><//>
         <${Field} label="结束"><${TimeInput} value=${f.end} clearable=${false} onChange=${(v) => set('end', v)} /><//>
       </div>
-      <${Field} label="类型" hint="右键自定义类型可改名、换色或删除"><div class="kind-pick">${allKinds().map((k) => html`<button type="button" key=${k.v} style=${`--kc:${k.color}`} class=${f.kind === k.v ? 'on' : ''} onClick=${() => set('kind', k.v)} onContextMenu=${(e) => k.custom && kindMenu(e, k)}><i></i>${k.name}</button>`)}<button type="button" class="kind-add" title="新建类型" onClick=${async () => { const name = await askPrompt('类型名称', '', { title: '新建类型', placeholder: '比如：阅读 / 会议 / 冥想' }); if (!name || !name.trim()) return; const used = new Set(allKinds().map((k) => k.color)); const color = KIND_COLORS.find((c) => !used.has(c)) || KIND_COLORS[allKinds().length % KIND_COLORS.length]; const k = { v: 'k-' + uid(), name: name.trim(), color, custom: true, updated: new Date().toISOString() }; update((d) => { d.settings.kinds = [...(d.settings.kinds || []), k]; }); set('kind', k.v); }}>＋ 自定义</button></div><//>
+      <${Field} label="类型" hint="右键自定义类型可改名、换色或删除"><div class="kind-pick">${allKinds().map((k) => html`<button type="button" key=${k.v} style=${`--kc:${k.color}`} class=${f.kind === k.v ? 'on' : ''} onClick=${() => set('kind', k.v)} onContextMenu=${(e) => k.custom && kindMenu(e, k)}><i></i>${k.name}</button>`)}<button type="button" class="kind-add" title="新建类型" onClick=${async () => { const name = await askPrompt('类型名称', '', { title: '新建类型', placeholder: '比如：阅读 / 会议 / 冥想' }); if (!name || !name.trim()) return; const used = new Set(allKinds().map((k) => k.color)); const color = KIND_COLORS.find((c) => !used.has(c)) || KIND_COLORS[allKinds().length % KIND_COLORS.length]; const k = { v: 'k-' + uid(), name: name.trim(), color, custom: true, updated: nowISO() }; update((d) => { d.settings.kinds = [...(d.settings.kinds || []), k]; }); set('kind', k.v); }}>＋ 自定义</button></div><//>
       <${Field} label="备注"><textarea rows="2" value=${f.note} onInput=${(e) => set('note', e.target.value)}></textarea><//>
     </div>
   <//>`;

@@ -3,7 +3,7 @@
 import { html, useState, useEffect, useRef, useMemo } from '../../vendor/preact.js';
 import { useStore, upsert, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Empty, Modal, Seg } from '../ui.js';
-import { uid, todayStr, sortBy, escapeHtml as esc } from '../util.js';
+import { uid, todayStr, sortBy, escapeHtml as esc, nowISO } from '../util.js';
 import { go, toast } from '../nav.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt, askConfirm } from '../confirm.js';
@@ -14,7 +14,7 @@ import { SelToolbar, inlineShortcut } from '../editor.js';
 
 const NODE_COLORS = [['', '默认'], ['#4f7cf5', '蓝'], ['#2d8f88', '青'], ['#4a9a6a', '绿'], ['#c7873a', '琥珀'], ['#c9588a', '玫红'], ['#7461c9', '紫'], ['#d2524f', '红']];
 const PEN_COLORS = ['#1b1d21', '#4f7cf5', '#d2524f', '#4a9a6a', '#c7873a', '#7461c9'];
-const now = () => new Date().toISOString();
+const now = () => nowISO();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export function newCanvas(title = '') { const c = { id: uid(), title, nodes: [], edges: [], strokes: [], created: todayStr(), updated: now() }; upsert('canvases', c); return c; }
