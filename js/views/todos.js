@@ -184,7 +184,7 @@ export function StepList({ t, autoAdd = false, hideCat = null }) {
       ${!x.done && html`<button class="st-go" title="开始这一步（番茄钟）" onClick=${() => startStep(t, x)}><${Icon} name="play" size=${10} /></button>`}
       <button class="st-x" title="删除这一步" onClick=${() => removeStep(t.id, x.id)}><${Icon} name="x" size=${10} /></button>
     </li>`)}
-    ${adding ? html`<li class="step new"><input class="st-in" autofocus value=${v} placeholder="再加一步，可以带时长：买菜 45分 · 回车保存，Esc 退出" onInput=${(e) => setV(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setV(''); setAdding(false); } }} onBlur=${() => { if (v.trim()) add(); else setAdding(false); }} /></li>`
+    ${adding ? html`<li class="step new"><input class="st-in" autofocus ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => el.focus(), 0); } }} onClick=${(e) => e.stopPropagation()} value=${v} placeholder="再加一步，可以带时长：买菜 45分 · 回车保存，Esc 退出" onInput=${(e) => setV(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setV(''); setAdding(false); } }} onBlur=${() => { if (v.trim()) add(); else setAdding(false); }} /></li>`
       : html`<li class="step new"><button onClick=${() => setAdding(true)}><${Icon} name="plus" size=${10} /> 加一步</button></li>`}
   </ul>`;
 }
@@ -206,6 +206,40 @@ export const nestProps = (t) => (t.done ? {} : {
   onDrop: (e) => { const el = e.currentTarget; const on = el.classList.contains('nest-over'); el.classList.remove('nest-over'); const p = dragNow(); if (!on || !p || p.type !== 'todo' || p.data.id === t.id) return; e.preventDefault(); e.stopPropagation(); nestTodo(p.data.id, t.id); },
 });
 
+// 下一步：第一个没做完的步骤，一行：勾选框（直接勾掉，下一步自动顶上来）+ 是什么 + 多久 + ▶ 开始 + 「1/8」点开看全部。列表和看板共用
+export function NextLine({ t, open, onToggle }) {
+  const ns = !t.done && nextStep(t); if (!ns) return null; const sp = stepsProgress(t);
+  const startStep = (e) => { e.stopPropagation(); pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title} · ${clampMin(ns.minutes)} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
+  const tog = (e) => { e.stopPropagation(); onToggle && onToggle(); };
+  return html`<div class="nxt" onClick=${(e) => e.stopPropagation()}>
+    <button type="button" class="nxt-cb" title="这一步做完了" aria-label="完成这一步" onClick=${(e) => { e.stopPropagation(); toggleStep(t.id, ns.id); }}><${Icon} name="check" size=${9} /></button>
+    <span class="nxt-t" title=${open ? '收起步骤' : '展开全部步骤'} onClick=${tog}>${ns.title}</span>
+    <span class="nxt-m">${clampMin(ns.minutes)} 分</span>
+    <button type="button" class="nxt-go" title=${`开始这一步 · ${clampMin(ns.minutes)} 分钟`} onClick=${startStep}><${Icon} name="play" size=${10} /></button>
+    <button type="button" class=${'nxt-all ' + (open ? 'open' : '')} title=${open ? '收起步骤' : '展开全部步骤'} onClick=${tog}>${sp.done}/${sp.total}<${Icon} name=${open ? 'up' : 'down'} size=${9} /></button>
+  </div>`;
+}
+
+// 看板卡片：标题 + 时间标签；有步骤的显示下一步那一行；右上角的小箭头展开全部步骤和备注，都在卡片里改，不用打开弹窗
+function BoardCard({ t, p, onEdit }) {
+  const [open, setOpen] = useState(false);
+  const sp = stepsProgress(t); const ls = lateState(t); const canOpen = !t.done && (sp.total > 0 || t.note);
+  return html`<div class=${'bcard p' + t.priority + ' ' + (t.done ? 'done ' : '') + (open ? 'open' : '')} style=${`--pc:${p.color}`} ...${dragProps('todo', { id: t.id })} ...${nestProps(t)} onClick=${() => onEdit(t)} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)}>
+    <button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button>
+    <div class="flex1 bc-body">
+      <div class="bt">${t.title}</div>
+      <span class="meta">${ls && html`<button class=${'bl ' + ls} title="推迟到…" onClick=${(e) => { e.stopPropagation(); postponeMenu(e, t); }}>${ls === 'late' ? '逾期' : '已过'} · 推迟</button>`}${t.due ? html`<b class="bd">${relDay(t.due)}${t.time ? ' ' + t.time : ''}</b>` : ''}${t.area ? html`<i>${t.area}</i>` : ''}${t.tags.map((x) => html`<i>#${x}</i>`)}${(t.done || !nextStep(t)) && sp.total > 0 && html`<i class=${'bs ' + (sp.done === sp.total ? 'all' : '')}>${sp.done}/${sp.total} 步</i>`}</span>
+      ${!open && html`<${NextLine} t=${t} open=${open} onToggle=${() => setOpen(true)} />`}
+      ${open && html`<div class="bc-more" onClick=${(e) => e.stopPropagation()}>
+        ${t.note && html`<p class="bc-note">${t.note}</p>`}
+        <${StepList} t=${t} autoAdd=${sp.total === 0} />
+      </div>`}
+    </div>
+    ${canOpen || open ? html`<button type="button" class=${'bc-tg ' + (open ? 'on' : '')} title=${open ? '收起' : '展开步骤和备注'} onClick=${(e) => { e.stopPropagation(); setOpen(!open); }}><${Icon} name=${open ? 'up' : 'down'} size=${12} /></button>`
+      : !t.done && html`<button type="button" class="bc-tg add" title="加步骤" onClick=${(e) => { e.stopPropagation(); setOpen(true); }}><${Icon} name="plus" size=${12} /></button>`}
+  </div>`;
+}
+
 export function TodoItem({ t, onEdit, compact }) {
   const p = PRIORITY[t.priority] || PRIORITY[2];
   const now = useClock();
@@ -217,16 +251,8 @@ export function TodoItem({ t, onEdit, compact }) {
   const [showSteps, setShowSteps] = useState(false); // 默认收起：「下一步」那一行已经说了最要紧的，点它再展开全部步骤
   const [forceAdd, setForceAdd] = useState(false); // 右键「添加步骤」：展开并直接给输入框
   useEffect(() => { const h = (e) => { if (e.detail === t.id) { setShowSteps(true); setForceAdd(true); } }; window.addEventListener('todo:addstep', h); return () => window.removeEventListener('todo:addstep', h); }, [t.id]);
-  // 下一步：第一个没做完的步骤，一行：勾选框（直接勾掉，下一步自动顶上来）+ 是什么 + 多久 + ▶ 开始 + 「1/8」点开看全部
   const ns = !t.done && nextStep(t);
-  const startStep = (e) => { e.stopPropagation(); pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title} · ${clampMin(ns.minutes)} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
-  const nxt = ns && html`<div class="nxt">
-    <button type="button" class="nxt-cb" title="这一步做完了" aria-label="完成这一步" onClick=${(e) => { e.stopPropagation(); toggleStep(t.id, ns.id); }}><${Icon} name="check" size=${9} /></button>
-    <span class="nxt-t" title=${showSteps ? '收起步骤' : '展开全部步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}>${ns.title}</span>
-    <span class="nxt-m">${clampMin(ns.minutes)} 分</span>
-    <button type="button" class="nxt-go" title=${`开始这一步 · ${clampMin(ns.minutes)} 分钟`} onClick=${startStep}><${Icon} name="play" size=${10} /></button>
-    <button type="button" class=${'nxt-all ' + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开全部步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}>${sp.done}/${sp.total}<${Icon} name=${showSteps ? 'up' : 'down'} size=${9} /></button>
-  </div>`;
+  const nxt = ns && html`<${NextLine} t=${t} open=${showSteps} onToggle=${() => setShowSteps(!showSteps)} />`;
   const chip = sp.total > 0 && html`<button class=${'steps ' + (sp.done === sp.total ? 'all ' : '') + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}><${Icon} name="list" size=${10} /> ${sp.done}/${sp.total} 步 <${Icon} name=${showSteps ? 'up' : 'down'} size=${9} /></button>`;
   return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done ' : '') + (showSteps && sp.total ? 'has-steps' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })} ...${nestProps(t)}>
     <button class="cb" title=${`${p.label} ${p.name}`} onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
@@ -326,7 +352,7 @@ export default function Todos({ route }) {
       <div class="board-cols">${PRIORITY.map((p) => { const list = sortBy(todos.filter((t) => t.priority === p.v), 'done', 'due', 'time'); return html`<div class="bcol" key=${p.v} style=${`--pc:${p.color}`} ...${dropProps('todo', (d) => upsert('todos', { id: d.id, priority: p.v }))}>
         <div class="bh"><b class="bh-p">${p.label}</b>${p.name}<span>${list.length}</span></div>
         ${list.length === 0 && html`<div class="bcol-none">没有${p.name}的事</div>`}
-        ${list.map((t) => html`<div class=${'bcard p' + t.priority + ' ' + (t.done ? 'done' : '')} key=${t.id} style=${`--pc:${p.color}`} ...${dragProps('todo', { id: t.id })} ...${nestProps(t)} onClick=${() => { setEditing(t); setModal(true); }} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, (x) => { setEditing(x); setModal(true); }), t.title)}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div class="bt">${t.title}</div><span class="meta">${lateState(t) && html`<button class=${'bl ' + lateState(t)} title="推迟到…" onClick=${(e) => { e.stopPropagation(); postponeMenu(e, t); }}>${lateState(t) === 'late' ? '逾期' : '已过'} · 推迟</button>`}${t.due ? html`<b class="bd">${relDay(t.due)}${t.time ? ' ' + t.time : ''}</b>` : ''}${t.area ? html`<i>${t.area}</i>` : ''}${t.tags.map((x) => html`<i>#${x}</i>`)}${stepsProgress(t).total > 0 && html`<i class=${'bs ' + (stepsProgress(t).done === stepsProgress(t).total ? 'all' : '')}>${stepsProgress(t).done}/${stepsProgress(t).total} 步</i>`}</span></div></div>`)}
+        ${list.map((t) => html`<${BoardCard} key=${t.id} t=${t} p=${p} onEdit=${(x) => { setEditing(x); setModal(true); }} />`)}
         <button class="pt-row flat new" style="min-height:26px;font-size:.76rem" onClick=${() => { setEditing({ id: uid(), title: '', done: false, priority: p.v, due: '', time: '', tags: [], area: '', note: '', created: today, _new: true }); setModal(true); }}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">添加</span></button>
       </div>`; })}</div>`
     : html`<${Card}>
