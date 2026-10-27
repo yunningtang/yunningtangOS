@@ -3468,3 +3468,14 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
   .br-rv-bar .btn{margin-left:auto}
   .br-in-t{flex-basis:100%}
 }
+/* 3D 脑模型 */
+.b3{position:relative;width:100%;aspect-ratio:10/8;touch-action:pan-y}
+.b3-cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+.b3-cv:active{cursor:grabbing}
+.b3-ov{position:absolute;inset:0;pointer-events:none}
+.b3-badge{position:absolute;left:0;top:0;min-width:22px;height:22px;padding:0 6px;border-radius:999px;border:1.5px solid var(--c);background:var(--card-bg,#fff);color:var(--c);font-size:.75rem;font-weight:700;display:none;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;box-shadow:0 2px 8px -2px rgba(0,0,0,.18);transition:opacity .25s,background .2s,color .2s}
+.b3-badge.show{display:flex}
+.b3-badge.on{background:var(--c);color:#fff;border-color:#fff}
+.b3-badge.dim{opacity:.25!important}
+.b3-hint{position:absolute;right:8px;bottom:4px;font-size:.7rem;color:var(--text-4);pointer-events:none}
+.b3.drop-over{outline:none}

@@ -9,6 +9,7 @@ import { ctxMenu } from '../ctx.js';
 import { go, toast } from '../nav.js';
 import { aiEnabled } from '../ai.js';
 import { loginState } from '../sync.js';
+import { createBrain3D } from '../brain3d.js';
 import { REGIONS, THALAMUS, regionOf, brainOf, alsoOf, flowOf, moveTo, regionItems, aiSort, progress, MOODS, saveReview, pushOpenTo } from '../brain.js';
 
 // 脑图：一个侧面的大脑（额头朝左）。每块脑区是一条路径，大脑轮廓裁出来；小脑和杏仁核单独画
@@ -52,6 +53,26 @@ function BrainMap({ count, sel, pick, fx, hover, setHover, focus }) {
     ${links}
     ${REGIONS.map((r) => { const n = count[r.id]; const [x, y] = SHAPES[r.id].at; const show = n || (focus && inFocus(r.id)); return show ? html`<g key=${'b' + r.id} class=${'brs-badge ' + (sel === r.id ? 'on ' : '') + (focus && !inFocus(r.id) ? 'dim' : '')} style=${`--c:${r.color}`} onClick=${() => pick(r.id)}><circle cx=${x} cy=${y} r=${r.id === 'alarm' ? 6.5 : 8.5} /><text x=${x} y=${y + 3.6} text-anchor="middle">${n}</text></g>` : ''; })}
   </svg>`;
+}
+
+// 3D 脑模型；建不起来（没有 WebGL、three.js 加载失败）就退回上面的平面图
+function Brain3D(props) {
+  const { count, sel, pick, hover, setHover, focus, fx } = props;
+  const host = useRef(null); const eng = useRef(null); const [fail, setFail] = useState(false);
+  const cb = useRef({}); cb.current = { pick, setHover };
+  useEffect(() => {
+    let dead = false;
+    createBrain3D(host.current, {
+      onPick: (id) => cb.current.pick(id), onHover: (id) => cb.current.setHover(id),
+    }).then((e) => { if (dead) { e.destroy(); return; } eng.current = e; e.update({ count, sel, hover, focus, colors: Object.fromEntries(REGIONS.map((r) => [r.id, r.color])) }); })
+      .catch(() => { if (!dead) setFail(true); });
+    return () => { dead = true; eng.current && eng.current.destroy(); eng.current = null; };
+  }, []);
+  useEffect(() => { eng.current && eng.current.update({ count, sel, hover, focus }); }, [JSON.stringify(count), sel, hover, focus && focus.id]);
+  useEffect(() => { if (eng.current) Object.entries(fx).forEach(([id]) => eng.current.flash(id)); }, [fx]);
+  if (fail) return html`<${BrainMap} ...${props} />`;
+  // 把待办拖到 3D 脑上：dropProps 收到后，用鼠标位置去问引擎落在哪个脑区
+  return html`<div class="b3" ref=${host} ...${dropProps('todo', (d, { event }) => { const id = eng.current && eng.current.regionAt(event.clientX, event.clientY); const t = get().todos.find((x) => x.id === d.id); if (id && t) moveTo(t, id); })}><span class="b3-hint">拖动可以转</span></div>`;
 }
 
 // 一行待办：左边原来的待办行，右边一个脑区标签（点开就能换主脑区、勾「也涉及」——拖拽之外的明确入口）；有流转的下面画一条小路线
@@ -132,7 +153,7 @@ export default function Brain() {
     </div>
     <div class="br-grid">
       <${Card} class="br-map-card" pad=${false}>
-        <div class="br-map"><${BrainMap} count=${count} sel=${sel} pick=${pick} fx=${fx} hover=${hover} setHover=${setHover} focus=${focus} /></div>
+        <div class="br-map"><${Brain3D} count=${count} sel=${sel} pick=${pick} fx=${fx} hover=${hover} setHover=${setHover} focus=${focus} /></div>
         <div class="br-keys">${REGIONS.map((r) => { const n = count[r.id]; const d = prog.by[r.id] || 0; const lit = focus && (focus.primary === r.id || focus.also.includes(r.id)); return html`<button type="button" key=${r.id} class=${'br-key ' + (sel === r.id ? 'on ' : '') + (hover === r.id || lit ? 'hi ' : '') + (n ? '' : 'empty ') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] : '')} style=${`--c:${r.color};--bg:${r.bg}`}
           onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${dropProps('todo', (x) => { const t = get().todos.find((y) => y.id === x.id); if (t) moveTo(t, r.id); })}>
           <i></i><span class="bk-t"><b>${r.label}</b><small>${r.name}</small></span>${d ? html`<em title="今天做完的">✓${d}</em>` : ''}<span class="bk-n">${n || ''}</span>
