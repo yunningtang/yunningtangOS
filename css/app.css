@@ -3597,3 +3597,36 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .br-key.on .bk-ic{color:var(--bg);background:var(--text)}
 .br-work .card-h h3 .bk-ic{color:var(--text-2);background:var(--hover)}
 .br-key em{color:var(--text-4)}
+/* 待办行里的下一步：能直接勾 */
+.nxt{padding:2px 4px 2px 2px;gap:8px;cursor:default}
+.nxt:hover{background:none}
+.nxt-cb{flex:none;width:15px;height:15px;border-radius:5px;border:1.5px solid var(--text-4);background:none;display:grid;place-items:center;color:transparent;cursor:pointer;transition:all .15s}
+.nxt-cb:hover{border-color:var(--text-2);color:var(--text-3)}
+.nxt-t{cursor:pointer}
+.nxt-t:hover{color:var(--text)}
+.nxt-all{flex:none;display:inline-flex;align-items:center;gap:3px;border:0;background:none;padding:1px 6px;border-radius:6px;font-size:.72rem;color:var(--text-4);cursor:pointer}
+.nxt-all:hover,.nxt-all.open{background:var(--hover);color:var(--text-2)}
+/* 大脑页 · 正在做 */
+.bwn{border-radius:14px;padding:12px 14px 12px;background:var(--hover);margin-bottom:6px}
+.bwn-h{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.bwn-k{flex:none;font-size:.72rem;color:var(--text-4)}
+.bwn-t{flex:1;min-width:0;font-size:1rem;font-weight:650;color:var(--text);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bwn-n{flex:none;font-size:.74rem;color:var(--text-4);font-variant-numeric:tabular-nums}
+.bwn .steps-l{margin:4px 0 0;padding-left:0;border-left:0}
+.bwn-empty{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;font-size:.84rem;color:var(--text-3)}
+.bw-text.strong{display:inline-flex;align-items:center;gap:5px;color:var(--text);background:var(--card-bg,#fff);box-shadow:0 0 0 1px var(--line-2)}
+.bwn-f{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:8px}
+.bwn-f .bw-cta{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 其他的事：一行 */
+.bwls{display:flex;flex-direction:column;margin-bottom:8px}
+.bwl{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:8px;transition:background .15s}
+.bwl:hover{background:var(--hover)}
+.bwl .cb{flex:none;width:17px;height:17px;border-radius:6px;border:1.6px solid var(--pc);background:none;color:transparent;display:grid;place-items:center;cursor:pointer}
+.bwl .cb:hover{color:var(--pc)}
+.bwl-t{flex:1;min-width:0;font-size:.9rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.bwl-n{flex:none;font-size:.72rem;color:var(--text-4)}
+.bwl .br-chip{opacity:0;margin:0}
+.bwl:hover .br-chip{opacity:1}
+.bwl.nest-over{box-shadow:inset 0 0 0 2px var(--text-3)}
+.br-work .bw-sub:empty{display:none}
+@media (max-width:900px){.bwl .br-chip{opacity:1}}

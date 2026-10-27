@@ -216,14 +216,15 @@ export function TodoItem({ t, onEdit, compact }) {
   const [showSteps, setShowSteps] = useState(false); // 默认收起：「下一步」那一行已经说了最要紧的，点它再展开全部步骤
   const [forceAdd, setForceAdd] = useState(false); // 右键「添加步骤」：展开并直接给输入框
   useEffect(() => { const h = (e) => { if (e.detail === t.id) { setShowSteps(true); setForceAdd(true); } }; window.addEventListener('todo:addstep', h); return () => window.removeEventListener('todo:addstep', h); }, [t.id]);
-  // 下一步：第一个没做完的步骤。一行写清楚是什么、哪一类、多久，▶ 直接开始；每个步骤一个灰色小圆点（实心 = 做完，带圈 = 现在这步）。颜色留给优先级
+  // 下一步：第一个没做完的步骤，一行：勾选框（直接勾掉，下一步自动顶上来）+ 是什么 + 多久 + ▶ 开始 + 「1/8」点开看全部
   const ns = !t.done && nextStep(t);
   const startStep = (e) => { e.stopPropagation(); pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title} · ${clampMin(ns.minutes)} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
-  const nxt = ns && html`<div class=${'nxt ' + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开全部步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}>
-    <span class="nxt-dots">${stepsOf(t).map((x) => html`<i key=${x.id} class=${x.done ? 'd' : x === ns ? 'n' : ''}></i>`)}</span>
-    <span class="nxt-t"><em>下一步</em>${ns.title}</span>
-    <span class="nxt-m">${stepCat(ns) ? stepCat(ns).label + ' · ' : ''}${clampMin(ns.minutes)} 分</span>
+  const nxt = ns && html`<div class="nxt">
+    <button type="button" class="nxt-cb" title="这一步做完了" aria-label="完成这一步" onClick=${(e) => { e.stopPropagation(); toggleStep(t.id, ns.id); }}><${Icon} name="check" size=${9} /></button>
+    <span class="nxt-t" title=${showSteps ? '收起步骤' : '展开全部步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}>${ns.title}</span>
+    <span class="nxt-m">${clampMin(ns.minutes)} 分</span>
     <button type="button" class="nxt-go" title=${`开始这一步 · ${clampMin(ns.minutes)} 分钟`} onClick=${startStep}><${Icon} name="play" size=${10} /></button>
+    <button type="button" class=${'nxt-all ' + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开全部步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}>${sp.done}/${sp.total}<${Icon} name=${showSteps ? 'up' : 'down'} size=${9} /></button>
   </div>`;
   const chip = sp.total > 0 && html`<button class=${'steps ' + (sp.done === sp.total ? 'all ' : '') + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}><${Icon} name="list" size=${10} /> ${sp.done}/${sp.total} 步 <${Icon} name=${showSteps ? 'up' : 'down'} size=${9} /></button>`;
   return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done ' : '') + (showSteps && sp.total ? 'has-steps' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })} ...${nestProps(t)}>
