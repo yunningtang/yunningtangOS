@@ -9,7 +9,7 @@ import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
 import { upsert, remove } from '../store.js';
-import { goalPct } from './planner.js';
+import { goalPct, BlockModal, blockMenuItems, slotMenu } from './planner.js';
 import { ancestors, noteTitle, isBlank, newNote, nbOf } from './notes.js';
 import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
@@ -112,6 +112,7 @@ export default function Dashboard() {
   const fmtH = (min) => `${Math.floor(min / 60)}h ${pad(min % 60)}m`;
 
   // compact timeline geometry: range follows the day's blocks (never narrower than 07–23), overlaps go side by side
+  const [blk, setBlk] = useState(null); // { block } 编辑 / { start } 新建
   const hourH = 40, minH = 24;
   // 范围：07–23 打底，有更早 / 更晚的块就扩，「现在」永远在范围内
   const nowH = Math.floor(nowMin / 60);
@@ -196,13 +197,14 @@ export default function Dashboard() {
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl-wrap" ref=${tlRef} onScroll=${onTlScroll}>
-        <div class="mini-tl" style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
+        <div class="mini-tl" onContextMenu=${(e) => { if (e.target.closest('.mt-b')) return; const r = e.currentTarget.getBoundingClientRect(); const min = Math.max(from * 60, Math.min(to * 60 - 15, from * 60 + Math.floor(((e.clientY - r.top) / hourH) * 60 / 15) * 15)); slotMenu(e, { date: today, min, onCreate: (t) => setBlk({ start: t }) }); }} style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}>${Math.abs(i * hourH - y(nowMin)) > 12 && html`<span>${pad(from + i)}:00</span>`}</div>`)}
-          ${laid.map(({ b, a, e, lane, lanes, top, h }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const w = 100 / lanes; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin ? ' past' : '') + (h < 36 ? ' one' : '')} key=${b.id} style=${`top:${top}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => go('plan/day')} onContextMenu=${(ev) => ctxMenu(ev, [{ label: '在时间线中编辑', icon: 'edit', onClick: () => go('plan/day') }, { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(today, 1) }) }, 'sep', { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) }], b.title)} title=${`${b.title} ${b.start} – ${b.end}`}><b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small></div>`; })}
+          ${laid.map(({ b, a, e, lane, lanes, top, h }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const w = 100 / lanes; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin ? ' past' : '') + (h < 36 ? ' one' : '')} key=${b.id} style=${`top:${top}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => setBlk({ block: b })} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit: () => setBlk({ block: b }), extra: ['sep', { label: '在每日时间线里打开', icon: 'right', onClick: () => go('plan/day') }] }), b.title)} title=${`${b.title} ${b.start} – ${b.end}`}><b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small></div>`; })}
           <div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>
         </div>
         </div>
         ${tlAway && html`<button class="mt-back" onClick=${() => scrollToNow(true)}><${Icon} name="clock" size=${11} /> 回到现在</button>`}
+        <${BlockModal} open=${!!blk} block=${blk && blk.block} date=${today} start=${(blk && blk.start) || '09:00'} onClose=${() => setBlk(null)} />
       <//>` },
     todos: { title: '待办', span: 1, el: html`<${Card} class="todo-card" ...${dropProps('todo', (d) => upsert('todos', { id: d.id, due: today }))}>
         <div class="card-h"><h3>待办 ${todos.length > 0 && html`<span class="muted small">${todos.length}</span>`}</h3><div class="card-act"><a class="ibtn" href="#/todos" title="全部"><${Icon} name="right" size=${15} /></a></div></div>

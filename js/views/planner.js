@@ -104,6 +104,40 @@ export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
   <//>`;
 }
 
+
+// 时间块的右键菜单（每日 / 周时间线和总览的「今天」共用）
+export function blockMenuItems(b, { onEdit, extra = [] } = {}) {
+  const stepTodo = b.todoId && b.stepId ? get().todos.find((t) => t.id === b.todoId) : null;
+  const step = stepTodo ? stepsOf(stepTodo).find((x) => x.id === b.stepId) : null;
+  return [
+    step && { label: step.done ? '这一步标为未完成' : '这一步做完了', icon: 'check', onClick: () => toggleStep(stepTodo.id, step.id) },
+    step && { label: `打开待办「${stepTodo.title}」`, icon: 'checksq', onClick: () => { location.hash = '#/todos?open=' + stepTodo.id; } },
+    step && 'sep',
+    { label: '编辑', icon: 'edit', onClick: () => onEdit && onEdit(b) },
+    timeToMin(b.end) - timeToMin(b.start) >= 30 && { label: '让汤圆拆成几段', icon: 'sparkle', hint: '在原时间里切开', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: { src: { kind: 'block', id: b.id } } })) },
+    { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(b.date, 1) }) },
+    { label: '复制一份（+1h）', icon: 'layers', onClick: () => upsert('blocks', { ...b, id: uid(), start: minToTime(timeToMin(b.start) + 60), end: minToTime(timeToMin(b.end) + 60) }) },
+    { label: '换类型', icon: 'tag', hint: (kindOf(b.kind) || {}).name || '', sub: allKinds().map((k) => ({ label: k.name, color: k.color, icon: k.v === b.kind ? 'check' : '', onClick: () => upsert('blocks', { id: b.id, kind: k.v }) })) },
+    'sep',
+    { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) },
+    ...extra,
+  ];
+}
+// 时间线空白处的右键：在这个时间新建时间块，或者把一件还没排的待办放到这里
+export function slotMenu(e, { date, min, onCreate }) {
+  const t = minToTime(min);
+  const placed = new Set(get().blocks.filter((x) => x.date === date && x.todoId).map((x) => x.todoId));
+  const todos = sortBy(get().todos.filter((x) => !x.done && !placed.has(x.id) && (!x.due || x.due <= date)), 'priority').slice(0, 10);
+  ctxMenu(e, [
+    { label: `在 ${t} 新建时间块`, icon: 'plus', onClick: () => onCreate(t) },
+    todos.length > 0 && { label: '把待办放到这里', icon: 'checksq', sub: todos.map((td) => ({ label: td.title, onClick: () => {
+      upsert('todos', { id: td.id, due: date, time: t });
+      upsert('blocks', { id: uid(), date, start: t, end: minToTime(Math.min(24 * 60, min + (td.focusLen || 60))), title: td.title, kind: 'focus', note: '', todoId: td.id });
+      toast(`「${td.title}」排在 ${t}`);
+    } })) },
+  ], `${date === todayStr() ? '今天' : fmtShort(date)} ${t}`);
+}
+
 export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, hourH = 52 }) {
   const [now, setNow] = useState(new Date());
   const [ghost, setGhost] = useState(null); // { id, start, end }
@@ -145,7 +179,13 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
     upsert('todos', { id: t.id, due: date, time: minToTime(min) });
     if (onCreate && !get().blocks.some((x) => x.date === date && x.title === t.title)) upsert('blocks', { id: uid(), date, start: minToTime(min), end: minToTime(Math.min(to * 60, min + 60)), title: t.title, kind: 'focus', note: '', todoId: t.id });
   };
-  return html`<div class="tl" style=${`--h:${hourH}px`} ...${dropProps(['todo', 'block'], dropAt)}>
+  const onSlotMenu = (e) => {
+    if (!onCreate || e.target.closest('.blk')) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const min = Math.max(from * 60, Math.min(to * 60 - 15, from * 60 + Math.floor(((e.clientY - r.top) / hourH) * 60 / 15) * 15));
+    slotMenu(e, { date, min, onCreate });
+  };
+  return html`<div class="tl" style=${`--h:${hourH}px`} onContextMenu=${onSlotMenu} ...${dropProps(['todo', 'block'], dropAt)}>
     ${hours.map((h) => html`<div class=${'hour ' + (onCreate ? 'click' : '')} onClick=${onCreate ? () => onCreate(minToTime(h * 60)) : undefined}><span>${String(h).padStart(2, '0')}:00</span></div>`)}
     ${blocks.map((b0) => {
       const b = ghost && ghost.id === b0.id ? { ...b0, start: ghost.start, end: ghost.end } : b0;
@@ -154,19 +194,7 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
       // 这块是某条待办的一步：块上有个勾，勾了就把那一步标完成
       const stepTodo = b.todoId && b.stepId ? get().todos.find((t) => t.id === b.todoId) : null;
       const step = stepTodo ? stepsOf(stepTodo).find((x) => x.id === b.stepId) : null;
-      return html`<div class=${'blk ' + (ghost && ghost.id === b.id ? 'moving ' : '') + (step ? 'is-step ' : '') + (step && step.done ? 'step-done' : '')} key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onPointerDown=${(ev) => beginDrag(ev, b0, 'move')} onClick=${(ev) => ev.stopPropagation()} onContextMenu=${(ev) => ctxMenu(ev, [
-        step && { label: step.done ? '这一步标为未完成' : '这一步做完了', icon: 'check', onClick: () => toggleStep(stepTodo.id, step.id) },
-        step && { label: `打开待办「${stepTodo.title}」`, icon: 'checksq', onClick: () => { location.hash = '#/todos?open=' + stepTodo.id; } },
-        step && 'sep',
-        { label: '编辑', icon: 'edit', onClick: () => onEdit && onEdit(b) },
-        timeToMin(b.end) - timeToMin(b.start) >= 30 && { label: '让汤圆拆成几段', icon: 'sparkle', hint: '在原时间里切开', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: { src: { kind: 'block', id: b.id } } })) },
-        { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(b.date, 1) }) },
-        { label: '复制一份（+1h）', icon: 'layers', onClick: () => upsert('blocks', { ...b, id: uid(), start: minToTime(timeToMin(b.start) + 60), end: minToTime(timeToMin(b.end) + 60) }) },
-        'sep',
-        ...allKinds().map((k) => ({ label: k.name, icon: k.v === b.kind ? 'check' : 'tag', onClick: () => upsert('blocks', { id: b.id, kind: k.v }) })),
-        'sep',
-        { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title || b.place || b.url) },
-      ], b.title)}>${step && html`<button class="st-cb" title=${step.done ? '标为未完成' : '这一步做完了'} onPointerDown=${(ev) => ev.stopPropagation()} onClick=${(ev) => { ev.stopPropagation(); toggleStep(stepTodo.id, step.id); }}><${Icon} name="check" size=${9} /></button>`}<b>${b.title}</b><small>${b.start}–${b.end}</small><span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
+      return html`<div class=${'blk ' + (ghost && ghost.id === b.id ? 'moving ' : '') + (step ? 'is-step ' : '') + (step && step.done ? 'step-done' : '')} key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onPointerDown=${(ev) => beginDrag(ev, b0, 'move')} onClick=${(ev) => ev.stopPropagation()} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit }), b.title)}>${step && html`<button class="st-cb" title=${step.done ? '标为未完成' : '这一步做完了'} onPointerDown=${(ev) => ev.stopPropagation()} onClick=${(ev) => { ev.stopPropagation(); toggleStep(stepTodo.id, step.id); }}><${Icon} name="check" size=${9} /></button>`}<b>${b.title}</b><small>${b.start}–${b.end}</small><span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
     })}
     ${isToday && nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="now" style=${`top:${y(nowMin)}px`}></div>`}
   </div>`;
