@@ -164,7 +164,7 @@ function stepMenu(e, t, x) {
   ], x.title);
 }
 export const startStep = (t, x) => { pomo.start({ label: x.title, todoId: t.id, stepId: x.id, workLen: x.minutes || 25, breakLen: Math.max(3, Math.round((x.minutes || 25) / 5)) }); toast(`开始：${x.title} · ${x.minutes || 25} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
-export function StepList({ t, autoAdd = false }) {
+export function StepList({ t, autoAdd = false, hideCat = null }) {
   const steps = stepsOf(t);
   const [adding, setAdding] = useState(autoAdd); const [v, setV] = useState('');
   const [edit, setEdit] = useState(null); // { id, title } 正在改名的那一步
@@ -180,7 +180,7 @@ export function StepList({ t, autoAdd = false }) {
       ${minEdit === x.id
         ? html`<input class="st-min" type="number" min="5" max="180" step="5" autofocus value=${x.minutes} onKeyDown=${(e) => { if (e.key === 'Enter' || e.key === 'Escape') e.target.blur(); }} onBlur=${(e) => { const m = +e.target.value; if (m) setStep(t.id, x.id, { minutes: Math.max(5, Math.min(180, m)) }); setMinEdit(null); }} />`
         : html`<button class="st-m" title="点击改分钟" onClick=${() => setMinEdit(x.id)}>${clampMin(x.minutes)} 分</button>`}
-      ${(() => { const c = stepCat(x); return html`<button class=${'st-cat ' + (c ? '' : 'none')} title=${c ? `这一步是「${c.label}」· 点一下换` : '这一步还没分类 · 点一下选'} onClick=${(e) => ctxMenu(e, stepRegionItems(t.id, x), '这一步是')}><${Icon} name=${c ? c.icon : 'dots'} size=${11} />${c ? c.label : ''}</button>`; })()}
+      ${(() => { const c = stepCat(x); if (hideCat != null && c && c.id === hideCat) return html`<button class="st-cat none" title=${`跟这件事一样是「${c.label}」· 点一下换`} onClick=${(e) => ctxMenu(e, stepRegionItems(t.id, x), '这一步是')}><${Icon} name=${c.icon} size=${11} />${c.label}</button>`; return html`<button class=${'st-cat ' + (c ? '' : 'none')} title=${c ? `这一步是「${c.label}」· 点一下换` : '这一步还没分类 · 点一下选'} onClick=${(e) => ctxMenu(e, stepRegionItems(t.id, x), '这一步是')}><${Icon} name=${c ? c.icon : 'dots'} size=${11} />${c ? c.label : ''}</button>`; })()}
       ${!x.done && html`<button class="st-go" title="开始这一步（番茄钟）" onClick=${() => startStep(t, x)}><${Icon} name="play" size=${10} /></button>`}
       <button class="st-x" title="删除这一步" onClick=${() => removeStep(t.id, x.id)}><${Icon} name="x" size=${10} /></button>
     </li>`)}

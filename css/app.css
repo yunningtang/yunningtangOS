@@ -3635,3 +3635,9 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .st-cat:hover{background:var(--hover-2);color:var(--text-2)}
 .st-cat.none{opacity:0}
 .step:hover .st-cat.none{opacity:1}
+/* 大脑页 · 再整理：脑图不放数字、选中的脑区描边；小字说明放页脚 */
+.brs.cute .brs-r.sel{stroke:color-mix(in srgb,var(--c) 75%,#000);stroke-width:2.4;filter:saturate(1.2)}
+.brain .br-map{padding:6px 18px 0}
+.brs.cute{max-height:330px}
+.br-foot{margin:4px 0 0;text-align:center;font-size:.72rem;color:var(--text-4)}
+@media (max-width:1320px){.br-key .bk-t small{display:none}}

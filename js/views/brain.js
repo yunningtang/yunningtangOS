@@ -43,7 +43,7 @@ function BrainMap({ count, sel, pick, fx, hover, setHover, focus }) {
   const drop = (id) => dropProps('todo', (d) => { const t = get().todos.find((x) => x.id === d.id); if (t) moveTo(t, id); });
   const inFocus = (id) => !focus || focus.primary === id || focus.also.includes(id);
   const region = (r) => { const sh = SHAPES[r.id]; const n = count[r.id]; const k = n ? 18 + Math.round((n / max) * 30) : 9;
-    const cls = 'brs-r ' + (n ? '' : 'nil ') + (hover === r.id || sel === r.id ? 'hi ' : '') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] + ' ' : '') + (focus ? (focus.primary === r.id ? 'fp ' : focus.also.includes(r.id) ? 'fa ' : 'dim ') : '');
+    const cls = 'brs-r ' + (n ? '' : 'nil ') + (sel === r.id ? 'sel ' : '') + (hover === r.id ? 'hi ' : '') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] + ' ' : '') + (focus ? (focus.primary === r.id ? 'fp ' : focus.also.includes(r.id) ? 'fa ' : 'dim ') : '');
     return html`<path key=${r.id} d=${sh.d} class=${cls} style=${`--c:${r.color};--k:${k}%`}
       onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${drop(r.id)}><title>${r.label} · ${r.name}${n ? ' · ' + n + ' 件' : ''}</title></path>`; };
   // 通路：主脑区到每个「也涉及」的脑区，一条往上拱的虚点线，上面有个小点在跑
@@ -71,7 +71,7 @@ function BrainMap({ count, sel, pick, fx, hover, setHover, focus }) {
         <path d="M63 104 Q67 108 67 104 Q67 108 71 104" class="brs-mouth" />
       </g>
       ${links}
-      ${REGIONS.map((r) => { const n = count[r.id]; const [x, y] = SHAPES[r.id].at; const show = n || (focus && inFocus(r.id)); return show ? html`<g key=${'b' + r.id} class=${'brs-badge ' + (sel === r.id ? 'on ' : '') + (focus && !inFocus(r.id) ? 'dim' : '')} style=${`--c:${r.color}`} onClick=${() => pick(r.id)}><circle cx=${x} cy=${y} r=${r.id === 'alarm' ? 7 : 8.5} /><text x=${x} y=${y + 3.6} text-anchor="middle">${n}</text></g>` : ''; })}
+      
     </g>
   </svg>`;
 }
@@ -98,7 +98,7 @@ function Now({ t, onEdit }) {
       ${sp.total > 0 && html`<span class="bwn-n">${sp.done}/${sp.total}</span>`}
       <button type="button" class="bw-text" onClick=${() => openStuck(t)} title="不知道怎么推进？问问汤圆">卡住了</button>
     </div>
-    ${sp.total > 0 ? html`<${StepList} t=${t} key=${t.id} />` : html`<div class="bwn-empty"><span>还没拆成小步。大一点的事拆开会好开始很多。</span><button type="button" class="bw-text strong" onClick=${() => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t }))}><${Icon} name="sparkle" size=${12} />让汤圆拆一下</button></div>`}
+    ${sp.total > 0 ? html`<${StepList} t=${t} key=${t.id} hideCat=${brainOf(t)} />` : html`<div class="bwn-empty"><span>还没拆成小步。大一点的事拆开会好开始很多。</span><button type="button" class="bw-text strong" onClick=${() => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t }))}><${Icon} name="sparkle" size=${12} />让汤圆拆一下</button></div>`}
     <div class="bwn-f">
       ${allDone ? html`<button type="button" class="bw-cta" onClick=${() => toggleTodo(t.id)}><${Icon} name="check" size=${12} />步骤都做完了，完成这件事</button>`
         : ns ? html`<button type="button" class="bw-cta" onClick=${startStep}><${Icon} name="play" size=${11} />开始：${ns.title} · ${clampMin(ns.minutes)} 分</button>`
@@ -166,7 +166,7 @@ export default function Brain() {
 
   return html`<div class="brain">
     <div class="page-h">
-      <div><div class="desc">今天做完 ${prog.done} / ${prog.total} 件 · 按「怎么做」来看你的事，好玩的比喻，不是神经科学</div></div>
+      <div><div class="desc">今天做完 ${prog.done} / ${prog.total} 件</div></div>
       <div class="acts"><${Seg} options=${[{ v: 'today', label: '今天' }, { v: 'all', label: '全部' }]} value=${scope} onChange=${setScope} /></div>
     </div>
     <div class="br-grid">
@@ -196,6 +196,7 @@ export default function Brain() {
       </div>`)}</div>
     <//>`}
     <${Review} s=${s} today=${today} prog=${prog} by=${by} />
+    <p class="br-foot">按「怎么做」把事情分成几类，是一种好玩的比喻，不是神经科学。</p>
     <${TodoModal} open=${!!editing} todo=${editing} onClose=${() => setEditing(null)} />
   </div>`;
 }
