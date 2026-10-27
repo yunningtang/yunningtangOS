@@ -109,7 +109,7 @@ function SignIn() {
         <input type="password" required autocomplete="current-password" placeholder="密码" value=${pw} onInput=${(e) => setPw(e.target.value)} />
         <button class="si-btn primary" disabled=${busy || !email || !pw}>${busy ? '登录中…' : '登录'}</button>
       </form>
-      <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('email'); setMsg(''); }}>用验证码登录</button></div>`
+      <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('email'); setMsg(''); }}>用验证码登录</button><button type="button" class="si-link" onClick=${() => { setStep('email'); setMsg(email ? '点「用邮箱继续」收验证码，登录后在这里设新密码' : '填邮箱收验证码，登录后在这里设新密码'); }}>忘记密码？</button></div>`
     : step === 'email' ? html`
       <button type="button" class="si-btn" onClick=${google}><span class="g-ic" dangerouslySetInnerHTML=${{ __html: GOOGLE_SVG }}></span>用 Google 继续</button>
       <div class="mail-or"><span>或</span></div>
@@ -137,15 +137,15 @@ function PasswordRow() {
     e.preventDefault(); setMsg('');
     if (a.length < 8) return setMsg('至少 8 位');
     if (a !== b) return setMsg('两次输入的不一样');
-    setBusy(true); try { await post('/api/auth/password', { password: a }); setOpen(false); setA(''); setB(''); toast('密码已设置，下次可以用邮箱 + 密码登录'); } catch (er) { setMsg(er.message); } setBusy(false);
+    setBusy(true); try { await post('/api/auth/password', { password: a }); setOpen(false); setA(''); setB(''); toast('密码已保存'); } catch (er) { setMsg(er.message); } setBusy(false);
   };
-  return html`<${Row} label="密码" hint="设好后可以用邮箱 + 密码登录" stack=${open}>
+  return html`<${Row} label="密码" hint="可以用邮箱 + 密码登录；忘了就用验证码登录再改" stack=${open}>
     ${open ? html`<form class="sx-pw" onSubmit=${save}>
       <input class="sx-input" type="password" autocomplete="new-password" placeholder="新密码（至少 8 位）" value=${a} onInput=${(e) => setA(e.target.value)} autofocus />
       <input class="sx-input" type="password" autocomplete="new-password" placeholder="再输一次" value=${b} onInput=${(e) => setB(e.target.value)} />
       <div class="sx-pw-acts"><button type="button" class="sx-btn" onClick=${() => { setOpen(false); setMsg(''); }}>取消</button><button class="sx-btn primary" disabled=${busy || !a || !b}>${busy ? '保存中…' : '保存'}</button></div>
       ${msg && html`<span class="sx-err">${msg}</span>`}
-    </form>` : html`<button class="sx-btn" onClick=${() => setOpen(true)}>设置密码</button>`}
+    </form>` : html`<button class="sx-btn" onClick=${() => setOpen(true)}>设置 / 修改密码</button>`}
   <//>`;
 }
 
