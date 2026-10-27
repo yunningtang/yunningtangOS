@@ -3706,3 +3706,18 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .fp-battle-main .fp-timer .tt-card.full .tt-time{font-size:clamp(2.4rem,4vw,3.4rem)}
 .focus-page2.quiet .fp-battle-main{grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:1100px}
 .has-doing .fp-timer .tt-prep{display:none} /* 「正在做」卡片已经写了在做什么、下一步和目标，计时器里不再重复 */
+/* 总览：「正在做」小卡 */
+.dw-t{display:block;font-size:1.02rem;font-weight:650;color:var(--text);text-decoration:none;margin:-2px 0 8px;line-height:1.4}
+.dw-t:hover{text-decoration:underline;text-underline-offset:3px}
+.dw-goal{display:flex;gap:8px;margin:0 0 10px;padding:7px 10px;border-radius:9px;background:var(--hover);font-size:.84rem;color:var(--text);line-height:1.5}
+.dw-goal span{flex:none;font-size:.7rem;font-weight:600;color:var(--text-4);padding-top:2px}
+.dw .bwn-ck{margin:0 0 10px}
+.dw-row{display:flex;align-items:center;gap:8px}
+.dw-next{flex:1;min-width:0;font-size:.86rem;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dw-next em{font-style:normal;color:var(--text-4);margin-right:6px;font-size:.76rem}
+.dw-row .bw-cta{flex:none}
+.dw-q{margin:0 0 10px;font-size:.92rem;color:var(--text-2)}
+.dw-picks{display:flex;flex-direction:column;gap:5px}
+.dw-picks button{text-align:left;padding:8px 11px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--text);font-size:.86rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dw-picks button:hover{background:var(--hover)}
+.dw-none{margin:0;font-size:.84rem;color:var(--text-3)}

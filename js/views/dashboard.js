@@ -16,6 +16,7 @@ import { AvatarPicker } from './settings.js';
 import { NowWidget } from './now.js';
 import { PhotoWidget } from './photo.js';
 import { BrainCard } from './brain.js';
+import { DoingWidget } from './battle.js';
 import { SPAN, DEFAULT_LAYOUT, normLayout } from '../widgets.js';
 import { dailySuggestions } from '../prompts.js';
 import { lsGet, lsSet } from '../util.js';
@@ -232,7 +233,7 @@ export default function Dashboard() {
         ${quote && html`<div class="quote-line"><${Icon} name="sparkle" size=${13} /> ${quote.text}</div>`}
       <//>` },
     calendar: { title: '月历', span: 1, el: html`<${MonthCal} s=${s} today=${today} />` },
-    focus: { title: '专注', span: 1, el: html`<${PomoCard} />` },
+    focus: { title: '专注', span: 1, el: html`<${DoingWidget} s=${s} Timer=${PomoCard} Card=${Card} />` },
     notes: { title: '笔记', span: 1, el: html`<${Card}>
         <div class="card-h"><h3>笔记</h3><div class="card-act"><a class="ibtn" href="#/notes" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="dot-list">${recentNotes.slice(0, 4).map((n) => html`<a class="dl-i" href=${'#/notes/' + n.id} key=${n.id}><i style=${`background:${(nbOf(s, n.nb) || {}).color || 'var(--text-4)'}`} title=${(nbOf(s, n.nb) || {}).name || ''}></i><div><b>${noteTitle(n)}</b><small>${fmtShort(n.updated.slice(0, 10))} ${n.updated.slice(11, 16)}</small></div></a>`)}</div>

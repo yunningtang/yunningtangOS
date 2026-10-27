@@ -5,7 +5,7 @@ import { toggleTodo, update } from '../store.js';
 import { Icon } from '../ui.js';
 import { go, toast } from '../nav.js';
 import * as pomo from '../pomo.js';
-import { nextStep, clampMin, stepsProgress } from '../steps.js';
+import { nextStep, clampMin, stepsProgress, toggleStep } from '../steps.js';
 import { StepList } from './todos.js';
 import { openStuck } from './stuck.js';
 import { setGoal, setDoing } from '../doing.js';
@@ -44,4 +44,37 @@ export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big 
     </div>
     ${party && html`<div class="bwn-confetti" aria-hidden="true">${Array.from({ length: 14 }, (_, i) => html`<i key=${i} style=${`--i:${i}`}></i>`)}</div>`}
   </div>`;
+}
+
+// 总览上的「专注」卡片：没在计时的时候显示「正在做」的缩小版——事情、本次目标、进度、只有下一步一个；
+// 计时开始后换回计时器。点标题去专注页看全部
+export function DoingWidget({ s, Timer, Card }) {
+  const [st, setSt] = useState(pomo.get()); useEffect(() => pomo.subscribe((x) => setSt({ ...x })), []); const running = st.phase !== 'idle';
+  const t = s.settings.doing && s.todos.find((x) => x.id === s.settings.doing && !x.done);
+  if (running) return html`<${Timer} />`;
+  const today = new Date(); const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  if (!t) {
+    const picks = s.todos.filter((x) => !x.done && (!x.due || x.due <= ymd)).sort((a, b) => a.priority - b.priority).slice(0, 3);
+    return html`<${Card} class="dw">
+      <div class="card-h"><h3>正在做</h3><div class="card-act"><a class="ibtn" href="#/focus" title="去专注"><${Icon} name="clock" size=${15} /></a></div></div>
+      <p class="dw-q">今天先做哪一件？</p>
+      ${picks.length ? html`<div class="dw-picks">${picks.map((x) => html`<button type="button" key=${x.id} onClick=${() => setDoing(x.id)}>${x.title}</button>`)}</div>` : html`<p class="dw-none">今天没有待办，<a href="#/todos">去加一件</a></p>`}
+    <//>`;
+  }
+  const sp = stepsProgress(t); const ns = nextStep(t); const allDone = sp.total > 0 && !ns;
+  const startStep = () => { pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); };
+  const finish = () => { toggleTodo(t.id); setDoing(''); toast(`「${t.title.slice(0, 16)}」完成了`); };
+  return html`<${Card} class="dw">
+    <div class="card-h"><h3>正在做</h3><div class="card-act"><a class="ibtn" href="#/focus" title="去专注页看全部"><${Icon} name="right" size=${15} /></a></div></div>
+    <a class="dw-t" href="#/focus">${t.title}</a>
+    ${t.goal && html`<p class="dw-goal"><span>本次目标</span>${t.goal}</p>`}
+    ${sp.total > 0 && html`<div class="bwn-ck"><span>完成条件</span><b>${sp.done}/${sp.total}</b><i class="bwn-bar"><i style=${`width:${Math.round((sp.done / sp.total) * 100)}%`}></i></i></div>`}
+    ${allDone ? html`<div class="dw-row"><span class="bwn-won"><${Icon} name="sparkle" size=${13} />${t.goal ? '本次目标达成' : '条件都完成了'}</span><span class="flex1"></span><button type="button" class="bw-cta" onClick=${finish}>完成这件事</button></div>`
+      : ns ? html`<div class="dw-row">
+          <button type="button" class="nxt-cb" title="这一步做完了" onClick=${() => toggleStep(t.id, ns.id)}><${Icon} name="check" size=${9} /></button>
+          <span class="dw-next"><em>下一步</em>${ns.title}</span>
+          <button type="button" class="bw-cta" onClick=${startStep}><${Icon} name="play" size=${10} />开始 ${clampMin(ns.minutes)} 分</button>
+        </div>`
+      : html`<div class="dw-row"><button type="button" class="bw-text" onClick=${() => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t }))}><${Icon} name="sparkle" size=${12} />让汤圆拆一下</button><span class="flex1"></span><button type="button" class="bw-cta" onClick=${() => pomo.start({ label: t.title, todoId: t.id, workLen: t.focusLen || 25 })}><${Icon} name="play" size=${10} />开始 ${t.focusLen || 25} 分</button></div>`}
+  <//>`;
 }
