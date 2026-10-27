@@ -74,19 +74,17 @@ function BrainMap({ count, sel, pick, fx, hover, setHover, focus }) {
   </svg>`;
 }
 
-// 一行待办：左边原来的待办行，右边一个脑区标签（点开就能换主脑区、勾「也涉及」——拖拽之外的明确入口）；有流转的下面画一条小路线
-function Row({ t, words, sel, onEdit, setFocus }) {
+// 一行待办：左边原来的待办行，右边一个类别标签（写着字，点开就能换类别）；步骤跨了几类的，下面画出路线
+function Row({ t, words, onEdit, setFocus }) {
   const p = brainOf(t, words); const also = alsoOf(t, words); const f = flowOf(t); const r = regionOf(p);
   const enter = () => setFocus({ id: t.id, primary: p, also });
   return html`<div class="br-row" onMouseEnter=${enter} onMouseLeave=${() => setFocus(null)}>
     <div class="br-row-main">
       <div class="flex1"><${TodoItem} t=${t} compact onEdit=${onEdit} /></div>
       <button type="button" class="br-stuck" title="卡住了？问问汤圆" onClick=${() => openStuck(t)}>卡住了</button>
-      <button type="button" class="br-chip" style=${`--c:${r.color};--bg:${r.bg}`} title="这件事属于哪一类、还会用到哪些" onClick=${(e) => ctxMenu(e, regionItems(t), t.title)}>
-        <i></i>${p === sel ? '' : r.label}${also.length ? html`<span class="br-chip-more">${also.map((id) => html`<i key=${id} style=${`background:${regionOf(id).color}`}></i>`)}</span>` : ''}<${Icon} name="down" size=${10} />
-      </button>
+      <button type="button" class="br-chip" style=${`--c:${r.color}`} title="换类别" onClick=${(e) => ctxMenu(e, regionItems(t), '换类别')}><i></i>${r.label}<${Icon} name="down" size=${10} /></button>
     </div>
-    ${f && html`<div class="br-flow">${f.seq.map((x, i) => { const rr = regionOf(x.id); return html`${i ? html`<span class="br-flow-ar">→</span>` : ''}<span key=${i} class=${'br-flow-s ' + (i === f.at ? 'now ' : x.done >= x.n ? 'done' : '')} style=${`--c:${rr.color}`}>${rr.label}</span>`; })}</div>`}
+    ${f && html`<div class="br-flow" title="这件事的步骤分别是哪一类"><span class="br-flow-k">步骤</span>${f.seq.map((x, i) => { const rr = regionOf(x.id); return html`${i ? html`<span class="br-flow-ar">→</span>` : ''}<span key=${i} class=${'br-flow-s ' + (i === f.at ? 'now ' : x.done >= x.n ? 'done' : '')} style=${`--c:${rr.color}`}>${rr.label}</span>`; })}</div>`}
   </div>`;
 }
 
@@ -162,9 +160,9 @@ export default function Brain() {
         <div class="card-h"><h3><i class="br-dot" style=${`background:${cur.color}`}></i>${cur.label} <span class="muted small">${cur.name} · ${list.length} 件${doneHere ? ` · 做完 ${doneHere}` : ''}</span></h3></div>
         <p class="bw-desc">${cur.desc}</p>
         ${next && html`<div class="bw-next"><span class="bw-next-k">下一步</span><span class="bw-next-t" onClick=${() => setEditing(next)}>${next.title}</span><button type="button" class="bw-text" onClick=${() => openStuck(next)} title="不知道怎么推进？问问汤圆">卡住了</button><button type="button" class="bw-cta" onClick=${() => go('focus?todo=' + next.id)}><${Icon} name="play" size=${11} />开始专注</button></div>`}
-        ${list.length ? html`<div class="br-rows">${list.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`
+        ${list.length ? html`<div class="br-rows">${list.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`
           : html`<div class="bw-empty"><b>${scope === 'today' ? '今天' : ''}这里还没有事</b><span>在下面直接写，会自动放进「${cur.label}」。比如：${cur.example}</span></div>`}
-        ${alsoList.length > 0 && html`<div class="bw-also"><div class="bw-sub">也涉及「${cur.label}」</div><div class="br-rows">${alsoList.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div></div>`}
+        ${alsoList.length > 0 && html`<div class="bw-also"><div class="bw-sub">有步骤在「${cur.label}」</div><div class="br-rows">${alsoList.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} onEdit=${setEditing} setFocus=${setFocus} />`)}</div></div>`}
         <${QuickAdd} defaults=${{ due: today, brain: sel }} placeholder=${`加到「${cur.label}」… 比如：${cur.example}`} />
       <//>
     </div>

@@ -13,7 +13,7 @@ export const REGIONS = [
   { id: 'habit', label: '习惯', name: '小脑', role: '习惯与例行', desc: '每天、每周重复的事', example: '每天散步 20 分钟', color: '#448361', bg: '#EDF3EC', icon: 'refresh' },
   { id: 'alarm', label: '压力', name: '杏仁核', role: '让人有压力的事', desc: '一直拖着、想起来就难受的事', example: '把拖着的报税拆出第一步', color: '#E03E3E', bg: '#FDEBEC', icon: 'flag' },
 ];
-export const THALAMUS = { id: '', label: '未分', name: '丘脑', role: '还没分', desc: '还没决定放哪', example: '', color: '#9B9A97', bg: '#F1F1EF', icon: 'layers' };
+export const THALAMUS = { id: '', label: '先不分', name: '丘脑', role: '还没分', desc: '还没决定放哪', example: '', color: '#9B9A97', bg: '#F1F1EF', icon: 'layers' };
 export const regionOf = (id) => REGIONS.find((r) => r.id === id) || THALAMUS;
 
 // 动词规则：从上往下第一个命中的算数（「规划论文」算前额叶，所以计划排在学习前面）。杏仁核不猜——焦不焦虑只有自己知道
@@ -46,27 +46,22 @@ export function flowOf(t) {
   const at = seq.findIndex((x) => x.done < x.n);
   return { seq, at };
 }
-// 主脑区：有流转且没走完 → 跟着步骤走；否则用自己选的 / 猜的
-export const brainOf = (t, words) => { const f = flowOf(t); return f && f.at >= 0 ? f.seq[f.at].id : ownBrain(t, words); };
-// 也涉及的脑区：自己加的 + 步骤里出现过的，去掉主脑区，最多 3 个
+// 一件事只有一个类别：自己改过的 > 猜的。不会因为做完某一步就自己跳走（步骤在哪类，行下面的路线里看得到）
+export const brainOf = (t, words) => ownBrain(t, words);
+// 这件事的步骤还用到哪些类别（只看步骤，不用手动设）：用来在脑图上连线、在那一类里列出「有一步在这里」
 export function alsoOf(t, words) {
   const p = brainOf(t, words); const f = flowOf(t);
-  const all = [...(Array.isArray(t.brainAlso) ? t.brainAlso : []), ...(f ? f.seq.map((x) => x.id) : [])];
-  return [...new Set(all)].filter((id) => id && id !== p && REGIONS.some((r) => r.id === id)).slice(0, 3);
-}
-export function setAlso(t, id, on) {
-  const cur = Array.isArray(t.brainAlso) ? t.brainAlso : [];
-  upsert('todos', { id: t.id, brainAlso: on ? [...new Set([...cur, id])].slice(0, 3) : cur.filter((x) => x !== id) });
+  return f ? [...new Set(f.seq.map((x) => x.id))].filter((id) => id && id !== p) : [];
 }
 
-// 手动换脑区：记下这个标题开头的词，下次同样开头的就照这个分
+// 手动换类别：记下这个标题开头的词，下次同样开头的就照这个分
 export function setBrain(t, id) {
   upsert('todos', { id: t.id, brain: id, brainBy: '' });
   const w = headWord(t.title);
   if (w && id && id !== 'alarm') update((d) => { d.settings.brainWords = { ...(d.settings.brainWords || {}), [w]: id }; });
 }
 export const unsortedCount = (s) => { const words = s.settings.brainWords || {}; return s.todos.filter((t) => !t.done && !brainOf(t, words)).length; };
-// 换主脑区并给一个「撤销」
+// 换类别并给一个「撤销」
 export function moveTo(t, id) {
   const prev = { brain: t.brain === undefined ? null : t.brain, brainBy: t.brainBy || '' }; const from = brainOf(t);
   if (from === id && t.brain != null) return;
@@ -74,18 +69,12 @@ export function moveTo(t, id) {
   setBrain(t, id);
   import('./nav.js').then(({ toast }) => toast(`「${String(t.title).slice(0, 14)}」放到了${regionOf(id).label}`, { label: '撤销', onClick: () => { upsert('todos', { id: t.id, ...prev }); update((d) => { d.settings.brainWords = words; }); } }));
 }
-// 右键 / 行尾标签用的菜单：上面选主要的，下面勾也涉及的
+// 换类别的菜单：一列，选一个
 export function regionItems(t) {
-  const p = brainOf(t); const also = alsoOf(t);
-  return [
-    { head: '主要是哪一类（选一个）' },
-    ...[...REGIONS, THALAMUS].map((r) => ({ label: r.id ? `${r.label} · ${r.name}` : '先不分', color: r.color, icon: p === r.id ? 'check' : '', onClick: () => moveTo(t, r.id) })),
-    'sep',
-    { head: '也会用到（可以多选）' },
-    ...REGIONS.filter((r) => r.id !== p).map((r) => ({ label: r.label, color: r.color, icon: also.includes(r.id) ? 'check' : '', onClick: () => setAlso(t, r.id, !also.includes(r.id)) })),
-  ];
+  const p = brainOf(t);
+  return [...REGIONS, THALAMUS].map((r) => ({ label: r.label, color: r.color, icon: p === r.id ? 'check' : '', onClick: () => moveTo(t, r.id) }));
 }
-export const brainMenu = (t) => ({ label: '换脑区', icon: 'layers', hint: regionOf(brainOf(t)).label, sub: regionItems(t) });
+export const brainMenu = (t) => ({ label: '换类别', icon: 'layers', hint: regionOf(brainOf(t)).label, sub: regionItems(t) });
 
 // 今天的进度：今天做完的 / （做完的 + 今天及以前还没做的）。只是计数，不假装测什么
 export function progress(s, date) {
@@ -125,7 +114,6 @@ export async function aiSort(s, { onlyUnsorted = false } = {}) {
   recordUsage(j);
   const ids = new Set(list.map((t) => t.id)); const picks = (j.picks || []).filter((p) => ids.has(p.id) && regionOf(p.region).id);
   const m = Object.fromEntries(picks.map((p) => [p.id, p]));
-  // 「也涉及」只在自己还没勾过的时候填
-  if (picks.length) update((d) => { d.todos = d.todos.map((t) => { const p = m[t.id]; if (!p || !(t.brain == null || t.brainBy === 'ai')) return t; const also = (t.brainAlso || []).length ? t.brainAlso : (p.also || []).filter((x) => regionOf(x).id && x !== p.region).slice(0, 2); return { ...t, brain: p.region, brainBy: 'ai', brainAlso: also }; }); });
+  if (picks.length) update((d) => { d.todos = d.todos.map((t) => { const p = m[t.id]; if (!p || !(t.brain == null || t.brainBy === 'ai')) return t; return { ...t, brain: p.region, brainBy: 'ai' }; }); });
   return { n: picks.length, reply: j.reply || '' };
 }

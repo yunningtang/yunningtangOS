@@ -184,11 +184,10 @@ const SYSTEM_BRAIN = `${PERSONA}
 - habit 小脑：每天 / 每周重复的例行事、习惯、打卡
 - alarm 杏仁核：让人焦虑、一直拖着、害怕面对的事。只有标题或备注里明显看得出来（拖了很久、焦虑、害怕、催了好几次、逾期很久）才放这里，拿不准就不要放
 要点：
-1. 每一件都要给一个 region（主要脑区），按这件事最主要的那一步来判断。「准备组会汇报的 PPT」主要是做 PPT → plan；「跟导师汇报」→ talk。
-2. also：这件事还明显用到的其他脑区，0–2 个，跟 region 不重复。「读完这本书写读书笔记」→ region memory，also [talk]。大多数小事没有 also，给空数组，不要硬凑。
-3. id 原样抄回来，不要改，不要漏，不要编新的。
-4. reply 用一句很短的话说说今天的事主要落在哪块（不超过 30 个字）。`;
-const SCHEMA_BRAIN = { type: 'object', additionalProperties: false, required: ['reply', 'picks'], properties: { reply: { type: 'string' }, picks: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'region', 'also'], properties: { id: { type: 'string' }, region: { type: 'string', enum: BRAIN_IDS }, also: { type: 'array', items: { type: 'string', enum: BRAIN_IDS } } } } } } };
+1. 每一件都要给一个 region，按这件事最主要的那一步来判断。「准备组会汇报的 PPT」主要是做 PPT → plan；「跟导师汇报」→ talk。
+2. id 原样抄回来，不要改，不要漏，不要编新的。
+3. reply 用一句很短的话说说今天的事主要落在哪块（不超过 30 个字）。`;
+const SCHEMA_BRAIN = { type: 'object', additionalProperties: false, required: ['reply', 'picks'], properties: { reply: { type: 'string' }, picks: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'region'], properties: { id: { type: 'string' }, region: { type: 'string', enum: BRAIN_IDS } } } } } };
 const SCHEMA_DOC = { type: 'object', additionalProperties: false, required: ['reply', 'markdown'], properties: { reply: { type: 'string' }, markdown: S_OR_NULL } };
 const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'steps'], properties: { reply: { type: 'string' }, steps: { type: 'array', items: STEP } } };
 
@@ -197,7 +196,7 @@ const JSON_HINT = {
   doc: '只输出一个 JSON 对象：{"reply": "...", "markdown": "..."}（不需要改正文时 markdown 为 null）。markdown 字符串里的换行写成 \\n。不要输出 JSON 之外的任何文字。',
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
   stuck: '只输出一个 JSON 对象：{"reply": "...", "first": {"title": "...", "minutes": 5}, "tip": null, "next_steps": []}。不要输出 JSON 之外的任何文字。',
-  brain: '只输出一个 JSON 对象：{"reply": "...", "picks": [{"id": "...", "region": "plan|memory|talk|move|habit|alarm", "also": []}]}。不要输出 JSON 之外的任何文字。',
+  brain: '只输出一个 JSON 对象：{"reply": "...", "picks": [{"id": "...", "region": "plan|memory|talk|move|habit|alarm"}]}。不要输出 JSON 之外的任何文字。',
 };
 
 /* ---------------- 上下文 ---------------- */
@@ -436,7 +435,7 @@ export async function runAgent(body, cfg) {
     return { status: 200, body: { ...base, first: title ? { title, minutes: m } : null, tip: str(got.out.tip, 160) || '', next } };
   }
   if (mode === 'brain') {
-    const picks = (Array.isArray(got.out.picks) ? got.out.picks : []).filter((p) => p && typeof p.id === 'string' && BRAIN_IDS.includes(p.region)).map((p) => ({ id: p.id.slice(0, 40), region: p.region, also: [...new Set(Array.isArray(p.also) ? p.also : [])].filter((x) => BRAIN_IDS.includes(x) && x !== p.region).slice(0, 2) })).slice(0, 80);
+    const picks = (Array.isArray(got.out.picks) ? got.out.picks : []).filter((p) => p && typeof p.id === 'string' && BRAIN_IDS.includes(p.region)).map((p) => ({ id: p.id.slice(0, 40), region: p.region })).slice(0, 80);
     return { status: 200, body: { ...base, picks } };
   }
   if (mode === 'breakdown') {
