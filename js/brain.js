@@ -4,15 +4,16 @@ import { get, update, upsert } from './store.js';
 import { aiHeaders, recordUsage } from './ai.js';
 import { todayStr, pad, WEEKDAY_SUN } from './util.js';
 
+// label 是大家一眼看得懂的叫法（主），name 是脑区名（副）
 export const REGIONS = [
-  { id: 'plan', name: '前额叶', role: '计划与决策', color: '#2383E2', bg: '#E7F3F8', icon: 'target' },
-  { id: 'memory', name: '海马体', role: '学习与复习', color: '#9065B0', bg: '#F6F3F9', icon: 'book' },
-  { id: 'talk', name: '语言区', role: '沟通', color: '#D9730D', bg: '#FBECDD', icon: 'chat' },
-  { id: 'move', name: '运动皮层', role: '体力与跑腿', color: '#CB912F', bg: '#FBF3DB', icon: 'zap' },
-  { id: 'habit', name: '小脑', role: '习惯与例行', color: '#448361', bg: '#EDF3EC', icon: 'refresh' },
-  { id: 'alarm', name: '杏仁核', role: '让人焦虑的事', color: '#E03E3E', bg: '#FDEBEC', icon: 'flag' },
+  { id: 'plan', label: '计划', name: '前额叶', role: '计划与决策', desc: '项目、目标、要拿主意的事', example: '定下这周最重要的三件事', color: '#2383E2', bg: '#E7F3F8', icon: 'target' },
+  { id: 'memory', label: '学习', name: '海马体', role: '学习与复习', desc: '读、学、复习、整理知识', example: '复习第三章', color: '#9065B0', bg: '#F6F3F9', icon: 'book' },
+  { id: 'talk', label: '表达', name: '语言区', role: '沟通与表达', desc: '回消息、写邮件、开会、写东西给人看', example: '回复导师的邮件', color: '#D9730D', bg: '#FBECDD', icon: 'chat' },
+  { id: 'move', label: '行动', name: '运动皮层', role: '跑腿与动手', desc: '出门办事、家务、运动、动手操作', example: '去取快递', color: '#CB912F', bg: '#FBF3DB', icon: 'zap' },
+  { id: 'habit', label: '习惯', name: '小脑', role: '习惯与例行', desc: '每天、每周重复的事', example: '每天散步 20 分钟', color: '#448361', bg: '#EDF3EC', icon: 'refresh' },
+  { id: 'alarm', label: '压力', name: '杏仁核', role: '让人有压力的事', desc: '一直拖着、想起来就难受的事', example: '把拖着的报税拆出第一步', color: '#E03E3E', bg: '#FDEBEC', icon: 'flag' },
 ];
-export const THALAMUS = { id: '', name: '丘脑', role: '还没分', color: '#9B9A97', bg: '#F1F1EF', icon: 'layers' };
+export const THALAMUS = { id: '', label: '未分', name: '丘脑', role: '还没分', desc: '还没决定放哪', example: '', color: '#9B9A97', bg: '#F1F1EF', icon: 'layers' };
 export const regionOf = (id) => REGIONS.find((r) => r.id === id) || THALAMUS;
 
 // 动词规则：从上往下第一个命中的算数（「规划论文」算前额叶，所以计划排在学习前面）。杏仁核不猜——焦不焦虑只有自己知道
@@ -32,7 +33,31 @@ export function guess(t, words = (get().settings.brainWords || {})) {
   for (const [id, re] of RULES) if (re.test(t.title || '')) return id;
   return '';
 }
-export const brainOf = (t, words) => (t.brain === undefined || t.brain === null ? guess(t, words) : t.brain);
+// 自己选的主脑区（没选就猜）
+const ownBrain = (t, words) => (t.brain === undefined || t.brain === null ? guess(t, words) : t.brain);
+// 步骤类型 → 脑区（汤圆拆解出来的步骤自带类型）
+const STEP_REGION = { 思考: 'plan', 记忆: 'memory', 语言: 'talk', 动手: 'move' };
+const stepRegion = (x) => (x && (x.brain || STEP_REGION[x.kind])) || '';
+// 流转：步骤跨了两个以上脑区时，按步骤顺序排成几段；现在这段 = 第一个没做完的步骤所在的脑区
+export function flowOf(t) {
+  const st = Array.isArray(t.steps) ? t.steps : []; const seq = [];
+  st.forEach((x) => { const r = stepRegion(x); if (!r) return; const last = seq[seq.length - 1]; if (last && last.id === r) { last.n++; last.done += x.done ? 1 : 0; } else seq.push({ id: r, n: 1, done: x.done ? 1 : 0 }); });
+  if (new Set(seq.map((x) => x.id)).size < 2) return null;
+  const at = seq.findIndex((x) => x.done < x.n);
+  return { seq, at };
+}
+// 主脑区：有流转且没走完 → 跟着步骤走；否则用自己选的 / 猜的
+export const brainOf = (t, words) => { const f = flowOf(t); return f && f.at >= 0 ? f.seq[f.at].id : ownBrain(t, words); };
+// 也涉及的脑区：自己加的 + 步骤里出现过的，去掉主脑区，最多 3 个
+export function alsoOf(t, words) {
+  const p = brainOf(t, words); const f = flowOf(t);
+  const all = [...(Array.isArray(t.brainAlso) ? t.brainAlso : []), ...(f ? f.seq.map((x) => x.id) : [])];
+  return [...new Set(all)].filter((id) => id && id !== p && REGIONS.some((r) => r.id === id)).slice(0, 3);
+}
+export function setAlso(t, id, on) {
+  const cur = Array.isArray(t.brainAlso) ? t.brainAlso : [];
+  upsert('todos', { id: t.id, brainAlso: on ? [...new Set([...cur, id])].slice(0, 3) : cur.filter((x) => x !== id) });
+}
 
 // 手动换脑区：记下这个标题开头的词，下次同样开头的就照这个分
 export function setBrain(t, id) {
@@ -41,19 +66,34 @@ export function setBrain(t, id) {
   if (w && id && id !== 'alarm') update((d) => { d.settings.brainWords = { ...(d.settings.brainWords || {}), [w]: id }; });
 }
 export const unsortedCount = (s) => { const words = s.settings.brainWords || {}; return s.todos.filter((t) => !t.done && !brainOf(t, words)).length; };
-export const brainMenu = (t) => ({ label: '换脑区', icon: 'layers', hint: regionOf(brainOf(t)).name, sub: [...REGIONS, THALAMUS].map((r) => ({ label: `${r.name} · ${r.role}`, color: r.color, icon: brainOf(t) === r.id ? 'check' : '', onClick: () => setBrain(t, r.id) })) });
+// 换主脑区并给一个「撤销」
+export function moveTo(t, id) {
+  const prev = { brain: t.brain === undefined ? null : t.brain, brainBy: t.brainBy || '' }; const from = brainOf(t);
+  if (from === id && t.brain != null) return;
+  const words = get().settings.brainWords; // 换区时会顺便学开头词，撤销要一起退回去
+  setBrain(t, id);
+  import('./nav.js').then(({ toast }) => toast(`「${String(t.title).slice(0, 14)}」放到了${regionOf(id).label}`, { label: '撤销', onClick: () => { upsert('todos', { id: t.id, ...prev }); update((d) => { d.settings.brainWords = words; }); } }));
+}
+// 右键 / 行尾标签用的菜单：上面选主要的，下面勾也涉及的
+export function regionItems(t) {
+  const p = brainOf(t); const also = alsoOf(t);
+  return [
+    ...[...REGIONS, THALAMUS].map((r) => ({ label: `${r.label} · ${r.name}`, color: r.color, icon: p === r.id ? 'check' : '', onClick: () => moveTo(t, r.id) })),
+    'sep',
+    ...REGIONS.filter((r) => r.id !== p).map((r) => ({ label: `也涉及${r.label}`, color: r.color, icon: also.includes(r.id) ? 'check' : '', onClick: () => setAlso(t, r.id, !also.includes(r.id)) })),
+  ];
+}
+export const brainMenu = (t) => ({ label: '换脑区', icon: 'layers', hint: regionOf(brainOf(t)).label, sub: regionItems(t) });
 
-// 多巴胺：今天做完的事攒出来的「爽感」。每件 10，杏仁核里的 25（最难开头的事最值），
-// 今天动过的脑区每多一块再加 5（换着做比一直做同一类更提神）。满 100 封顶
-export function dopamine(s, date) {
+// 今天的进度：今天做完的 / （做完的 + 今天及以前还没做的）。只是计数，不假装测什么
+export function progress(s, date) {
   const words = s.settings.brainWords || {};
   const done = s.todos.filter((t) => t.done && t.completedAt === date);
+  const left = s.todos.filter((t) => !t.done && t.due && t.due <= date).length;
   const by = {}; done.forEach((t) => { const id = brainOf(t, words) || ''; by[id] = (by[id] || 0) + 1; });
-  const regions = Object.keys(by).filter(Boolean).length;
-  const raw = done.reduce((n, t) => n + (brainOf(t, words) === 'alarm' ? 25 : 10), 0) + Math.max(0, regions - 1) * 5;
-  return { value: Math.min(100, raw), done: done.length, by, regions };
+  const total = done.length + left;
+  return { done: done.length, left, total, pct: total ? Math.round((done.length / total) * 100) : 0, by };
 }
-export const dopamineWord = (v) => (v >= 80 ? '满格' : v >= 50 ? '很不错' : v >= 20 ? '在涨' : v > 0 ? '起步了' : '还没开始');
 
 // 晚上复盘：settings.brainReview[日期] = { mood, note }，只留最近 60 天
 export const MOODS = [{ v: 1, label: '好累' }, { v: 2, label: '一般' }, { v: 3, label: '还行' }, { v: 4, label: '不错' }, { v: 5, label: '很好' }];
@@ -82,7 +122,8 @@ export async function aiSort(s, { onlyUnsorted = false } = {}) {
   if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
   recordUsage(j);
   const ids = new Set(list.map((t) => t.id)); const picks = (j.picks || []).filter((p) => ids.has(p.id) && regionOf(p.region).id);
-  const m = Object.fromEntries(picks.map((p) => [p.id, p.region]));
-  if (picks.length) update((d) => { d.todos = d.todos.map((t) => (m[t.id] && (t.brain == null || t.brainBy === 'ai') ? { ...t, brain: m[t.id], brainBy: 'ai' } : t)); });
+  const m = Object.fromEntries(picks.map((p) => [p.id, p]));
+  // 「也涉及」只在自己还没勾过的时候填
+  if (picks.length) update((d) => { d.todos = d.todos.map((t) => { const p = m[t.id]; if (!p || !(t.brain == null || t.brainBy === 'ai')) return t; const also = (t.brainAlso || []).length ? t.brainAlso : (p.also || []).filter((x) => regionOf(x).id && x !== p.region).slice(0, 2); return { ...t, brain: p.region, brainBy: 'ai', brainAlso: also }; }); });
   return { n: picks.length, reply: j.reply || '' };
 }

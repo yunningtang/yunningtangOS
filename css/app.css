@@ -3390,3 +3390,81 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
   .br-keys{grid-template-columns:1fr 1fr;padding:4px 8px 8px}
   .bk-t small{display:none}
 }
+/* 大脑页 · 第三版：左脑图 40% + 右工作区 60%；任务和脑区双向联动 */
+.brain .br-grid{grid-template-columns:minmax(0,2fr) minmax(0,3fr)}
+.brain .br-map-card{position:sticky;top:64px}
+.brain .br-map{padding:14px 14px 0}
+.brain .br-keys{padding:4px 10px 6px;gap:2px 6px}
+.brain .br-key{padding:7px 8px}
+.brain .br-tip{margin:0 10px 12px;padding:8px 10px;font-size:.8rem;color:var(--text-3);background:none;border-top:1px solid var(--line);border-radius:0;display:flex;align-items:center;gap:8px}
+.brain .br-tip>span{flex:1;min-width:0}
+.br-ai{display:inline-flex;align-items:center;gap:5px}
+.br-prog{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--text-3);padding:6px 12px;border-radius:999px;background:var(--hover)}
+.br-prog-bar{position:relative;width:96px;height:6px;border-radius:3px;background:var(--hover-2);overflow:hidden}
+.br-prog-bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--text);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.br-prog b{font-size:.84rem;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+.br-prog.sm{padding:4px 0 0;background:none}
+.br-prog.sm .br-prog-bar{flex:1;width:auto}
+/* 脑图：悬停一件事时，只亮它涉及的脑区，中间画线 */
+.brs.focusing .brs-r.dim{opacity:.32}
+.brs-r.fp{filter:saturate(1.3) brightness(.97)}
+.brs-r.fa{stroke:var(--c);stroke-dasharray:3 2;stroke-width:1.4}
+.brs-badge.dim{opacity:.3}
+.brs-r,.brs-badge{transition:opacity .2s,fill .35s,filter .2s}
+.brs-link{fill:none;stroke:var(--c);stroke-width:1.6;stroke-dasharray:3 3;stroke-linecap:round;pointer-events:none;animation:brs-dash 1.2s linear infinite}
+@keyframes brs-dash{to{stroke-dashoffset:-12}}
+/* 右边工作区 */
+.br-work{min-height:420px;display:flex;flex-direction:column}
+.bw-head{display:flex;align-items:flex-start;gap:12px;padding-bottom:14px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.bw-ic{width:14px;height:14px;border-radius:5px;background:var(--c);margin-top:8px;flex:none}
+.bw-head h2{margin:0;font-size:1.35rem;font-weight:700;letter-spacing:-.01em;color:var(--text);display:flex;align-items:baseline;gap:8px}
+.bw-head h2 small{font-size:.8rem;font-weight:500;color:var(--text-3)}
+.bw-head p{margin:3px 0 0;font-size:.84rem;color:var(--text-3)}
+.bw-stat{text-align:right;flex:none}
+.bw-stat b{display:block;font-size:1.35rem;font-weight:700;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums}
+.bw-stat span{font-size:.74rem;color:var(--text-3)}
+.bw-next{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:10px;border-radius:10px;background:color-mix(in srgb,var(--c) 8%,transparent)}
+.bw-next-k{font-size:.74rem;font-weight:600;color:color-mix(in srgb,var(--c) 85%,#000);flex:none}
+.bw-next-t{flex:1;min-width:0;font-size:.92rem;font-weight:550;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.bw-next .btn{flex:none;display:inline-flex;align-items:center;gap:5px}
+.br-rows{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
+.br-row{border-radius:8px;transition:background .15s}
+.br-row:hover{background:var(--hover)}
+.br-row-main{display:flex;align-items:center;gap:6px}
+.br-row .todo{background:none}
+.br-chip{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:.74rem;padding:3px 7px 3px 8px;margin-right:6px;border-radius:999px;border:1px solid transparent;background:none;color:var(--text-3);cursor:pointer;opacity:.75;transition:all .15s}
+.br-chip>i{width:8px;height:8px;border-radius:3px;background:var(--c)}
+.br-row:hover .br-chip,.br-chip:focus-visible{opacity:1;border-color:var(--line-2);background:var(--card-bg,#fff)}
+.br-chip-more{display:inline-flex;gap:2px}
+.br-chip-more i{width:6px;height:6px;border-radius:50%}
+.br-flow{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:0 10px 8px 38px;font-size:.72rem}
+.br-flow-s{padding:1px 7px;border-radius:999px;color:var(--text-3);background:var(--hover)}
+.br-flow-s.done{text-decoration:line-through;opacity:.6}
+.br-flow-s.now{color:#fff;background:var(--c);font-weight:600}
+.br-flow-ar{color:var(--text-4)}
+.bw-sub{font-size:.76rem;font-weight:600;color:var(--text-3);margin:10px 4px 4px}
+.bw-also .br-row{opacity:.85}
+.bw-empty{display:flex;flex-direction:column;gap:6px;padding:28px 12px;margin-bottom:10px;border:1px dashed var(--line-2);border-radius:12px;text-align:center}
+.bw-empty b{font-size:.92rem;color:var(--text-2);font-weight:600}
+.bw-empty span{font-size:.82rem;color:var(--text-3)}
+.br-work .quickadd{margin-top:auto}
+/* 复盘：平时一行 */
+.br-rv-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;border:1px solid var(--line);font-size:.86rem;color:var(--text-3)}
+.br-rv-bar.eve{border-color:var(--line-2);background:var(--hover)}
+.br-rv-q{color:var(--text-2);font-weight:550}
+.br-rv-bar .br-moods{flex:1}
+.br-rv-bar.done i{color:var(--text-2);font-style:normal}
+@media (max-width:900px){
+  .brain .br-grid{grid-template-columns:1fr}
+  .brain .br-map-card{position:static}
+  .br-work{min-height:0}
+  .br-chip{opacity:1}
+  .br-flow{padding-left:12px}
+  .bw-next{flex-wrap:wrap}
+}
+@media (max-width:900px){
+  .br-rv-bar .br-moods{flex-basis:100%;order:3;flex-wrap:nowrap;overflow-x:auto}
+  .br-rv-bar .br-moods button{flex:none}
+  .br-rv-bar .btn{margin-left:auto}
+  .br-in-t{flex-basis:100%}
+}
