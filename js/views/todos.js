@@ -7,7 +7,7 @@ import { brainMenu, stepCat } from '../brain.js';
 import { askConfirm, askDate, askPrompt } from '../confirm.js';
 import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
-import { dragProps, dropProps } from '../dnd.js';
+import { dragProps, dropProps, current as dragNow } from '../dnd.js';
 import { toast } from '../nav.js';
 import { NoteTasks, noteTasks } from './ntasks.js';
 import { stepsOf, stepsProgress, toggleStep, setStep, removeStep, moveStep, addSteps, nextStep, clampMin } from '../steps.js';
@@ -188,6 +188,23 @@ export function StepList({ t, autoAdd = false }) {
   </ul>`;
 }
 
+// 把一件待办拖到另一件的中间 → 变成它的一个步骤（自己原来的步骤接在后面）。拖到卡片上下边缘还是原来的行为（换列 / 换日期）
+export function nestTodo(fromId, intoId) {
+  const st = get(); const a = st.todos.find((x) => x.id === fromId), b = st.todos.find((x) => x.id === intoId);
+  if (!a || !b || a.id === b.id || b.done) return;
+  const before = JSON.parse(JSON.stringify(b));
+  const add = [{ id: uid(), title: a.title, minutes: a.focusLen || 25, kind: '', done: !!a.done }, ...stepsOf(a).map((x) => ({ ...x, id: uid() }))];
+  update((d) => { const t = d.todos.find((x) => x.id === intoId); if (!t) return; t.steps = [...stepsOf(t), ...add]; d.todos = d.todos.filter((x) => x.id !== fromId); });
+  toast(`「${a.title.slice(0, 14)}」变成了「${b.title.slice(0, 14)}」的一步`, { label: '撤销', onClick: () => update((d) => { d.todos = d.todos.map((x) => (x.id === intoId ? before : x)); if (!d.todos.some((x) => x.id === a.id)) d.todos.unshift(a); }) });
+}
+// 只有拖到卡片中间那一半才算「放进去」，并高亮提示；边缘的事件照常冒泡给外面的列 / 分组
+const inMiddle = (e) => { const r = e.currentTarget.getBoundingClientRect(); const y = (e.clientY - r.top) / r.height; return y > 0.25 && y < 0.75; };
+export const nestProps = (t) => (t.done ? {} : {
+  onDragOver: (e) => { const p = dragNow(); if (!p || p.type !== 'todo' || p.data.id === t.id) return; const on = inMiddle(e); e.currentTarget.classList.toggle('nest-over', on); if (on) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; } },
+  onDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('nest-over'); },
+  onDrop: (e) => { const el = e.currentTarget; const on = el.classList.contains('nest-over'); el.classList.remove('nest-over'); const p = dragNow(); if (!on || !p || p.type !== 'todo' || p.data.id === t.id) return; e.preventDefault(); e.stopPropagation(); nestTodo(p.data.id, t.id); },
+});
+
 export function TodoItem({ t, onEdit, compact }) {
   const p = PRIORITY[t.priority] || PRIORITY[2];
   const now = useClock();
@@ -209,7 +226,7 @@ export function TodoItem({ t, onEdit, compact }) {
     <button type="button" class="nxt-go" title=${`开始这一步 · ${clampMin(ns.minutes)} 分钟`} onClick=${startStep}><${Icon} name="play" size=${10} /></button>
   </div>`;
   const chip = sp.total > 0 && html`<button class=${'steps ' + (sp.done === sp.total ? 'all ' : '') + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}><${Icon} name="list" size=${10} /> ${sp.done}/${sp.total} 步 <${Icon} name=${showSteps ? 'up' : 'down'} size=${9} /></button>`;
-  return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done ' : '') + (showSteps && sp.total ? 'has-steps' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })}>
+  return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done ' : '') + (showSteps && sp.total ? 'has-steps' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })} ...${nestProps(t)}>
     <button class="cb" title=${`${p.label} ${p.name}`} onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
     <div class="tt">
       <div class="ti" onClick=${() => onEdit && onEdit(t)}>${t.title}</div>
@@ -307,7 +324,7 @@ export default function Todos({ route }) {
       <div class="board-cols">${PRIORITY.map((p) => { const list = sortBy(todos.filter((t) => t.priority === p.v), 'done', 'due', 'time'); return html`<div class="bcol" key=${p.v} style=${`--pc:${p.color}`} ...${dropProps('todo', (d) => upsert('todos', { id: d.id, priority: p.v }))}>
         <div class="bh"><b class="bh-p">${p.label}</b>${p.name}<span>${list.length}</span></div>
         ${list.length === 0 && html`<div class="bcol-none">没有${p.name}的事</div>`}
-        ${list.map((t) => html`<div class=${'bcard p' + t.priority + ' ' + (t.done ? 'done' : '')} key=${t.id} style=${`--pc:${p.color}`} ...${dragProps('todo', { id: t.id })} onClick=${() => { setEditing(t); setModal(true); }} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, (x) => { setEditing(x); setModal(true); }), t.title)}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div class="bt">${t.title}</div><span class="meta">${lateState(t) && html`<button class=${'bl ' + lateState(t)} title="推迟到…" onClick=${(e) => { e.stopPropagation(); postponeMenu(e, t); }}>${lateState(t) === 'late' ? '逾期' : '已过'} · 推迟</button>`}${t.due ? html`<b class="bd">${relDay(t.due)}${t.time ? ' ' + t.time : ''}</b>` : ''}${t.area ? html`<i>${t.area}</i>` : ''}${t.tags.map((x) => html`<i>#${x}</i>`)}${stepsProgress(t).total > 0 && html`<i class=${'bs ' + (stepsProgress(t).done === stepsProgress(t).total ? 'all' : '')}>${stepsProgress(t).done}/${stepsProgress(t).total} 步</i>`}</span></div></div>`)}
+        ${list.map((t) => html`<div class=${'bcard p' + t.priority + ' ' + (t.done ? 'done' : '')} key=${t.id} style=${`--pc:${p.color}`} ...${dragProps('todo', { id: t.id })} ...${nestProps(t)} onClick=${() => { setEditing(t); setModal(true); }} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, (x) => { setEditing(x); setModal(true); }), t.title)}><button class="cb" onClick=${(e) => { e.stopPropagation(); toggleTodo(t.id); }}><${Icon} name="check" size=${10} /></button><div class="flex1"><div class="bt">${t.title}</div><span class="meta">${lateState(t) && html`<button class=${'bl ' + lateState(t)} title="推迟到…" onClick=${(e) => { e.stopPropagation(); postponeMenu(e, t); }}>${lateState(t) === 'late' ? '逾期' : '已过'} · 推迟</button>`}${t.due ? html`<b class="bd">${relDay(t.due)}${t.time ? ' ' + t.time : ''}</b>` : ''}${t.area ? html`<i>${t.area}</i>` : ''}${t.tags.map((x) => html`<i>#${x}</i>`)}${stepsProgress(t).total > 0 && html`<i class=${'bs ' + (stepsProgress(t).done === stepsProgress(t).total ? 'all' : '')}>${stepsProgress(t).done}/${stepsProgress(t).total} 步</i>`}</span></div></div>`)}
         <button class="pt-row flat new" style="min-height:26px;font-size:.76rem" onClick=${() => { setEditing({ id: uid(), title: '', done: false, priority: p.v, due: '', time: '', tags: [], area: '', note: '', created: today, _new: true }); setModal(true); }}><span class="pt-ic"><${Icon} name="plus" size=${11} /></span><span class="pt-t">添加</span></button>
       </div>`; })}</div>`
     : html`<${Card}>
