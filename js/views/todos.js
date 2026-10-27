@@ -5,6 +5,7 @@ import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGe
 import { ctxMenu } from '../ctx.js';
 import { brainMenu, stepCat, stepRegionItems } from '../brain.js';
 import { doThis } from '../doing.js';
+import { goalMenu } from '../quest.js';
 import { askConfirm, askDate, askPrompt } from '../confirm.js';
 import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
@@ -136,6 +137,7 @@ export function todoMenu(t, onEdit) {
     !t.done && { label: '拆解成步骤', icon: 'sparkle', hint: '汤圆', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t })) },
     !t.done && { label: stepsOf(t).length ? '添加一步' : '添加子步骤', icon: 'list', onClick: () => window.dispatchEvent(new CustomEvent('todo:addstep', { detail: t.id })) },
     !t.done && brainMenu(t),
+    !t.done && (!t.src || t.src.kind === 'goal') && goalMenu(t),
     { label: t.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) },
     onEdit && { label: '编辑', icon: 'edit', onClick: () => onEdit(t) },
     !t.done && t.due && { label: lateState(t) ? '推迟…' : '改期…', icon: 'right', sub: postponeItems(t) },

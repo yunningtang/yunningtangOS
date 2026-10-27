@@ -10,8 +10,15 @@ import { StepList } from './todos.js';
 import { openStuck } from './stuck.js';
 import { setGoal, setDoing } from '../doing.js';
 import { brainOf } from '../brain.js';
+import { questOf, mainFirst } from '../quest.js';
+import { useStore } from '../store.js';
+
+// 主线：这件事在推进哪个月度目标（那个目标下做完了几件）
+const QuestLine = ({ q }) => q && html`<a class="quest" href=${'#/plan/month?open=' + q.goal.id} title="打开这个目标"><${Icon} name="target" size=${12} /><b>主线</b><span>推进：${q.goal.title}</span><small>${q.done}/${q.total}</small></a>`;
+const doneToast = (s, t) => { const q = questOf(s, t); toast(q ? `主线推进了一步 · ${q.goal.title} ${q.done + 1}/${q.total}` : `「${t.title.slice(0, 16)}」完成了`); };
 
 export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big = false }) {
+  const s = useStore(); const q = questOf(s, t);
   const sp = stepsProgress(t); const ns = nextStep(t); const allDone = sp.total > 0 && !ns;
   const [editing, setEditing] = useState(false); const [v, setV] = useState(t.goal || '');
   useEffect(() => { setV(t.goal || ''); }, [t.id, t.goal]);
@@ -20,7 +27,7 @@ export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big 
   useEffect(() => { if (allDone && !was.current) { setParty(true); const tm = setTimeout(() => setParty(false), 1600); was.current = allDone; return () => clearTimeout(tm); } was.current = allDone; }, [allDone]);
   const saveGoal = () => { setEditing(false); if ((v || '').trim() !== (t.goal || '')) setGoal(t.id, v); };
   const startStep = () => { pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title}`, { label: '去专注', onClick: () => go('focus') }); };
-  const finish = () => { toggleTodo(t.id); setDoing(''); toast(`「${t.title.slice(0, 16)}」完成了`); };
+  const finish = () => { doneToast(s, t); toggleTodo(t.id); setDoing(''); };
   const nextGoal = () => { setGoal(t.id, ''); setV(''); setEditing(true); };
   const breakdown = () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t }));
   return html`<div class=${'bwn ' + (big ? 'big ' : '') + (allDone ? 'won ' : '') + (party ? 'party' : '')}>
@@ -29,6 +36,7 @@ export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big 
       <b class="bwn-t" title="编辑" onClick=${() => onEdit && onEdit(t)}>${t.title}</b>
       <button type="button" class="bw-text" onClick=${() => openStuck(t)} title="不知道怎么推进？问问汤圆">卡住了</button>
     </div>
+    <${QuestLine} q=${q} />
     <div class="bwn-goal">
       <span class="bwn-gk">本次目标</span>
       ${editing ? html`<input class="bwn-gi" type="text" value=${v} placeholder="这一轮做到什么就算完成？" ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; el.focus(); } }} onInput=${(e) => setV(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') saveGoal(); if (e.key === 'Escape') { setV(t.goal || ''); setEditing(false); } }} onBlur=${saveGoal} />`
@@ -54,19 +62,20 @@ export function DoingWidget({ s, Timer, Card }) {
   if (running) return html`<${Timer} />`;
   const today = new Date(); const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   if (!t) {
-    const picks = s.todos.filter((x) => !x.done && (!x.due || x.due <= ymd)).sort((a, b) => a.priority - b.priority).slice(0, 3);
+    const picks = mainFirst(s, s.todos.filter((x) => !x.done && (!x.due || x.due <= ymd)).sort((a, b) => a.priority - b.priority)).slice(0, 3);
     return html`<${Card} class="dw">
       <div class="card-h"><h3>正在做</h3><div class="card-act"><a class="ibtn" href="#/focus" title="去专注"><${Icon} name="clock" size=${15} /></a></div></div>
       <p class="dw-q">今天先做哪一件？</p>
-      ${picks.length ? html`<div class="dw-picks">${picks.map((x) => html`<button type="button" key=${x.id} onClick=${() => setDoing(x.id)}>${x.title}</button>`)}</div>` : html`<p class="dw-none">今天没有待办，<a href="#/todos">去加一件</a></p>`}
+      ${picks.length ? html`<div class="dw-picks">${picks.map((x) => html`<button type="button" key=${x.id} onClick=${() => setDoing(x.id)}>${questOf(s, x) && html`<i class="q-tag">主线</i>`}${x.title}</button>`)}</div>` : html`<p class="dw-none">今天没有待办，<a href="#/todos">去加一件</a></p>`}
     <//>`;
   }
   const sp = stepsProgress(t); const ns = nextStep(t); const allDone = sp.total > 0 && !ns;
   const startStep = () => { pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); };
-  const finish = () => { toggleTodo(t.id); setDoing(''); toast(`「${t.title.slice(0, 16)}」完成了`); };
+  const finish = () => { doneToast(s, t); toggleTodo(t.id); setDoing(''); };
   return html`<${Card} class="dw">
     <div class="card-h"><h3>正在做</h3><div class="card-act"><a class="ibtn" href="#/focus" title="去专注页看全部"><${Icon} name="right" size=${15} /></a></div></div>
     <a class="dw-t" href="#/focus">${t.title}</a>
+    <${QuestLine} q=${questOf(s, t)} />
     ${t.goal && html`<p class="dw-goal"><span>本次目标</span>${t.goal}</p>`}
     ${sp.total > 0 && html`<div class="bwn-ck"><span>完成条件</span><b>${sp.done}/${sp.total}</b><i class="bwn-bar"><i style=${`width:${Math.round((sp.done / sp.total) * 100)}%`}></i></i></div>`}
     ${allDone ? html`<div class="dw-row"><span class="bwn-won"><${Icon} name="sparkle" size=${13} />${t.goal ? '本次目标达成' : '条件都完成了'}</span><span class="flex1"></span><button type="button" class="bw-cta" onClick=${finish}>完成这件事</button></div>`

@@ -406,8 +406,10 @@ function WeekTimeline() {
 }
 
 export default function Planner({ route }) {
-  const sub = route.sub || lsGet('ytos.plan.tab', 'week');
-  useEffect(() => { if (route.sub) lsSet('ytos.plan.tab', route.sub); }, [route.sub]);
+  // 「今天」在侧栏有自己的入口（plan/day），所以「计划」不记、也不回到每日时间线，免得两个入口点进去一样
+  const last = lsGet('ytos.plan.tab', 'week');
+  const sub = route.sub || (last && last !== 'day' ? last : 'week');
+  useEffect(() => { if (route.sub && route.sub !== 'day') lsSet('ytos.plan.tab', route.sub); }, [route.sub]);
   const ALL = { week: '周计划', day: '每日时间线', weektl: '周时间线', month: '月度目标' };
   // 页签顺序可以拖动调整，记住
   const [order, setOrder] = useState(() => { const saved = lsGet('ytos.plan.tabs', '').split(',').filter((k) => ALL[k]); return [...saved, ...Object.keys(ALL).filter((k) => !saved.includes(k))]; });

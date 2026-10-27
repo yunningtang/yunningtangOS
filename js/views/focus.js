@@ -12,6 +12,7 @@ import { nextStep } from '../steps.js';
 import { go } from '../nav.js';
 import { BattleCard } from './battle.js';
 import { doingOf, setDoing } from '../doing.js';
+import { mainFirst, isMain } from '../quest.js';
 import { TodoModal } from './todos.js';
 
 export function usePomo() {
@@ -35,7 +36,7 @@ export default function Focus({ route }) {
   useEffect(() => { if (doing && st.phase === 'idle' && st.todoId !== doing.id) { pomo.setLabel(doing.title, doing.id); pomo.setGoal((nextStep(doing) || {}).title || ''); } }, [doing && doing.id, st.phase]);
   const [editing, setEditing] = useState(null);
   const [others, setOthers] = useState(false);
-  const rest = todos.filter((t) => !doing || t.id !== doing.id);
+  const rest = mainFirst(s, todos.filter((t) => !doing || t.id !== doing.id)); const picksAll = mainFirst(s, todos);
   const all = s.sessions || [];
   const sessions = useMemo(() => sortBy(all.filter((b) => b.date === today), 'start'), [all]);
   const mins = sessions.reduce((n, b) => n + (b.mins || 0), 0);
@@ -65,14 +66,15 @@ export default function Focus({ route }) {
       <div class="fp-battle">
         ${doing ? html`<${BattleCard} t=${doing} key=${doing.id} label="正在做" big onEdit=${setEditing} />`
           : html`<div class="fb-empty"><b>先选一件事来做</b><span>一次只做一件事，其他的先留在待办里。</span>
-            <div class="fb-pick">${todos.slice(0, 5).map((t) => html`<button type="button" key=${t.id} onClick=${() => setDoing(t.id)}><i class=${'fq-p p' + (t.priority ?? 2)}></i>${t.title}</button>`)}${todos.length === 0 && html`<a href="#/todos">去待办里加一件</a>`}</div></div>`}
+            <div class="fb-pick">${picksAll.slice(0, 5).map((t) => html`<button type="button" key=${t.id} onClick=${() => setDoing(t.id)}><i class=${'fq-p p' + (t.priority ?? 2)}></i>${isMain(s, t) && html`<i class="q-tag">主线</i>`}${t.title}</button>`)}${todos.length === 0 && html`<a href="#/todos">去待办里加一件</a>`}</div></div>`}
         ${!quiet && rest.length > 0 && html`<div class="fb-others">
           <button type="button" class="fq-fold" onClick=${() => setOthers(!others)}><${Icon} name=${others ? 'down' : 'right'} size=${12} /> 其他的事 ${rest.length} 件<small>先留在待办里</small></button>
-          ${others && html`<div class="fq-list">${rest.slice(0, 12).map((t) => html`<div key=${t.id} class="fq-row" onContextMenu=${(e) => rowMenu(e, t)}>
+          ${others && (() => { const main = rest.filter((t) => isMain(s, t)), side = rest.filter((t) => !isMain(s, t)); const row = (t) => html`<div key=${t.id} class="fq-row" onContextMenu=${(e) => rowMenu(e, t)}>
             <i class=${'fq-p p' + (t.priority ?? 2)}></i>
             <span class="fq-t"><b>${t.title}</b>${nextStep(t) && html`<small>下一步：${nextStep(t).title}</small>`}</span>
             <button type="button" class="fb-do" onClick=${() => setDoing(t.id)}>做这件</button>
-          </div>`)}</div>`}
+          </div>`;
+            return html`<div class="fq-list">${main.length > 0 && html`<div class="fb-g">主线</div>${main.slice(0, 8).map(row)}`}${side.length > 0 && html`${main.length > 0 && html`<div class="fb-g">支线</div>`}${side.slice(0, 10).map(row)}`}</div>`; })()}
         </div>`}
       </div>
       <div class="fp-timer"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
