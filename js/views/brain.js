@@ -144,12 +144,9 @@ export default function Brain() {
   })();
 
   return html`<div class="brain">
-    <div class="br-head">
-      <div><h1>大脑</h1><p>按「怎么做」来看你的事 · 好玩的比喻，不是神经科学</p></div>
-      <div class="br-head-r">
-        <div class="br-prog" title="今天做完的 / 今天要做的（含逾期）"><span>今天</span><span class="br-prog-bar"><i style=${`width:${prog.pct}%`}></i></span><b>${prog.done}/${prog.total}</b></div>
-        <${Seg} options=${[{ v: 'today', label: '今天' }, { v: 'all', label: '全部' }]} value=${scope} onChange=${setScope} />
-      </div>
+    <div class="page-h">
+      <div><div class="desc">今天做完 ${prog.done} / ${prog.total} 件 · 按「怎么做」来看你的事，好玩的比喻，不是神经科学</div></div>
+      <div class="acts"><${Seg} options=${[{ v: 'today', label: '今天' }, { v: 'all', label: '全部' }]} value=${scope} onChange=${setScope} /></div>
     </div>
     <div class="br-grid">
       <${Card} class="br-map-card" pad=${false}>
@@ -162,15 +159,12 @@ export default function Brain() {
         <div class="br-tip"><span>${tip}</span>${aiOn && html`<button type="button" class="br-ai" disabled=${!!aiBusy} onClick=${() => runAi(false)} title="没手动指定过的待办，让汤圆按意思重新分一遍（自己改过的不动）"><${Icon} name="sparkle" size=${12} />${aiBusy === 'all' ? '汤圆在分…' : '让汤圆分一遍'}</button>`}</div>
       <//>
       <${Card} class="br-work" style=${`--c:${cur.color};--bg:${cur.bg}`}>
-        <div class="bw-head">
-          <i class="bw-ic"></i>
-          <div class="flex1"><h2>${cur.label}<small>${cur.name}</small></h2><p>${cur.desc}</p></div>
-          <div class="bw-stat"><b>${list.length}</b><span>件${doneHere ? ` · 今天做完 ${doneHere}` : ''}</span></div>
-        </div>
+        <div class="card-h"><h3><i class="br-dot" style=${`background:${cur.color}`}></i>${cur.label} <span class="muted small">${cur.name} · ${list.length} 件${doneHere ? ` · 做完 ${doneHere}` : ''}</span></h3></div>
+        <p class="bw-desc">${cur.desc}</p>
         ${next && html`<div class="bw-next"><span class="bw-next-k">下一步</span><span class="bw-next-t" onClick=${() => setEditing(next)}>${next.title}</span><button type="button" class="btn ghost sm" onClick=${() => openStuck(next)} title="不知道怎么推进？问问汤圆">卡住了</button><button type="button" class="btn sm" onClick=${() => go('focus?todo=' + next.id)}><${Icon} name="clock" size=${13} />开始专注</button></div>`}
         ${list.length ? html`<div class="br-rows">${list.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`
           : html`<div class="bw-empty"><b>${scope === 'today' ? '今天' : ''}这里还没有事</b><span>在下面直接写，会自动放进「${cur.label}」。比如：${cur.example}</span></div>`}
-        ${alsoList.length > 0 && html`<div class="bw-also"><div class="bw-sub">也涉及${cur.label}</div><div class="br-rows">${alsoList.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div></div>`}
+        ${alsoList.length > 0 && html`<div class="bw-also"><div class="bw-sub">也涉及「${cur.label}」</div><div class="br-rows">${alsoList.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div></div>`}
         <${QuickAdd} defaults=${{ due: today, brain: sel }} placeholder=${`加到「${cur.label}」… 比如：${cur.example}`} />
       <//>
     </div>
