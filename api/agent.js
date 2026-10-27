@@ -115,14 +115,39 @@ const SYSTEM_DOC = `${PERSONA}
 
 const SYSTEM_BREAKDOWN = `${PERSONA}
 
-你的工作：对方面对一件大事不知道从哪下手，把它拆成 3–7 个可以直接动手的步骤。要点：
+你的工作：帮对方把一件事拆成可以直接动手的步骤。但先判断这件事要不要拆、该拆多细——按这件事本身来，不套模板：
+- 小事（改个按钮颜色、回一封邮件、半小时内能做完）：不用拆，steps 给空数组，reply 里说一句「这件直接做就行」，最多点一下从哪下手。
+- 中等的事：2–4 步。
+- 大事而且路线清楚：最多 7 步。
+- 大事但前面做完才知道后面怎么走（探索、调研、Debug、第一次做的事）：只拆出前 2–3 步，reply 里说「先做这几步，做完再拆后面的」。
+- 同一件事对不同人不一样：看备注 / 截止日期 / 已有步骤里透露的水平和目的。比如「学 React」，初学者先读懂概念，准备面试的人先自己默写、做题，已经会的人直接做个小项目。看不出来就按最常见的情况拆，不要硬塞「理解 → 复述 → 回忆 → 练习」这类固定流程。
+要点：
 1. 每一步是一个具体动作，动词开头，不超过 20 个字，做完能明确知道「这步完成了」。「研究一下」「准备准备」不算。
-2. 按顺序排，前一步的产出是后一步的输入。第一步要足够小，25 分钟内能做完，让对方今天就能开始。
-3. 每步给一个估计分钟数 minutes：5 的倍数，10–120 之间，拿不准就 25。
+2. 按顺序排，前一步的产出是后一步的输入。第一步要足够小，最好 5–25 分钟就能开始，让对方今天就能动手。
+3. 每步给一个估计分钟数 minutes：5 的倍数，5–120 之间，拿不准就 25。
 4. 每步标一个 kind：说话 / 写字 / 沟通是「语言」，思考 / 决定 / 规划是「思考」，背 / 读 / 查资料是「记忆」，跑腿 / 动手 / 操作是「动手」。
-5. 如果对方给了截止日期，在 hint 里提醒哪几步必须在哪天前完成；没给就不要编。
-6. 不要加「庆祝一下」「复盘」这类凑数的步骤；不要超过 7 步，超过说明拆得太碎。「页面里已经有的步骤」不要重复。
-7. reply 用一句话说你的拆法思路（比如「先把材料凑齐，再动笔，最后留一天改」）。`;
+5. 需要检验才算完成的事（写代码、做网页、交作业）：最后一步写清楚怎么算做完（比如「在手机上点一遍登录和退出」），不要另加空泛的「检查一下」。
+6. 如果对方给了截止日期，在 hint 里提醒哪几步必须在哪天前完成；没给就不要编。
+7. 不要加「庆祝一下」「复盘」这类凑数的步骤。「页面里已经有的步骤」不要重复。
+8. reply 用一句话说你的拆法思路（比如「先把材料凑齐，再动笔，最后留一天改」）。`;
+
+// 卡住了：对方在一件事上停住了，按 ta 说的卡点给一个马上能做的小动作
+const STUCK_HOW = {
+  start: '不知道怎么开始：给一个 5 分钟内就能开始、非常具体的动作（打开什么、写下哪一句、找出哪个文件），不是「先想想」。',
+  understand: '有内容看不懂：先帮 ta 把「看不懂」变成一个具体的问题，first 是去弄懂这个问题的动作（查哪里、问谁、读哪一段、试一个最小例子）；tip 里可以用两三句白话先讲一下 ta 最可能卡住的概念。',
+  next: '不知道下一步：根据已经做完的步骤判断现在走到哪了，first 是紧接着的那一步；如果后面整体不清楚，next_steps 给出接下来最多 3 步。',
+  stress: '压力很大：先用一句话接住情绪，不说教、不打鸡血；first 是一个最小、做砸了也没关系的动作（比如只写一个标题、只列三个要点、只做 5 分钟就停）；tip 可以建议把标准降低一点或者把截止前的事拆小。',
+  other: '对方用自己的话描述了卡点：先判断是哪种卡（不会开始 / 不懂 / 不知道下一步 / 压力），再按那种给建议。',
+};
+const SYSTEM_STUCK = `${PERSONA}
+
+你的工作：对方在一件事上卡住了，告诉了你卡在哪。你给一个马上就能做的小动作，帮 ta 动起来。要点：
+1. first.title：一个具体动作，动词开头，不超过 24 个字，first.minutes 是 5、10 或 15。
+2. reply：一两句话，口语、温和，像朋友在旁边说的，不超过 50 个字。不要说「加油」「你可以的」。
+3. tip：可选的补充（不超过 80 个字），没有就 null。
+4. next_steps：只有在「不知道下一步」或者现有步骤明显不够用时才给，最多 3 个，每个不超过 20 个字；其他情况给空数组。
+5. 不要说「你的大脑 / 某个脑区在……」这类话，也不要诊断对方。`;
+
 
 const KINDS = ['todo', 'block', 'note', 'goal', 'focus', 'book', 'link', 'vision'];
 const INTENTS = ['chat', 'capture', 'plan', 'modify'];
@@ -147,6 +172,7 @@ const STEP = {
   required: ['title', 'minutes', 'kind', 'hint'],
   properties: { title: { type: 'string' }, minutes: { type: 'integer' }, kind: { type: 'string', enum: ['语言', '思考', '记忆', '动手'] }, hint: S_OR_NULL },
 };
+const SCHEMA_STUCK = { type: 'object', additionalProperties: false, required: ['reply', 'first', 'tip', 'next_steps'], properties: { reply: { type: 'string' }, first: { type: 'object', additionalProperties: false, required: ['title', 'minutes'], properties: { title: { type: 'string' }, minutes: { type: 'integer' } } }, tip: S_OR_NULL, next_steps: { type: 'array', items: { type: 'string' } } } };
 const BRAIN_IDS = ['plan', 'memory', 'talk', 'move', 'habit', 'alarm'];
 const SYSTEM_BRAIN = `${PERSONA}
 
@@ -170,6 +196,7 @@ const JSON_HINT = {
   capture: '只输出一个 JSON 对象：{"intent": "chat|capture|plan|modify", "reply": "...", "items": [...]}，每个 item 含 ref,kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
   doc: '只输出一个 JSON 对象：{"reply": "...", "markdown": "..."}（不需要改正文时 markdown 为 null）。markdown 字符串里的换行写成 \\n。不要输出 JSON 之外的任何文字。',
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
+  stuck: '只输出一个 JSON 对象：{"reply": "...", "first": {"title": "...", "minutes": 5}, "tip": null, "next_steps": []}。不要输出 JSON 之外的任何文字。',
   brain: '只输出一个 JSON 对象：{"reply": "...", "picks": [{"id": "...", "region": "plan|memory|talk|move|habit|alarm", "also": []}]}。不要输出 JSON 之外的任何文字。',
 };
 
@@ -194,6 +221,14 @@ function contextBlock(c, mode) {
     return lines.join('\n');
   }
   if (mode === 'brain') return lines.join('\n');
+  if (mode === 'stuck') {
+    lines.push(`卡住的事：${String(c.title || '').slice(0, 120)}`);
+    if (c.note) lines.push(`备注：${String(c.note).slice(0, 600)}`);
+    if (c.due) lines.push(`截止日期：${c.due}`);
+    if (Array.isArray(c.steps) && c.steps.length) lines.push(`已有步骤（✓ 是做完的）：\n${c.steps.slice(0, 15).map((x) => `${x && x.done ? '✓' : '·'} ${String((x && x.title) || '').slice(0, 60)}`).join('\n')}`);
+    lines.push(`卡点：${STUCK_HOW[c.reason] || STUCK_HOW.other}`);
+    return lines.join('\n');
+  }
   if (mode === 'breakdown') {
     if (c.due) lines.push(`截止日期：${c.due}`);
     if (c.note) lines.push(`说明 / 备注：${String(c.note).slice(0, 900)}`);
@@ -241,7 +276,7 @@ export function validateStep(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const title = str(raw.title, 60); if (!title) return null;
   const m = Number.isFinite(+raw.minutes) ? Math.round(+raw.minutes / 5) * 5 : 25;
-  return { title, minutes: Math.max(10, Math.min(120, m)), kind: ['语言', '思考', '记忆', '动手'].includes(raw.kind) ? raw.kind : '思考', hint: str(raw.hint, 80) || '' };
+  return { title, minutes: Math.max(5, Math.min(120, m)), kind: ['语言', '思考', '记忆', '动手'].includes(raw.kind) ? raw.kind : '思考', hint: str(raw.hint, 80) || '' };
 }
 
 /* ---------------- 简单限流：每个登录名每分钟 20 次（按实例，尽力而为） ---------------- */
@@ -367,13 +402,13 @@ export default async function handler(req, res) {
 
 // 真正干活的部分，和 HTTP 分开，方便 tools/eval-agent.mjs 直接调用做评测
 export async function runAgent(body, cfg) {
-  const mode = ['breakdown', 'doc', 'brain'].includes(body.mode) ? body.mode : 'capture';
+  const mode = ['breakdown', 'doc', 'brain', 'stuck'].includes(body.mode) ? body.mode : 'capture';
   const text = String(body.text || '').trim().slice(0, 4000);
   if (!text) return { status: 400, body: { error: 'text required' } };
   const history = mode === 'capture' ? (Array.isArray(body.history) ? body.history : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-8).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })) : [];
-  const system = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN }[mode] || SYSTEM_CAPTURE;
-  const schema = { breakdown: SCHEMA_BREAKDOWN, doc: SCHEMA_DOC, brain: SCHEMA_BRAIN }[mode] || SCHEMA_CAPTURE;
-  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${{ breakdown: '要拆的事', doc: '要求', brain: '要分的待办（每行一件：id | 标题 | 备注）' }[mode] || '说的话'}：${text}` };
+  const system = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN, stuck: SYSTEM_STUCK }[mode] || SYSTEM_CAPTURE;
+  const schema = { breakdown: SCHEMA_BREAKDOWN, doc: SCHEMA_DOC, brain: SCHEMA_BRAIN, stuck: SCHEMA_STUCK }[mode] || SCHEMA_CAPTURE;
+  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${{ breakdown: '要拆的事', doc: '要求', brain: '要分的待办（每行一件：id | 标题 | 备注）', stuck: '对方自己说的' }[mode] || '说的话'}：${text}` };
   const messages = [...history, userMsg];
 
   let got;
@@ -393,6 +428,12 @@ export async function runAgent(body, cfg) {
   if (mode === 'doc') {
     const md = typeof got.out.markdown === 'string' && got.out.markdown.trim() ? got.out.markdown.replace(/<[^>]+>/g, '').trim().slice(0, 12000) : null;
     return { status: 200, body: { ...base, markdown: md } };
+  }
+  if (mode === 'stuck') {
+    const f = got.out.first && typeof got.out.first === 'object' ? got.out.first : {};
+    const title = str(f.title, 40); const m = [5, 10, 15].includes(+f.minutes) ? +f.minutes : 10;
+    const next = (Array.isArray(got.out.next_steps) ? got.out.next_steps : []).map((x) => str(x, 40)).filter(Boolean).slice(0, 3);
+    return { status: 200, body: { ...base, first: title ? { title, minutes: m } : null, tip: str(got.out.tip, 160) || '', next } };
   }
   if (mode === 'brain') {
     const picks = (Array.isArray(got.out.picks) ? got.out.picks : []).filter((p) => p && typeof p.id === 'string' && BRAIN_IDS.includes(p.region)).map((p) => ({ id: p.id.slice(0, 40), region: p.region, also: [...new Set(Array.isArray(p.also) ? p.also : [])].filter((x) => BRAIN_IDS.includes(x) && x !== p.region).slice(0, 2) })).slice(0, 80);

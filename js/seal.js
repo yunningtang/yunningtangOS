@@ -505,7 +505,9 @@ export function Seal({ ghost = false } = {}) {
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       recordUsage(j);
       setBusy(false);
-      push({ who: 'bot', text: j.reply || '拆好了，看看这样行不行：', steps: (j.steps || []).map((x) => ({ ...x, id: uid(), on: true })), todo: { id: t.id || '', title: t.title, due: t.due || '' }, src: t.src || null });
+      // 小事不用拆：汤圆只回一句话，不给步骤
+      if (!(j.steps || []).length) push({ who: 'bot', text: j.reply || '这件直接做就行，不用拆。' });
+      else push({ who: 'bot', text: j.reply || '拆好了，看看这样行不行：', steps: j.steps.map((x) => ({ ...x, id: uid(), on: true })), todo: { id: t.id || '', title: t.title, due: t.due || '' }, src: t.src || null });
     } catch (e) { setBusy(false); push({ who: 'bot', text: `拆不动（${e.message}）。` }); }
     if (!openRef.current) setBadge((b) => b + 1);
     api.current.happy && api.current.happy(1.2);

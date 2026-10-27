@@ -8,6 +8,7 @@ import { dropProps } from '../dnd.js';
 import { ctxMenu } from '../ctx.js';
 import { go, toast } from '../nav.js';
 import { aiEnabled } from '../ai.js';
+import { openStuck } from './stuck.js';
 import { loginState } from '../sync.js';
 import { REGIONS, THALAMUS, regionOf, brainOf, alsoOf, flowOf, moveTo, regionItems, aiSort, progress, MOODS, saveReview, pushOpenTo } from '../brain.js';
 
@@ -45,7 +46,7 @@ function BrainMap({ count, sel, pick, fx, hover, setHover, focus }) {
       onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${drop(r.id)}><title>${r.label} · ${r.name}${n ? ' · ' + n + ' 件' : ''}</title></path>`; };
   // 通路：主脑区到每个「也涉及」的脑区，一条往上拱的虚点线，上面有个小点在跑
   const links = focus && focus.also.length ? focus.also.map((id) => { const [x1, y1] = SHAPES[focus.primary].at; const [x2, y2] = SHAPES[id].at; const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1; const bend = 18 + L * 0.25; const mx = (x1 + x2) / 2 + (dy / L) * bend * (dx >= 0 ? 1 : -1) * 0.4, my = (y1 + y2) / 2 - bend; const d = `M${x1} ${y1} Q${mx.toFixed(1)} ${my.toFixed(1)} ${x2} ${y2}`;
-    return html`<g key=${id} class="brs-link" style=${`--c:${regionOf(focus.primary).color}`}><path d=${d} /><circle r="3.2"><animateMotion dur="1.6s" repeatCount="indefinite" path=${d} /></circle></g>`; }) : null;
+    return html`<g key=${id} class="brs-link" style=${`--c:${regionOf(focus.primary).color}`}><path d=${d} /><circle r="3.2"><animateMotion dur="2.8s" repeatCount="indefinite" path=${d} /></circle></g>`; }) : null;
   return html`<svg class=${'brs cute ' + (focus ? 'focusing' : '')} viewBox="0 0 240 185" role="img" aria-label="大脑脑区图">
     <defs><clipPath id="brs-out"><path d=${OUT} /></clipPath><clipPath id="brs-cb"><path d=${CEREB} /></clipPath></defs>
     <ellipse cx="128" cy="172" rx="84" ry="6" class="brs-shadow" />
@@ -80,6 +81,7 @@ function Row({ t, words, sel, onEdit, setFocus }) {
   return html`<div class="br-row" onMouseEnter=${enter} onMouseLeave=${() => setFocus(null)}>
     <div class="br-row-main">
       <div class="flex1"><${TodoItem} t=${t} compact onEdit=${onEdit} /></div>
+      <button type="button" class="br-stuck" title="卡住了？问问汤圆" onClick=${() => openStuck(t)}>卡住了</button>
       <button type="button" class="br-chip" style=${`--c:${r.color};--bg:${r.bg}`} title="换脑区 / 也涉及" onClick=${(e) => ctxMenu(e, regionItems(t), t.title)}>
         <i></i>${p === sel ? '' : r.label}${also.length ? html`<span class="br-chip-more">${also.map((id) => html`<i key=${id} style=${`background:${regionOf(id).color}`}></i>`)}</span>` : ''}<${Icon} name="down" size=${10} />
       </button>
@@ -165,7 +167,7 @@ export default function Brain() {
           <div class="flex1"><h2>${cur.label}<small>${cur.name}</small></h2><p>${cur.desc}</p></div>
           <div class="bw-stat"><b>${list.length}</b><span>件${doneHere ? ` · 今天做完 ${doneHere}` : ''}</span></div>
         </div>
-        ${next && html`<div class="bw-next"><span class="bw-next-k">下一步</span><span class="bw-next-t" onClick=${() => setEditing(next)}>${next.title}</span><button type="button" class="btn sm" onClick=${() => go('focus?todo=' + next.id)}><${Icon} name="clock" size=${13} />开始专注</button></div>`}
+        ${next && html`<div class="bw-next"><span class="bw-next-k">下一步</span><span class="bw-next-t" onClick=${() => setEditing(next)}>${next.title}</span><button type="button" class="btn ghost sm" onClick=${() => openStuck(next)} title="不知道怎么推进？问问汤圆">卡住了</button><button type="button" class="btn sm" onClick=${() => go('focus?todo=' + next.id)}><${Icon} name="clock" size=${13} />开始专注</button></div>`}
         ${list.length ? html`<div class="br-rows">${list.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div>`
           : html`<div class="bw-empty"><b>${scope === 'today' ? '今天' : ''}这里还没有事</b><span>在下面直接写，会自动放进「${cur.label}」。比如：${cur.example}</span></div>`}
         ${alsoList.length > 0 && html`<div class="bw-also"><div class="bw-sub">也涉及${cur.label}</div><div class="br-rows">${alsoList.map((t) => html`<${Row} key=${t.id} t=${t} words=${words} sel=${sel} onEdit=${setEditing} setFocus=${setFocus} />`)}</div></div>`}

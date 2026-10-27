@@ -130,7 +130,8 @@ export function todoMenu(t, onEdit) {
   return [
     { label: '开始专注', icon: 'clock', onClick: () => go('focus?todo=' + t.id) },
     { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
-    !t.done && { label: '拆解成步骤', icon: 'sparkle', hint: '前额叶 · 汤圆', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t })) },
+    !t.done && { label: '卡住了…', icon: 'chat', hint: '问汤圆', onClick: () => window.dispatchEvent(new CustomEvent('stuck:open', { detail: t.id })) },
+    !t.done && { label: '拆解成步骤', icon: 'sparkle', hint: '汤圆', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t })) },
     !t.done && { label: stepsOf(t).length ? '添加一步' : '添加子步骤', icon: 'list', onClick: () => window.dispatchEvent(new CustomEvent('todo:addstep', { detail: t.id })) },
     !t.done && brainMenu(t),
     { label: t.done ? '标为未完成' : '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) },
