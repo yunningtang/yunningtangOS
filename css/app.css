@@ -3020,3 +3020,22 @@ html[data-skin="glass"] .focus-w .fw-top .fh-k{font-weight:650}
 .dash-home .w-dots{border-radius:999px}
 .dash-home .w-menu{top:30px}
 .dash-home>.custom-bar{align-self:start}
+
+/* 总览「图片」小卡 */
+.photo-card{position:relative;overflow:hidden}
+.widget>.card.photo-card,.photo-card{min-height:var(--wh,220px)}
+.photo-card.has{background:var(--hover)}
+.photo-card .ph-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+.photo-card .ph-img.contain{object-fit:contain}
+.photo-card.has:hover .ph-img:not(.contain){transform:scale(1.02)}
+.photo-card .ph-cap{position:absolute;left:0;right:0;bottom:0;padding:28px 16px 12px;color:#fff;font-size:.86rem;font-weight:500;line-height:1.45;background:linear-gradient(transparent,rgba(0,0,0,.45));text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.photo-card .ph-acts{position:absolute;top:10px;right:10px;display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.photo-card:hover .ph-acts,.photo-card:focus-within .ph-acts{opacity:1}
+.photo-card .ph-btn{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:rgba(255,255,255,.88);color:#37352f;box-shadow:0 1px 3px rgba(0,0,0,.15);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.photo-card .ph-btn:hover{background:#fff}
+.photo-card .ph-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin:14px;border:1.5px dashed var(--line-2);border-radius:12px;padding:20px;text-align:center;transition:border-color .2s,background .2s}
+.photo-card.over .ph-empty{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 5%,transparent)}
+.photo-card .ph-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--hover);color:var(--text-3);margin-bottom:6px}
+.photo-card .ph-empty b{font-size:.88rem;font-weight:600;color:var(--text)}
+.photo-card .ph-empty small{color:var(--text-4);font-size:.76rem}
+.photo-card .ph-row{display:flex;gap:6px;margin-top:8px}

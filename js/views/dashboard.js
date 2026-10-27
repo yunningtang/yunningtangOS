@@ -14,6 +14,7 @@ import { ancestors, noteTitle, isBlank, newNote, nbOf } from './notes.js';
 import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
 import { NowWidget } from './now.js';
+import { PhotoWidget } from './photo.js';
 import { dailySuggestions } from '../prompts.js';
 import { lsGet, lsSet } from '../util.js';
 
@@ -141,8 +142,8 @@ export default function Dashboard() {
 
   // 一行三张卡等高。高度不会变的（此刻 / 月历 / 专注）放一行，内容会长的（今天 / 待办 / 笔记）放一行，
   // 这样一张卡变长不会把不相干的卡拉得空一截。
-  const SPAN = { profile: 3, now: 1, ai: 1, calendar: 1, focus: 1, timeline: 1, todos: 1, notes: 1, pages: 2, links: 1, goals: 2, week: 1, focusweek: 3 };
-  const ORDER = ['profile', 'now', 'ai', 'calendar', 'focus', 'timeline', 'todos', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek'];
+  const SPAN = { profile: 3, now: 1, ai: 1, calendar: 1, focus: 1, timeline: 1, todos: 1, notes: 1, pages: 2, links: 1, goals: 2, week: 1, focusweek: 3, photo: 1 };
+  const ORDER = ['profile', 'now', 'ai', 'calendar', 'focus', 'timeline', 'todos', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek', 'photo'];
   const OLD_ORDER = ['profile', 'now', 'timeline', 'todos', 'focus', 'calendar', 'notes', 'pages', 'links', 'goals', 'week', 'focusweek'];
   const DEFAULT = { v: 3, order: ORDER, hidden: [], sizes: {} };
   const layout = useMemo(() => {
@@ -204,6 +205,7 @@ export default function Dashboard() {
         <button class=${'btn ghost sm ' + (custom ? 'on' : '')} onClick=${() => setCustom(!custom)}><${Icon} name="grid" size=${14} /> ${custom ? '完成' : '自定义'}</button>
       <//>` },
     now: { title: '此刻', span: 1, el: html`<${NowWidget} />` },
+    photo: { title: '图片', span: 1, el: html`<${PhotoWidget} />` },
     ai: { title: '汤圆的建议', span: 1, el: html`<${SuggestWidget} s=${s} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
