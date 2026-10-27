@@ -86,6 +86,14 @@ function migrate(s) {
     out.notes.forEach((n) => { if (n.isCover) { if (!(n.body || '').trim()) n._drop = true; else n.title = n.title || '概览'; delete n.isCover; } });
     out.notes = out.notes.filter((n) => !n._drop);
   }
+  // 页面指向的本子不在列表里（比如导入的备份里少了本子）：把本子补回来，不然这些页面在侧栏里就看不到了
+  if (out.notebooks.length) {
+    const nbIds = new Set(out.notebooks.map((b) => b.id));
+    out.notes.forEach((n) => {
+      if (!n.nb) n.nb = out.notebooks[0].id;
+      else if (!nbIds.has(n.nb)) { nbIds.add(n.nb); out.notebooks.push({ id: n.nb, name: '找回的本子', color: '#8a8f98', order: out.notebooks.length }); }
+    });
+  }
   return out;
 }
 
