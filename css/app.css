@@ -3820,3 +3820,86 @@ html[data-skin="strand"] .tt-card.break{--tt-red1:#b8862f;--tt-red2:#e3b04b;--tt
 html[data-skin="strand"] .ttd svg{filter:drop-shadow(0 0 18px rgba(92,207,230,.12))}
 html[data-skin="strand"] :is(.br-in-acts button,.br-moods button,.bk-ic,.br-key,.bc-r,.q-tag,.st-cat,.bwn-goal,.nxt,.bc-tg){border-radius:0}
 html[data-skin="strand"] .br-moods button.on{background:#e9eef2;color:#0b0e11;border-color:#e9eef2}
+
+/* ---------- 方舟：参考明日方舟的界面——工业感浅灰、黑色反白块、黄色警示、斜纹、切角、窄体粗标题；跟随深浅色 ---------- */
+html[data-skin="ark"]{
+  --font:"Barlow","Inter","PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --cond:"Barlow Condensed","Barlow","PingFang SC","Noto Sans SC",sans-serif;
+  --r:0px;--r2:0px;--r3:0px;--blur:0px;
+  --bg:#e7e8ea;--side:#f3f4f5;--paper:#fbfbfb;--card-bg:#fbfbfb;
+  --ink:#0f1012;--text:#1b1c1f;--text-2:#45484e;--text-3:#7a7e85;--text-4:#a6aab0;
+  --line:rgba(0,0,0,.1);--line-2:rgba(0,0,0,.22);--hover:rgba(0,0,0,.045);--hover-2:rgba(0,0,0,.09);
+  --input:#ffffff;--tag-bg:rgba(0,0,0,.06);--sel:rgba(245,196,0,.35);--cal-bg:#ffffff;--code-bg:#eef0f2;
+  --blue:#1e9fd8;--ac:30,159,216;--liq:rgba(0,0,0,.06);
+  --red:#e0452b;--amber:#f5c400;--green:#3f9c5a;--teal:#1e9fd8;--violet:#7d6bd6;--rose:#d9547c;--orange:#ef7d2b;
+  --shadow:0 0 0 1px rgba(0,0,0,.1);--shadow-h:0 0 0 1px rgba(0,0,0,.3);--pop:0 0 0 1px rgba(0,0,0,.25),0 12px 30px rgba(0,0,0,.18);
+  --glass:#fbfbfb;--glass-side:#f3f4f5;--glass-line:transparent;--glass-edge:rgba(0,0,0,.1);--glass-edge-h:rgba(0,0,0,.3);--glass-hl:transparent;--glass-shadow:none;--glass-shadow-h:none;
+  --mist-top:#e7e8ea;--mist-mid:#e7e8ea;--mist-bot:#e7e8ea;--blob1:transparent;--blob2:transparent;--blob3:transparent;--blob4:transparent;
+  --hi:#18191b;--hi-ink:#ffffff;--warn:#f5c400;--hatch:rgba(0,0,0,.028);
+}
+html[data-skin="ark"][data-theme="dark"]{
+  --bg:#161719;--side:#101113;--paper:#202124;--card-bg:#1e1f22;
+  --ink:#ffffff;--text:#e9eaec;--text-2:#b4b8be;--text-3:#7f848b;--text-4:#575c63;
+  --line:rgba(255,255,255,.09);--line-2:rgba(255,255,255,.2);--hover:rgba(255,255,255,.05);--hover-2:rgba(255,255,255,.1);
+  --input:#141517;--tag-bg:rgba(255,255,255,.07);--cal-bg:#141517;--code-bg:#121315;
+  --shadow:0 0 0 1px rgba(255,255,255,.09);--shadow-h:0 0 0 1px rgba(255,255,255,.3);--pop:0 0 0 1px rgba(255,255,255,.18),0 14px 34px rgba(0,0,0,.6);
+  --glass:#1e1f22;--glass-side:#101113;--glass-edge:rgba(255,255,255,.09);--glass-edge-h:rgba(255,255,255,.3);
+  --mist-top:#161719;--mist-mid:#161719;--mist-bot:#161719;
+  --hi:#eceef0;--hi-ink:#111214;--hatch:rgba(255,255,255,.025);
+}
+html[data-skin="ark"] body::before{background:linear-gradient(115deg,transparent 62%,var(--hatch) 62% 78%,transparent 78%),repeating-linear-gradient(135deg,var(--hatch) 0 1px,transparent 1px 11px),var(--bg)}
+html[data-skin="ark"] .card,html[data-skin="ark"] .side,html[data-skin="ark"] .topbar,html[data-skin="ark"] .pop,html[data-skin="ark"] .popmenu,html[data-skin="ark"] .modal,html[data-skin="ark"] .cap,html[data-skin="ark"] .seal-panel{-webkit-backdrop-filter:none;backdrop-filter:none}
+/* 卡片：顶上一条粗黑边，右下角一个切角三角 */
+html[data-skin="ark"] .card{border-radius:0;background:var(--card-bg);box-shadow:inset 0 2px 0 var(--hi),0 0 0 1px var(--line)}
+html[data-skin="ark"] .card::after{inset:auto 0 0 auto;width:12px;height:12px;border-radius:0;box-shadow:none;background:linear-gradient(315deg,var(--hi) 0 50%,transparent 50%)}
+html[data-skin="ark"] .card:hover{box-shadow:inset 0 2px 0 var(--hi),0 0 0 1px var(--line-2)}
+html[data-skin="ark"] .card-h h3{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-size:.95rem;font-weight:700;color:var(--text)}
+html[data-skin="ark"] .card-h h3::before{content:"";display:inline-block;width:4px;height:.9em;margin:0 8px 0 0;background:var(--warn);vertical-align:-1px}
+html[data-skin="ark"] .page-h h1,html[data-skin="ark"] .hero .greet h1,html[data-skin="ark"] input.page-title{font-family:var(--cond);font-weight:700;letter-spacing:.02em}
+html[data-skin="ark"] .page-h{border-bottom:1px solid var(--line-2);padding-bottom:12px;position:relative}
+html[data-skin="ark"] .page-h::after{content:"";position:absolute;left:0;bottom:-4px;width:72px;height:7px;background:repeating-linear-gradient(135deg,var(--warn) 0 6px,var(--hi) 6px 12px)}
+/* 侧栏：选中是黑色反白块 + 黄色竖条 */
+html[data-skin="ark"] .side{background:var(--side);border-right:1px solid var(--line-2)}
+html[data-skin="ark"] .topbar{--tb-bg:var(--bg)}
+html[data-skin="ark"] body.scrolled .topbar{box-shadow:0 1px 0 var(--line-2)}
+html[data-skin="ark"] .nav>.liq,html[data-skin="ark"] .seg>.liq{display:none}
+html[data-skin="ark"] .nav>a{border-radius:0}
+html[data-skin="ark"] .nav>a.active{background:var(--hi);color:var(--hi-ink);box-shadow:inset 4px 0 0 var(--warn);font-weight:600}
+html[data-skin="ark"] .nav>a.active .ic,html[data-skin="ark"] .nav>a.active .cnt{color:var(--hi-ink)}
+html[data-skin="ark"] .side-user{border-top:1px solid var(--line-2)}
+/* 按钮：细边框；主按钮黑底白字切一个角，悬停变黄 */
+html[data-skin="ark"] .btn,html[data-skin="ark"] .sx-btn{background:transparent;border:1px solid var(--line-2);color:var(--text);border-radius:0;font-family:var(--cond);font-weight:600;letter-spacing:.04em;box-shadow:none}
+html[data-skin="ark"] .btn:hover,html[data-skin="ark"] .sx-btn:hover{background:var(--hi);border-color:var(--hi);color:var(--hi-ink)}
+html[data-skin="ark"] :is(.btn.primary,.fw-go,.fp-go,.cap-btn,.sx-btn.primary,.tt-go,.bw-cta){background:var(--hi);border-color:var(--hi);color:var(--hi-ink);border-radius:0;box-shadow:none;text-shadow:none;clip-path:polygon(0 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)}
+html[data-skin="ark"] :is(.btn.primary,.fw-go,.fp-go,.cap-btn,.sx-btn.primary,.tt-go,.bw-cta):hover{background:var(--warn);border-color:var(--warn);color:#111214;filter:none;opacity:1}
+html[data-skin="ark"] .btn.danger-solid{background:var(--red);border-color:var(--red);color:#fff}
+html[data-skin="ark"] .sx-btn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 50%,transparent)}html[data-skin="ark"] .sx-btn.danger:hover{background:var(--red);color:#fff}
+html[data-skin="ark"] .seg{background:transparent;border-radius:0;box-shadow:0 0 0 1px var(--line-2)}
+html[data-skin="ark"] .seg button{border-radius:0;font-family:var(--cond);font-weight:600}
+html[data-skin="ark"] .seg button.on,html[data-skin="ark"] .dchip.on,html[data-skin="ark"] .chip.on,html[data-skin="ark"] .tt-chip.on,html[data-skin="ark"] .br-moods button.on{background:var(--hi);color:var(--hi-ink);border-color:var(--hi);box-shadow:none}
+html[data-skin="ark"] :is(.ibtn,.chip,.dchip,.tag,.tt-chip,.bw-text,.sugg-go,.sugg-ic,.fb-do,.nxt-go,.br-ai,.br-chip,.br-rv-open,.br-stuck,.sm-quick button,.searchbox,.br-in-acts button,.br-moods button,.bk-ic,.br-key,.bc-r,.q-tag,.st-cat,.bwn-goal,.nxt,.bc-tg){border-radius:0}
+html[data-skin="ark"] .tag{box-shadow:none}
+html[data-skin="ark"] input[type=text],html[data-skin="ark"] input[type=url],html[data-skin="ark"] input[type=number],html[data-skin="ark"] input[type=password],html[data-skin="ark"] input[type=email],html[data-skin="ark"] textarea,html[data-skin="ark"] select,html[data-skin="ark"] .searchin,html[data-skin="ark"] .quickadd{background:var(--input);border-color:var(--line-2);border-radius:0}
+html[data-skin="ark"] input:focus,html[data-skin="ark"] textarea:focus{border-color:var(--hi);box-shadow:inset 3px 0 0 var(--warn)}
+/* 菜单与弹窗 */
+html[data-skin="ark"] .pop,html[data-skin="ark"] .popmenu,html[data-skin="ark"] .cap,html[data-skin="ark"] .ctx,html[data-skin="ark"] .seal-panel{background:var(--paper);border-radius:0}
+html[data-skin="ark"] .modal{border-radius:0;background:var(--paper);box-shadow:inset 0 3px 0 var(--warn),var(--pop)}
+html[data-skin="ark"] .pm{border-radius:0}
+html[data-skin="ark"] .pm:hover,html[data-skin="ark"] .pm.on{background:var(--hi);color:var(--hi-ink)}
+html[data-skin="ark"] .pm:hover *,html[data-skin="ark"] .pm.on *{color:var(--hi-ink)}
+html[data-skin="ark"] .todo .cb,html[data-skin="ark"] .fp-i .cb,html[data-skin="ark"] .nt-row .cb,html[data-skin="ark"] .bcard .cb{border-radius:0}
+html[data-skin="ark"] .prog{border-radius:0;height:4px}
+html[data-skin="ark"] .prog i{border-radius:0;background:var(--blue)}
+html[data-skin="ark"] .tt-time{font-family:var(--cond);font-weight:600;letter-spacing:.02em}
+html[data-skin="ark"] .tt-card{--tt-red1:#1883b3;--tt-red2:#1e9fd8;--tt-sec:#1e9fd8}
+html[data-skin="ark"] .tt-card.break{--tt-red1:#d9ad00;--tt-red2:#f5c400;--tt-sec:#d9ad00}
+/* 正在做：任务卡——黑色标签 + 黄色竖条，目标达成整张变黄边 */
+html[data-skin="ark"] .bwn{border-radius:0;background:var(--card-bg);box-shadow:inset 4px 0 0 var(--warn),0 0 0 1px var(--line-2)}
+html[data-skin="ark"] .bwn-k{font-family:var(--cond);font-weight:700;letter-spacing:.06em;background:var(--hi);color:var(--hi-ink);padding:1px 7px}
+html[data-skin="ark"] .bwn-t{font-family:var(--cond);font-size:1.15rem;font-weight:700}
+html[data-skin="ark"] .bwn-goal{background:var(--hover);box-shadow:none}
+html[data-skin="ark"] .bwn-bar{border-radius:0;height:4px}
+html[data-skin="ark"] .bwn-bar i{border-radius:0;background:var(--blue)}
+html[data-skin="ark"] .bwn.won{box-shadow:inset 4px 0 0 var(--warn),0 0 0 2px var(--warn)}
+html[data-skin="ark"] .bwn.won .bwn-bar i{background:var(--warn)}
+html[data-skin="ark"] ::selection{background:var(--warn);color:#111214}
