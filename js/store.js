@@ -70,6 +70,9 @@ function migrate(s) {
   }
   const cutoff = Date.now() - 30 * 86400000;
   out.trash = (out.trash || []).filter((n) => !n.deletedAt || new Date(n.deletedAt).getTime() > cutoff);
+  // 删除记录（tombs）：'列表:id' → 删除时间。只留 120 天、最多 3000 条
+  const tc = new Date(Date.now() - 120 * 86400000).toISOString();
+  out.tombs = Object.fromEntries(Object.entries(out.tombs && typeof out.tombs === 'object' ? out.tombs : {}).filter(([, v]) => typeof v === 'string' && v > tc).sort((a, b) => b[1].localeCompare(a[1])).slice(0, 3000));
   // Migration to notebooks: top-level pages that have children become notebooks; loose pages go to 收件箱.
   if (!out.notebooks.length && out.notes.length) {
     const byId = new Map(out.notes.map((n) => [n.id, n]));
@@ -117,6 +120,20 @@ let state = (() => {
 })();
 
 export let persistError = '';
+// 删除记录：每次改动后比一比各个列表，消失的 id 记下删除时间；又出现的（撤销、恢复）把记录去掉并盖上新时间戳。
+// 同步合并时，删除时间晚于最后一次编辑的东西不会被另一边「带回来」——就算「上次同步的那份」不准也一样
+const TOMB_LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions'];
+function tombDiff(prev, next) {
+  if (!prev || !next || prev === next) return next;
+  const now = new Date().toISOString(); let tombs = null;
+  for (const k of TOMB_LISTS) {
+    const a = prev[k], b = next[k]; if (a === b || !Array.isArray(a) || !Array.isArray(b)) continue;
+    const before = new Set(a.map((x) => x && x.id).filter(Boolean)), after = new Set(b.map((x) => x && x.id).filter(Boolean));
+    for (const id of before) if (!after.has(id)) { tombs = tombs || { ...(next.tombs || {}) }; tombs[k + ':' + id] = now; }
+    for (const id of after) if (!before.has(id) && (tombs || next.tombs || {})[k + ':' + id]) { tombs = tombs || { ...(next.tombs || {}) }; delete tombs[k + ':' + id]; next[k] = next[k].map((x) => (x && x.id === id ? { ...x, updated: now } : x)); }
+  }
+  return tombs ? { ...next, tombs } : next;
+}
 const signal = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch {} };
 function flush() {
   if (loadError) return; // 载入失败的那份原文还在 localStorage 里，不能覆盖
@@ -157,9 +174,10 @@ export function subscribe(fn) {
 }
 
 export function update(fn) {
+  const prev = state;
   const draft = structuredClone(state);
   const r = fn(draft);
-  state = r === undefined ? draft : r;
+  state = tombDiff(prev, r === undefined ? draft : r);
   state.updatedAt = new Date().toISOString();
   persist();
   subs.forEach((f) => f());
@@ -197,7 +215,7 @@ export function listOf(s, name) {
 
 // Hot paths avoid cloning the whole document: only the touched collection is copied.
 function commit(next) {
-  state = { ...next, updatedAt: new Date().toISOString() };
+  state = { ...tombDiff(state, next), updatedAt: new Date().toISOString() };
   persist();
   subs.forEach((f) => f());
 }
