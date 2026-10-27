@@ -76,6 +76,7 @@ export const TEXT_SIZES = [['s', '小'], ['', '标准'], ['l', '大'], ['xl', '�
 export const TEXT_FONTS = FONTS.map((f) => [f.id === 'default' ? '' : f.id, f.n]);
 const INLINE_RE = /^(tc-(gray|red|orange|yellow|green|blue|purple|pink)|fs-(s|l|xl|[89]|[1-6]\d|7[0-2]))$/;
 const INLINE_CLASS = { test: (k) => INLINE_RE.test(k) || (k.startsWith('ff-') && k !== 'ff-default' && FONT_IDS.includes(k.slice(3))) };
+const HEX_RE = /^#[0-9a-f]{6}$/i;
 export const isSize = (v) => ['s', 'l', 'xl'].includes(v) || /^([89]|[1-6]\d|7[0-2])$/.test(String(v));
 export function sanitize(html) {
   const t = document.createElement('template');
@@ -91,7 +92,8 @@ export function sanitize(html) {
         if (tag === 'b' && /font-weight:\s*(normal|400)/i.test(c.getAttribute('style') || '')) tag = null;
         if (!tag) {
           // 我们自己的行内样式 span：只保留白名单里的 class（文字颜色 tc-*、字号 fs-*、字体 ff-*）
-          if (c.tagName === 'SPAN') { const cls = [...c.classList].filter((k) => INLINE_CLASS.test(k)); if (cls.length) { out += `<span class="${cls.join(' ')}">${walk(c)}</span>`; continue; } }
+          // 自定义文字颜色：class tcx + data-c="#rrggbb"（只认六位十六进制）
+          if (c.tagName === 'SPAN') { const hex = HEX_RE.test(c.dataset.c || '') && c.classList.contains('tcx') ? c.dataset.c.toLowerCase() : ''; const cls = [...c.classList].filter((k) => INLINE_CLASS.test(k) && !(hex && k.startsWith('tc-'))); if (hex) cls.push('tcx'); if (cls.length) { out += `<span class="${cls.join(' ')}"${hex ? ` data-c="${hex}" style="color:${hex}"` : ''}>${walk(c)}</span>`; continue; } }
           // styled span / font: map styles to semantic tags
           const wraps = c.tagName === 'SPAN' || c.tagName === 'FONT' || c.tagName === 'DIV' || c.tagName === 'P' ? styleWraps(c) : [];
           let inner = walk(c);
@@ -106,7 +108,11 @@ export function sanitize(html) {
           if (!/^(https?:|mailto:|#)/i.test(href)) { out += walk(c); continue; }
           out += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${walk(c)}</a>`; continue;
         }
-        if (tag === 'mark') { const m = (c.className || '').match(/\bhl-([ygbprokna])\b/); out += `<mark${m ? ` class="hl-${m[1]}"` : ''}>${walk(c)}</mark>`; continue; }
+        if (tag === 'mark') {
+          const hex = HEX_RE.test(c.dataset.c || '') ? c.dataset.c.toLowerCase() : '';
+          if (hex) { out += `<mark class="hlx${c.classList.contains('hlx-d') ? ' hlx-d' : ''}" data-c="${hex}" style="background-color:${hex}">${walk(c)}</mark>`; continue; }
+          const m = (c.className || '').match(/\bhl-([ygbprokna])\b/); out += `<mark${m ? ` class="hl-${m[1]}"` : ''}>${walk(c)}</mark>`; continue;
+        }
         if (tag === 'code') { out += `<code>${escapeHtml(c.textContent)}</code>`; continue; }
         out += `<${tag}>${walk(c)}</${tag}>`;
       }
@@ -152,7 +158,7 @@ export function sanitizeBlocks(blocks) {
     else if (x.type === 'code') { x.html = escapeHtml(textOf(String(x.html ?? ''))).replace(/\n/g, '<br>'); }
     else if (typeof x.html === 'string' && x.html && /[<&]/.test(x.html)) x.html = sanitize(x.html);
     if (typeof x.url === 'string' && x.url && !/^(https?:|data:image\/)/i.test(x.url.trim())) x.url = '';
-    if (x.size != null) { x.size = String(x.size); if (!isSize(x.size)) delete x.size; } if (x.color && !TEXT_COLORS.includes(x.color)) delete x.color; if (x.font && (x.font === 'default' || !FONT_IDS.includes(x.font))) delete x.font;
+    if (x.size != null) { x.size = String(x.size); if (!isSize(x.size)) delete x.size; } if (x.color && !TEXT_COLORS.includes(x.color) && !HEX_RE.test(x.color)) delete x.color; if (x.font && (x.font === 'default' || !FONT_IDS.includes(x.font))) delete x.font;
     if (x.type === 'pending') { x.intent = textOf(String(x.intent ?? '')).slice(0, 500); x.error = textOf(String(x.error ?? '')).slice(0, 300); x.html = ''; if (x.status === 'writing') x.status = 'idle'; }
     return x;
   });

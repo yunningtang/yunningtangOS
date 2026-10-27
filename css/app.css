@@ -3903,3 +3903,58 @@ html[data-skin="ark"] .bwn-bar i{border-radius:0;background:var(--blue)}
 html[data-skin="ark"] .bwn.won{box-shadow:inset 4px 0 0 var(--warn),0 0 0 2px var(--warn)}
 html[data-skin="ark"] .bwn.won .bwn-bar i{background:var(--warn)}
 html[data-skin="ark"] ::selection{background:var(--warn);color:#111214}
+
+/* ---------- 颜色面板（文字颜色 / 荧光标记）：主题色 + 常用色格子 + 自定义 ---------- */
+#pal-host .pal{position:fixed;z-index:1200;width:auto;max-height:none;overflow:visible;padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pal-reset{display:flex;align-items:center;gap:6px;border:0;background:none;padding:5px 6px;margin:0 -6px;border-radius:var(--r3,6px);font-size:.8rem;color:var(--text);cursor:pointer;text-align:left}
+.pal-reset:hover{background:var(--hover)}
+.pal-h{font-size:.68rem;color:var(--text-3);margin-top:2px;display:flex;align-items:baseline;gap:6px}.pal-h small{font-size:.64rem;color:var(--text-4)}
+.pal-row{display:flex;flex-wrap:wrap;gap:4px;max-width:236px}
+.pal-grid{display:grid;grid-template-columns:repeat(10,20px);gap:4px}
+.pal-sw{position:relative;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;display:grid;place-items:center;font-size:.72rem;font-weight:700;color:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);transition:transform .1s}
+.pal-sw:hover{transform:scale(1.18);z-index:1}
+.pal-sw.white{box-shadow:inset 0 0 0 1px var(--line-2)}
+.pal-sw.on{box-shadow:0 0 0 2px var(--paper,#fff),0 0 0 3.5px var(--text)}
+.pal-sw.pre.txt{background:transparent;color:var(--c);font-size:.9rem;box-shadow:inset 0 0 0 1px var(--line)}
+.pal-sw.pre.txt.on{box-shadow:0 0 0 2px var(--text) inset}
+.pal-add{background:transparent;color:var(--text-3);box-shadow:none;border:1px dashed var(--line-2);overflow:hidden}
+.pal-add:hover{color:var(--text)}
+.pal-add input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:0}
+html[data-skin="strand"] .pal-sw,html[data-skin="ark"] .pal-sw{border-radius:0}
+/* 自定义荧光色：深底配白字，浅底配深字（深色模式下也看得清） */
+.b-text mark.hlx,.md mark.hlx,.cv-text mark.hlx{color:#1b1c1f}
+.b-text mark.hlx-d,.md mark.hlx-d,.cv-text mark.hlx-d{color:#fff}
+.fmt-bar .fb-hl.hlx::after{background:var(--hx)}
+.sel-tb .hl-sw.more{background:transparent;color:inherit;font-size:.8rem;line-height:1}
+.tp-dot.rainbow{background:conic-gradient(#ff5b5b,#ffb44a,#ffe14a,#5bd47a,#4aa8ff,#9a6bff,#ff5bb4,#ff5b5b)}
+.hl-grid{grid-template-columns:repeat(6,22px)}
+
+/* ---------- 游戏风主题的动效：页面标题滑入、完成时闪一下 + 横幅、卡片编号 ---------- */
+@media (prefers-reduced-motion: no-preference){
+  html:is([data-skin="strand"],[data-skin="ark"]) .page-h,html:is([data-skin="strand"],[data-skin="ark"]) .hero .greet{animation:gfx-in .42s cubic-bezier(.2,.8,.2,1) both}
+  html:is([data-skin="strand"],[data-skin="ark"]) .page-h::after{animation:gfx-bar .6s .12s cubic-bezier(.2,.8,.2,1) both}
+}
+@keyframes gfx-in{from{opacity:0;transform:translateX(-18px);clip-path:inset(0 100% 0 0)}to{opacity:1;transform:none;clip-path:inset(0 0 0 0)}}
+@keyframes gfx-bar{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1);transform-origin:left}}
+/* 完成的那一行闪一下 */
+.gfx-flash{position:fixed;z-index:2999;pointer-events:none;background:var(--gfx-c,rgba(92,207,230,.4));box-shadow:0 0 0 1px var(--gfx-e,#5ccfe6);animation:gfx-flash .85s ease-out both}
+@keyframes gfx-flash{0%{opacity:1;clip-path:inset(0 100% 0 0)}25%{opacity:1;clip-path:inset(0 0 0 0)}100%{opacity:0;clip-path:inset(0 0 0 0)}}
+html[data-skin="ark"] .gfx-flash{--gfx-c:rgba(245,196,0,.45);--gfx-e:#18191b}
+/* 横幅 */
+#gfx-banner{position:fixed;left:50%;top:18%;z-index:3000;pointer-events:none;display:flex;align-items:center;gap:14px;padding:10px 26px 10px 20px;min-width:260px;font-family:var(--cond,var(--font));transform:translate(-50%,0);opacity:0;visibility:hidden}
+#gfx-banner b{font-size:1.15rem;font-weight:700;letter-spacing:.14em}
+#gfx-banner span{font-size:.86rem;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+#gfx-banner.show{visibility:visible;animation:gfx-banner 1.7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes gfx-banner{0%{opacity:0;clip-path:inset(0 100% 0 0)}14%{opacity:1;clip-path:inset(0 0 0 0)}80%{opacity:1;clip-path:inset(0 0 0 0)}100%{opacity:0;clip-path:inset(0 0 0 100%)}}
+#gfx-banner.gfx-strand{background:linear-gradient(90deg,rgba(8,10,12,.94),rgba(8,10,12,.82));color:#e9eef2;box-shadow:0 0 0 1px rgba(92,207,230,.5),0 0 30px rgba(92,207,230,.18)}
+#gfx-banner.gfx-strand b{color:#5ccfe6}
+#gfx-banner.gfx-strand::before{content:"";width:9px;height:9px;border:1.5px solid #5ccfe6;transform:rotate(45deg);flex:none}
+#gfx-banner.gfx-ark{background:#18191b;color:#fff;box-shadow:inset 6px 0 0 #f5c400}
+#gfx-banner.gfx-ark b{color:#f5c400}
+#gfx-banner.gfx-ark::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:6px;background:repeating-linear-gradient(135deg,#f5c400 0 6px,#18191b 6px 12px)}
+@media (prefers-reduced-motion: reduce){#gfx-banner{display:none}}
+/* 卡片编号：每页从 01 数起 */
+html:is([data-skin="strand"],[data-skin="ark"]) main{counter-reset:gcard}
+html:is([data-skin="strand"],[data-skin="ark"]) .card:has(> .card-h){counter-increment:gcard}
+html:is([data-skin="strand"],[data-skin="ark"]) .card:has(> .card-h)::before{content:counter(gcard,decimal-leading-zero);position:absolute;right:20px;bottom:5px;font-family:var(--cond);font-size:.62rem;font-weight:600;letter-spacing:.12em;color:var(--text-4);pointer-events:none;z-index:1}
+html[data-skin="strand"] .card:has(> .card-h)::before{content:"No." counter(gcard,decimal-leading-zero);right:14px}

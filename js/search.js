@@ -2,7 +2,9 @@ import { html, useState, useMemo, useEffect, useRef } from '../vendor/preact.js'
 import { useStore } from './store.js';
 import { Modal, Icon } from './ui.js';
 import { go } from './nav.js';
-import { ROUTES } from './app.js';
+// 页面列表由 app.js 交过来（不要 import app.js：入口带 ?v= 版本号，再 import 一次会把整个 app 跑两遍）
+let ROUTES = [];
+export const setSearchRoutes = (r) => { ROUTES = r; };
 
 export function SearchPalette({ open, onClose }) {
   const s = useStore();

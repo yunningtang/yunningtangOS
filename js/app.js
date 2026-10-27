@@ -15,7 +15,7 @@ import Settings from './views/settings.js';
 import Focus, { MiniPomo } from './views/focus.js';
 import Brain from './views/brain.js';
 import { unsortedCount } from './brain.js';
-import { SearchPalette } from './search.js';
+import { SearchPalette, setSearchRoutes } from './search.js';
 import { PageTree, useTreeState, newNote, newNotebook, ancestors, noteTitle, notebookMenu, movePage } from './views/notes.js';
 import { dragProps, dropProps } from './dnd.js';
 import { go, toast } from './nav.js';
@@ -25,6 +25,7 @@ import { askPrompt } from './confirm.js';
 import { Splitter, applySizes } from './resize.js';
 import { detectLogin, autoSync } from './sync.js';
 import { injectFontCss } from './fonts.js';
+import { initGameFx } from './gamefx.js';
 injectFontCss();
 import { subscribe } from './store.js';
 export { go, toast };
@@ -222,7 +223,9 @@ window.addEventListener('ytos:persist-error', (e) => toast(e.detail === 'quota' 
 setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors);
 subscribe(() => { setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors); });
 applySizes();
+setSearchRoutes(ROUTES);
 initLiquid();
+initGameFx();
 detectLogin().then(async (login) => {
   // 换了账号（同一台电脑上另一个人登录）：先把上一个账号留在本机的数据备份起来，再从空白开始拉这个账号自己的云端数据，
   // 免得把上一个人的内容合并进新账号。第一次登录（本机还没记过账号）照常把本地数据带上去。

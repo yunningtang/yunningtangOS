@@ -4,6 +4,7 @@ import { html, useState, useRef, useEffect, useLayoutEffect, useCallback, Compon
 import { marked } from '../vendor/marked.js';
 import { Icon } from './ui.js';
 import { ctxMenu } from './ctx.js';
+import { openPalette } from './palette.js';
 import { askPrompt } from './confirm.js';
 import { get as storeGet, upsert as storeUpsert, remove as storeRemove } from './store.js';
 import { TYPES, LIST_TYPES, TEXT_TYPES, block, sanitize, textOf, mdToBlocks, htmlToBlocks, blocksToMd, emptyTable, sanitizeDoc, structureScore, TEXT_COLORS, TEXT_COLOR_NAMES, TEXT_SIZES, TEXT_FONTS, isSize, HL_COLORS, HL_NAMES } from './blocks.js';
@@ -129,24 +130,46 @@ function onEdgeLine(el, which) {
   return which === 'up' ? rect.top - box.top < 14 : box.bottom - rect.bottom < 14;
 }
 export function exec(cmd, val) { document.execCommand(cmd, false, val); }
+// 行内样式 span 上的一类样式（tc 文字颜色 / fs 字号 / ff 字体）：预设值是 class（tc-red），
+// 文字颜色也可以是自定义的 #rrggbb（class tcx + data-c + style）
+export const HEX = /^#[0-9a-f]{6}$/i;
+function stripKind(el, prefix) {
+  [...el.classList].forEach((k) => { if (k.startsWith(prefix + '-') || k === prefix + 'x') el.classList.remove(k); });
+  if (prefix === 'tc') { el.style.removeProperty('color'); delete el.dataset.c; if (!el.getAttribute('style')) el.removeAttribute('style'); }
+}
+function addKind(el, prefix, v) {
+  if (!v) return;
+  if (prefix === 'tc' && HEX.test(v)) { el.classList.add('tcx'); el.dataset.c = v.toLowerCase(); el.style.color = v; } else el.classList.add(prefix + '-' + v);
+}
+const unwrapEl = (x) => { const f = document.createDocumentFragment(); while (x.firstChild) f.appendChild(x.firstChild); x.replaceWith(f); };
+// 自定义荧光色太深时字用白色
+const darkHex = (h) => { const n = parseInt(h.slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 140; };
 export function applyMark(color) {
   const s = sel(); if (!s.rangeCount) return;
   const r = s.getRangeAt(0);
   const inside = (n) => { while (n && n.nodeType !== 1) n = n.parentNode; return n && n.closest('mark'); };
   const c = inside(r.startContainer);
-  const cls = color && color !== 'y' ? 'hl-' + color : '';
+  const hex = !!color && HEX.test(color);
+  const cls = hex ? 'hlx' + (darkHex(color) ? ' hlx-d' : '') : color && color !== 'y' ? 'hl-' + color : '';
+  const setC = (el) => { el.className = cls; if (hex) { el.dataset.c = color.toLowerCase(); el.style.backgroundColor = color; } else { delete el.dataset.c; el.removeAttribute('style'); } if (!cls) el.removeAttribute('class'); };
   if (c) {
-    if ((c.className || '') === cls || !color) { const frag = document.createDocumentFragment(); while (c.firstChild) frag.appendChild(c.firstChild); c.replaceWith(frag); return; }
-    c.className = cls; return;
+    if (!color || ((c.className || '') === cls && (c.dataset.c || '') === (hex ? color.toLowerCase() : ''))) {
+      // 去掉标记后仍然选着这段字，接着换颜色不用重选
+      const first = c.firstChild, last = c.lastChild; unwrapEl(c);
+      if (first) { const nr = document.createRange(); nr.setStartBefore(first); nr.setEndAfter(last); s.removeAllRanges(); s.addRange(nr); }
+      return;
+    }
+    setC(c); return;
   }
   if (r.collapsed) return;
-  const el = document.createElement('mark'); if (cls) el.className = cls;
+  const el = document.createElement('mark'); setC(el);
   try { r.surroundContents(el); } catch { el.appendChild(r.extractContents()); r.insertNode(el); }
   s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(el); s.addRange(nr);
 }
 // 选中文字工具条里的荧光笔：点 A 是黄色；鼠标移到旁边的小箭头上，弹出九色格子
-function hlPicker(btn) {
-  return html`<span class="tb-hl">${btn('荧光标记 ⌘⇧H', () => applyMark('y'), 'A', 'hl')}<span class="hl-more"><button type="button" class="hl-caret" title="更多颜色" onMouseDown=${(e) => e.preventDefault()}>▾</button><span class="hl-grid">${HL_COLORS.map((c) => btn(HL_NAMES[c], () => applyMark(c), '', 'hl-sw hl-' + c))}${btn('去掉标记', () => applyMark(null), html`<${Icon} name="x" size=${11} />`, 'hl-sw none')}</span></span></span>`;
+function hlPicker(btn, after) {
+  const more = html`<button type="button" class="hl-sw more" title="更多颜色 / 自定义" onMouseDown=${(e) => e.preventDefault()} onClick=${(e) => openPalette(e, { kind: 'hl', onPick: (v) => { applyMark(v); after && after(); } })}>⋯</button>`;
+  return html`<span class="tb-hl">${btn('荧光标记 ⌘⇧H', () => applyMark('y'), 'A', 'hl')}<span class="hl-more"><button type="button" class="hl-caret" title="更多颜色" onMouseDown=${(e) => e.preventDefault()}>▾</button><span class="hl-grid">${HL_COLORS.map((c) => btn(HL_NAMES[c], () => applyMark(c), '', 'hl-sw hl-' + c))}${btn('去掉标记', () => applyMark(null), html`<${Icon} name="x" size=${11} />`, 'hl-sw none')}${more}</span></span></span>`;
 }
 // 选区的行内样式：prefix 是 tc / fs / ff，value 为空就是去掉。选区已经整个在一个这样的 span 里就改它，否则包一层。
 export function applyInline(prefix, value) {
@@ -157,18 +180,17 @@ export function applyInline(prefix, value) {
   const bt = tStart && tStart.closest && tStart.closest('.b-text'); if (!bt || !tEnd || tEnd.closest('.b-text') !== bt) return false; // 跨了块（或根本不在正文里）
   const host = up(r.commonAncestorContainer); const span = host && host.closest && host.closest('span[class]');
   const inB = span && span.closest('.b-text') && span.textContent === r.toString();
-  const re = new RegExp('^' + prefix + '-');
   if (inB) {
-    const keep = [...span.classList].filter((k) => !re.test(k)); if (value) keep.push(prefix + '-' + value);
-    if (keep.length) span.className = keep.join(' '); else { const frag = document.createDocumentFragment(); while (span.firstChild) frag.appendChild(span.firstChild); span.replaceWith(frag); }
+    stripKind(span, prefix); addKind(span, prefix, value);
+    if (!span.classList.length) { const first = span.firstChild, last = span.lastChild; unwrapEl(span); if (first) { const nr = document.createRange(); nr.setStartBefore(first); nr.setEndAfter(last); s.removeAllRanges(); s.addRange(nr); } }
     return true;
   }
   if (r.collapsed) return false;
   const el = document.createElement('span');
-  // 先把选区里已有的同类 class 去掉，免得嵌套两层
-  const frag = r.extractContents(); frag.querySelectorAll('span[class]').forEach((x) => { [...x.classList].forEach((k) => { if (re.test(k)) x.classList.remove(k); }); if (!x.classList.length) { const f = document.createDocumentFragment(); while (x.firstChild) f.appendChild(x.firstChild); x.replaceWith(f); } });
-  if (!value) { r.insertNode(frag); return true; }
-  el.className = prefix + '-' + value; el.appendChild(frag); r.insertNode(el);
+  // 先把选区里已有的同类样式去掉，免得嵌套两层
+  const frag = r.extractContents(); frag.querySelectorAll('span[class]').forEach((x) => { stripKind(x, prefix); if (!x.classList.length) unwrapEl(x); });
+  if (!value) { const first = frag.firstChild, last = frag.lastChild; r.insertNode(frag); if (first) { const nr = document.createRange(); nr.setStartBefore(first); nr.setEndAfter(last); s.removeAllRanges(); s.addRange(nr); } return true; }
+  addKind(el, prefix, value); el.appendChild(frag); r.insertNode(el);
   s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(el); s.addRange(nr);
   return true;
 }
@@ -239,7 +261,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     return null;
   };
   // 光标处插一个带样式的空 span（零宽空格占位），之后打的字就在里面；保存时零宽空格会去掉
-  const typingSpan = (prefix, v) => { const s0 = sel(); if (!s0 || !s0.rangeCount) return; const r = s0.getRangeAt(0); let n = r.startContainer; if (n.nodeType !== 1) n = n.parentElement; const cur = n.closest('span[class]'); const re = new RegExp('^' + prefix + '-'); if (cur && cur.closest('.b-text') && cur.textContent === '\u200b') { const keep = [...cur.classList].filter((k) => !re.test(k)); if (v) keep.push(prefix + '-' + v); cur.className = keep.join(' '); return; } const el = document.createElement('span'); el.className = prefix + '-' + v; el.textContent = '\u200b'; r.insertNode(el); const nr = document.createRange(); nr.setStart(el.firstChild, 1); nr.collapse(true); s0.removeAllRanges(); s0.addRange(nr); };
+  const typingSpan = (prefix, v) => { const s0 = sel(); if (!s0 || !s0.rangeCount) return; const r = s0.getRangeAt(0); let n = r.startContainer; if (n.nodeType !== 1) n = n.parentElement; const cur = n.closest('span[class]'); if (cur && cur.closest('.b-text') && cur.textContent === '\u200b') { stripKind(cur, prefix); addKind(cur, prefix, v); return; } const el = document.createElement('span'); addKind(el, prefix, v); el.textContent = '\u200b'; r.insertNode(el); const nr = document.createRange(); nr.setStart(el.firstChild, 1); nr.collapse(true); s0.removeAllRanges(); s0.addRange(nr); };
   // 对光标处的词应用样式；没有词就只影响接下来打的字。返回 true 表示处理了
   const applyAtCaret = (prefix, v) => { const s0 = sel(); if (!s0 || !s0.isCollapsed || !inText(s0)) return false; const wr = wordRangeAt(s0); if (wr) { s0.removeAllRanges(); s0.addRange(wr); const ok = applyInline(prefix, v); if (ok) { const s1 = sel(); if (s1.rangeCount) s1.collapseToEnd(); return true; } } typingSpan(prefix, v); return true; };
   const inText = (s0) => { if (!s0 || !s0.rangeCount || !s0.anchorNode) return false; const n = s0.anchorNode.nodeType === 1 ? s0.anchorNode : s0.anchorNode.parentElement; return !!(n && n.closest && n.closest('.b-text')); };
@@ -577,8 +599,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
           const rowAny = inside ? el.closest('.b-row') : null; const b = rowAny && bsRef.current.find((x) => x.id === rowAny.dataset.id);
           const q = (c) => { try { return document.queryCommandState(c); } catch { return false; } };
           const sn = (() => { let n = startNode(s); if (n && n.nodeType !== 1) n = n.parentElement; return n; })();
-          const tcm = sn && sn.closest && sn.closest('span[class*="tc-"]'); const mk = sn && sn.closest && sn.closest('mark');
-          const nf = b ? { type: b.type, indent: b.indent || 0, size: curSize(), bold: q('bold'), italic: q('italic'), underline: q('underline'), strike: q('strikeThrough'), sel: !s.isCollapsed, font: curFont(), color: tcm ? (tcm.className.match(/\btc-(\w+)/) || [])[1] : (b.color || ''), mark: mk ? ((mk.className.match(/\bhl-([ygbprokna])\b/) || [])[1] || 'y') : '' } : null;
+          const tcm = sn && sn.closest && sn.closest('span[class*="tc"]'); const mk = sn && sn.closest && sn.closest('mark');
+          const nf = b ? { type: b.type, indent: b.indent || 0, size: curSize(), bold: q('bold'), italic: q('italic'), underline: q('underline'), strike: q('strikeThrough'), sel: !s.isCollapsed, font: curFont(), color: tcm ? tcm.dataset.c || (tcm.className.match(/\btc-(\w+)/) || [])[1] : (b.color || ''), mark: mk ? mk.dataset.c || ((mk.className.match(/\bhl-([ygbprokna])\b/) || [])[1] || 'y') : '' } : null;
           setFmt((o) => (JSON.stringify(o) === JSON.stringify(nf) ? o : nf));
         }
         if (prevCur && prevCur !== row) prevCur.classList.remove('cur'); if (row && row !== prevCur) row.classList.add('cur');
@@ -837,8 +859,8 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
     ${fb('减小字号 ⌘⇧,', () => stepSize(-1), '−', 'fb-step')}<input class="fb-num" type="number" min="8" max="72" value=${fmt ? fmt.size : 16} onMouseDown=${(e) => e.stopPropagation()} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); setSize(+e.target.value); e.target.blur(); } }} onChange=${(e) => setSize(+e.target.value)} />${fb('增大字号 ⌘⇧.', () => stepSize(1), '+', 'fb-step')}
     <span class="fb-sep"></span>
     ${fb('粗体 ⌘B', () => exec('bold'), html`<b>B</b>`, fmt && fmt.bold ? 'on' : '')}${fb('斜体 ⌘I', () => exec('italic'), html`<i>I</i>`, fmt && fmt.italic ? 'on' : '')}${fb('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`, fmt && fmt.underline ? 'on' : '')}${fb('删除线', () => exec('strikeThrough'), html`<s>S</s>`, 'fb-opt ' + (fmt && fmt.strike ? 'on' : ''))}
-    ${fb('文字颜色', (e) => ctxMenu(e, [{ label: '默认', onClick: () => inlineOrBlock('tc', 'color', '') }, ...TEXT_COLORS.map((c) => ({ label: TEXT_COLOR_NAMES[c], color: `var(--tc-${c})`, icon: fmt && fmt.color === c ? 'check' : '', onClick: () => inlineOrBlock('tc', 'color', c) }))], '文字颜色', { grid: 'text' }), html`<span class="fb-a" style=${fmt && fmt.color ? `border-color:var(--tc-${fmt.color})` : ''}>A</span>`, 'fb-color')}
-    ${fb('荧光标记', (e) => ctxMenu(e, HL_COLORS.map((c) => ({ label: HL_NAMES[c], color: `var(--hs-${c})`, icon: fmt && (fmt.mark || '') === c ? 'check' : '', onClick: () => { restoreSel(); applyMark(c); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } })).concat([{ label: '去掉标记', icon: 'x', onClick: () => { restoreSel(); applyMark(null); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } }]), '荧光标记', { grid: true }), html`<span class=${'fb-hl ' + (fmt && fmt.mark ? 'hl-' + fmt.mark : 'none')}><${Icon} name="highlighter" size=${15} /></span>`, fmt && fmt.mark ? 'on' : '')}
+    ${fb('文字颜色', (e) => openPalette(e, { kind: 'text', cur: fmt && fmt.color, onPick: (v) => inlineOrBlock('tc', 'color', v) }), html`<span class="fb-a" style=${fmt && fmt.color ? `border-color:${HEX.test(fmt.color) ? fmt.color : `var(--tc-${fmt.color})`}` : ''}>A</span>`, 'fb-color')}
+    ${fb('荧光标记', (e) => openPalette(e, { kind: 'hl', cur: fmt && fmt.mark, onPick: (v) => { restoreSel(); applyMark(v); setTimeout(() => { emit(syncFromDom(bsRef.current)); refreshFmt(); }, 0); } }), html`<span class=${'fb-hl ' + (fmt && fmt.mark ? (HEX.test(fmt.mark) ? 'hlx' : 'hl-' + fmt.mark) : 'none')} style=${fmt && fmt.mark && HEX.test(fmt.mark) ? `--hx:${fmt.mark}` : ''}><${Icon} name="highlighter" size=${15} /></span>`, fmt && fmt.mark ? 'on' : '')}
     <span class="fb-sep"></span>
     ${fb('链接 ⌘K', () => linkPrompt(), html`<${Icon} name="link" size=${14} />`)}
     ${onComment && fb('评论', () => { const s0 = sel(); const q = s0 ? s0.toString().trim().slice(0, 160) : ''; const b = curB(); if (b) onComment(b.id, q); }, html`<${Icon} name="chat" size=${14} />`)}
@@ -877,13 +899,13 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       ${tbBtn('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`)}
       ${tbBtn('删除线', () => exec('strikeThrough'), html`<s>S</s>`)}
       ${tbBtn('代码 ⌘E', () => toggleCode(), '</>', 'mono')}
-      ${hlPicker(tbBtn)}
+      ${hlPicker(tbBtn, () => setTimeout(() => emit(syncFromDom(bsRef.current)), 0))}
       ${tbBtn('链接 ⌘K', () => linkPrompt(), html`<${Icon} name="link" size=${13} />`)}
       ${tbBtn('链接到页面（选中文字变成 [[页面]]）', () => wikiFromSelection(), '[[ ]]', 'mono')}
       <button title="文字颜色 / 字号 / 字体" class=${'tb-style ' + (tbPop ? 'on' : '')} onMouseDown=${(e) => e.preventDefault()} onClick=${() => setTbPop(!tbPop)}>A<small>a</small></button>
       ${tbBtn('清除格式', () => { exec('removeFormat'); applyInline('tc', ''); applyInline('fs', ''); applyInline('ff', ''); }, html`<${Icon} name="x" size=${13} />`)}
       ${tbPop && html`<div class="tb-pop" onMouseDown=${(e) => e.preventDefault()}>
-        <div class="tp-row"><span>颜色</span>${tbBtn('默认颜色', () => applyInline('tc', ''), html`<i class="tp-dot none"></i>`, 'tp-b')}${TEXT_COLORS.map((c) => tbBtn(TEXT_COLOR_NAMES[c], () => applyInline('tc', c), html`<i class="tp-dot" style=${`background:var(--tc-${c})`}></i>`, 'tp-b'))}</div>
+        <div class="tp-row"><span>颜色</span>${tbBtn('默认颜色', () => applyInline('tc', ''), html`<i class="tp-dot none"></i>`, 'tp-b')}${TEXT_COLORS.map((c) => tbBtn(TEXT_COLOR_NAMES[c], () => applyInline('tc', c), html`<i class="tp-dot" style=${`background:var(--tc-${c})`}></i>`, 'tp-b'))}<button type="button" class="tp-b tp-more" title="更多颜色 / 自定义" onMouseDown=${(e) => e.preventDefault()} onClick=${(e) => openPalette(e, { kind: 'text', onPick: (v) => { applyInline('tc', v); setTimeout(() => emit(syncFromDom(bsRef.current)), 0); } })}><i class="tp-dot rainbow"></i></button></div>
         <div class="tp-row"><span>字号</span><button class="tp-t tp-step" title="减小（⌘⇧,）" onMouseDown=${(e) => e.preventDefault()} onClick=${() => stepSize(-1)}>−</button><input class="tp-num" type="number" min="8" max="72" value=${curSize()} onMouseDown=${(e) => e.stopPropagation()} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); setSize(+e.target.value); } }} onChange=${(e) => setSize(+e.target.value)} /><button class="tp-t tp-step" title="增大（⌘⇧.）" onMouseDown=${(e) => e.preventDefault()} onClick=${() => stepSize(1)}>+</button>${[['12', '小'], ['', '标准'], ['20', '大'], ['28', '特大']].map(([v, n]) => tbBtn('字号 ' + n, () => applyInline('fs', v), n, 'tp-t tp-preset'))}</div>
         <div class="tp-row"><span>字体</span>${tbBtn('字体', (e) => ctxMenu(e, fontMenu(curFont(), (v) => inlineOrBlock('ff', 'font', v)), '字体'), html`${(FONTS.find((f) => f.id === (curFont() || 'default')) || FONTS[0]).n} ›`, 'tp-t')}</div>
       </div>`}
@@ -933,7 +955,7 @@ class Row extends Component {
       ${b.type === 'number' && html`<span class="b-mark num" contenteditable="false">${num}.</span>`}
       ${b.type === 'todo' && html`<button class=${'b-check ' + (b.checked ? 'on' : '')} contenteditable="false" onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { checked: !b.checked })}><${Icon} name="check" size=${11} /></button>`}
       ${b.type === 'toggle' && html`<button class=${'b-tg ' + (b.open ? 'open' : '')} contenteditable="false" onMouseDown=${(e) => e.preventDefault()} onClick=${() => update(b.id, { open: !b.open })}><${Icon} name="right" size=${12} /></button>`}
-      <div ref=${setEl} class=${'b-text ' + (b.type === 'todo' && b.checked ? 'done' : '') + (b.size ? ' bs-' + b.size : '') + (b.color ? ' bc-' + b.color : '') + (b.font ? ' bf-' + b.font : '')} data-ph=${phFor(b)}></div>
+      <div ref=${setEl} class=${'b-text ' + (b.type === 'todo' && b.checked ? 'done' : '') + (b.size ? ' bs-' + b.size : '') + (b.color && !HEX.test(b.color) ? ' bc-' + b.color : '') + (b.font ? ' bf-' + b.font : '')} style=${b.color && HEX.test(b.color) ? `color:${b.color}` : ''} data-ph=${phFor(b)}></div>
     </div>`;
     const menu = (e) => {
       if (window.getSelection && !window.getSelection().isCollapsed) return; e.stopPropagation();
@@ -1029,7 +1051,7 @@ export function SelToolbar({ within, onChange }) {
     ${btn('斜体 ⌘I', () => exec('italic'), html`<i>I</i>`)}
     ${btn('下划线 ⌘U', () => exec('underline'), html`<u>U</u>`)}
     ${btn('删除线', () => exec('strikeThrough'), html`<s>S</s>`)}
-    ${hlPicker(btn)}
+    ${hlPicker(btn, () => onChange && onChange())}
     ${btn('清除格式', () => { exec('removeFormat'); applyMark(null); }, html`<${Icon} name="x" size=${13} />`)}
   </div>`, document.body);
 }
