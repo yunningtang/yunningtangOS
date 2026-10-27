@@ -6,7 +6,7 @@
 import { get, replace, update, exportJSON } from './store.js';
 import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob, kvGet, kvSet } from './files.js';
 import { seedDoc } from './seed.js';
-import { merge3, syncView } from './merge.js';
+import { merge3, syncView, SHARED_SETTINGS } from './merge.js';
 import { debounce } from './util.js';
 
 const API = 'https://api.github.com';
@@ -25,17 +25,25 @@ export function loginState() { return api; }
 export function loggedIn() { return !!(api && api.user); }
 
 /* ---- transports ---- */
+// Vercel 收的请求体上限约 4.5 MB；留点余量
+const MAX_DOC = 4.2 * 1048576;
+// 读接口返回：服务器出错时可能不是 JSON（413 太大、504 超时的网页），给一句看得懂的话；409 = 另一台设备刚同步过
+async function readRes(r) {
+  let j = null; try { j = await r.json(); } catch {}
+  if (r.ok && j) return j;
+  const msg = (j && j.error) || (r.status === 413 ? '数据太大了，云端收不下（约 4 MB 上限）' : r.status === 401 ? '登录过期了，重新登录一下' : r.status >= 500 ? `云端暂时出错了（${r.status}），等一下会自动再试` : `HTTP ${r.status}`);
+  const e = new Error(msg); e.status = r.status; throw e;
+}
 const viaApi = {
   async pull() {
     const r = await fetch('/api/sync', { cache: 'no-store' });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    const j = await readRes(r);
     return j.data ? { sha: j.sha, data: j.data } : null;
   },
   async push(content, sha) {
+    if (content.length > MAX_DOC) throw new Error(`数据太大了（${(content.length / 1048576).toFixed(1)} MB），云端一次只收 4 MB 左右。多半是笔记里直接粘贴的大图片——删掉几张，或者改成「上传图片」（图片会作为附件单独同步）`);
     const r = await fetch('/api/sync', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, sha }) });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    await readRes(r);
   },
 };
 function cfg() {
@@ -147,7 +155,13 @@ export async function pull() {
 
 // Three-way merge: local and remote changes since the last sync are combined record by record,
 // so two devices can both edit without one overwriting the other.
+// 另一台设备刚好同时同步（409）：重新拉一次再合并，最多再试两次
 export async function smartSync() {
+  for (let i = 0; ; i++) {
+    try { return await syncOnce(); } catch (e) { if (e.status !== 409 || i >= 2) throw e; await new Promise((r) => setTimeout(r, 400 + i * 600)); }
+  }
+}
+async function syncOnce() {
   const remote = await pullRemote();
   const local = get();
   if (!remote) { const sent = exportJSON(); await transport().push(sent); update((d) => { d.settings.lastSync = new Date().toISOString(); }); await setBase(sent); pushAttachments().catch(() => {}); return 'pushed'; }
@@ -161,7 +175,8 @@ export async function smartSync() {
     merged = merge3({}, local, remote.data);
     const rp = remote.data.profile || {}, rs = remote.data.settings || {};
     merged.profile = { ...(local.profile || {}), ...Object.fromEntries(Object.entries(rp).filter(([, v]) => v != null && v !== '')) };
-    merged.settings = { ...(merged.settings || {}), dash: rs.dash || (merged.settings || {}).dash, place: rs.place || (merged.settings || {}).place };
+    merged.settings = { ...(merged.settings || {}) };
+    for (const k of SHARED_SETTINGS) if (rs[k] != null && (k === 'dash' || k === 'place' || merged.settings[k] == null)) merged.settings[k] = rs[k];
   }
   const localChanged = syncView(merged) !== syncView(local);
   const remoteChanged = syncView(merged) !== syncView(remote.data);
@@ -172,14 +187,15 @@ export async function smartSync() {
   if (remoteChanged) await transport().push(sent, remote.sha);
   update((d) => { d.settings.lastSync = new Date().toISOString(); });
   await setBase(remoteChanged ? sent : remote.data);
-  if (remoteChanged) pushAttachments().catch(() => {});
+  if (remoteChanged) pushAttachments().then((r) => { if (r.failed) setStatus({ error: `有 ${r.failed} 个附件（图片 / 文件）没传上去，下次同步会再试` }); }).catch(() => {});
   return remoteChanged ? (localChanged ? 'merged' : 'pushed') : (localChanged ? 'pulled' : 'same');
 }
 
+let again = null; // 正在同步时又来了一次：等这次完了再跑一次，不直接丢掉
 export async function guarded(fn) {
-  if (busy) return;
+  if (busy) { again = fn; return; }
   busy = true; setStatus({ busy: true, error: '' });
-  try { const r = await fn(); setStatus({ last: new Date().toISOString() }); return r; } catch (e) { setStatus({ error: e.message }); throw e; } finally { busy = false; setStatus({ busy: false }); }
+  try { const r = await fn(); setStatus({ last: new Date().toISOString() }); return r; } catch (e) { setStatus({ error: e.message }); throw e; } finally { busy = false; setStatus({ busy: false }); if (again) { const f = again; again = null; setTimeout(() => guarded(f).catch(() => {}), 300); } }
 }
 
 /* ---- auto sync when logged in: pull on open, push shortly after edits ---- */
@@ -188,7 +204,8 @@ export function autoSync(subscribe) {
   if (armed || !loggedIn()) return;
   armed = true;
   let lastSeen = get().updatedAt;
-  const run = () => guarded(smartSync).then(() => { lastSeen = get().updatedAt; }).catch(() => {});
+  // 记「开始同步那一刻」的版本：同步途中又改的东西，跑完会发现还没同步、几秒后再跑一次（以前会被当成已同步，要等下次再改才上去）
+  const run = () => { const startedAt = get().updatedAt; return guarded(smartSync).then(() => { lastSeen = startedAt; if (get().updatedAt !== startedAt) soon(); }).catch(() => {}); };
   run();
   const soon = debounce(() => { if (get().updatedAt !== lastSeen) run(); }, 8000);
   subscribe(() => { if (get().updatedAt !== lastSeen) soon(); });

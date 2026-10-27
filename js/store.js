@@ -132,6 +132,21 @@ function tombDiff(prev, next) {
     for (const id of before) if (!after.has(id)) { tombs = tombs || { ...(next.tombs || {}) }; tombs[k + ':' + id] = now; }
     for (const id of after) if (!before.has(id) && (tombs || next.tombs || {})[k + ':' + id]) { tombs = tombs || { ...(next.tombs || {}) }; delete tombs[k + ':' + id]; next[k] = next[k].map((x) => (x && x.id === id ? { ...x, updated: now } : x)); }
   }
+  // 月度目标（按月分组）和愿景里的几个列表：只记删除
+  const ids = (doc, pick) => new Set(pick(doc).map((x) => x && x.id).filter(Boolean));
+  const extra = [['goals', (d) => Object.values(d.goals || {}).flat()], ...['statements', 'board', 'longterm', 'areas'].map((k) => ['vision.' + k, (d) => ((d.vision || {})[k] || [])])];
+  for (const [k, pick] of extra) {
+    if (k === 'goals' ? prev.goals === next.goals : (prev.vision || {})[k.slice(7)] === (next.vision || {})[k.slice(7)]) continue;
+    const before = ids(prev, pick), after = ids(next, pick);
+    for (const id of before) if (!after.has(id)) { tombs = tombs || { ...(next.tombs || {}) }; tombs[k + ':' + id] = now; }
+    const back = [...after].filter((id) => !before.has(id) && (tombs || next.tombs || {})[k + ':' + id]);
+    if (!back.length) continue;
+    tombs = tombs || { ...(next.tombs || {}) }; back.forEach((id) => delete tombs[k + ':' + id]);
+    // 恢复回来的盖上新时间戳，别被另一边的删除记录再删一次
+    const touch = (x) => (x && back.includes(x.id) ? { ...x, updated: now } : x);
+    if (k === 'goals') next.goals = Object.fromEntries(Object.entries(next.goals || {}).map(([m, l]) => [m, (l || []).map(touch)]));
+    else next.vision = { ...next.vision, [k.slice(7)]: (next.vision[k.slice(7)] || []).map(touch) };
+  }
   return tombs ? { ...next, tombs } : next;
 }
 const signal = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch {} };
@@ -140,7 +155,7 @@ function flush() {
   try {
     // 别的标签页写过了：三方合并（我上次看到的 / 我现在的 / 它写的），不要整份覆盖
     const cur = localStorage.getItem(KEY);
-    if (cur && lastSeen !== null && cur !== lastSeen) { try { state = migrate(merge3(JSON.parse(lastSeen), state, JSON.parse(cur))); subs.forEach((f) => f()); } catch (e) { console.warn('cross-tab merge failed', e); } }
+    if (cur && lastSeen !== null && cur !== lastSeen) { try { state = migrate(merge3(JSON.parse(lastSeen), state, JSON.parse(cur), { allSettings: true })); subs.forEach((f) => f()); } catch (e) { console.warn('cross-tab merge failed', e); } }
     const json = JSON.stringify(state);
     localStorage.setItem(KEY, json); lastSeen = json;
     if (persistError) { persistError = ''; signal('ytos:persist-ok'); }
@@ -159,7 +174,7 @@ window.addEventListener('storage', (e) => {
   try {
     const incoming = JSON.parse(e.newValue);
     const mine = JSON.stringify(state);
-    state = migrate(lastSeen && mine !== lastSeen ? merge3(JSON.parse(lastSeen), state, incoming) : incoming);
+    state = migrate(lastSeen && mine !== lastSeen ? merge3(JSON.parse(lastSeen), state, incoming, { allSettings: true }) : incoming);
     lastSeen = e.newValue; subs.forEach((f) => f());
   } catch (err) { console.warn('cross-tab merge failed', err); }
 });
