@@ -5,6 +5,18 @@ import { uid } from './util.js';
 
 export const stepsOf = (t) => (t && Array.isArray(t.steps) ? t.steps : []);
 export function stepsProgress(t) { const st = stepsOf(t); return { done: st.filter((x) => x.done).length, total: st.length }; }
+// 一件事的「下一步」只有一个来源：第一个没做完的步骤
+export const nextStep = (t) => stepsOf(t).find((x) => !x.done) || null;
+// 插到第一个没做完的步骤前面（专注结束时写的「下一步」就这样变成一步）；已经有同名的没做完的步骤就不重复加
+export function insertNext(todoId, title, minutes = 25) {
+  const v = String(title || '').trim(); if (!v) return;
+  update((d) => {
+    const t = d.todos.find((x) => x.id === todoId); if (!t) return;
+    const st = Array.isArray(t.steps) ? t.steps : [];
+    if (st.some((x) => !x.done && x.title === v)) return;
+    const i = st.findIndex((x) => !x.done); st.splice(i < 0 ? st.length : i, 0, { id: uid(), title: v, minutes: clampMin(minutes), kind: '', done: false }); t.steps = st;
+  });
+}
 export const clampMin = (m) => Math.max(5, Math.min(180, Math.round(+m || 25)));
 
 const norm = (x) => ({ id: x.id || uid(), title: String(x.title || '').trim(), minutes: clampMin(x.minutes), kind: x.kind || '', done: !!x.done });

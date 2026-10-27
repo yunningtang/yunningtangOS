@@ -3,14 +3,14 @@ import { useStore, update, upsert, remove, toggleTodo, removeUndo, get } from '.
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select, useClock } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGet, lsSet, pad, weekStart, timeToMin, minToTime } from '../util.js';
 import { ctxMenu } from '../ctx.js';
-import { brainMenu } from '../brain.js';
+import { brainMenu, stepCat } from '../brain.js';
 import { askConfirm, askDate, askPrompt } from '../confirm.js';
 import { linkedPage } from './notes.js';
 import { go } from '../nav.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { toast } from '../nav.js';
 import { NoteTasks, noteTasks } from './ntasks.js';
-import { stepsOf, stepsProgress, toggleStep, setStep, removeStep, moveStep, addSteps } from '../steps.js';
+import { stepsOf, stepsProgress, toggleStep, setStep, removeStep, moveStep, addSteps, nextStep, clampMin } from '../steps.js';
 import * as pomo from '../pomo.js';
 
 
@@ -196,9 +196,18 @@ export function TodoItem({ t, onEdit, compact }) {
   const dueCls = t.due && !t.done ? (ls === 'late' ? 'late' : ls === 'passed' ? 'passed' : t.due === today ? 'today' : '') : '';
   const lateTxt = ls === 'late' ? `逾期 ${Math.max(1, Math.round((new Date(today) - new Date(t.due)) / 864e5))} 天` : ls === 'passed' ? '已过' : '';
   const sp = stepsProgress(t);
-  const [showSteps, setShowSteps] = useState(() => !compact && sp.total > 0 && sp.done < sp.total && !t.done); // 待办页里没做完的默认展开；总览 / 计划里的紧凑行默认收起，点 chip 展开
+  const [showSteps, setShowSteps] = useState(false); // 默认收起：「下一步」那一行已经说了最要紧的，点它再展开全部步骤
   const [forceAdd, setForceAdd] = useState(false); // 右键「添加步骤」：展开并直接给输入框
   useEffect(() => { const h = (e) => { if (e.detail === t.id) { setShowSteps(true); setForceAdd(true); } }; window.addEventListener('todo:addstep', h); return () => window.removeEventListener('todo:addstep', h); }, [t.id]);
+  // 下一步：第一个没做完的步骤。一行写清楚是什么、哪一类、多久，▶ 直接开始；每个步骤一个小圆点（颜色 = 类别，实心 = 做完，带圈 = 现在这步）
+  const ns = !t.done && nextStep(t);
+  const startStep = (e) => { e.stopPropagation(); pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title} · ${clampMin(ns.minutes)} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
+  const nxt = ns && html`<div class=${'nxt ' + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开全部步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}>
+    <span class="nxt-dots">${stepsOf(t).map((x) => { const c = stepCat(x); return html`<i key=${x.id} class=${x.done ? 'd' : x === ns ? 'n' : ''} style=${`--c:${c ? c.color : 'var(--text-4)'}`}></i>`; })}</span>
+    <span class="nxt-t"><em>下一步</em>${ns.title}</span>
+    <span class="nxt-m">${stepCat(ns) ? stepCat(ns).label + ' · ' : ''}${clampMin(ns.minutes)} 分</span>
+    <button type="button" class="nxt-go" title=${`开始这一步 · ${clampMin(ns.minutes)} 分钟`} onClick=${startStep}><${Icon} name="play" size=${10} /></button>
+  </div>`;
   const chip = sp.total > 0 && html`<button class=${'steps ' + (sp.done === sp.total ? 'all ' : '') + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}><${Icon} name="list" size=${10} /> ${sp.done}/${sp.total} 步 <${Icon} name=${showSteps ? 'up' : 'down'} size=${9} /></button>`;
   return html`<div class=${'todo p' + t.priority + ' ' + (t.done ? 'done ' : '') + (showSteps && sp.total ? 'has-steps' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => ctxMenu(e, todoMenu(t, onEdit), t.title)} ...${dragProps('todo', { id: t.id })}>
     <button class="cb" title=${`${p.label} ${p.name}`} onClick=${() => toggleTodo(t.id)} aria-label="完成"><${Icon} name="check" size=${12} /></button>
@@ -209,13 +218,14 @@ export function TodoItem({ t, onEdit, compact }) {
         ${t.due && html`<span class=${'due ' + dueCls}><${Icon} name="calendar" size=${10} /> ${relDay(t.due)}${t.time ? ' ' + t.time : ''}</span>`}
         ${ls && html`<button class=${'defer ' + ls} title="推迟到…" onClick=${(e) => postponeMenu(e, t)}>${lateTxt} · 推迟 <${Icon} name="down" size=${9} /></button>`}
         ${!ls && !t.done && t.deferred > 0 && html`<span class=${'deferred ' + (t.deferred >= 3 ? 'many' : '')} title=${`推迟过 ${t.deferred} 次` + (t.deferred >= 3 ? '，要不要拆开或者放弃？' : '')}><${Icon} name="right" size=${9} /> 推迟 ×${t.deferred}</span>`}
-        ${chip}
+        ${!ns && chip}
         ${t.src && t.src.id && html`<a class="src-chip" href=${'#/' + (t.src.kind === 'goal' ? 'plan/month?open=' + t.src.id : t.src.kind === 'book' ? 'reading?open=' + t.src.id : 'notes/' + t.src.id)} title="汤圆从这里拆出来的，点开回到原处" onClick=${(e) => e.stopPropagation()}><${Icon} name=${t.src.kind === 'goal' ? 'target' : t.src.kind === 'book' ? 'book' : 'note'} size=${10} />${t.src.title || ''}</a>`}
         ${t.area && html`<span>${t.area}</span>`}
         ${t.tags.map((x) => html`<${Tag}>#${x}<//>`)}
         ${t.note && html`<span title=${t.note}>· ${t.note.slice(0, 40)}${t.note.length > 40 ? '…' : ''}</span>`}
       </div>`}
-      ${compact && (t.time || ls || sp.total > 0) && html`<div class="meta">${ls ? html`<button class=${'defer ' + ls} title=${lateTxt + ' · 点击推迟'} onClick=${(e) => postponeMenu(e, t)}>${ls === 'late' ? relDay(t.due) + (t.time ? ' ' + t.time : '') : t.time + ' 已过'} <${Icon} name="down" size=${9} /></button>` : t.time && html`<span class=${'due ' + dueCls}>${t.time}</span>`}${chip}</div>`}
+      ${compact && (t.time || ls || (sp.total > 0 && !ns)) && html`<div class="meta">${ls ? html`<button class=${'defer ' + ls} title=${lateTxt + ' · 点击推迟'} onClick=${(e) => postponeMenu(e, t)}>${ls === 'late' ? relDay(t.due) + (t.time ? ' ' + t.time : '') : t.time + ' 已过'} <${Icon} name="down" size=${9} /></button>` : t.time && html`<span class=${'due ' + dueCls}>${t.time}</span>`}${!ns && chip}</div>`}
+      ${nxt}
       ${(showSteps && sp.total > 0 || forceAdd) && html`<${StepList} t=${t} autoAdd=${forceAdd} />`}
     </div>
     ${onEdit && html`<div class="acts"><${IconBtn} icon="edit" title="编辑" size=${13} onClick=${() => onEdit(t)} /></div>`}

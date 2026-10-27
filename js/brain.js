@@ -38,6 +38,8 @@ const ownBrain = (t, words) => (t.brain === undefined || t.brain === null ? gues
 // 步骤类型 → 脑区（汤圆拆解出来的步骤自带类型）
 const STEP_REGION = { 思考: 'plan', 记忆: 'memory', 语言: 'talk', 动手: 'move' };
 const stepRegion = (x) => (x && (x.brain || STEP_REGION[x.kind])) || '';
+// 步骤的类别（颜色 + 名字），待办行里的小圆点用
+export const stepCat = (x) => { const id = stepRegion(x); return id ? regionOf(id) : null; };
 // 流转：步骤跨了两个以上脑区时，按步骤顺序排成几段；现在这段 = 第一个没做完的步骤所在的脑区
 export function flowOf(t) {
   const st = Array.isArray(t.steps) ? t.steps : []; const seq = [];

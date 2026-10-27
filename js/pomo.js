@@ -1,6 +1,6 @@
 // Pomodoro state machine, persisted so it survives reloads. Views subscribe for ticks.
 import { upsert } from './store.js';
-import { markStepDone } from './steps.js';
+import { markStepDone, insertNext } from './steps.js';
 import { uid, todayStr, minToTime } from './util.js';
 
 const KEY = 'ytos.pomo';
@@ -71,7 +71,9 @@ export function setGoal(goal) { st = { ...st, goal }; save(); emit(); }
 export function checkpoint({ note = '', next = '', done = false } = {}) {
   const r = st.review; if (!r) return;
   if (note || next) upsert('sessions', { id: r.sid, note: note.trim(), next: next.trim(), updated: new Date().toISOString() });
-  if (r.todoId) upsert('todos', { id: r.todoId, ...(next.trim() ? { next: next.trim() } : {}), ...(note.trim() ? { lastNote: note.trim() } : {}), ...(done ? { done: true, completedAt: todayStr(), next: '' } : {}) });
+  // 写的「下一步」变成这件事的一个步骤（插在下一个没做完的前面），不再单独存一份
+  if (r.todoId && next.trim() && !done) insertNext(r.todoId, next.trim());
+  if (r.todoId) upsert('todos', { id: r.todoId, next: '', ...(note.trim() ? { lastNote: note.trim() } : {}), ...(done ? { done: true, completedAt: todayStr() } : {}) });
   st = { ...st, review: null, goal: next.trim() || '' }; save(); emit();
 }
 export function dismissReview() { st = { ...st, review: null }; save(); emit(); }

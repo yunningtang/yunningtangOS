@@ -41,6 +41,8 @@ function migrate(s) {
   if (!out.goals || typeof out.goals !== 'object') out.goals = {}; if (!out.weeks || typeof out.weeks !== 'object') out.weeks = {};
   // 每条记录的基本字段类型（视图里直接 .map / .includes，缺了会整页白掉）
   const arr = (v) => (Array.isArray(v) ? v.map((x) => String(x)) : []);
+  // 以前专注结束写的「下一步」存在 t.next 里：搬进步骤（插在第一个没做完的前面），以后只有步骤这一个来源
+  out.todos = out.todos.map((t) => { if (!t || typeof t !== 'object' || typeof t.next !== 'string' || !t.next.trim()) return t; const st = Array.isArray(t.steps) ? [...t.steps] : []; const v = t.next.trim(); if (!t.done && !st.some((x) => x && !x.done && x.title === v)) { const i = st.findIndex((x) => x && !x.done); st.splice(i < 0 ? st.length : i, 0, { id: 'n' + Math.random().toString(36).slice(2, 10), title: v, minutes: 25, kind: '', done: false }); } return { ...t, steps: st, next: '' }; });
   out.todos = out.todos.map((t) => ({ ...t, id: String(t.id || 'b' + Math.random().toString(36).slice(2, 10)), title: String(t.title ?? ''), done: !!t.done, priority: Number.isInteger(t.priority) ? Math.max(0, Math.min(3, t.priority)) : 2, tags: arr(t.tags), due: typeof t.due === 'string' ? t.due : '', time: typeof t.time === 'string' ? t.time : '', steps: Array.isArray(t.steps) ? t.steps.filter((x) => x && typeof x === 'object') : t.steps }));
   for (const k of ['books', 'links', 'trips']) out[k] = out[k].map((x) => ({ ...x, tags: arr(x.tags) }));
   out.blocks = out.blocks.filter((b) => typeof b.start === 'string' && typeof b.end === 'string' || b.pomo);

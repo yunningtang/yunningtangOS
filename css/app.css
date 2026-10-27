@@ -3549,3 +3549,23 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .br-chip>i{width:7px;height:7px;border-radius:50%}
 .br-chip:hover,.br-row:hover .br-chip{border-color:var(--line-2);background:var(--card-bg,#fff);color:var(--text)}
 .br-flow-k{color:var(--text-4);margin-right:2px}
+/* 待办行里的「下一步」：一行写清楚下一步是什么，圆点是每个步骤（颜色 = 类别，实心 = 做完，带圈 = 现在这步） */
+.nxt{display:flex;align-items:center;gap:8px;margin-top:4px;padding:3px 4px 3px 6px;border-radius:8px;font-size:.78rem;color:var(--text-3);cursor:pointer;max-width:100%;transition:background .15s}
+.nxt:hover,.nxt.open{background:var(--hover)}
+.nxt-dots{display:inline-flex;gap:3px;flex:none}
+.nxt-dots i{width:7px;height:7px;border-radius:50%;box-shadow:inset 0 0 0 1.3px var(--c);opacity:.55}
+.nxt-dots i.d{background:var(--c);opacity:.9}
+.nxt-dots i.n{opacity:1;box-shadow:inset 0 0 0 1.3px var(--c),0 0 0 2px color-mix(in srgb,var(--c) 25%,transparent)}
+.nxt-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+.nxt-t em{font-style:normal;color:var(--text-4);margin-right:6px}
+.nxt-m{flex:none;color:var(--text-4);font-size:.72rem}
+.nxt-go{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;border:0;background:none;color:var(--text-4);cursor:pointer;transition:background .15s,color .15s}
+.nxt-go:hover{background:var(--text);color:var(--bg)}
+.todo.done .nxt{display:none}
+.bw-next-t small{margin-left:8px;font-weight:400;font-size:.74rem;color:var(--text-4)}
+/* 侧栏拖动排序 */
+.nav > a,.nav > .sep{position:relative}
+.nav > a.dragging{opacity:.4}
+.nav > a.drop-before::before,.nav > a.drop-after::after,.nav > .sep.drop-before::before,.nav > .sep.drop-after::after{content:"";position:absolute;left:8px;right:8px;height:2px;border-radius:2px;background:var(--text-3);pointer-events:none}
+.nav > a.drop-before::before,.nav > .sep.drop-before::before{top:-1px}
+.nav > a.drop-after::after,.nav > .sep.drop-after::after{bottom:-1px}

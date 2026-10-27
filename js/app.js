@@ -52,6 +52,21 @@ export const ROUTES = [
   { path: 'settings', name: '设置', icon: 'settings', view: Settings, hidden: true },
 ];
 
+// 侧栏顺序：settings.navOrder 记的是一串 key（分组标题是 'sep:名字'），拖动后存下来；新加的入口按默认位置插回去
+const navKey = (r) => (r.sep !== undefined ? 'sep:' + r.sep : r.href || r.path);
+function orderedRoutes(saved) {
+  if (!Array.isArray(saved) || !saved.length) return ROUTES;
+  const byKey = new Map(ROUTES.map((r) => [navKey(r), r]));
+  const out = saved.map((k) => byKey.get(k)).filter(Boolean); const have = new Set(out);
+  ROUTES.forEach((r, i) => { if (have.has(r)) return; const prev = ROUTES.slice(0, i).reverse().find((x) => have.has(x)); out.splice(prev ? out.indexOf(prev) + 1 : 0, 0, r); have.add(r); });
+  return out;
+}
+function moveNav(list, from, to, after) {
+  const keys = list.map(navKey); const i = keys.indexOf(from); if (i < 0 || from === to) return;
+  keys.splice(i, 1); let j = keys.indexOf(to); if (j < 0) return; if (after) j++; keys.splice(j, 0, from);
+  update((d) => { d.settings.navOrder = keys; });
+}
+
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, '');
   const [h, q] = raw.split('?');
@@ -139,12 +154,12 @@ function App() {
         <button class="ibtn side-tg" title=${mini ? '展开侧栏' : '收起侧栏'} onClick=${toggleMini}><${Icon} name=${mini ? 'right' : 'left'} size=${14} /></button>
       </div>
       <nav class="nav" data-liquid=".nav > a, .pt-row"><span class="liq"></span>
-        ${(() => { let section = ''; return ROUTES.map((r) => {
-          if (r.sep !== undefined) { section = r.sep; return r.sep ? html`<button class=${'sep ' + (navOpen['s:' + r.sep] === false ? 'closed' : '')} onClick=${() => toggleNav('s:' + r.sep)}><span>${r.sep}</span><${Icon} name="down" size=${11} /></button>` : html`<div class="sep"></div>`; }
+        ${(() => { let section = ''; const list = orderedRoutes(s.settings.navOrder); const navDrop = (k) => dropProps('nav', (d, { after }) => moveNav(list, d.key, k, after), { position: true }); return list.map((r) => {
+          if (r.sep !== undefined) { section = r.sep; return r.sep ? html`<button class=${'sep ' + (navOpen['s:' + r.sep] === false ? 'closed' : '')} onClick=${() => toggleNav('s:' + r.sep)} ...${navDrop(navKey(r))}><span>${r.sep}</span><${Icon} name="down" size=${11} /></button>` : html`<div class="sep"></div>`; }
           if (r.hidden || (r.show && !r.show(s))) return null;
           if (section && navOpen['s:' + section] === false && !mini) return null;
           const isActive = r.match ? r.match(route) : route.path === r.path;
-          return html`<a href=${'#/' + (r.href || r.path)} class=${isActive ? 'active' : ''} data-tip=${r.name} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && r.view && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && r.view && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
+          return html`<a href=${'#/' + (r.href || r.path)} class=${isActive ? 'active' : ''} data-tip=${r.name} ...${dragProps('nav', { key: navKey(r), id: navKey(r) })} ...${navDrop(navKey(r))} onContextMenu=${(e) => ctxMenu(e, [{ label: '在新标签页打开', icon: 'external', onClick: () => window.open('#/' + r.path, '_blank') }, { label: mini ? '展开侧栏' : '收起侧栏', icon: mini ? 'right' : 'left', onClick: toggleMini }, r.path === 'notes' && r.view && { label: navOpen.notes ? '收起页面树' : '展开页面树', icon: 'layers', onClick: () => toggleNav('notes') }, 'sep', { label: '拖动可以调整顺序', icon: 'cursor', disabled: true }, s.settings.navOrder && { label: '恢复默认顺序', icon: 'refresh', onClick: () => update((d) => { delete d.settings.navOrder; }) }], r.name)}><${Icon} name=${r.icon} size=${16} /><span class="nl">${r.name}</span>${r.count && r.count(s) > 0 && html`<span class="cnt">${r.count(s)}</span>`}${r.path === 'notes' && r.view && html`<button class="nav-tg" title=${navOpen.notes ? '收起页面' : '展开页面'} onClick=${(e) => { e.preventDefault(); toggleNav('notes'); }}><${Icon} name=${navOpen.notes ? 'down' : 'right'} size=${12} /></button>`}</a>
             ${r.path === 'notes' && r.view && navOpen.notes && !mini && html`<div class="nav-tree">
               ${[...s.notebooks].sort((a, b) => a.order - b.order).map((b) => html`<div key=${b.id}>
                 <div class=${'pt-row nb-row ' + (navOpen['nb:' + b.id] === false ? 'closed' : '')} ...${dragProps('notebook', { id: b.id })} ...${dropProps(['page', 'notebook'], (d, { after }) => { if (d.id === b.id) return; if (s.notes.some((n) => n.id === d.id)) movePage(d.id, { nb: b.id, parent: null }); else update((dd) => { const list = dd.notebooks.sort((x, y) => x.order - y.order); const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === b.id); if (after) to++; list.splice(to, 0, mv); list.forEach((x, i) => { x.order = i; }); }); }, { position: true })} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, async () => { const v = await askPrompt('本子名称', b.name, { title: '重命名本子' }); if (v && v.trim()) update((d) => { d.notebooks.find((x) => x.id === b.id).name = v.trim(); }); }), b.name)}>
