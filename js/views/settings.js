@@ -46,7 +46,7 @@ function PromptsCard({ s }) {
   const patch = (id, p) => save((arr) => { const it = arr.find((x) => x.id === id); if (it) Object.assign(it, p); });
   const add = () => { const p = { ...newPrompt(), title: '', text: '' }; save((arr) => arr.push(p)); setTimeout(() => { const el = document.querySelector(`[data-pid="${p.id}"] input`); el && el.focus(); }, 50); };
   const ins = (id, k) => { const el = document.querySelector(`[data-pid="${id}"] textarea`); const it = list.find((x) => x.id === id); if (!it) return; const at = el ? el.selectionStart : it.text.length; patch(id, { text: it.text.slice(0, at) + `{{${k}}}` + it.text.slice(at) }); };
-  return html`<${Card} title="我的提示词" id="set-prompts" sub=${list.length ? `${list.length} 条 · 在汤圆输入框的「提示词」里最上面` : '存几句常用的话，汤圆输入框「提示词」里一点就填进去'}>
+  return html`<${Sec} id="prompts" title="我的提示词" sub=${list.length ? `${list.length} 条 · 在汤圆输入框的「提示词」里最上面` : '存几句常用的话，汤圆输入框「提示词」里一点就填进去'}>
     <div class="pr-list">
       ${list.map((p) => html`<div class="pr-row" key=${p.id} data-pid=${p.id}>
         <div class="row" style="gap:8px;align-items:center">
@@ -64,32 +64,55 @@ function PromptsCard({ s }) {
   <//>`;
 }
 
-// sealonote 账号：邮箱 + 验证码登录；第一次注册要邀请码
-function EmailLogin() {
+// 设置页的骨架：左边分区导航，右边一节一节；每一项是「左边说明、右边控件」的一行
+function Sec({ id, title, sub, children }) {
+  return html`<section class="st-sec" id=${'set-' + id}>
+    <header class="st-h"><h2>${title}</h2>${sub && html`<p>${sub}</p>`}</header>
+    <div class="st-body">${children}</div>
+  </section>`;
+}
+function Row({ label, hint, stack, children }) {
+  return html`<div class=${'st-row' + (stack ? ' stack' : '')}>
+    <div class="st-l"><b>${label}</b>${hint && html`<small>${hint}</small>`}</div>
+    <div class="st-c">${children}</div>
+  </div>`;
+}
+const SECTIONS = [['sync', '账号与同步', 'cloud'], ['profile', '个人', 'heart'], ['look', '外观', 'sun'], ['seal', '汤圆', 'sparkle'], ['prompts', '提示词', 'quote'], ['data', '数据', 'archive'], ['keys', '快捷键', 'key']];
+
+const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error || `出错了（${r.status}）`), j); return j; };
+const logout = async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.reload(); };
+
+// 登录 sealonote：Google 一键，或者邮箱 + 6 位验证码；第一次注册要邀请码（站长除外）
+function SignIn() {
   const [step, setStep] = useState('email'); const [email, setEmail] = useState(''); const [invite, setInvite] = useState(''); const [code, setCode] = useState('');
-  const [needInv, setNeedInv] = useState(() => /[?&]auth=need-invite/.test(location.hash)); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
-  const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error || `出错了（${r.status}）`), j); return j; };
-  const send = async (e) => { e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/email', { email, invite }); setStep('code'); setMsg('验证码已发到 ' + email + '，十分钟内有效'); } catch (er) { if (er.needInvite) setNeedInv(true); setMsg(er.message); } setBusy(false); };
+  const [needInv, setNeedInv] = useState(() => /[?&]auth=need-invite/.test(location.hash)); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState(''); const [wait, setWait] = useState(0);
+  useEffect(() => { if (!wait) return; const t = setTimeout(() => setWait(wait - 1), 1000); return () => clearTimeout(t); }, [wait]);
+  const send = async (e) => { e && e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/email', { email, invite }); setStep('code'); setCode(''); setWait(60); } catch (er) { if (er.needInvite) setNeedInv(true); setMsg(er.message); } setBusy(false); };
   const verify = async (e) => { e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/verify', { email, code }); location.hash = '#/settings'; location.reload(); } catch (er) { setMsg(er.message); setBusy(false); } };
-  return html`<form class="mail-login" onSubmit=${step === 'email' ? send : verify}>
+  const google = () => { location.href = '/api/auth/google' + (invite ? '?invite=' + encodeURIComponent(invite) : ''); };
+  return html`<div class="signin">
+    <div class="si-head"><b>${step === 'code' ? '输入验证码' : '登录 sealonote'}</b><small>${step === 'code' ? html`已发到 <span class="si-mail">${email}</span>，10 分钟内有效` : '每个人一份自己的数据，换一台设备登录也在。'}</small></div>
     ${step === 'email' ? html`
-      <input type="email" required autocomplete="email" placeholder="你的邮箱" value=${email} onInput=${(e) => setEmail(e.target.value.trim())} />
-      ${needInv && html`<input type="text" autocomplete="off" placeholder="邀请码" value=${invite} onInput=${(e) => setInvite(e.target.value.trim())} />`}
-      <button class="btn sm primary" disabled=${busy || !email}>${busy ? '发送中…' : '发验证码'}</button>`
+      <button type="button" class="si-btn si-google" onClick=${google}><span class="g-ic" dangerouslySetInnerHTML=${{ __html: GOOGLE_SVG }}></span>用 Google 继续</button>
+      <div class="mail-or"><span>或用邮箱</span></div>
+      <form class="si-form" onSubmit=${send}>
+        <input type="email" required autocomplete="email" placeholder="you@example.com" value=${email} onInput=${(e) => setEmail(e.target.value.trim())} />
+        ${needInv && html`<input type="text" autocomplete="off" placeholder="邀请码（第一次注册需要）" value=${invite} onInput=${(e) => setInvite(e.target.value.trim())} />`}
+        <button class="si-btn primary" disabled=${busy || !email}>${busy ? '发送中…' : '发送验证码'}</button>
+      </form>
+      ${!needInv && html`<button type="button" class="si-link" onClick=${() => setNeedInv(true)}>第一次来？填邀请码</button>`}`
     : html`
-      <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="6 位验证码" value=${code} onInput=${(e) => setCode(e.target.value.replace(/\D/g, ''))} autofocus />
-      <button class="btn sm primary" disabled=${busy || code.length < 6}>${busy ? '登录中…' : '登录'}</button>
-      <button type="button" class="btn sm ghost" onClick=${() => { setStep('email'); setCode(''); setMsg(''); }}>换邮箱</button>`}
-    ${step === 'email' && html`<div class="mail-or"><span>或者</span></div>
-      <button type="button" class="btn sm google-btn" onClick=${() => { location.href = '/api/auth/google' + (invite ? '?invite=' + encodeURIComponent(invite) : ''); }}><span class="g-ic" dangerouslySetInnerHTML=${{ __html: GOOGLE_SVG }}></span>用 Google 登录</button>
-      ${!needInv && html`<button type="button" class="btn sm ghost" onClick=${() => setNeedInv(true)}>我有邀请码</button>`}`}
-    ${msg && html`<p class="small mail-msg">${msg}</p>`}
-  </form>`;
+      <form class="si-form" onSubmit=${verify}>
+        <input class="si-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="······" value=${code} onInput=${(e) => setCode(e.target.value.replace(/\D/g, ''))} autofocus />
+        <button class="si-btn primary" disabled=${busy || code.length < 6}>${busy ? '登录中…' : '登录'}</button>
+      </form>
+      <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('email'); setCode(''); setMsg(''); }}>换个邮箱</button><span>·</span><button type="button" class="si-link" disabled=${wait > 0 || busy} onClick=${() => send()}>${wait > 0 ? `${wait} 秒后可重发` : '重新发送'}</button></div>`}
+    ${msg && html`<p class="si-msg">${msg}</p>`}
+  </div>`;
 }
 
 export default function Settings() {
   const s = useStore();
-  useEffect(() => { const m = location.hash.match(/[?&]sec=(\w+)/); if (m) setTimeout(() => { const el = document.getElementById('set-' + m[1]); el && el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120); }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [login, setLogin] = useState(loginState());
@@ -97,7 +120,15 @@ export default function Settings() {
   const [ai, setAi] = useState(aiConfig());
   const [aiMsg, setAiMsg] = useState('');
   const [bal, setBal] = useState(null);
+  const [cur, setCur] = useState('sync');
   const [, bump] = useState(0);
+  const go2 = (id, smooth = true) => { const el = document.getElementById('set-' + id); if (el) el.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' }); };
+  useEffect(() => { const m = location.hash.match(/[?&]sec=(\w+)/); if (m) setTimeout(() => go2(m[1]), 120); }, []);
+  // 滚动时高亮左边导航里当前那一节
+  useEffect(() => {
+    const f = () => { let at = SECTIONS[0][0]; for (const [id] of SECTIONS) { const el = document.getElementById('set-' + id); if (el && el.getBoundingClientRect().top < 140) at = id; } setCur(at); };
+    window.addEventListener('scroll', f, { passive: true }); f(); return () => window.removeEventListener('scroll', f);
+  }, []);
   const saveAi = (patch) => { setAi(setAiConfig(patch)); setAiMsg(''); setBal(null); };
   const testAi = async () => {
     setAiMsg('测试中…');
@@ -114,14 +145,14 @@ export default function Settings() {
   const setSync = (k, v) => update((d) => { d.settings.sync[k] = v; });
   const run = async (fn, okMsg) => {
     setBusy(true); setErr('');
-    try { const r = await guarded(fn); if (r === undefined) { toast('正在同步，稍等一下'); return; } toast(okMsg || (r === 'pulled' ? '已从 GitHub 拉取' : r === 'same' ? '已是最新' : r === 'merged' ? '两边的改动已合并并推送' : '已推送到 GitHub')); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try { const r = await guarded(fn); if (r === undefined) { toast('正在同步，稍等一下'); return; } toast(okMsg || (r === 'pulled' ? '已拉取最新数据' : r === 'same' ? '已是最新' : r === 'merged' ? '两边的改动已合并' : '已同步')); } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const importFile = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     try {
       const j = JSON.parse(await readFile(f)); if (!j || typeof j !== 'object' || !Array.isArray(j.todos)) throw new Error('不是有效的备份文件');
-      const cur = s; const n = (k) => (Array.isArray(j[k]) ? j[k].length : 0);
-      const ok = await askConfirm(`备份里有：待办 ${n('todos')}、笔记 ${n('notes')}、书 ${n('books')}、收藏 ${n('links')}、足迹 ${n('trips')}。\n当前有：待办 ${cur.todos.length}、笔记 ${cur.notes.length}、书 ${cur.books.length}、收藏 ${cur.links.length}、足迹 ${cur.trips.length}。\n导入会整份替换当前数据（当前这份会先存一份在本机，设置里可以撤销）；开着云端同步的话，备份之后新建的内容会被当成删除同步出去。`, { title: '导入这份备份？', ok: '替换导入' });
+      const now = s; const n = (k) => (Array.isArray(j[k]) ? j[k].length : 0);
+      const ok = await askConfirm(`备份里有：待办 ${n('todos')}、笔记 ${n('notes')}、书 ${n('books')}、收藏 ${n('links')}、足迹 ${n('trips')}。\n当前有：待办 ${now.todos.length}、笔记 ${now.notes.length}、书 ${now.books.length}、收藏 ${now.links.length}、足迹 ${now.trips.length}。\n导入会整份替换当前数据（当前这份会先存一份在本机，设置里可以撤销）；开着云端同步的话，备份之后新建的内容会被当成删除同步出去。`, { title: '导入这份备份？', ok: '替换导入' });
       if (!ok) return;
       try { localStorage.setItem('ytos.v1.prev', exportJSON()); } catch {}
       replace(j); toast('已导入', { label: '撤销', onClick: () => { try { const prev = localStorage.getItem('ytos.v1.prev'); if (prev) { replace(JSON.parse(prev)); toast('已恢复导入前的数据'); } } catch {} } });
@@ -130,128 +161,133 @@ export default function Settings() {
   };
   const counts = [['待办', s.todos.length], ['时间块', s.blocks.length], ['书', s.books.length], ['收藏', s.links.length], ['笔记', s.notes.length], ['足迹', s.trips.length]];
 
-  return html`<div>
-    <div class="settings">
-      <${Card} title="个人" id="set-profile" sub="名字和头像会出现在总览问候和侧栏。">
-        <div class="row" style="gap:16px;align-items:flex-start">
-          <${AvatarPicker} size=${72} />
-          <div class="form flex1">
-            <div class="grid2">
-              <${Field} label="名字"><input type="text" value=${s.profile.name} onInput=${(e) => setP('name', e.target.value)} /><//>
-              <${Field} label="头像"><div class="row" style="gap:6px;flex-wrap:wrap"><${Btn} small icon="image" onClick=${() => uploadAvatar()}>上传照片<//><${Btn} small kind="ghost" onClick=${avatarFromUrl}>用链接<//>${login && login.user && login.user.avatar && s.profile.avatar !== login.user.avatar && html`<${Btn} small kind="ghost" icon="github" onClick=${() => setP('avatar', login.user.avatar)}>用 GitHub 头像<//>`}${s.profile.avatar && html`<${Btn} small kind="ghost" onClick=${() => setP('avatar', '')}>移除<//>`}</div><//>
-            </div>
-            <${Field} label="座右铭"><input type="text" value=${s.profile.motto} onInput=${(e) => setP('motto', e.target.value)} /><//>
+  const connected = !!(login && login.user);
+  const cloudUser = connected && login.cloud && login.user.email;
+  const tokenMode = !connected && !(login && login.configured) && !!(s.settings.sync.repo && s.settings.sync.token);
+  const synced = s.settings.lastSync ? new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const syncRow = (connected || tokenMode) && html`<${Row} label="同步" hint=${err ? '' : '编辑后几秒自动同步，打开页面时自动拉取较新的一方。'}>
+    <span class=${'st-status ' + (err ? 'err' : synced ? 'ok' : 'warn')}><i></i>${err ? err : synced ? `上次 ${synced}` : '还没同步过'}</span>
+    <button class="btn sm" disabled=${busy} onClick=${() => run(smartSync)}>${busy ? '同步中…' : '立即同步'}</button>
+  <//>`;
+  const ghRows = html`
+    <${Row} label="GitHub 仓库" hint=${connected ? `${login.user.login} · ${login.target.repo} · ${login.target.branch}` : login && login.configured ? '整份数据存成你私人仓库里的一个 JSON 文件，每次同步是一次提交。' : '静态部署时用 token 直连仓库。'}>
+      ${connected ? html`<button class="btn sm ghost" onClick=${logout}>断开</button>` : login && login.configured ? html`<a class="btn sm" href="/api/auth/login"><${Icon} name="github" size=${14} /> 连接 GitHub</a>` : html`<button class="btn sm" onClick=${() => setTokOpen((v) => !v)}>${tokOpen ? '收起' : tokenMode ? '设置' : '配置'}</button>`}
+    <//>
+    ${!connected && !(login && login.configured) && tokOpen && html`<div class="st-sub">
+      <div class="grid2">
+        <${Field} label="仓库 owner/name"><input type="text" value=${s.settings.sync.repo} placeholder="yunningtang/dataOS" onInput=${(e) => setSync('repo', e.target.value.trim())} /><//>
+        <${Field} label="分支"><input type="text" value=${s.settings.sync.branch} onInput=${(e) => setSync('branch', e.target.value.trim())} /><//>
+      </div>
+      <div class="grid2">
+        <${Field} label="文件路径"><input type="text" value=${s.settings.sync.path} onInput=${(e) => setSync('path', e.target.value.trim())} /><//>
+        <${Field} label="Fine-grained token" hint="只给这个仓库的 Contents 读写权限，只保存在本机浏览器。"><input type="password" value=${s.settings.sync.token} placeholder="github_pat_…" onInput=${(e) => setSync('token', e.target.value.trim())} /><//>
+      </div>
+    </div>`}`;
+  const skins = [
+    { v: 'notion', n: '笔记', d: '默认 · 纯白纸面、细线分隔', bg: '#ffffff', card: '#ffffff', ac: '#2383e2', line: 'rgba(55,53,47,.16)' },
+    { v: 'glass', n: '暖白', d: '暖灰底、墨色主操作', bg: '#f7f7f5', card: '#ffffff', ac: '#37352f', line: 'rgba(55,53,47,.09)' },
+    { v: 'claude', n: 'Claude', d: '米色暖底、衬线标题', bg: '#f4f1ea', card: '#faf9f5', ac: '#c96442', line: 'rgba(60,50,30,.14)' },
+    { v: 'steam', n: 'Steam', d: '深蓝灰底、青蓝按钮', bg: '#1b2838', card: '#2a475e', ac: '#66c0f4', line: 'rgba(0,0,0,.4)' },
+    { v: 'xp', n: 'Windows XP', d: '蓝天绿地', bg: 'linear-gradient(180deg,#3f7fd8,#8fc0f0 60%,#6fb24c)', card: '#ece9d8', ac: '#0a5fd6', line: '#0831d9' },
+  ];
+
+  return html`<div class="settings2">
+    <nav class="st-nav" aria-label="设置分区">${SECTIONS.map(([id, label, ic]) => html`<button type="button" key=${id} class=${cur === id ? 'on' : ''} onClick=${() => go2(id)}><${Icon} name=${ic} size=${15} />${label}</button>`)}</nav>
+    <div class="st-main">
+
+      <${Sec} id="sync" title="账号与同步" sub=${cloudUser ? '登录后，数据存在 sealonote 云端，每个人一份，换设备也在。' : '不登录也能用，数据只存在这台设备的浏览器里。'}>
+        ${cloudUser ? html`
+          <div class="acct">
+            <span class="acct-av">${s.profile.avatar ? html`<img src=${s.profile.avatar} alt="" />` : (s.profile.name || login.user.email)[0].toUpperCase()}</span>
+            <div class="acct-b"><b>${s.profile.name || login.user.login}</b><small>${login.user.email}</small></div>
+            <span class="acct-tag"><${Icon} name="cloud" size=${12} /> sealonote 云端</span>
+            <button class="btn sm ghost" onClick=${logout}>退出登录</button>
           </div>
-        </div>
-      <//>
-      <${Card} title="外观" id="set-look" sub="主题选「跟随系统」时会随操作系统的深浅色切换；风格决定卡片、边线和配色的整体质感。">
-        <div class="form">
-            <${Field} label="主题"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
-            <${Field} label="质感" hint="「毛玻璃」给每张卡片加实时模糊，鼠标一动整页都要重算，老一点的电脑会卡；「轻快」用半透明底色代替，看起来差不多，交互顺滑。"><${Seg} options=${[{ v: 'lite', label: '轻快（推荐）' }, { v: 'full', label: '毛玻璃' }]} value=${s.settings.fx === 'full' ? 'full' : 'lite'} onChange=${(v) => update((d) => { d.settings.fx = v; })} /><//>
-            <${Field} label="风格"><div class="skin-pick">${[
-              { v: 'notion', n: '笔记', d: '默认 · 纯白纸面、细线分隔，蓝色标今天和当前', bg: '#ffffff', card: '#ffffff', ac: '#2383e2', line: 'rgba(55,53,47,.16)' },
-              { v: 'glass', n: '暖白', d: '暖灰底、墨色主操作，红色标今天和过期', bg: '#f7f7f5', card: '#ffffff', ac: '#37352f', line: 'rgba(55,53,47,.09)' },
-              { v: 'liquid', hidden: true, n: '液态玻璃', d: 'iOS 26 风：透亮折射、胶囊控件、流动色彩', bg: 'linear-gradient(135deg,#dfe9ff,#ffe3ef 45%,#dcf5ee)', card: 'rgba(255,255,255,.38)', ac: '#2f7cf6', line: 'rgba(255,255,255,.95)' },
-              { v: 'mac', hidden: true, n: 'macOS', d: '系统原生：侧栏贴边无圆角，SF 字体，Apple 系统色', bg: 'linear-gradient(90deg,#f3f3f5 0 34%,#ffffff 34%)', card: '#ffffff', ac: '#007aff', line: 'rgba(0,0,0,.1)' },
-              { v: 'claude', n: 'Claude', d: '米色暖底，赤陶色点缀，衬线标题', bg: '#f4f1ea', card: '#faf9f5', ac: '#c96442', line: 'rgba(60,50,30,.14)' },
-              { v: 'steam', n: 'Steam', d: '深蓝灰底，青蓝与绿按钮', bg: '#1b2838', card: '#2a475e', ac: '#66c0f4', line: 'rgba(0,0,0,.4)' },
-              { v: 'xp', n: 'Windows XP', d: '蓝天绿地，Luna 蓝色标题栏', bg: 'linear-gradient(180deg,#3f7fd8,#8fc0f0 60%,#6fb24c)', card: '#ece9d8', ac: '#0a5fd6', line: '#0831d9' },
-            ].filter((o) => !o.hidden).map((k) => html`<button type="button" key=${k.v} class=${'skin-opt ' + ((s.settings.skin || 'notion') === k.v ? 'on' : '')} onClick=${() => update((d) => { d.settings.skin = k.v; })}>
-              <span class="skin-prev" style=${`background:${k.bg}`}><i style=${`left:6px;top:6px;width:18px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:6px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:29px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:88px;top:6px;right:6px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:92px;top:12px;width:22px;height:6px;border-radius:3px;background:${k.ac}`}></i></span>
-              <b>${k.n}</b><small>${k.d}</small></button>`)}</div><//>
-        </div>
-      <//>
-      <${Card} title="云端同步" id="set-sync" sub="在不同设备间访问同一份数据。">
-        ${(() => {
-          const connected = !!(login && login.user);
-          const tokenMode = !connected && !(login && login.configured) && !!(s.settings.sync.repo && s.settings.sync.token);
-          const stState = err ? 'err' : connected || tokenMode ? (s.settings.lastSync ? 'ok' : 'warn') : '';
-          const stText = err ? err : connected || tokenMode ? (s.settings.lastSync ? `已连接 · 上次同步 ${new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : '已连接 · 尚未同步') : '未连接 · 连接账号以启用同步';
-          return html`
-          <div class=${'sync-head ' + stState}><span class="dot"></span><span class="flex1">${stText}</span>${(connected || tokenMode) && html`<button class="btn sm" disabled=${busy} onClick=${() => run(smartSync)}>${busy ? '同步中…' : '立即同步'}</button>`}</div>
-          <div class="int-list">
-            ${login && login.cloud && html`<div class="int-row">
-              <span class="int-ic"><${Icon} name="cloud" size=${16} /></span>
-              <div class="int-b"><b>sealonote 账号</b><small>${connected && login.user.email ? html`${login.user.email} · 数据在 sealonote 云端${login.aiQuota != null ? ` · 汤圆每月免费 ${login.aiQuota} 次` : ''}` : '用邮箱登录，每个人一份自己的数据；第一次注册需要邀请码'}</small></div>
-              ${connected && login.user.email ? html`<span class="int-tag on">已登录</span><button class="btn sm ghost" onClick=${async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.reload(); }}>退出</button>` : ''}
-            </div>
-            ${!connected && html`<div class="int-sub"><${EmailLogin} /></div>`}`}
-            ${!(connected && login.user.email) && html`<div class="int-row">
-              <span class="int-ic gh"><${Icon} name="github" size=${16} /></span>
-              <div class="int-b"><b>GitHub</b><small>${connected ? html`${login.user.login} · ${login.target.repo} · ${login.target.branch}` : login && login.configured ? '同步到你的私人仓库' : '静态部署：用 token 直连仓库'}</small></div>
-              ${connected ? html`<span class="int-tag on">已连接</span><button class="btn sm ghost" onClick=${async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.reload(); }}>断开</button>`
-                : login && login.configured ? html`<a class="btn sm primary" href="/api/auth/login">连接</a>`
-                : html`<button class="btn sm" onClick=${() => setTokOpen((v) => !v)}>${tokOpen ? '收起' : tokenMode ? '设置' : '配置'}</button>`}
-            </div>`}
-            ${!connected && !(login && login.configured) && tokOpen && html`<div class="int-sub">
-              <p class="small muted">要「登录即同步」，把仓库部署到 Vercel 并配置 OAuth（见 README）。现在先用 token：</p>
-              <div class="grid2">
-                <${Field} label="仓库 owner/name"><input type="text" value=${s.settings.sync.repo} placeholder="yunningtang/dataOS" onInput=${(e) => setSync('repo', e.target.value.trim())} /><//>
-                <${Field} label="分支"><input type="text" value=${s.settings.sync.branch} onInput=${(e) => setSync('branch', e.target.value.trim())} /><//>
-              </div>
-              <div class="grid2">
-                <${Field} label="文件路径"><input type="text" value=${s.settings.sync.path} onInput=${(e) => setSync('path', e.target.value.trim())} /><//>
-                <${Field} label="Fine-grained token" hint="只给这个仓库的 Contents 读写权限，只保存在本机浏览器。"><input type="password" value=${s.settings.sync.token} placeholder="github_pat_…" onInput=${(e) => setSync('token', e.target.value.trim())} /><//>
-              </div>
-            </div>`}
+          ${syncRow}
+          ${login.aiQuota != null && html`<${Row} label="汤圆额度" hint="用内置 AI 时每月的免费次数；在「汤圆」里填自己的密钥就不占额度。"><span class="st-val">每月 ${login.aiQuota} 次</span><//>`}`
+        : connected ? html`
+          <div class="acct">
+            <span class="acct-av gh"><${Icon} name="github" size=${18} /></span>
+            <div class="acct-b"><b>${login.user.login}</b><small>${login.target.repo} · ${login.target.branch}</small></div>
+            <span class="acct-tag">GitHub</span>
+            <button class="btn sm ghost" onClick=${logout}>断开</button>
           </div>
-          ${authMsg && authMsg !== 'ok' && html`<p class="small" style="color:var(--red)">${authMsg === 'need-invite' ? '这个 Google 账号还没注册：在上面填上邀请码，再点「用 Google 登录」' : '登录失败：' + authMsg}</p>`}
-          ${(connected || tokenMode) && html`<div class="sync-acts">
-            <button class="btn sm ghost" disabled=${busy} onClick=${() => run(push, '已推送')}>推送（本地覆盖远端）</button>
-            <button class="btn sm ghost" disabled=${busy} onClick=${async () => { if (await askConfirm('本地未同步的改动会丢失。', { title: '用远端数据覆盖本地？', ok: '拉取' })) run(pull, '已拉取'); }}>拉取（远端覆盖本地）</button>
+          ${syncRow}`
+        : html`
+          ${login && login.cloud ? html`<${SignIn} />` : ghRows}
+          ${syncRow}`}
+        ${authMsg && authMsg !== 'ok' && html`<p class="st-err">${authMsg === 'need-invite' ? '这个 Google 账号还没注册：先点「第一次来？填邀请码」，填好再点「用 Google 继续」。' : '登录失败：' + authMsg}</p>`}
+        ${!connected && login && login.cloud && html`<details class="st-more"><summary>其他同步方式</summary>${ghRows}</details>`}
+      <//>
+
+      <${Sec} id="profile" title="个人" sub="名字和头像会出现在总览问候和侧栏。">
+        <${Row} label="头像" hint="点头像上传，也可以把图片拖到头像上。">
+          <${AvatarPicker} size=${44} />
+          <button class="btn sm ghost" onClick=${avatarFromUrl}>用链接</button>
+          ${s.profile.avatar && html`<button class="btn sm ghost" onClick=${() => setP('avatar', '')}>移除</button>`}
+        <//>
+        <${Row} label="名字"><input class="st-input" type="text" value=${s.profile.name} onInput=${(e) => setP('name', e.target.value)} /><//>
+        <${Row} label="座右铭" hint="显示在总览问候下面。"><input class="st-input" type="text" value=${s.profile.motto} onInput=${(e) => setP('motto', e.target.value)} /><//>
+      <//>
+
+      <${Sec} id="look" title="外观">
+        <${Row} label="深浅色" hint="选「跟随系统」会随电脑的深浅色切换。"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
+        <${Row} label="主题" hint="决定卡片、边线和配色的整体质感。" stack>
+          <div class="skin-pick">${skins.map((k) => html`<button type="button" key=${k.v} class=${'skin-opt ' + ((s.settings.skin || 'notion') === k.v ? 'on' : '')} onClick=${() => update((d) => { d.settings.skin = k.v; })}>
+            <span class="skin-prev" style=${`background:${k.bg}`}><i style=${`left:6px;top:6px;width:18px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:6px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:29px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:88px;top:6px;right:6px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:92px;top:12px;width:22px;height:6px;border-radius:3px;background:${k.ac}`}></i></span>
+            <b>${k.n}</b><small>${k.d}</small></button>`)}</div>
+        <//>
+        <${Row} label="质感" hint="「毛玻璃」给卡片加实时模糊，老一点的电脑会卡；「轻快」看起来差不多，更顺滑。"><${Seg} options=${[{ v: 'lite', label: '轻快' }, { v: 'full', label: '毛玻璃' }]} value=${s.settings.fx === 'full' ? 'full' : 'lite'} onChange=${(v) => update((d) => { d.settings.fx = v; })} /><//>
+      <//>
+
+      <${Sec} id="seal" title="汤圆" sub=${login && login.ai ? `AI 已接入（${login.aiModel || '服务器配置'}）。说一句话，汤圆拆成待办 / 时间块 / 笔记，你确认了才写入。` : '角落里的小海豹。说一句话，拆成待办 / 时间块 / 笔记，预览后再保存。'}>
+        <${Row} label="显示汤圆" hint="拖到卡片上会趴在卡片上沿；拖到空白处就吸到屏幕边。"><${Seg} options=${[{ v: 'on', label: '显示' }, { v: 'off', label: '隐藏' }]} value=${s.settings.seal === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.seal = v === 'on'; })} /><//>
+        <${Row} label="闲时贴边" hint="几秒没人理就缩到屏幕边，鼠标靠近再出来。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealTuck === true ? 'on' : 'off'} onChange=${(v) => update((d) => { d.settings.sealTuck = v === 'on'; })} /><//>
+        <${Row} label="光效" hint="对话框里的光晕、输入框和按钮上流动的一圈光。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealGlow === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.sealGlow = v === 'on'; })} /><//>
+        <${Row} label="强调色" hint="只用在发送键、保存键、状态点和光上。"><${Seg} options=${[{ v: 'none', label: '黑白' }, { v: 'ice', label: '冰蓝' }, { v: 'teal', label: '青绿' }]} value=${s.settings.sealAccent || 'none'} onChange=${(v) => update((d) => { d.settings.sealAccent = v; })} /><//>
+        <${Row} label="AI" hint="「服务器配置」用站点自带的；也可以填自己的 DeepSeek / Claude 密钥，只存在这台浏览器里，不进同步和备份。" stack>
+          <div class="row wrap" style="gap:8px;align-items:center">
+            <${Seg} options=${[{ v: 'server', label: '服务器配置' }, { v: 'deepseek', label: 'DeepSeek' }, { v: 'anthropic', label: 'Claude' }, { v: 'local', label: '不用 AI' }]} value=${ai.provider} onChange=${(v) => saveAi({ provider: v })} />
+            ${ai.provider !== 'local' && html`<${Btn} small kind="ghost" onClick=${testAi} disabled=${!connected}>测试连接<//>`}
+          </div>
+          ${(ai.provider === 'deepseek' || ai.provider === 'anthropic') && html`<div class="row wrap" style="gap:8px;margin-top:8px">
+            <input class="st-input" type="password" style="flex:1;min-width:200px" value=${ai.key} placeholder=${ai.provider === 'deepseek' ? 'sk-…（platform.deepseek.com）' : 'sk-ant-…'} autocomplete="off" onInput=${(e) => saveAi({ key: e.target.value.trim() })} />
+            <input class="st-input" type="text" style="width:180px" value=${ai.model} placeholder=${ai.provider === 'deepseek' ? '模型，默认 deepseek-chat' : '模型，默认 claude-opus-5-5'} onInput=${(e) => saveAi({ model: e.target.value.trim() })} />
           </div>`}
-          <details class="sync-how">
-            <summary>同步如何工作？</summary>
-            <ul>
-              ${login && login.cloud && connected && login.user.email ? html`<li><b>数据存在哪里</b>：sealonote 云端的数据库里，每个人一份，别人看不到；附件放在只属于你的私有存储里。本机也留一份，断网照常用，联网后自动合并。</li>` : ''}<li><b>GitHub 方式</b>：整份数据是你仓库里的一个 JSON 文件（${login && login.target ? login.target.path : s.settings.sync.path || 'data/os.json'}），附件在旁边的 assets 目录。每次同步是一次提交，可以回滚到任何一天。</li>
-              <li><b>什么时候同步</b>：打开页面自动拉取较新的一方；编辑后几秒自动推送；切换标签页或关闭前也会推送。</li>
-              <li><b>安全</b>：登录凭据只存在加密的 httpOnly cookie 里，浏览器脚本拿不到；token 方式的 token 只存在本机，不会被写进数据文件。</li>
-              <li><b>注意</b>：仓库如果是公开的，数据文件也是公开的。私人内容请用私有仓库。</li>
-            </ul>
-          </details>`;
-        })()}
+          ${aiMsg && html`<p class=${'small ' + (aiMsg.startsWith('失败') ? 'st-err' : 'muted')} style="margin-top:6px">${aiMsg}</p>`}
+          ${!connected && html`<p class="small muted" style="margin-top:6px">登录之后才能用 AI。</p>`}
+        <//>
+        <${Row} label="本月用量" hint="本机统计；费用按公开单价估算，以平台账单为准。">
+          <span class="st-val">${usage.calls} 次 · 约 ${cost.text}</span>
+          ${(ai.provider === 'deepseek' || (ai.provider === 'server' && login && /deepseek/i.test(login.aiModel || ''))) && html`<button class="btn sm ghost" onClick=${checkBal} disabled=${!connected}>查余额</button>`}
+          ${usage.calls > 0 && html`<button class="btn sm ghost" onClick=${() => { clearUsage(); bump((x) => x + 1); }}>清零</button>`}
+        <//>
+        ${bal && html`<p class="small muted st-note">${bal.loading ? '查询中…' : bal.error ? '查余额失败：' + bal.error : bal.supported === false ? '这家没有余额接口，去控制台看。' : `DeepSeek 余额 ${bal.currency === 'USD' ? '$' : '¥'}${bal.total.toFixed(2)}${bal.granted ? `（赠送 ${bal.granted.toFixed(2)}）` : ''}${bal.available ? '' : ' · 账户不可用'}`}</p>`}
       <//>
-      <${Card} title="汤圆助手" id="set-seal" sub=${login && login.ai ? `AI 已接入（${login.aiModel || '模型由 AGENT_MODEL 决定'}）。` : '角落里的小海豹。说一句话，拆成待办 / 时间块 / 笔记，预览后再保存。'}>
-        <div class="form">
-          <div class="grid2">
-            <${Field} label="显示海豹" hint="拖到任意卡片上松手，它会趴在卡片上沿跟着页面滚；拖到空白处就吸到屏幕边。右键有更多选项。"><${Seg} options=${[{ v: 'on', label: '显示' }, { v: 'off', label: '隐藏' }]} value=${s.settings.seal === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.seal = v === 'on'; })} /><//>
-            <${Field} label="汤圆光效" hint="对话框里的微光：汤圆背后的光晕和点阵、输入框聚焦时流过的一圈光、示例卡片悬停的扫光、状态点的呼吸。都是黑白的，不加颜色；觉得花就关掉。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealGlow === false ? 'off' : 'on'} onChange=${(v) => update((d) => { d.settings.sealGlow = v === 'on'; })} /><//>
-            <${Field} label="汤圆强调色" hint="黑白之外唯一的一点颜色，只用在发送键、保存键、状态点和光晕上。"><${Seg} options=${[{ v: 'none', label: '不要（黑白）' }, { v: 'ice', label: '冰蓝' }, { v: 'teal', label: '青绿' }]} value=${s.settings.sealAccent || 'none'} onChange=${(v) => update((d) => { d.settings.sealAccent = v; })} /><//>
-            <${Field} label="闲时贴边" hint="几秒没人理，就缩到屏幕边上只露一截，不压在内容上；鼠标靠近就出来。"><${Seg} options=${[{ v: 'on', label: '开' }, { v: 'off', label: '关' }]} value=${s.settings.sealTuck === true ? 'on' : 'off'} onChange=${(v) => update((d) => { d.settings.sealTuck = v === 'on'; })} /><//>
-          </div>
-          <${Field} label="AI 密钥" hint="服务器配置 = 用 Vercel 环境变量里的密钥。选 DeepSeek / Claude 可以直接在这里填自己的密钥（两家各存一份）：只存在这台浏览器里，不进同步数据和备份，每次请求发给你自己的后端转发。「不用 AI」就只按本地语法识别。对话框头部也能切换。">
-            <div class="row wrap" style="gap:8px;align-items:center">
-              <${Seg} options=${[{ v: 'server', label: '服务器配置' }, { v: 'deepseek', label: 'DeepSeek' }, { v: 'anthropic', label: 'Claude' }, { v: 'local', label: '不用 AI' }]} value=${ai.provider} onChange=${(v) => saveAi({ provider: v })} />
-              ${(ai.provider === 'deepseek' || ai.provider === 'anthropic') && html`<input type="password" style="flex:1;min-width:200px" value=${ai.key} placeholder=${ai.provider === 'deepseek' ? 'sk-…（platform.deepseek.com）' : 'sk-ant-…'} autocomplete="off" onInput=${(e) => saveAi({ key: e.target.value.trim() })} />`}
-              ${(ai.provider === 'deepseek' || ai.provider === 'anthropic') && html`<input type="text" style="width:150px" value=${ai.model} placeholder=${ai.provider === 'deepseek' ? '模型，默认 deepseek-chat' : '模型，默认 claude-opus-5-5'} onInput=${(e) => saveAi({ model: e.target.value.trim() })} />`}
-              ${ai.provider !== 'local' && html`<${Btn} small onClick=${testAi} disabled=${!(login && login.user)}>测试连接<//>`}
-            </div>
-            ${aiMsg && html`<p class=${'small ' + (aiMsg.startsWith('失败') ? '' : 'muted')} style=${aiMsg.startsWith('失败') ? 'color:var(--red);margin-top:6px' : 'margin-top:6px'}>${aiMsg}</p>`}
-            ${!(login && login.user) && html`<p class="small muted" style="margin-top:6px">先登录，汤圆只给登录用户用。</p>`}
-          <//>
-          <${Field} label="本月用量" hint="本机统计，刷新或换设备不累计；费用按公开单价估算，以平台账单为准。">
-            <div class="row wrap" style="gap:14px;align-items:center">
-              <span class="small">${usage.calls} 次 · 输入 ${(usage.in / 1000).toFixed(1)}k · 输出 ${(usage.out / 1000).toFixed(1)}k token · 约 ${cost.text}${usage.modes && usage.modes.breakdown ? ` · 其中拆解 ${usage.modes.breakdown} 次` : ''}</span>
-              ${(ai.provider === 'deepseek' || (ai.provider === 'server' && login && /deepseek/i.test(login.aiModel || ''))) && html`<${Btn} small kind="ghost" onClick=${checkBal} disabled=${!(login && login.user)}>查余额<//>`}
-              ${usage.calls > 0 && html`<${Btn} small kind="ghost" onClick=${() => { clearUsage(); bump((x) => x + 1); }}>清零<//>`}
-            </div>
-            ${bal && html`<p class="small muted" style="margin-top:6px">${bal.loading ? '查询中…' : bal.error ? '查余额失败：' + bal.error : bal.supported === false ? '这家没有余额接口，去控制台看。' : `DeepSeek 余额 ${bal.currency === 'USD' ? '$' : '¥'}${bal.total.toFixed(2)}${bal.granted ? `（赠送 ${bal.granted.toFixed(2)}）` : ''}${bal.available ? '' : ' · 账户不可用'}`}</p>`}
-          <//>
-          <p class="small muted">每次只把你说的那句话和少量上下文（今天的日期、本子名、常用标签、今日待办标题）发给模型，拆出来的内容你确认后才写入。待办右键「拆解成步骤」会把一件大事拆成 3–7 步写进它的关联页面。</p>
-        </div>
-      <//>
+
       <${PromptsCard} s=${s} />
-      <${Card} title="数据与备份" id="set-data" sub=${counts.map(([k, n]) => `${k} ${n}`).join(' · ')}>
-        <div class="row wrap">
-          <${Btn} icon="download" onClick=${() => download(`ytos-${todayStr()}.json`, exportJSON())}>导出 JSON<//>
-          <label class="btn"><${Icon} name="upload" size=${15} /> 导入 JSON<input type="file" accept="application/json" style="display:none" onChange=${importFile} /></label>
-          ${!s.settings.seeded && html`<${Btn} kind="ghost" icon="sparkle" onClick=${() => { seed(); toast('已载入示例数据'); }}>载入示例数据<//>`}
-        </div>
-        <p class="small muted" style="margin-top:10px">导出的文件不含 token 和 AI 密钥。开了云端同步的话，仓库里每一次提交本身就是一份备份。</p>
-        <div class="danger-row"><span class="small muted">只清笔记：所有页面进「最近删除」，30 天内可以恢复；本子、待办、书、收藏都不动。</span><${Btn} kind="ghost danger" small icon="note" disabled=${!s.notes.length} onClick=${async () => { const n = s.notes.length; if (await askConfirm(`${n} 页会移到「最近删除」，30 天内可以在笔记里恢复。`, { title: '清空所有笔记？', ok: '清空笔记' })) { trashPages(s.notes.map((x) => x.id)); toast(`清了 ${n} 页，在「最近删除」里能找回`); } }}>清空笔记<//></div>
-        <div class="danger-row"><span class="small muted">清掉所有数据，从空白开始。建议先导出。</span><${Btn} kind="ghost danger" small icon="trash" onClick=${async () => { if (await askConfirm('所有待办、笔记、书、收藏、足迹都会被清除。建议先导出 JSON。', { title: '清空全部数据？', ok: '清空' })) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空全部<//></div>
+
+      <${Sec} id="data" title="数据" sub=${counts.map(([k, n]) => `${k} ${n}`).join(' · ')}>
+        <${Row} label="备份" hint="导出的文件不含 token 和 AI 密钥。">
+          <button class="btn sm" onClick=${() => download(`sealonote-${todayStr()}.json`, exportJSON())}><${Icon} name="download" size=${14} /> 导出</button>
+          <label class="btn sm"><${Icon} name="upload" size=${14} /> 导入<input type="file" accept="application/json" style="display:none" onChange=${importFile} /></label>
+        <//>
+        ${!s.settings.seeded && html`<${Row} label="示例数据" hint="放一些示例待办、笔记和时间块，先看看怎么用。"><button class="btn sm ghost" onClick=${() => { seed(); toast('已载入示例数据'); }}>载入</button><//>`}
+        ${(connected || tokenMode) && html`<${Row} label="手动同步" hint="一般用不到：自动同步出问题时，可以强制用一边覆盖另一边。">
+          <button class="btn sm ghost" disabled=${busy} onClick=${() => run(push, '已用本机数据覆盖云端')}>本机 → 云端</button>
+          <button class="btn sm ghost" disabled=${busy} onClick=${async () => { if (await askConfirm('本机还没同步上去的改动会丢失。', { title: '用云端数据覆盖本机？', ok: '覆盖本机' })) run(pull, '已用云端数据覆盖本机'); }}>云端 → 本机</button>
+        <//>`}
+        <${Row} label="清空笔记" hint="所有页面进「最近删除」，30 天内可以恢复；本子、待办、书、收藏都不动。"><button class="btn sm ghost danger" disabled=${!s.notes.length} onClick=${async () => { const n = s.notes.length; if (await askConfirm(`${n} 页会移到「最近删除」，30 天内可以在笔记里恢复。`, { title: '清空所有笔记？', ok: '清空笔记' })) { trashPages(s.notes.map((x) => x.id)); toast(`清了 ${n} 页，在「最近删除」里能找回`); } }}>清空笔记</button><//>
+        <${Row} label="清空全部" hint="清掉所有数据，从空白开始。建议先导出。"><button class="btn sm ghost danger" onClick=${async () => { if (await askConfirm('所有待办、笔记、书、收藏、足迹都会被清除。建议先导出备份。', { title: '清空全部数据？', ok: '清空' })) { const b = blank(); b.settings.seeded = true; replace(b); } }}>清空全部</button><//>
+        <details class="st-more"><summary>同步是怎么工作的</summary><ul>
+          <li><b>存在哪里</b>：登录 sealonote 后，数据在云端数据库里，每个人一份，别人看不到；附件放在只属于你的私有存储里。本机也留一份，断网照常用，联网后自动合并。</li>
+          <li><b>什么时候同步</b>：打开页面自动拉取较新的一方；编辑后几秒自动推送；切换标签页或关闭前也会推送。</li>
+          <li><b>安全</b>：登录凭据只在加密的 httpOnly cookie 里，网页脚本拿不到；AI 密钥和 token 只存在本机，不会写进数据。</li>
+          <li><b>GitHub 方式</b>：整份数据是仓库里的一个 JSON 文件，附件在旁边的 assets 目录，每次同步是一次提交。仓库公开的话数据也公开，私人内容请用私有仓库。</li>
+        </ul></details>
       <//>
-      <${Card} title="快捷键" id="set-keys">
+
+      <${Sec} id="keys" title="快捷键">
         <div class="keys">
           ${[['全局', [['⌘/Ctrl K', '全局搜索'], ['⌘/Ctrl ⇧ K', '打开汤圆记一下（隐藏汤圆时是本地随手记）'], ['Esc', '关闭弹窗 / 退出专注写作']]],
              ['笔记', [['/', '插入块或模板'], ['[[', '链接页面，可直接新建'], ['@', '引用待办 / 书 / 足迹 / 目标'], ['⌘B · I · U · E · K', '粗体 · 斜体 · 下划线 · 代码 · 链接'], ['⌘⇧H', '荧光标记'], ['⌥↑ / ⌥↓', '光标所在块上移 / 下移（选中多块一起动）'], ['⌘⇧. / ⌘⇧,', '放大 / 缩小字号'], ['⌘⇧V', '按 Markdown 粘贴']]],
