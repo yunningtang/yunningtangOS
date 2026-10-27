@@ -3276,25 +3276,6 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .br-tip{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--text-2);padding:10px 14px;border-radius:10px;background:var(--hover)}
 .br-tip svg{flex:none;color:var(--text-3)}
 .br-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px;align-items:start}
-.br-map-card{overflow:hidden}
-.br-map{position:relative;aspect-ratio:10/8;margin:14px}
-.br-shape{position:absolute;inset:0;width:100%;height:100%}
-.br-shape path{fill:var(--hover);stroke:var(--line-2);stroke-width:.4;vector-effect:non-scaling-stroke;stroke-dasharray:3 3}
-.br-r{position:absolute;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:1px;padding:10px 12px;border-radius:18px;border:1.5px solid color-mix(in srgb,var(--c) 28%,transparent);
-  background:color-mix(in srgb,var(--c) var(--k,0%),var(--bg));color:var(--c);text-align:left;cursor:pointer;overflow:hidden;
-  transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,background .3s,border-color .2s}
-.br-r b{font-size:.92rem;font-weight:650;line-height:1.2;color:color-mix(in srgb,var(--c) 80%,#000)}
-.br-r small{font-size:.72rem;opacity:.75;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;color:color-mix(in srgb,var(--c) 70%,#000)}
-.br-n{position:absolute;top:8px;right:11px;font-size:1.25rem;font-weight:700;line-height:1;color:color-mix(in srgb,var(--c) 85%,#000)}
-.br-r:hover{transform:translateY(-2px) scale(1.015);box-shadow:0 8px 22px -10px color-mix(in srgb,var(--c) 60%,transparent);z-index:2}
-.br-r.on{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent);z-index:3}
-.br-r.empty{background:color-mix(in srgb,var(--bg) 55%,transparent)}
-.br-r.empty b,.br-r.empty small{opacity:.6}
-.br-r.alarm{border-style:dashed;border-color:var(--c);animation:br-pulse 2.6s ease-in-out infinite}
-.br-r.busy{border-width:2.5px}
-.br-r.drop-over{transform:scale(1.04);border-color:var(--c);border-style:solid;box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 30%,transparent)}
-@keyframes br-pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 0%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 16%,transparent)}}
-.br-r.alarm.on{animation:none}
 .br-legend{font-size:.76rem;color:var(--text-4);padding:0 16px 14px;text-align:center}
 .br-list .card-h h3,.br-inbox .card-h h3{display:flex;align-items:center;gap:8px}
 .br-dot{display:inline-block;width:10px;height:10px;border-radius:4px;flex:none}
@@ -3307,18 +3288,11 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .br-in-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .br-in-acts button{font-size:.74rem;padding:3px 8px;border-radius:999px;border:1px solid transparent;background:var(--hover);color:var(--text-3);cursor:pointer;transition:background .15s,color .15s}
 .br-in-acts button:hover{background:var(--bg);color:var(--c);border-color:color-mix(in srgb,var(--c) 40%,transparent)}
-html[data-theme="dark"] .br-r{background:color-mix(in srgb,var(--c) calc(var(--k,0%) + 12%),var(--card-bg))}
-html[data-theme="dark"] .br-r b,html[data-theme="dark"] .br-r small,html[data-theme="dark"] .br-n{color:color-mix(in srgb,var(--c) 70%,#fff)}
 @media (max-width:900px){
   .br-grid{grid-template-columns:1fr}
-  .br-map{aspect-ratio:1/1;margin:10px}
-  .br-r{padding:8px 9px;border-radius:14px}
-  .br-r small{display:none}
-  .br-r b{font-size:.82rem}
   .br-in{flex-wrap:wrap}
   .br-in-acts{justify-content:flex-start}
 }
-@media (prefers-reduced-motion:reduce){.br-r.alarm{animation:none}}
 /* 大脑页 · 第二轮：多巴胺、流转、复盘、总览小卡 */
 .br-head-r{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .br-dop{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--text-3);padding:6px 12px;border-radius:999px;background:var(--hover);cursor:default}
@@ -3328,11 +3302,8 @@ html[data-theme="dark"] .br-r b,html[data-theme="dark"] .br-r small,html[data-th
 .br-dop small{font-size:.74rem;color:var(--text-3)}
 .br-dop.sm{padding:4px 0 0;background:none}
 .br-dop.sm .br-dop-bar{flex:1;width:auto}
-.br-done{position:absolute;top:9px;left:11px;font-size:.7rem;font-weight:600;padding:1px 6px;border-radius:999px;background:color-mix(in srgb,#fff 70%,transparent);color:color-mix(in srgb,var(--c) 85%,#000)}
 .br-plus{position:absolute;left:50%;top:40%;transform:translate(-50%,0);font-weight:700;font-size:1.1rem;color:var(--c);pointer-events:none;animation:br-plus 1s ease-out forwards;text-shadow:0 1px 0 #fff}
 @keyframes br-plus{0%{opacity:0;transform:translate(-50%,8px) scale(.7)}25%{opacity:1;transform:translate(-50%,-6px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-34px) scale(1)}}
-.br-r.fx-in{animation:br-in .7s cubic-bezier(.2,.9,.3,1.4)}
-.br-r.fx-done{animation:br-done .9s ease-out}
 @keyframes br-in{0%{transform:scale(1)}35%{transform:scale(1.08)}100%{transform:scale(1)}}
 @keyframes br-done{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 45%,transparent)}100%{box-shadow:0 0 0 18px color-mix(in srgb,var(--c) 0%,transparent)}}
 .br-rv-open{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;font-size:.84rem;color:var(--text-3);background:none;border:1px dashed var(--line-2);border-radius:999px;padding:6px 14px;cursor:pointer;transition:color .15s,border-color .15s}
@@ -3368,6 +3339,54 @@ html[data-theme="dark"] .br-r b,html[data-theme="dark"] .br-r small,html[data-th
 @media (max-width:900px){
   .br-rv-bars{grid-template-columns:1fr}
   .br-dop-bar{width:70px}
-  .br-done{display:none}
 }
-@media (prefers-reduced-motion:reduce){.br-r.fx-in,.br-r.fx-done,.br-plus{animation:none}}
+
+/* 大脑页 · 侧面脑图 */
+.br-map-card{overflow:hidden}
+.br-map{padding:18px 18px 6px}
+.brs{display:block;width:100%;height:auto;max-height:420px;overflow:visible;margin:0 auto}
+.brs-stem{fill:var(--hover-2)}
+.brs-other{fill:var(--hover);stroke:var(--card-bg,#fff);stroke-width:1.6}
+.brs-r{fill:color-mix(in srgb,var(--c) var(--k),var(--bg));stroke:var(--card-bg,#fff);stroke-width:1.6;stroke-linejoin:round;cursor:pointer;transition:fill .35s,filter .2s}
+.brs-r.empty{fill:var(--bg)}
+.brs-r.hi{filter:brightness(1.04) saturate(1.15)}
+.brs-r.fx-in{animation:brs-in .8s ease-out}
+.brs-r.fx-done{animation:brs-in .9s ease-out}
+@keyframes brs-in{0%,100%{filter:none}30%{filter:brightness(1.18) saturate(1.4)}}
+.brs-lines path{fill:none;stroke:#fff;stroke-opacity:.7;stroke-width:1.1;stroke-linecap:round;pointer-events:none}
+.brs-outline{fill:none;stroke:var(--line-2);stroke-width:1.2;pointer-events:none}
+.brs-sel{fill:none;stroke:var(--c);stroke-width:2.4;stroke-linejoin:round;pointer-events:none}
+.brs-badge{cursor:pointer}
+.brs-badge circle{fill:var(--card-bg,#fff);stroke:var(--c);stroke-width:1.4}
+.brs-badge.on circle{fill:var(--c);stroke:#fff;stroke-width:1.6}
+.brs-badge.on text{fill:#fff}
+.brs-r.on{filter:saturate(1.2)}
+.brs-badge text{fill:color-mix(in srgb,var(--c) 85%,#000);font-size:10px;font-weight:700;font-family:inherit}
+html[data-theme="dark"] .brs-r.empty{fill:color-mix(in srgb,var(--c) 10%,var(--card-bg))}
+html[data-theme="dark"] .brs-r{fill:color-mix(in srgb,var(--c) var(--k),var(--card-bg))}
+html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
+.br-keys{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;padding:6px 14px 10px}
+.br-key{position:relative;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:0;background:none;text-align:left;cursor:pointer;transition:background .15s}
+.br-key:hover,.br-key.hi{background:var(--hover)}
+.br-key.on{background:color-mix(in srgb,var(--c) 12%,transparent)}
+.br-key>i{width:12px;height:12px;border-radius:4px;flex:none;background:var(--c)}
+.br-key.empty>i{background:color-mix(in srgb,var(--c) 35%,transparent)}
+.bk-t{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px;overflow:hidden}
+.bk-t b{font-size:.88rem;font-weight:600;color:var(--text);white-space:nowrap}
+.bk-t small{font-size:.75rem;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.br-key em{font-style:normal;font-size:.72rem;color:var(--c);font-weight:600}
+.bk-n{min-width:16px;text-align:right;font-size:.9rem;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+.br-key.empty .bk-n{color:var(--text-4)}
+.br-key.drop-over{background:color-mix(in srgb,var(--c) 18%,transparent);box-shadow:inset 0 0 0 1.5px var(--c)}
+.br-key.fx-in{animation:br-in .7s cubic-bezier(.2,.9,.3,1.4)}
+.br-key .br-plus{top:-4px;left:auto;right:30px}
+.br-tip .flex1{min-width:0}
+.br-ai{flex:none;font-size:.8rem;padding:4px 12px;border-radius:999px;border:1px solid var(--line-2);background:var(--card-bg,#fff);color:var(--text-2);cursor:pointer;transition:all .15s}
+.br-ai:hover{color:var(--text);border-color:var(--text-4)}
+.br-ai:disabled{opacity:.6;cursor:default}
+.br-inbox .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+@media (max-width:900px){
+  .br-map{padding:12px 8px 2px}
+  .br-keys{grid-template-columns:1fr 1fr;padding:4px 8px 8px}
+  .bk-t small{display:none}
+}

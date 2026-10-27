@@ -2,6 +2,7 @@
 //   POST /api/agent            { mode?: 'capture'|'breakdown'|'doc', text, history?, context }
 //       capture   -> { reply, items: [...] }   一句话拆成 待办 / 时间块 / 笔记
 //       breakdown -> { reply, steps: [...] }   一件大事拆成 3–7 个可执行的步骤（前额叶）
+//       brain     -> { reply, picks: [{ id, region }] }   把待办分到「大脑」页的 6 个脑区
 //   GET  /api/agent?balance=1  -> { provider, model, balance }   DeepSeek 账户余额（Claude 没有这个接口）
 //
 // 密钥来源，二选一：
@@ -146,6 +147,21 @@ const STEP = {
   required: ['title', 'minutes', 'kind', 'hint'],
   properties: { title: { type: 'string' }, minutes: { type: 'integer' }, kind: { type: 'string', enum: ['语言', '思考', '记忆', '动手'] }, hint: S_OR_NULL },
 };
+const BRAIN_IDS = ['plan', 'memory', 'talk', 'move', 'habit', 'alarm'];
+const SYSTEM_BRAIN = `${PERSONA}
+
+你的工作：把对方的待办分到「大脑」页的 6 个脑区。这是一个好玩的比喻，按「做这件事主要靠什么」来分，不是神经科学：
+- plan 前额叶：计划、决定、规划、整理思路、设计、写方案、写作类的产出
+- memory 海马体：学习、复习、背、读、看课、查资料、练习
+- talk 语言区：沟通、回消息、回邮件、打电话、开会、约人、汇报
+- move 运动皮层：跑腿、买东西、取快递、家务、运动、出门办事、动手操作
+- habit 小脑：每天 / 每周重复的例行事、习惯、打卡
+- alarm 杏仁核：让人焦虑、一直拖着、害怕面对的事。只有标题或备注里明显看得出来（拖了很久、焦虑、害怕、催了好几次、逾期很久）才放这里，拿不准就不要放
+要点：
+1. 每一件都要给一个 region，按这件事最主要的那一步来判断。「准备组会汇报的 PPT」主要是做 PPT → plan；「跟导师汇报」→ talk。
+2. id 原样抄回来，不要改，不要漏，不要编新的。
+3. reply 用一句很短的话说说今天的事主要落在哪块（不超过 30 个字）。`;
+const SCHEMA_BRAIN = { type: 'object', additionalProperties: false, required: ['reply', 'picks'], properties: { reply: { type: 'string' }, picks: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'region'], properties: { id: { type: 'string' }, region: { type: 'string', enum: BRAIN_IDS } } } } } };
 const SCHEMA_DOC = { type: 'object', additionalProperties: false, required: ['reply', 'markdown'], properties: { reply: { type: 'string' }, markdown: S_OR_NULL } };
 const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'steps'], properties: { reply: { type: 'string' }, steps: { type: 'array', items: STEP } } };
 
@@ -153,6 +169,7 @@ const JSON_HINT = {
   capture: '只输出一个 JSON 对象：{"intent": "chat|capture|plan|modify", "reply": "...", "items": [...]}，每个 item 含 ref,kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
   doc: '只输出一个 JSON 对象：{"reply": "...", "markdown": "..."}（不需要改正文时 markdown 为 null）。markdown 字符串里的换行写成 \\n。不要输出 JSON 之外的任何文字。',
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
+  brain: '只输出一个 JSON 对象：{"reply": "...", "picks": [{"id": "...", "region": "plan|memory|talk|move|habit|alarm"}]}。不要输出 JSON 之外的任何文字。',
 };
 
 /* ---------------- 上下文 ---------------- */
@@ -175,6 +192,7 @@ function contextBlock(c, mode) {
     if (Array.isArray(c.thread) && c.thread.length) lines.push(`评论线程（旧在前）：\n${c.thread.slice(-8).map((m) => `${String(m.by || '').slice(0, 20)}：${String(m.body || '').slice(0, 600)}`).join('\n')}`);
     return lines.join('\n');
   }
+  if (mode === 'brain') return lines.join('\n');
   if (mode === 'breakdown') {
     if (c.due) lines.push(`截止日期：${c.due}`);
     if (c.note) lines.push(`说明 / 备注：${String(c.note).slice(0, 900)}`);
@@ -348,13 +366,13 @@ export default async function handler(req, res) {
 
 // 真正干活的部分，和 HTTP 分开，方便 tools/eval-agent.mjs 直接调用做评测
 export async function runAgent(body, cfg) {
-  const mode = body.mode === 'breakdown' ? 'breakdown' : body.mode === 'doc' ? 'doc' : 'capture';
+  const mode = ['breakdown', 'doc', 'brain'].includes(body.mode) ? body.mode : 'capture';
   const text = String(body.text || '').trim().slice(0, 4000);
   if (!text) return { status: 400, body: { error: 'text required' } };
   const history = mode === 'capture' ? (Array.isArray(body.history) ? body.history : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-8).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })) : [];
-  const system = mode === 'breakdown' ? SYSTEM_BREAKDOWN : mode === 'doc' ? SYSTEM_DOC : SYSTEM_CAPTURE;
-  const schema = mode === 'breakdown' ? SCHEMA_BREAKDOWN : mode === 'doc' ? SCHEMA_DOC : SCHEMA_CAPTURE;
-  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${mode === 'breakdown' ? '要拆的事' : mode === 'doc' ? '要求' : '说的话'}：${text}` };
+  const system = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN }[mode] || SYSTEM_CAPTURE;
+  const schema = { breakdown: SCHEMA_BREAKDOWN, doc: SCHEMA_DOC, brain: SCHEMA_BRAIN }[mode] || SCHEMA_CAPTURE;
+  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${{ breakdown: '要拆的事', doc: '要求', brain: '要分的待办（每行一件：id | 标题 | 备注）' }[mode] || '说的话'}：${text}` };
   const messages = [...history, userMsg];
 
   let got;
@@ -374,6 +392,10 @@ export async function runAgent(body, cfg) {
   if (mode === 'doc') {
     const md = typeof got.out.markdown === 'string' && got.out.markdown.trim() ? got.out.markdown.replace(/<[^>]+>/g, '').trim().slice(0, 12000) : null;
     return { status: 200, body: { ...base, markdown: md } };
+  }
+  if (mode === 'brain') {
+    const picks = (Array.isArray(got.out.picks) ? got.out.picks : []).filter((p) => p && typeof p.id === 'string' && BRAIN_IDS.includes(p.region)).map((p) => ({ id: p.id.slice(0, 40), region: p.region })).slice(0, 80);
+    return { status: 200, body: { ...base, picks } };
   }
   if (mode === 'breakdown') {
     const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).map(validateStep).filter(Boolean).slice(0, 7);

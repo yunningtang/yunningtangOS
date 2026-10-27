@@ -17,6 +17,7 @@ export async function detectLogin() {
     const r = await fetch('/api/auth/me', { cache: 'no-store' });
     if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) { api = null; return null; }
     api = await r.json();
+    window.dispatchEvent(new Event('ytos:login')); // 先渲染出来的页面（比如大脑页的 AI 按钮）等登录状态到了再刷新
     return api;
   } catch { api = null; return null; }
 }
