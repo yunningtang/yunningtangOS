@@ -82,7 +82,7 @@ function Row({ label, hint, stack, icon, children }) {
 function Switch({ on, onChange, label }) {
   return html`<button type="button" role="switch" aria-checked=${on ? 'true' : 'false'} aria-label=${label} class=${'sx-sw ' + (on ? 'on' : '')} onClick=${() => onChange(!on)}><i></i></button>`;
 }
-const WIDGET_ICON = { profile: 'heart', now: 'cloudsun', ai: 'sparkle', calendar: 'calendar', focus: 'clock', timeline: 'list', todos: 'checksq', notes: 'note', pages: 'file', links: 'link', goals: 'target', week: 'zap', focusweek: 'flag', photo: 'image' };
+const WIDGET_ICON = { profile: 'heart', now: 'cloudsun', ai: 'sparkle', calendar: 'calendar', focus: 'clock', timeline: 'list', todos: 'checksq', notes: 'note', pages: 'file', links: 'link', goals: 'target', week: 'zap', focusweek: 'flag', photo: 'image', brain: 'brain' };
 const NAV = [
   ['帐号', [['account', '', '']]],
   ['偏好', [['look', '外观', 'sun'], ['dash', '总览', 'grid']]],
