@@ -3203,3 +3203,9 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
   .sx-row{flex-wrap:wrap}
   .sx-input{width:100%}
 }
+
+.sx-pw{display:flex;flex-direction:column;gap:8px;max-width:320px}
+.sx-pw .sx-input{width:100%}
+.sx-pw-acts{display:flex;gap:8px;justify-content:flex-end}
+.sx-btn.primary{background:var(--ink);color:var(--bg);box-shadow:none}
+.sx-btn.primary:hover:not(:disabled){background:var(--ink);opacity:.88}

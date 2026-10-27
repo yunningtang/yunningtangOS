@@ -100,8 +100,17 @@ function SignIn() {
   const send = async (e) => { e && e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/email', { email, invite }); setStep('code'); setCode(''); setWait(60); } catch (er) { if (er.needInvite) setNeedInv(true); setMsg(er.message); } setBusy(false); };
   const verify = async (e) => { e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/verify', { email, code }); location.hash = '#/settings'; location.reload(); } catch (er) { setMsg(er.message); setBusy(false); } };
   const google = () => { location.href = '/api/auth/google' + (invite ? '?invite=' + encodeURIComponent(invite) : ''); };
+  const [pw, setPw] = useState('');
+  const pwLogin = async (e) => { e.preventDefault(); setBusy(true); setMsg(''); try { await post('/api/auth/signin', { email, password: pw }); location.hash = '#/settings'; location.reload(); } catch (er) { setMsg(er.message); setBusy(false); } };
   return html`<div class="signin">
-    ${step === 'email' ? html`
+    ${step === 'pw' ? html`
+      <form class="si-form" onSubmit=${pwLogin}>
+        <input type="email" required autocomplete="username" placeholder="邮箱地址" value=${email} onInput=${(e) => setEmail(e.target.value.trim())} />
+        <input type="password" required autocomplete="current-password" placeholder="密码" value=${pw} onInput=${(e) => setPw(e.target.value)} />
+        <button class="si-btn primary" disabled=${busy || !email || !pw}>${busy ? '登录中…' : '登录'}</button>
+      </form>
+      <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('email'); setMsg(''); }}>用验证码登录</button></div>`
+    : step === 'email' ? html`
       <button type="button" class="si-btn" onClick=${google}><span class="g-ic" dangerouslySetInnerHTML=${{ __html: GOOGLE_SVG }}></span>用 Google 继续</button>
       <div class="mail-or"><span>或</span></div>
       <form class="si-form" onSubmit=${send}>
@@ -109,7 +118,7 @@ function SignIn() {
         ${needInv && html`<input type="text" autocomplete="off" placeholder="邀请码" value=${invite} onInput=${(e) => setInvite(e.target.value.trim())} />`}
         <button class="si-btn primary" disabled=${busy || !email}>${busy ? '发送中…' : '用邮箱继续'}</button>
       </form>
-      ${!needInv && html`<button type="button" class="si-link" onClick=${() => setNeedInv(true)}>有邀请码</button>`}`
+      <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('pw'); setMsg(''); }}>用密码登录</button>${!needInv && html`<button type="button" class="si-link" onClick=${() => setNeedInv(true)}>有邀请码</button>`}</div>`
     : html`
       <p class="si-tip">验证码已发到 <b>${email}</b></p>
       <form class="si-form" onSubmit=${verify}>
@@ -119,6 +128,25 @@ function SignIn() {
       <div class="si-foot"><button type="button" class="si-link" onClick=${() => { setStep('email'); setCode(''); setMsg(''); }}>换个邮箱</button><button type="button" class="si-link" disabled=${wait > 0 || busy} onClick=${() => send()}>${wait > 0 ? `${wait}s 后重发` : '重新发送'}</button></div>`}
     ${msg && html`<p class="si-msg">${msg}</p>`}
   </div>`;
+}
+
+// 设置 / 修改密码：设好以后可以用「邮箱 + 密码」登录，不用每次收验证码
+function PasswordRow() {
+  const [open, setOpen] = useState(false); const [a, setA] = useState(''); const [b, setB] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
+  const save = async (e) => {
+    e.preventDefault(); setMsg('');
+    if (a.length < 8) return setMsg('至少 8 位');
+    if (a !== b) return setMsg('两次输入的不一样');
+    setBusy(true); try { await post('/api/auth/password', { password: a }); setOpen(false); setA(''); setB(''); toast('密码已设置，下次可以用邮箱 + 密码登录'); } catch (er) { setMsg(er.message); } setBusy(false);
+  };
+  return html`<${Row} label="密码" hint="设好后可以用邮箱 + 密码登录" stack=${open}>
+    ${open ? html`<form class="sx-pw" onSubmit=${save}>
+      <input class="sx-input" type="password" autocomplete="new-password" placeholder="新密码（至少 8 位）" value=${a} onInput=${(e) => setA(e.target.value)} autofocus />
+      <input class="sx-input" type="password" autocomplete="new-password" placeholder="再输一次" value=${b} onInput=${(e) => setB(e.target.value)} />
+      <div class="sx-pw-acts"><button type="button" class="sx-btn" onClick=${() => { setOpen(false); setMsg(''); }}>取消</button><button class="sx-btn primary" disabled=${busy || !a || !b}>${busy ? '保存中…' : '保存'}</button></div>
+      ${msg && html`<span class="sx-err">${msg}</span>`}
+    </form>` : html`<button class="sx-btn" onClick=${() => setOpen(true)}>设置密码</button>`}
+  <//>`;
 }
 
 export default function Settings() {
@@ -206,6 +234,7 @@ export default function Settings() {
       <${Group} title="登录与同步">
         ${cloudUser ? html`
           <${Row} label="邮件地址" hint=${login.user.email}><button class="sx-btn" onClick=${logout}>退出登录</button><//>
+          <${PasswordRow} />
           ${syncRow}
           ${login.aiQuota != null && html`<${Row} label="AI 额度" hint="内置 AI 每月免费次数"><span class="sx-val">${login.aiQuota} 次 / 月</span><//>`}`
         : connected ? html`${ghRows}${syncRow}`
