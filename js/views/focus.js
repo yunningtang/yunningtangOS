@@ -28,10 +28,10 @@ export default function Focus({ route }) {
   const pct = st.phase === 'idle' ? 0 : 1 - rem / total;
   const today = todayStr();
   const todos = sortBy(s.todos.filter((t) => !t.done && (t.due === today || !t.due || t.due < today)), 'priority');
-  // 主战场：全局「正在做」的那件；从别处带着 ?todo= 进来就换成那件
+  // 「正在做」：全局「正在做」的那件；从别处带着 ?todo= 进来就换成那件
   const doing = doingOf(s);
   useEffect(() => { const id = route && route.query && route.query.todo; if (id && id !== s.settings.doing && s.todos.some((t) => t.id === id && !t.done)) setDoing(id); }, [route && route.query && route.query.todo]);
-  // 没在计时的时候，计时器跟着主战场走
+  // 没在计时的时候，计时器跟着「正在做」走
   useEffect(() => { if (doing && st.phase === 'idle' && st.todoId !== doing.id) { pomo.setLabel(doing.title, doing.id); pomo.setGoal((nextStep(doing) || {}).title || ''); } }, [doing && doing.id, st.phase]);
   const [editing, setEditing] = useState(null);
   const [others, setOthers] = useState(false);
@@ -63,8 +63,8 @@ export default function Focus({ route }) {
     ${running && peek && html`<div class="fq-bar"><span>正在专注</span><button type="button" onClick=${() => setPeek(false)}>回到专注视图</button></div>`}
     <div class=${'fp-main fp-battle-main ' + (doing ? 'has-doing' : '')}>
       <div class="fp-battle">
-        ${doing ? html`<${BattleCard} t=${doing} key=${doing.id} label="主战场" big onEdit=${setEditing} />`
-          : html`<div class="fb-empty"><b>先选一件事来做</b><span>主战场一次只放一件事，其他的先留在待办里。</span>
+        ${doing ? html`<${BattleCard} t=${doing} key=${doing.id} label="正在做" big onEdit=${setEditing} />`
+          : html`<div class="fb-empty"><b>先选一件事来做</b><span>一次只做一件事，其他的先留在待办里。</span>
             <div class="fb-pick">${todos.slice(0, 5).map((t) => html`<button type="button" key=${t.id} onClick=${() => setDoing(t.id)}><i class=${'fq-p p' + (t.priority ?? 2)}></i>${t.title}</button>`)}${todos.length === 0 && html`<a href="#/todos">去待办里加一件</a>`}</div></div>`}
         ${!quiet && rest.length > 0 && html`<div class="fb-others">
           <button type="button" class="fq-fold" onClick=${() => setOthers(!others)}><${Icon} name=${others ? 'down' : 'right'} size=${12} /> 其他的事 ${rest.length} 件<small>先留在待办里</small></button>
