@@ -11,9 +11,9 @@ export const REGIONS = [
   { id: 'talk', label: '表达', name: '语言区', role: '沟通与表达', desc: '回消息、写邮件、开会、写东西给人看', example: '回复导师的邮件', color: '#D9730D', bg: '#FBECDD', icon: 'chat' },
   { id: 'move', label: '行动', name: '运动皮层', role: '跑腿与动手', desc: '出门办事、家务、运动、动手操作', example: '去取快递', color: '#CB912F', bg: '#FBF3DB', icon: 'zap' },
   { id: 'habit', label: '习惯', name: '小脑', role: '习惯与例行', desc: '每天、每周重复的事', example: '每天散步 20 分钟', color: '#448361', bg: '#EDF3EC', icon: 'refresh' },
-  { id: 'alarm', label: '压力', name: '杏仁核', role: '让人有压力的事', desc: '一直拖着、想起来就难受的事', example: '把拖着的报税拆出第一步', color: '#E03E3E', bg: '#FDEBEC', icon: 'flag' },
+  { id: 'alarm', label: '压力', name: '杏仁核', role: '让人有压力的事', desc: '一直拖着、想起来就难受的事', example: '把拖着的报税拆出第一步', color: '#E03E3E', bg: '#FDEBEC', icon: 'cloud' },
 ];
-export const THALAMUS = { id: '', label: '先不分', name: '丘脑', role: '还没分', desc: '还没决定放哪', example: '', color: '#9B9A97', bg: '#F1F1EF', icon: 'layers' };
+export const THALAMUS = { id: '', label: '先不分', name: '丘脑', role: '还没分', desc: '还没决定放哪', example: '', color: '#9B9A97', bg: '#F1F1EF', icon: 'dots' };
 export const regionOf = (id) => REGIONS.find((r) => r.id === id) || THALAMUS;
 
 // 动词规则：从上往下第一个命中的算数（「规划论文」算前额叶，所以计划排在学习前面）。杏仁核不猜——焦不焦虑只有自己知道
@@ -74,7 +74,7 @@ export function moveTo(t, id) {
 // 换类别的菜单：一列，选一个
 export function regionItems(t) {
   const p = brainOf(t);
-  return [...REGIONS, THALAMUS].map((r) => ({ label: r.label, color: r.color, icon: p === r.id ? 'check' : '', onClick: () => moveTo(t, r.id) }));
+  return [...REGIONS, THALAMUS].map((r) => ({ label: r.label, icon: r.icon, hint: p === r.id ? '✓' : '', onClick: () => moveTo(t, r.id) }));
 }
 export const brainMenu = (t) => ({ label: '换类别', icon: 'layers', hint: regionOf(brainOf(t)).label, sub: regionItems(t) });
 

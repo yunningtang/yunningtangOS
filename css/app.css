@@ -3572,3 +3572,21 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 /* 拖到另一件待办中间：变成它的一步 */
 .todo.nest-over,.bcard.nest-over{position:relative;box-shadow:inset 0 0 0 2px var(--text-3);background:var(--hover)}
 .todo.nest-over::after,.bcard.nest-over::after{content:"放进来，变成一步";position:absolute;right:8px;bottom:6px;font-size:.68rem;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--text);color:var(--bg);pointer-events:none}
+/* 类别用图标区分，不用颜色（颜色留给优先级）；只有脑图和脑图下面的图例带一点类别色 */
+.bk-ic{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;flex:none;color:color-mix(in srgb,var(--c) 80%,var(--text));background:color-mix(in srgb,var(--c) 10%,transparent)}
+.br-key .bk-ic{width:26px;height:26px}
+.br-key.nil .bk-ic{opacity:.55}
+.br-key.on{background:var(--hover-2)}
+.br-work .card-h h3 .bk-ic{width:26px;height:26px}
+.br-chip svg{color:var(--text-4)}
+.br-chip:hover svg{color:var(--text-2)}
+.br-in-acts button{display:inline-flex;align-items:center;gap:4px}
+.br-in-acts button:hover{color:var(--text);border-color:var(--line-2);background:var(--card-bg,#fff)}
+.nxt-dots i{box-shadow:inset 0 0 0 1.3px var(--text-4);opacity:1}
+.nxt-dots i.d{background:var(--text-4);box-shadow:none}
+.nxt-dots i.n{box-shadow:inset 0 0 0 1.5px var(--text-2),0 0 0 2px var(--hover-2)}
+.bc-r{background:var(--hover)!important;color:var(--text)}
+.bc-r b{display:inline-flex;align-items:center;gap:4px;color:var(--text-2)}
+.bc-r b svg{color:var(--text-4)}
+.bc-r small{color:var(--text-4)}
+.br-work .bw-desc{padding-left:34px}

@@ -216,11 +216,11 @@ export function TodoItem({ t, onEdit, compact }) {
   const [showSteps, setShowSteps] = useState(false); // 默认收起：「下一步」那一行已经说了最要紧的，点它再展开全部步骤
   const [forceAdd, setForceAdd] = useState(false); // 右键「添加步骤」：展开并直接给输入框
   useEffect(() => { const h = (e) => { if (e.detail === t.id) { setShowSteps(true); setForceAdd(true); } }; window.addEventListener('todo:addstep', h); return () => window.removeEventListener('todo:addstep', h); }, [t.id]);
-  // 下一步：第一个没做完的步骤。一行写清楚是什么、哪一类、多久，▶ 直接开始；每个步骤一个小圆点（颜色 = 类别，实心 = 做完，带圈 = 现在这步）
+  // 下一步：第一个没做完的步骤。一行写清楚是什么、哪一类、多久，▶ 直接开始；每个步骤一个灰色小圆点（实心 = 做完，带圈 = 现在这步）。颜色留给优先级
   const ns = !t.done && nextStep(t);
   const startStep = (e) => { e.stopPropagation(); pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title} · ${clampMin(ns.minutes)} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
   const nxt = ns && html`<div class=${'nxt ' + (showSteps ? 'open' : '')} title=${showSteps ? '收起步骤' : '展开全部步骤'} onClick=${(e) => { e.stopPropagation(); setShowSteps(!showSteps); }}>
-    <span class="nxt-dots">${stepsOf(t).map((x) => { const c = stepCat(x); return html`<i key=${x.id} class=${x.done ? 'd' : x === ns ? 'n' : ''} style=${`--c:${c ? c.color : 'var(--text-4)'}`}></i>`; })}</span>
+    <span class="nxt-dots">${stepsOf(t).map((x) => html`<i key=${x.id} class=${x.done ? 'd' : x === ns ? 'n' : ''}></i>`)}</span>
     <span class="nxt-t"><em>下一步</em>${ns.title}</span>
     <span class="nxt-m">${stepCat(ns) ? stepCat(ns).label + ' · ' : ''}${clampMin(ns.minutes)} 分</span>
     <button type="button" class="nxt-go" title=${`开始这一步 · ${clampMin(ns.minutes)} 分钟`} onClick=${startStep}><${Icon} name="play" size=${10} /></button>

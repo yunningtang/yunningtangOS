@@ -84,7 +84,7 @@ function Row({ t, words, onEdit, setFocus }) {
     <div class="br-row-main">
       <div class="flex1"><${TodoItem} t=${t} compact onEdit=${onEdit} /></div>
       <button type="button" class="br-stuck" title="卡住了？问问汤圆" onClick=${() => openStuck(t)}>卡住了</button>
-      <button type="button" class="br-chip" style=${`--c:${r.color}`} title="换类别" onClick=${(e) => ctxMenu(e, regionItems(t), '换类别')}><i></i>${r.label}<${Icon} name="down" size=${10} /></button>
+      <button type="button" class="br-chip" title="换类别" onClick=${(e) => ctxMenu(e, regionItems(t), '换类别')}><${Icon} name=${r.icon} size=${12} />${r.label}<${Icon} name="down" size=${10} /></button>
     </div>
   </div>`;
 }
@@ -152,13 +152,13 @@ export default function Brain() {
         <div class="br-map"><${BrainMap} count=${count} sel=${sel} pick=${pick} fx=${fx} hover=${hover} setHover=${setHover} focus=${focus} /></div>
         <div class="br-keys">${REGIONS.map((r) => { const n = count[r.id]; const d = prog.by[r.id] || 0; const lit = focus && (focus.primary === r.id || focus.also.includes(r.id)); return html`<button type="button" key=${r.id} class=${'br-key ' + (sel === r.id ? 'on ' : '') + (hover === r.id || lit ? 'hi ' : '') + (n ? '' : 'nil ') + (fx[r.id] ? 'fx-' + fx[r.id].split(':')[0] : '')} style=${`--c:${r.color};--bg:${r.bg}`}
           onClick=${() => pick(r.id)} onMouseEnter=${() => setHover(r.id)} onMouseLeave=${() => setHover('')} ...${dropProps('todo', (x) => { const t = get().todos.find((y) => y.id === x.id); if (t) moveTo(t, r.id); })}>
-          <i></i><span class="bk-t"><b>${r.label}</b><small>${r.name}</small></span>${d ? html`<em title="今天做完的">✓${d}</em>` : ''}<span class="bk-n">${n || ''}</span>
+          <span class="bk-ic"><${Icon} name=${r.icon} size=${14} /></span><span class="bk-t"><b>${r.label}</b><small>${r.name}</small></span>${d ? html`<em title="今天做完的">✓${d}</em>` : ''}<span class="bk-n">${n || ''}</span>
           ${fx[r.id] && fx[r.id].startsWith('done') && html`<span class="br-plus" key=${fx[r.id]}>✓</span>`}
         </button>`; })}</div>
         <div class="br-tip"><span>${tip}</span>${aiOn && html`<button type="button" class="br-ai" disabled=${!!aiBusy} onClick=${() => runAi(false)} title="没手动指定过的待办，让汤圆按意思重新分一遍（自己改过的不动）"><${Icon} name="sparkle" size=${12} />${aiBusy === 'all' ? '汤圆在分…' : '让汤圆分一遍'}</button>`}</div>
       <//>
       <${Card} class="br-work" style=${`--c:${cur.color};--bg:${cur.bg}`}>
-        <div class="card-h"><h3><i class="br-dot" style=${`background:${cur.color}`}></i>${cur.label} <span class="muted small">${cur.name} · ${list.length} 件${doneHere ? ` · 做完 ${doneHere}` : ''}</span></h3></div>
+        <div class="card-h"><h3><span class="bk-ic" style=${`--c:${cur.color}`}><${Icon} name=${cur.icon} size=${15} /></span>${cur.label} <span class="muted small">${cur.name} · ${list.length} 件${doneHere ? ` · 做完 ${doneHere}` : ''}</span></h3></div>
         <p class="bw-desc">${cur.desc}</p>
         ${next && (() => { const ns = nextStep(next); const go1 = () => { if (ns) { pomo.start({ label: ns.title, todoId: next.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title}`, { label: '去专注', onClick: () => go('focus') }); } else go('focus?todo=' + next.id); };
           return html`<div class="bw-next"><span class="bw-next-k">下一步</span><span class="bw-next-t" onClick=${() => setEditing(next)}>${ns ? ns.title : next.title}${ns && html`<small>来自「${next.title}」</small>`}</span><button type="button" class="bw-text" onClick=${() => openStuck(next)} title="不知道怎么推进？问问汤圆">卡住了</button><button type="button" class="bw-cta" onClick=${go1}><${Icon} name="play" size=${11} />${ns ? `开始 ${clampMin(ns.minutes)} 分钟` : '开始专注'}</button></div>`; })()}
@@ -169,10 +169,10 @@ export default function Brain() {
       <//>
     </div>
     ${inbox.length > 0 && html`<${Card} class="br-inbox">
-      <div class="card-h"><h3><i class="br-dot" style=${`background:${THALAMUS.color}`}></i>还没分 <span class="muted small">${inbox.length}</span></h3>${aiOn && html`<button type="button" class="br-ai" disabled=${!!aiBusy} onClick=${() => runAi(true)}><${Icon} name="sparkle" size=${12} />${aiBusy === 'inbox' ? '汤圆在分…' : `让汤圆分这 ${inbox.length} 件`}</button>`}</div>
+      <div class="card-h"><h3><${Icon} name="dots" size=${15} class="muted" />还没分 <span class="muted small">${inbox.length}</span></h3>${aiOn && html`<button type="button" class="br-ai" disabled=${!!aiBusy} onClick=${() => runAi(true)}><${Icon} name="sparkle" size=${12} />${aiBusy === 'inbox' ? '汤圆在分…' : `让汤圆分这 ${inbox.length} 件`}</button>`}</div>
       <div class="br-in-list">${inbox.map((t) => html`<div class="br-in" key=${t.id}>
         <span class="br-in-t">${t.title}</span>
-        <span class="br-in-acts">${REGIONS.map((r) => html`<button type="button" key=${r.id} title=${`${r.label} · ${r.name}`} style=${`--c:${r.color};--bg:${r.bg}`} onClick=${() => moveTo(t, r.id)}>${r.label}</button>`)}</span>
+        <span class="br-in-acts">${REGIONS.map((r) => html`<button type="button" key=${r.id} title=${`${r.label} · ${r.name}`} onClick=${() => moveTo(t, r.id)}><${Icon} name=${r.icon} size=${12} />${r.label}</button>`)}</span>
       </div>`)}</div>
     <//>`}
     <${Review} s=${s} today=${today} prog=${prog} by=${by} />
@@ -218,7 +218,7 @@ export function BrainCard({ s }) {
   return html`<${Card} class="brain-card">
     <div class="card-h"><h3>今天的大脑</h3><div class="card-act"><a class="ibtn" href="#/brain" title="打开大脑"><${Icon} name="brain" size=${15} /></a></div></div>
     <div class="bc-grid">${REGIONS.map((r) => html`<a key=${r.id} href="#/brain" class=${'bc-r ' + (by[r.id] ? '' : 'nil')} style=${`--c:${r.color};--bg:${r.bg}`} onClick=${() => { try { localStorage.setItem('ytos.brain.sel', r.id); } catch {} }}>
-      <b>${r.label}</b><span>${by[r.id] || ''}${prog.by[r.id] ? html`<small>✓${prog.by[r.id]}</small>` : ''}</span></a>`)}</div>
+      <b><${Icon} name=${r.icon} size=${12} />${r.label}</b><span>${by[r.id] || ''}${prog.by[r.id] ? html`<small>✓${prog.by[r.id]}</small>` : ''}</span></a>`)}</div>
     <div class="br-prog sm"><span>今天</span><span class="br-prog-bar"><i style=${`width:${prog.pct}%`}></i></span><b>${prog.done}/${prog.total}</b></div>
   <//>`;
 }
