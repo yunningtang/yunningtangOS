@@ -113,16 +113,27 @@ function isUntouchedSeed(doc) {
   const sd = seedDoc();
   return lists.every((k) => titles(doc[k]) === titles(sd[k]));
 }
-const getBase = () => kvGet(BASE_KEY);
-const setBase = (doc) => kvSet(BASE_KEY, JSON.parse(JSON.stringify(doc)));
+// 「上次同步时两边一致的那份」。存在 IndexedDB；存不进去（隐私模式、被清理）时退一步存 localStorage，
+// 不然每次都当成「第一次同步」只加不删——删掉的东西刷新后又会从云端合并回来
+const BASE_LS = 'ytos.syncbase';
+async function getBase() {
+  const b = await kvGet(BASE_KEY); if (b) return b;
+  try { const v = localStorage.getItem(BASE_LS); return v ? JSON.parse(v) : undefined; } catch { return undefined; }
+}
+async function setBase(doc) {
+  const copy = typeof doc === 'string' ? JSON.parse(doc) : JSON.parse(JSON.stringify(doc));
+  const ok = await kvSet(BASE_KEY, copy);
+  try { if (ok) localStorage.removeItem(BASE_LS); else localStorage.setItem(BASE_LS, JSON.stringify(copy)); } catch {}
+}
 const keepLocal = (doc) => { const l = get(); return { ...doc, settings: { ...(doc.settings || {}), sync: l.settings.sync, theme: l.settings.theme, seeded: l.settings.seeded, lastSync: new Date().toISOString() } }; };
 
 // force: local overwrites remote
 export async function push() {
   const remote = await pullRemote();
-  await transport().push(exportJSON(), remote ? remote.sha : undefined);
+  const sent = exportJSON();
+  await transport().push(sent, remote ? remote.sha : undefined);
   update((d) => { d.settings.lastSync = new Date().toISOString(); });
-  await setBase(get());
+  await setBase(sent);
   pushAttachments().catch(() => {});
 }
 
@@ -131,7 +142,7 @@ export async function pull() {
   const remote = await pullRemote();
   if (!remote) throw new Error('远端还没有数据文件，先推送一次。');
   replace(keepLocal(remote.data));
-  await setBase(get());
+  await setBase(remote.data);
 }
 
 // Three-way merge: local and remote changes since the last sync are combined record by record,
@@ -139,7 +150,7 @@ export async function pull() {
 export async function smartSync() {
   const remote = await pullRemote();
   const local = get();
-  if (!remote) { await transport().push(exportJSON()); update((d) => { d.settings.lastSync = new Date().toISOString(); }); await setBase(get()); pushAttachments().catch(() => {}); return 'pushed'; }
+  if (!remote) { const sent = exportJSON(); await transport().push(sent); update((d) => { d.settings.lastSync = new Date().toISOString(); }); await setBase(sent); pushAttachments().catch(() => {}); return 'pushed'; }
   const base = await getBase();
   // 这台设备第一次同步（没有 base）：不能拿远端当 base，否则本地没有的东西全被当成「本地删除」，会把远端清掉。
   // 本地只是一份没动过的示例数据 → 直接以远端为准；本地有自己的内容 → 以空 base 合并（只加不删）。
@@ -155,9 +166,12 @@ export async function smartSync() {
   const localChanged = syncView(merged) !== syncView(local);
   const remoteChanged = syncView(merged) !== syncView(remote.data);
   if (localChanged) replace(keepLocal(merged));
-  if (remoteChanged) await transport().push(exportJSON(), remote.sha);
+  // base 必须是「两边此刻真正一致的那份」：推上去的就是它，不推的话云端就是它。
+  // 不能在 await 之后再取 get()——推送的这几秒里删掉的东西，会被当成「云端新加的」又合并回来
+  const sent = exportJSON();
+  if (remoteChanged) await transport().push(sent, remote.sha);
   update((d) => { d.settings.lastSync = new Date().toISOString(); });
-  await setBase(get());
+  await setBase(remoteChanged ? sent : remote.data);
   if (remoteChanged) pushAttachments().catch(() => {});
   return remoteChanged ? (localChanged ? 'merged' : 'pushed') : (localChanged ? 'pulled' : 'same');
 }
