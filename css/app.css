@@ -3958,3 +3958,27 @@ html:is([data-skin="strand"],[data-skin="ark"]) main{counter-reset:gcard}
 html:is([data-skin="strand"],[data-skin="ark"]) .card:has(> .card-h){counter-increment:gcard}
 html:is([data-skin="strand"],[data-skin="ark"]) .card:has(> .card-h)::before{content:counter(gcard,decimal-leading-zero);position:absolute;right:20px;bottom:5px;font-family:var(--cond);font-size:.62rem;font-weight:600;letter-spacing:.12em;color:var(--text-4);pointer-events:none;z-index:1}
 html[data-skin="strand"] .card:has(> .card-h)::before{content:"No." counter(gcard,decimal-leading-zero);right:14px}
+
+/* ---------- 时间线：重叠的块并排、短块一行、专注记录 ---------- */
+.tl .blk{--l0:54px;left:calc(var(--l0) + (100% - var(--l0) - 4px) * var(--lane,0) / var(--lanes,1));right:auto;width:calc((100% - var(--l0) - 4px) / var(--lanes,1) - 2px);box-sizing:border-box}
+.wtl .tl .blk{--l0:2px;left:calc(var(--l0) + (100% - var(--l0) - 4px) * var(--lane,0) / var(--lanes,1));right:auto}
+.tl .blk b,.mt-b b{line-height:1.3}
+.tl .blk.one{display:flex;align-items:center;gap:6px;padding-top:0;padding-bottom:0;font-size:.72rem}
+.tl .blk.one b{flex:1;min-width:0;white-space:nowrap}.tl .blk.one small{flex:none;white-space:nowrap}
+.wtl .tl .blk.one b{white-space:nowrap;max-height:none}
+.tl .blk small,.mt-b small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl .blk.one small,.mt-b.one small{display:block}
+/* 专注记录：斜纹底 + 虚线边，和自己排的块一眼分开 */
+.tl .blk.fx,.mt-b.fx{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--bc) 13%,var(--paper)) 0 6px,color-mix(in srgb,var(--bc) 6%,var(--paper)) 6px 12px);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bc) 35%,transparent);cursor:pointer;touch-action:auto}
+.tl .blk.fx b svg,.mt-b.fx b svg{vertical-align:-1px;margin-right:4px;opacity:.75}
+.tl .blk.fx.live,.mt-b.fx.live{box-shadow:inset 0 0 0 1.5px var(--bc);animation:fx-live 2.4s ease-in-out infinite}
+@keyframes fx-live{50%{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--bc) 40%,transparent)}}
+@media (prefers-reduced-motion: reduce){.tl .blk.fx.live,.mt-b.fx.live{animation:none}}
+/* 块里专注过的那几段：左边一条竖线 */
+.fx-bar{position:absolute;left:0;top:0;bottom:0;width:3px;pointer-events:none}
+.fx-bar i{position:absolute;left:0;width:3px;background:var(--bc);border-radius:2px}
+.fx-bar.live i:last-child{animation:fx-bar 1.6s ease-in-out infinite}
+@keyframes fx-bar{50%{opacity:.4}}
+.mt-fl{color:color-mix(in srgb,var(--bc) 70%,var(--text));font-weight:600}
+.wtl .tl .blk small,.wtl .tl .blk.one small{display:none}
+.wtl .tl .blk.one{font-size:.64rem;padding:0 4px}

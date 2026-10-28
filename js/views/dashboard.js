@@ -20,6 +20,7 @@ import { DoingWidget } from './battle.js';
 import { SPAN, DEFAULT_LAYOUT, normLayout } from '../widgets.js';
 import { dailySuggestions } from '../prompts.js';
 import { lsGet, lsSet } from '../util.js';
+import { focusFor, usePomoLive, focusLabel, focusMenu, FocusBar } from '../focusline.js';
 
 const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
 
@@ -95,7 +96,11 @@ export default function Dashboard() {
   const todos = todoGroups.flatMap(([, l]) => l);
   const doneTodos = useMemo(() => sortBy(s.todos.filter((t) => t.done && t.completedAt === today), 'priority'), [s.todos]);
   const [showDone, setShowDone] = useState(false);
-  const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today && !b.pomo), 'start'), [s.blocks]);
+  const blocks0 = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today && !b.pomo), 'start'), [s.blocks]);
+  // 专注记录合进时间线：落在块里的算进块，其余单独一条（见 focusline.js）
+  const live = usePomoLive(); const liveKey = live ? live.start + live.end + live.title : '';
+  const fx = useMemo(() => focusFor(today, blocks0, s.sessions, live), [blocks0, s.sessions, liveKey]);
+  const blocks = useMemo(() => sortBy([...blocks0, ...fx.extra], 'start'), [blocks0, fx]);
   const goals = s.goals[monthKey()] || [];
   const wk = s.weeks[weekKey()];
   const week = weekDays(weekStart());
@@ -198,11 +203,14 @@ export default function Dashboard() {
     brain: { title: '今天的大脑', span: 1, el: html`<${BrainCard} s=${s} />` },
     ai: { title: '汤圆的建议', span: 1, el: html`<${SuggestWidget} s=${s} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
-        <div class="card-h"><h3>今天 <span class="muted small">${blocks.length ? blocks.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
+        <div class="card-h"><h3>今天 <span class="muted small">${blocks0.length ? blocks0.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl-wrap" ref=${tlRef} onScroll=${onTlScroll}>
         <div class="mini-tl" onContextMenu=${(e) => { if (e.target.closest('.mt-b')) return; const r = e.currentTarget.getBoundingClientRect(); const min = Math.max(from * 60, Math.min(to * 60 - 15, from * 60 + Math.floor(((e.clientY - r.top) / hourH) * 60 / 15) * 15)); slotMenu(e, { date: today, min, onCreate: (t) => setBlk({ start: t }) }); }} style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}>${Math.abs(i * hourH - y(nowMin)) > 12 && html`<span>${pad(from + i)}:00</span>`}</div>`)}
-          ${laid.map(({ b, a, e, lane, lanes, top, h }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const w = 100 / lanes; return html`<div class=${'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin ? ' past' : '') + (h < 36 ? ' one' : '')} key=${b.id} style=${`top:${top}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => setBlk({ block: b })} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit: () => setBlk({ block: b }), extra: ['sep', { label: '在每日时间线里打开', icon: 'right', onClick: () => go('plan/day') }] }), b.title)} title=${`${b.title} ${b.start} – ${b.end}`}><b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small></div>`; })}
+          ${laid.map(({ b, a, e, lane, lanes, top, h }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const w = 100 / lanes; const f = b.focus || fx.byBlock.get(b.id); const pos = `top:${top}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`;
+            const cls = 'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin && !(f && f.live) ? ' past' : '') + (h < 36 ? ' one' : '') + (b.focus ? ' fx' + (b.focus.live ? ' live' : '') : '');
+            if (b.focus) return html`<div class=${cls} key=${b.id} style=${pos} onClick=${() => go('focus')} onContextMenu=${(ev) => focusMenu(ev, b)} title=${`${b.title} ${b.start} – ${b.end} · ${focusLabel(b.focus)}`}><b><${Icon} name="clock" size=${11} />${b.title}</b><small>${b.focus.live ? '专注中 · 到 ' + b.end : `${b.start} – ${b.end} · ${b.focus.mins} 分`}</small></div>`;
+            return html`<div class=${cls} key=${b.id} style=${pos} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => setBlk({ block: b })} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit: () => setBlk({ block: b }), extra: ['sep', { label: '在每日时间线里打开', icon: 'right', onClick: () => go('plan/day') }] }), b.title)} title=${`${b.title} ${b.start} – ${b.end}${f ? ' · ' + focusLabel(f) : ''}`}>${f && html`<${FocusBar} f=${f} a=${a} e=${real} />`}<b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small>${f && h >= 50 && html`<small class="mt-fl">${focusLabel(f)}</small>`}</div>`; })}
           <div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>
         </div>
         </div>

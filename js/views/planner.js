@@ -5,10 +5,11 @@ import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDA
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
-import { toast } from '../nav.js';
+import { toast, go } from '../nav.js';
 import { Splitter } from '../resize.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { stepsOf, toggleStep } from '../steps.js';
+import { focusFor, usePomoLive, focusLabel, focusMenu, FocusBar, lanesOf } from '../focusline.js';
 
 function kindMenu(e, k) {
   const save = (fn) => update((d) => { const it = (d.settings.kinds || []).find((x) => x.v === k.v); if (it) { fn(it); it.updated = nowISO(); } });
@@ -165,6 +166,9 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
     window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
   };
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
+  // 专注记录合进来：落在块里的算进块，其余单独画一条（见 focusline.js）
+  const live = usePomoLive(); const fx = focusFor(date, blocks, get().sessions, live);
+  const lanes = lanesOf([...blocks, ...fx.extra]); const ln = (id) => { const [l, n] = lanes.get(id) || [0, 1]; return `--lane:${l};--lanes:${n};`; };
   const hours = [];
   for (let h = from; h < to; h++) hours.push(h);
   const y = (min) => ((min - from * 60) / 60) * hourH;
@@ -187,14 +191,19 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
   };
   return html`<div class="tl" style=${`--h:${hourH}px`} onContextMenu=${onSlotMenu} ...${dropProps(['todo', 'block'], dropAt)}>
     ${hours.map((h) => html`<div class=${'hour ' + (onCreate ? 'click' : '')} onClick=${onCreate ? () => onCreate(minToTime(h * 60)) : undefined}><span>${String(h).padStart(2, '0')}:00</span></div>`)}
+    ${fx.extra.map((b) => {
+      const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60); if (e <= s) return null; const hh = Math.max(y(e) - y(s) - 3, 20);
+      return html`<div class=${'blk fx' + (b.focus.live ? ' live' : '') + (hh < 34 ? ' one' : '')} key=${b.id} style=${`${ln(b.id)}top:${y(s)}px;height:${hh}px;--bc:${kindColor('focus')}`} onClick=${(ev) => { ev.stopPropagation(); go('focus'); }} onContextMenu=${(ev) => focusMenu(ev, b)} title=${`${b.title} ${b.start}–${b.end} · ${focusLabel(b.focus)}`}><b><${Icon} name="clock" size=${10} />${b.title}</b><small>${b.focus.live ? '专注中 · 到 ' + b.end : `${b.start}–${b.end} · ${b.focus.mins} 分`}</small></div>`;
+    })}
     ${blocks.map((b0) => {
       const b = ghost && ghost.id === b0.id ? { ...b0, start: ghost.start, end: ghost.end } : b0;
       const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60);
       if (e <= s) return null;
+      const f = fx.byBlock.get(b0.id); const hh = Math.max(y(e) - y(s) - 3, 20);
       // 这块是某条待办的一步：块上有个勾，勾了就把那一步标完成
       const stepTodo = b.todoId && b.stepId ? get().todos.find((t) => t.id === b.todoId) : null;
       const step = stepTodo ? stepsOf(stepTodo).find((x) => x.id === b.stepId) : null;
-      return html`<div class=${'blk ' + (ghost && ghost.id === b.id ? 'moving ' : '') + (step ? 'is-step ' : '') + (step && step.done ? 'step-done' : '')} key=${b.id} style=${`top:${y(s)}px;height:${Math.max(y(e) - y(s) - 3, 20)}px;--bc:${kindColor(b.kind)}`} onPointerDown=${(ev) => beginDrag(ev, b0, 'move')} onClick=${(ev) => ev.stopPropagation()} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit }), b.title)}>${step && html`<button class="st-cb" title=${step.done ? '标为未完成' : '这一步做完了'} onPointerDown=${(ev) => ev.stopPropagation()} onClick=${(ev) => { ev.stopPropagation(); toggleStep(stepTodo.id, step.id); }}><${Icon} name="check" size=${9} /></button>`}<b>${b.title}</b><small>${b.start}–${b.end}</small><span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
+      return html`<div class=${'blk ' + (ghost && ghost.id === b.id ? 'moving ' : '') + (step ? 'is-step ' : '') + (step && step.done ? 'step-done' : '') + (hh < 34 ? ' one' : '') + (f ? ' has-fx' : '')} key=${b.id} style=${`${ln(b0.id)}top:${y(s)}px;height:${hh}px;--bc:${kindColor(b.kind)}`} title=${`${b.title} ${b.start}–${b.end}${f ? ' · ' + focusLabel(f) : ''}`} onPointerDown=${(ev) => beginDrag(ev, b0, 'move')} onClick=${(ev) => ev.stopPropagation()} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit }), b.title)}>${step && html`<button class="st-cb" title=${step.done ? '标为未完成' : '这一步做完了'} onPointerDown=${(ev) => ev.stopPropagation()} onClick=${(ev) => { ev.stopPropagation(); toggleStep(stepTodo.id, step.id); }}><${Icon} name="check" size=${9} /></button>`}${f && html`<${FocusBar} f=${f} a=${timeToMin(b.start)} e=${timeToMin(b.end)} />`}<b>${b.title}</b><small>${b.start}–${b.end}</small>${f && hh >= 50 && html`<small class="mt-fl">${focusLabel(f)}</small>`}<span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
     })}
     ${isToday && nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="now" style=${`top:${y(nowMin)}px`}></div>`}
   </div>`;

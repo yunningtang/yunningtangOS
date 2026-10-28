@@ -35,10 +35,10 @@ function finish() {
     const pad = (n) => String(n).padStart(2, '0');
     const sid = uid();
     upsert('sessions', { id: sid, goal: st.goal || '', date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: nowISO() });
-    st.review = { sid, todoId: st.todoId || '', label: st.label || '', goal: st.goal || '', mins }; // 等一个检查点：做到哪了、下一步
+    // 等一个检查点：做到哪了、下一步。时间到了不等于做完了——这一轮是某一步的话，也只在检查点里由人来勾
+    st.review = { sid, todoId: st.todoId || '', stepId: st.stepId || '', label: st.label || '', goal: st.goal || '', mins };
     if (st.restoreLen) { st.workLen = st.restoreLen; st.restoreLen = 0; }
-    st.count += 1;
-    if (st.todoId && st.stepId) { markStepDone(st.todoId, st.stepId); st.stepId = ''; } // 这一轮是某一步：做完顺手勾掉
+    st.count += 1; st.stepId = '';
     beep(); notify('专注完成', `${st.label || '专注'} · ${mins} 分钟。休息一下。`);
     st = { ...st, phase: 'break', startedAt: Date.now(), endsAt: Date.now() + st.breakLen * 60000, paused: false };
   } else {
@@ -68,8 +68,9 @@ export function setLens(w, b) { st = { ...st, workLen: w, breakLen: b }; save();
 export function setLabel(label, todoId) { st = { ...st, label, todoId: todoId ?? st.todoId }; save(); emit(); }
 export function setGoal(goal) { st = { ...st, goal }; save(); emit(); }
 // 检查点：这一轮做到哪了、下一步是什么。写进这段专注和对应的待办，下次选同一件事时会带出来
-export function checkpoint({ note = '', next = '', done = false } = {}) {
+export function checkpoint({ note = '', next = '', done = false, stepDone = false } = {}) {
   const r = st.review; if (!r) return;
+  if (stepDone && r.todoId && r.stepId) markStepDone(r.todoId, r.stepId);
   if (note || next) upsert('sessions', { id: r.sid, note: note.trim(), next: next.trim(), updated: nowISO() });
   // 写的「下一步」变成这件事的一个步骤（插在下一个没做完的前面），不再单独存一份
   if (r.todoId && next.trim() && !done) insertNext(r.todoId, next.trim());

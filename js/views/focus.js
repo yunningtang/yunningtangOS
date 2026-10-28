@@ -8,7 +8,7 @@ import { uid, lsGet, lsSet, nowISO } from '../util.js';
 import { Icon, Card, Btn, Seg, Empty, Tag, Select } from '../ui.js';
 import { todayStr, sortBy, timeToMin, kindColor, addDays, pad, PRIORITY } from '../util.js';
 import * as pomo from '../pomo.js';
-import { nextStep } from '../steps.js';
+import { nextStep, stepsOf } from '../steps.js';
 import { go } from '../nav.js';
 import { BattleCard } from './battle.js';
 import { doingOf, setDoing } from '../doing.js';
@@ -123,9 +123,10 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   const breakMenu = (e) => ctxMenu(e, [...[3, 5, 10, 15, 20].map((n) => ({ label: `休息 ${n} 分钟`, icon: pst.breakLen === n ? 'check' : 'clock', onClick: () => pomo.setLens(pst.workLen, n) })), 'sep', { label: '自定义…', icon: 'edit', onClick: async () => { const v = parseInt(await askPrompt('休息几分钟？', String(pst.breakLen), { title: '休息时长' }), 10); if (v >= 1 && v <= 60) pomo.setLens(pst.workLen, v); } }], '休息时长');
   const tint = s.settings.pomoColor || 'blue';
   const rv = pst.review;
+  const rvTodo = rv && rv.todoId ? s.todos.find((t) => t.id === rv.todoId) : null; const rvStep = rvTodo && rv.stepId ? stepsOf(rvTodo).find((x) => x.id === rv.stepId) : null;
   const sub = pst.phase === 'idle' ? html`${pst.workLen} 分钟<${Span} rem=${rem} />${full ? html`<button type="button" class="tt-break" title="休息时长" onClick=${breakMenu}>· 休息 ${pst.breakLen} 分</button>` : ''}`
     : pst.phase === 'break' ? html`休息一下<${Span} rem=${rem} />` : html`${pst.paused ? '已暂停' : '专注中'}<${Span} rem=${rem} />`;
-  const save = (after) => { pomo.checkpoint({ note, next, done: after === 'done' }); if (after === 'again') { pomo.skip(); setTimeout(() => pomo.start({ label: rv.label, todoId: rv.todoId, goal: next.trim() }), 0); } };
+  const save = (after) => { pomo.checkpoint({ note, next, done: after === 'done', stepDone: after === 'step' }); if (after === 'again') { pomo.skip(); setTimeout(() => pomo.start({ label: rv.label, todoId: rv.todoId, goal: next.trim() }), 0); } };
   // ---- 检查点：一轮结束后问两句，写回这件事；计时结束 ≠ 任务完成 ----
   const review = rv && full && html`<div class="tt-info tt-cp">
     <div class="cp-k">这一轮 ${rv.mins} 分钟${rv.label ? html` · <b>${rv.label}</b>` : ''}</div>
@@ -135,6 +136,7 @@ export function PomoCard({ full = false, initialTodo = '' }) {
     <div class="tt-acts cp-acts">
       <button type="button" class="tt-go" onClick=${() => save('again')}><${Icon} name="play" size=${14} /> 记下，再来一轮</button>
       <button type="button" class="tt-chip" onClick=${() => save('break')}>记下，先休息</button>
+      ${rvStep && !rvStep.done && html`<button type="button" class="tt-chip" title=${'勾掉这一步：' + rvStep.title} onClick=${() => save('step')}><${Icon} name="check" size=${13} /> 这一步做完了</button>`}
       ${rv.todoId && html`<button type="button" class="tt-chip" title="把这件待办标为完成" onClick=${() => save('done')}><${Icon} name="check" size=${13} /> 这件事做完了</button>`}
     </div>
     <button type="button" class="cp-skip" onClick=${() => pomo.dismissReview()}>这次不记</button>
