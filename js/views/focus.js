@@ -33,7 +33,8 @@ export default function Focus({ route }) {
   const doing = doingOf(s);
   useEffect(() => { const id = route && route.query && route.query.todo; if (id && id !== s.settings.doing && s.todos.some((t) => t.id === id && !t.done)) setDoing(id); }, [route && route.query && route.query.todo]);
   // 没在计时的时候，计时器跟着「正在做」走
-  useEffect(() => { if (doing && st.phase === 'idle' && st.todoId !== doing.id) { pomo.setLabel(doing.title, doing.id); pomo.setGoal((nextStep(doing) || {}).title || ''); } }, [doing && doing.id, st.phase]);
+  // 只在换了「正在做」时跟过去；休息完回到空闲不跳回去，免得刚做的那件事被换掉
+  useEffect(() => { if (doing && pomo.get().phase === 'idle' && pomo.get().todoId !== doing.id) { pomo.setLabel(doing.title, doing.id); pomo.setGoal((nextStep(doing) || {}).title || ''); } }, [doing && doing.id]);
   const [editing, setEditing] = useState(null);
   const [others, setOthers] = useState(false);
   const rest = mainFirst(s, todos.filter((t) => !doing || t.id !== doing.id)); const picksAll = mainFirst(s, todos);
@@ -111,9 +112,14 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   const s = useStore();
   const pst = usePomo();
   const [customLen, setCustomLen] = useState(false);
-  const [note, setNote] = useState(''); const [next, setNext] = useState('');
+  // 检查点写到一半离开页面也不丢：草稿按这一轮存着
+  const CP = 'ytos.pomo.cp'; const cpSid = pst.review && pst.review.sid;
+  const draft = () => { try { const d = JSON.parse(localStorage.getItem(CP) || '{}'); return d.sid === cpSid ? d : {}; } catch { return {}; } };
+  const [note, setNote0] = useState(() => draft().note || ''); const [next, setNext0] = useState(() => draft().next || '');
+  const keep = (patch) => { try { localStorage.setItem(CP, JSON.stringify({ sid: cpSid, note, next, ...patch })); } catch {} };
+  const setNote = (v) => { setNote0(v); keep({ note: v }); }; const setNext = (v) => { setNext0(v); keep({ next: v }); };
   useEffect(() => { if (initialTodo) { const t = s.todos.find((x) => x.id === initialTodo); if (t) { pomo.setLabel(t.title, t.id); pomo.setGoal((nextStep(t) || {}).title || ''); } } }, [initialTodo]);
-  useEffect(() => { setNote(''); setNext(''); }, [pst.review && pst.review.sid]);
+  useEffect(() => { const d = draft(); setNote0(d.note || ''); setNext0(d.next || ''); }, [cpSid]);
   const task = pst.todoId ? s.todos.find((t) => t.id === pst.todoId) : null;
   const rem = pomo.remaining();
   const begin = (once) => pomo.start({ label: (pst.label || '').trim(), todoId: pst.todoId, goal: (pst.goal || '').trim(), ...(once ? { once } : {}) });

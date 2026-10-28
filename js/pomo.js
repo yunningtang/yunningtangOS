@@ -1,7 +1,7 @@
 // Pomodoro state machine, persisted so it survives reloads. Views subscribe for ticks.
 import { upsert } from './store.js';
 import { markStepDone, insertNext } from './steps.js';
-import { uid, todayStr, minToTime, nowISO } from './util.js';
+import { todayStr, minToTime, nowISO } from './util.js';
 
 const KEY = 'ytos.pomo';
 const subs = new Set();
@@ -29,18 +29,22 @@ function beep() {
 function notify(title, body) { try { if (Notification.permission === 'granted') new Notification(title, { body }); } catch {} }
 
 function finish() {
+  // 另一个标签页可能已经结束了这一轮：以存着的为准，别重复记、别把别人的状态盖掉
+  const cur = load(); if (cur.phase !== st.phase || cur.startedAt !== st.startedAt) { st = cur; emit(); schedule(); return; }
   if (st.phase === 'work') {
-    const end = new Date(), start = new Date(st.startedAt);
+    // 电脑睡着了 / 页面关着时到点：结束时间按预计结束算，不按重新打开的那一刻
+    const endMs = st.paused || !st.endsAt ? Date.now() : Math.min(Date.now(), st.endsAt);
+    const end = new Date(endMs), start = new Date(st.startedAt);
     const mins = Math.max(1, Math.round((end - start) / 60000));
     const pad = (n) => String(n).padStart(2, '0');
-    const sid = uid();
+    const sid = 'p' + Number(st.startedAt).toString(36); // 同一轮只会有一条记录，两个标签页同时结束也不会记两次
     upsert('sessions', { id: sid, goal: st.goal || '', date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: nowISO() });
     // 等一个检查点：做到哪了、下一步。时间到了不等于做完了——这一轮是某一步的话，也只在检查点里由人来勾
     st.review = { sid, todoId: st.todoId || '', stepId: st.stepId || '', label: st.label || '', goal: st.goal || '', mins };
     if (st.restoreLen) { st.workLen = st.restoreLen; st.restoreLen = 0; }
     st.count += 1; st.stepId = '';
-    beep(); notify('专注完成', `${st.label || '专注'} · ${mins} 分钟。休息一下。`);
-    st = { ...st, phase: 'break', startedAt: Date.now(), endsAt: Date.now() + st.breakLen * 60000, paused: false };
+    if (Date.now() - endMs < 90000) { beep(); notify('专注完成', `${st.label || '专注'} · ${mins} 分钟。休息一下。`); }
+    st = { ...st, phase: 'break', startedAt: endMs, endsAt: endMs + st.breakLen * 60000, paused: false };
   } else {
     beep(); notify('休息结束', '准备开始下一轮。');
     st = { ...st, phase: 'idle', paused: false };
@@ -78,4 +82,6 @@ export function checkpoint({ note = '', next = '', done = false, stepDone = fals
   st = { ...st, review: null, goal: next.trim() || '' }; save(); emit();
 }
 export function dismissReview() { st = { ...st, review: null }; save(); emit(); }
+// 多个标签页共用一个计时器：别的标签页改了就跟上，不然这边旧的状态会把那边正在跑的一轮盖掉
+try { addEventListener('storage', (e) => { if (e.key === KEY) { st = load(); emit(); schedule(); } }); } catch {}
 schedule();
