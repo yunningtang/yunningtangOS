@@ -1,7 +1,7 @@
 // 游戏风主题（搁浅 / 方舟）的完成特效：勾掉一件事时，那一行闪一下，屏幕上方滑过一条「任务完成」横幅。
 // 别的主题什么都不做；系统设置了「减少动态效果」也不做。
 const GAME = new Set(['strand', 'ark']);
-let lastDown = null, bannerTimer = 0;
+let lastDown = null, lastDownAt = 0, bannerTimer = 0;
 const on = () => GAME.has(document.documentElement.dataset.skin) && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ROW = '.todo,.fp-i,.bcard,.bwn,.nt-row,.nxt,.dw,.bwl,.st-row,.ag-i';
 
@@ -19,10 +19,12 @@ function banner(title) {
 }
 
 export function initGameFx() {
-  addEventListener('pointerdown', (e) => { lastDown = e.target; }, true);
+  addEventListener('pointerdown', (e) => { lastDown = e.target; lastDownAt = Date.now(); }, true);
   addEventListener('todo:done', (e) => {
     if (!on()) return;
-    const row = lastDown && lastDown.closest && lastDown.closest(ROW);
+    // 只认刚刚点的那一行（键盘、汤圆、检查点里完成的没有对应的一行，就只放横幅）
+    const fresh = lastDown && lastDown.isConnected && Date.now() - lastDownAt < 1500;
+    const row = fresh && lastDown.closest ? lastDown.closest(ROW) : null; lastDown = null;
     // 完成的那行通常会马上挪走或重画，所以闪光画在一个单独的浮层上
     if (row) {
       const r = row.getBoundingClientRect(); const f = document.createElement('div'); f.className = 'gfx-flash';

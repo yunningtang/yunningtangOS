@@ -167,8 +167,9 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
   };
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
   // 专注记录合进来：落在块里的算进块，其余单独画一条（见 focusline.js）
-  const live = usePomoLive(); const fx = focusFor(date, blocks, get().sessions, live);
-  const lanes = lanesOf([...blocks, ...fx.extra]); const ln = (id) => { const [l, n] = lanes.get(id) || [0, 1]; return `--lane:${l};--lanes:${n};`; };
+  const live = usePomoLive(); const liveKey = live ? live.start + live.end + live.title : ''; const sessions = get().sessions;
+  const fx = useMemo(() => focusFor(date, blocks, sessions, live), [date, blocks, sessions, liveKey]);
+  const lanes = useMemo(() => lanesOf([...blocks, ...fx.extra]), [blocks, fx]); const ln = (id) => { const [l, n] = lanes.get(id) || [0, 1]; return `--lane:${l};--lanes:${n};`; };
   const hours = [];
   for (let h = from; h < to; h++) hours.push(h);
   const y = (min) => ((min - from * 60) / 60) * hourH;

@@ -4,7 +4,7 @@
 //    token stays in an encrypted httpOnly cookie, the browser only talks to /api/sync.
 //  - "token": static hosting (GitHub Pages etc.); a fine-grained token pasted in Settings.
 import { get, replace, update, exportJSON } from './store.js';
-import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob, kvGet, kvSet } from './files.js';
+import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob, kvGet, kvSet, kvKeys, deleteFile } from './files.js';
 import { seedDoc } from './seed.js';
 import { merge3, syncView, SHARED_SETTINGS } from './merge.js';
 import { debounce, nowISO, syncClock } from './util.js';
@@ -109,10 +109,12 @@ export const canSyncFiles = () => { try { return loggedIn() || !!(get().settings
 const KEEP_DAYS = 7;
 export async function findUnusedAttachments() {
   if (!loggedIn()) throw new Error('登录云端帐号后才能清理');
-  await guarded(smartSync).catch(() => {}); // 先同步一次，用最新的数据判断
+  // 先同步一次，用最新的数据判断；同步失败或正在同步就不清理（判断依据可能是旧的，删错了找不回来）
+  const synced = await guarded(smartSync);
+  if (synced === undefined) throw new Error('正在同步，等同步完再清理');
   const r = await fetch('/api/file?list=1', { cache: 'no-store' }); const j = await readRes(r);
   const doc = JSON.stringify(get());
-  const { kvKeys } = await import('./files.js'); let hist = '';
+  let hist = '';
   for (const k of await kvKeys('hist:')) hist += JSON.stringify(await kvGet(k) || '');
   const cutoff = Date.now() - KEEP_DAYS * 86400000;
   const unused = (j.files || []).filter((f) => f.id && !doc.includes(f.id) && !hist.includes(f.id) && f.created && new Date(f.created).getTime() < cutoff);
@@ -124,7 +126,7 @@ export async function deleteAttachments(ids) {
     const r = await fetch('/api/file', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: ids.slice(i, i + 50) }) });
     deleted += (await readRes(r)).deleted || 0;
   }
-  const { deleteFile } = await import('./files.js'); for (const id of ids) { try { await deleteFile(id); } catch {} }
+  for (const id of ids) { try { await deleteFile(id); } catch {} }
   return deleted;
 }
 

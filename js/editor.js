@@ -162,6 +162,13 @@ export function applyMark(color) {
     setC(c); return;
   }
   if (r.collapsed) return;
+  // 去掉标记：选区里所有的荧光都拿掉（不要反过来包一层默认黄色）
+  if (!color) {
+    const frag = r.extractContents(); frag.querySelectorAll('mark').forEach(unwrapEl);
+    const first = frag.firstChild, last = frag.lastChild; r.insertNode(frag);
+    if (first) { const nr = document.createRange(); nr.setStartBefore(first); nr.setEndAfter(last); s.removeAllRanges(); s.addRange(nr); }
+    return;
+  }
   const el = document.createElement('mark'); setC(el);
   try { r.surroundContents(el); } catch { el.appendChild(r.extractContents()); r.insertNode(el); }
   s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(el); s.addRange(nr);

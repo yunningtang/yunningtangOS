@@ -30,12 +30,14 @@ function notify(title, body) { try { if (Notification.permission === 'granted') 
 
 function finish() {
   // 另一个标签页可能已经结束了这一轮：以存着的为准，别重复记、别把别人的状态盖掉
-  const cur = load(); if (cur.phase !== st.phase || cur.startedAt !== st.startedAt) { st = cur; emit(); schedule(); return; }
+  // 只认更新的：存着的那份开始得更晚，或同一轮已经换了阶段。存储写失败（满了 / 被禁用）时存着的是旧的，那就照常结束这一轮
+  const cur = load(); if ((cur.startedAt || 0) > (st.startedAt || 0) || (cur.startedAt === st.startedAt && cur.phase !== st.phase)) { st = cur; emit(); schedule(); return; }
   if (st.phase === 'work') {
     // 电脑睡着了 / 页面关着时到点：结束时间按预计结束算，不按重新打开的那一刻
     const endMs = st.paused || !st.endsAt ? Date.now() : Math.min(Date.now(), st.endsAt);
     const end = new Date(endMs), start = new Date(st.startedAt);
-    const mins = Math.max(1, Math.round((end - start) / 60000));
+    const pausedMs = (st.pausedMs || 0) + (st.paused && st.pausedAt ? Date.now() - st.pausedAt : 0); // 暂停的时间不算专注
+    const mins = Math.max(1, Math.round((end - start - pausedMs) / 60000));
     const pad = (n) => String(n).padStart(2, '0');
     const sid = 'p' + Number(st.startedAt).toString(36); // 同一轮只会有一条记录，两个标签页同时结束也不会记两次
     upsert('sessions', { id: sid, goal: st.goal || '', date: todayStr(start), start: `${pad(start.getHours())}:${pad(start.getMinutes())}`, end: minToTime(start.getHours() * 60 + start.getMinutes() + mins), mins, title: st.label || '专注', todo: st.todoId || '', note: '', updated: nowISO() });
@@ -44,7 +46,9 @@ function finish() {
     if (st.restoreLen) { st.workLen = st.restoreLen; st.restoreLen = 0; }
     st.count += 1; st.stepId = '';
     if (Date.now() - endMs < 90000) { beep(); notify('专注完成', `${st.label || '专注'} · ${mins} 分钟。休息一下。`); }
-    st = { ...st, phase: 'break', startedAt: endMs, endsAt: endMs + st.breakLen * 60000, paused: false };
+    const breakEnd = endMs + st.breakLen * 60000;
+    // 休息也已经过去了（电脑睡了很久）：直接回到空闲，不再响「休息结束」
+    st = breakEnd <= Date.now() ? { ...st, phase: 'idle', paused: false } : { ...st, phase: 'break', startedAt: endMs, endsAt: breakEnd, paused: false };
   } else {
     beep(); notify('休息结束', '准备开始下一轮。');
     st = { ...st, phase: 'idle', paused: false };
@@ -60,12 +64,12 @@ export function start({ label, todoId, stepId, workLen, breakLen, goal, once } =
   if (once) { st.restoreLen = st.restoreLen || st.workLen; st.workLen = once; } else if (workLen) st.workLen = workLen; if (breakLen) st.breakLen = breakLen;
   if (goal !== undefined) st.goal = goal;
   st.review = null;
-  st = { ...st, phase: 'work', label: label ?? st.label, todoId: todoId ?? st.todoId, stepId: stepId || '', startedAt: Date.now(), endsAt: Date.now() + st.workLen * 60000, paused: false };
+  st = { ...st, phase: 'work', label: label ?? st.label, todoId: todoId ?? st.todoId, stepId: stepId || '', startedAt: Date.now(), endsAt: Date.now() + st.workLen * 60000, paused: false, pausedMs: 0, pausedAt: 0 };
   try { if (Notification.permission === 'default') Notification.requestPermission(); } catch {}
   save(); emit(); schedule();
 }
-export function pause() { if (st.phase === 'idle' || st.paused) return; st = { ...st, paused: true, remain: remaining() }; save(); emit(); schedule(); }
-export function resume() { if (!st.paused) return; st = { ...st, paused: false, endsAt: Date.now() + st.remain * 1000 }; save(); emit(); schedule(); }
+export function pause() { if (st.phase === 'idle' || st.paused) return; st = { ...st, paused: true, remain: remaining(), pausedAt: Date.now() }; save(); emit(); schedule(); }
+export function resume() { if (!st.paused) return; st = { ...st, paused: false, endsAt: Date.now() + st.remain * 1000, pausedMs: (st.pausedMs || 0) + (st.pausedAt ? Date.now() - st.pausedAt : 0), pausedAt: 0 }; save(); emit(); schedule(); }
 export function stop(log = false) { if (log && st.phase === 'work') { finish(); return; } st = { ...st, phase: 'idle', paused: false, ...(st.restoreLen ? { workLen: st.restoreLen, restoreLen: 0 } : {}) }; save(); emit(); schedule(); }
 export function skip() { if (st.phase === 'break') { st = { ...st, phase: 'idle', paused: false }; save(); emit(); schedule(); } else if (st.phase === 'work') finish(); }
 export function setLens(w, b) { st = { ...st, workLen: w, breakLen: b }; save(); emit(); }

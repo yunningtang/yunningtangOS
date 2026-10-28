@@ -1,8 +1,8 @@
 // Attachments in the data repo: assets/<id> next to the data file.
 // GET  ?id=...            -> { name, type, content (base64) }
-// GET  ?list=1            -> { files: [{ id, size, created }] }   列出云端的全部附件（清理没用的附件时用）
+// GET  ?list=1            -> { files: [{ id, size, created }] }   列出云端的全部附件（清理没用的附件时用；只有云端帐号）
 // PUT  { id, name, type, content (base64) }  -> writes / updates the file as a commit
-// DELETE { ids: [...] }   -> { deleted }                            删掉这些附件（最多 200 个）
+// DELETE { ids: [...] }   -> { deleted }                            删掉这些附件（最多 200 个；只有云端帐号）
 import { session, json, gh, dataTarget, readJson, resolveBranch } from './_lib.js';
 import { sb, accessToken, errMsg } from './_cloud.js';
 
@@ -56,23 +56,6 @@ export default async function handler(req, res) {
   const branch = await resolveBranch(s.t, repo, wanted);
   const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) + '/assets' : 'assets';
   const url = new URL(req.url, 'http://x');
-  if (req.method === 'GET' && url.searchParams.get('list')) {
-    const r = await gh(s.t, `/repos/${repo}/contents/${dir}?ref=${encodeURIComponent(branch)}`);
-    if (r.status === 404) return json(res, 200, { files: [] });
-    if (!r.ok || !Array.isArray(r.body)) return json(res, r.status || 502, { error: r.body?.message || 'github error' });
-    return json(res, 200, { files: r.body.filter((x) => x.type === 'file').map((x) => ({ id: x.name, size: x.size || 0, created: '', sha: x.sha })) });
-  }
-  if (req.method === 'DELETE') {
-    const body = await readJson(req); const ids = (body && Array.isArray(body.ids) ? body.ids : []).map((x) => String(x).replace(/[^\w-]/g, '')).filter(Boolean).slice(0, 50);
-    if (!ids.length) return json(res, 400, { error: 'ids required' });
-    let deleted = 0;
-    for (const id of ids) {
-      const f = `/repos/${repo}/contents/${dir}/${id}`; const cur = await gh(s.t, `${f}?ref=${encodeURIComponent(branch)}`); if (!cur.ok || !cur.body || !cur.body.sha) continue;
-      const r = await gh(s.t, f, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `os: remove unused attachment ${id}`, sha: cur.body.sha, branch }) });
-      if (r.ok) deleted++;
-    }
-    return json(res, 200, { deleted });
-  }
   if (req.method === 'GET') {
     const id = (url.searchParams.get('id') || '').replace(/[^\w-]/g, '');
     if (!id) return json(res, 400, { error: 'id required' });

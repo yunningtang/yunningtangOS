@@ -16,7 +16,9 @@ const hm = (d) => d.getHours() * 60 + d.getMinutes();
 export function liveRound(st = pomo.get()) {
   if (st.phase !== 'work' || !st.startedAt) return null;
   const s = new Date(st.startedAt); if (todayStr(s) !== todayStr()) return null;
-  const a = hm(s), plannedEnd = st.paused ? a + Math.max(1, Math.round((Date.now() - st.startedAt) / 60000)) : a + Math.max(1, Math.round((st.endsAt - st.startedAt) / 60000));
+  // 暂停时按「已经做了的 + 还剩的」画到预计结束，不跟着现在的时间一直变长
+  const plannedMs = st.paused ? ((st.pausedAt || Date.now()) - st.startedAt - (st.pausedMs || 0)) + (st.remain || 0) * 1000 : st.endsAt - st.startedAt;
+  const a = hm(s), plannedEnd = a + Math.max(1, Math.round(plannedMs / 60000));
   return { id: 'live', start: minToTime(a), end: minToTime(Math.min(24 * 60, plannedEnd)), title: st.label || '专注', todo: st.todoId || '', live: true, mins: 0 };
 }
 

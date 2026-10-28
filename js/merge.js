@@ -53,14 +53,18 @@ export function mergeList(base = [], local = [], remote = [], rNewer = false) {
   const orderOf = (l) => l.map(keyOf).join('\u0001');
   const localMoved = orderOf(local) !== orderOf(base.filter((x) => lm.has(keyOf(x))));
   const primary = localMoved ? local : remote, secondary = localMoved ? remote : local;
+  // 一遍走完：另一边新加的，挂在它前面最近一条「两边都有」的后面（没有就放最前），连着新加的保持原来的先后
   const byKey = new Map(out.map((x) => [keyOf(x), x]));
-  const order = [...new Set(primary.map(keyOf))].filter((k) => byKey.has(k)); const placed = new Set(order);
-  secondary.forEach((x, i) => {
-    const k = keyOf(x); if (placed.has(k) || !byKey.has(k)) return;
-    let j = i - 1; while (j >= 0 && !placed.has(keyOf(secondary[j]))) j--;
-    order.splice(j < 0 ? 0 : order.indexOf(keyOf(secondary[j])) + 1, 0, k); placed.add(k);
-  });
-  return order.map((k) => byKey.get(k));
+  const order = [...new Set(primary.map(keyOf))].filter((k) => byKey.has(k)); const inPrimary = new Set(order);
+  const after = new Map(); const seen = new Set(); let anchor = null;
+  for (const x of secondary) {
+    const k = keyOf(x); if (!byKey.has(k)) continue;
+    if (inPrimary.has(k)) { anchor = k; continue; }
+    if (seen.has(k)) continue; seen.add(k);
+    if (!after.has(anchor)) after.set(anchor, []); after.get(anchor).push(k);
+  }
+  const keys = [...(after.get(null) || [])]; for (const k of order) { keys.push(k); if (after.has(k)) keys.push(...after.get(k)); }
+  return keys.map((k) => byKey.get(k));
 }
 
 // field-level merge of a plain object (profile, a week entry)
