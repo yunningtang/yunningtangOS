@@ -5,7 +5,7 @@ import { askPrompt } from '../confirm.js';
 import { uid, lsGet, lsSet, nowISO } from '../util.js';
 
 
-import { Icon, Card, Btn, Seg, Empty, Tag, Select } from '../ui.js';
+import { Icon, Card, Btn, Seg, Empty, Tag, Select, Collapse } from '../ui.js';
 import { todayStr, sortBy, timeToMin, kindColor, addDays, pad, PRIORITY } from '../util.js';
 import * as pomo from '../pomo.js';
 import { nextStep, stepsOf } from '../steps.js';
@@ -70,12 +70,12 @@ export default function Focus({ route }) {
             <div class="fb-pick">${picksAll.slice(0, 5).map((t) => html`<button type="button" key=${t.id} onClick=${() => setDoing(t.id)}><i class=${'fq-p p' + (t.priority ?? 2)}></i>${isMain(s, t) && html`<i class="q-tag">主线</i>`}${t.title}</button>`)}${todos.length === 0 && html`<a href="#/todos">去待办里加一件</a>`}</div></div>`}
         ${!quiet && rest.length > 0 && html`<div class="fb-others">
           <button type="button" class="fq-fold" onClick=${() => setOthers(!others)}><${Icon} name=${others ? 'down' : 'right'} size=${12} /> 其他的事 ${rest.length} 件<small>先留在待办里</small></button>
-          ${others && (() => { const main = rest.filter((t) => isMain(s, t)), side = rest.filter((t) => !isMain(s, t)); const row = (t) => html`<div key=${t.id} class="fq-row" onContextMenu=${(e) => rowMenu(e, t)}>
+          <${Collapse} open=${others}>${(() => { const main = rest.filter((t) => isMain(s, t)), side = rest.filter((t) => !isMain(s, t)); const row = (t) => html`<div key=${t.id} class="fq-row" onContextMenu=${(e) => rowMenu(e, t)}>
             <i class=${'fq-p p' + (t.priority ?? 2)}></i>
             <span class="fq-t"><b>${t.title}</b>${nextStep(t) && html`<small>下一步：${nextStep(t).title}</small>`}</span>
             <button type="button" class="fb-do" onClick=${() => setDoing(t.id)}>做这件</button>
           </div>`;
-            return html`<div class="fq-list">${main.length > 0 && html`<div class="fb-g">主线</div>${main.slice(0, 8).map(row)}`}${side.length > 0 && html`${main.length > 0 && html`<div class="fb-g">支线</div>`}${side.slice(0, 10).map(row)}`}</div>`; })()}
+            return html`<div class="fq-list">${main.length > 0 && html`<div class="fb-g">主线</div>${main.slice(0, 8).map(row)}`}${side.length > 0 && html`${main.length > 0 && html`<div class="fb-g">支线</div>`}${side.slice(0, 10).map(row)}`}</div>`; })()}<//>
         </div>`}
       </div>
       <div class="fp-timer"><${PomoCard} full initialTodo=${route.query && route.query.todo} /></div>
@@ -91,7 +91,7 @@ export default function Focus({ route }) {
     </div>
     <div class="fp-hist">
       <button type="button" class="fq-fold" onClick=${() => { const v = !hist; setHist(v); lsSet('ytos.focus.hist', v ? '1' : ''); }}><${Icon} name=${hist ? 'down' : 'right'} size=${12} /> 历史与趋势</button>
-      ${hist && html`<${FocusStats} sessions=${all} />`}
+      <${Collapse} open=${hist}><${FocusStats} sessions=${all} /><//>
     </div>`}
   </div>`;
 }

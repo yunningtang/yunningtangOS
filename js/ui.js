@@ -109,6 +109,12 @@ export function Btn({ children, kind = '', icon, small, ...rest }) {
   return html`<button class=${'btn ' + kind + (small ? ' sm' : '')} type="button" ...${rest}>${icon && html`<${Icon} name=${icon} size=${small ? 13 : 15} />`}${children}</button>`;
 }
 
+// 折叠 / 展开：grid-template-rows 0fr → 1fr，高度跟着内容平滑变化（不用量高度）。第一次展开才渲染里面的东西
+export function Collapse({ open, children, class: cls = '' }) {
+  const [mounted, setMounted] = useState(!!open);
+  useEffect(() => { if (open) setMounted(true); }, [open]);
+  return html`<div class=${'clp ' + (open ? 'open ' : '') + cls} aria-hidden=${open ? 'false' : 'true'}><div class="clp-in">${(open || mounted) && children}</div></div>`;
+}
 export function IconBtn({ icon, title, size = 15, ...rest }) {
   return html`<button class="ibtn" type="button" title=${title} aria-label=${title} ...${rest}><${Icon} name=${icon} size=${size} /></button>`;
 }

@@ -1,6 +1,6 @@
 import { html, useState, useMemo, useEffect } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, toggleTodo, removeUndo, get } from '../store.js';
-import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select, useClock } from '../ui.js';
+import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, confirmDel, DateInput, TimeInput, Select, useClock, Collapse } from '../ui.js';
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGet, lsSet, pad, weekStart, timeToMin, minToTime } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { brainMenu, stepCat, stepRegionItems } from '../brain.js';
@@ -234,10 +234,10 @@ function BoardCard({ t, p, onEdit }) {
       <div class="bt">${t.title}</div>
       <span class="meta">${ls && html`<button class=${'bl ' + ls} title="推迟到…" onClick=${(e) => { e.stopPropagation(); postponeMenu(e, t); }}>${ls === 'late' ? '逾期' : '已过'} · 推迟</button>`}${t.due ? html`<b class="bd">${relDay(t.due)}${t.time ? ' ' + t.time : ''}</b>` : ''}${t.area ? html`<i>${t.area}</i>` : ''}${t.tags.map((x) => html`<i>#${x}</i>`)}${(t.done || !nextStep(t)) && sp.total > 0 && html`<i class=${'bs ' + (sp.done === sp.total ? 'all' : '')}>${sp.done}/${sp.total} 步</i>`}</span>
       ${!open && html`<${NextLine} t=${t} open=${open} onToggle=${() => setOpen(true)} />`}
-      ${open && html`<div class="bc-more" onClick=${(e) => e.stopPropagation()}>
+      <${Collapse} open=${open}><div class="bc-more" onClick=${(e) => e.stopPropagation()}>
         ${t.note && html`<p class="bc-note">${t.note}</p>`}
-        <${StepList} t=${t} autoAdd=${sp.total === 0} />
-      </div>`}
+        <${StepList} t=${t} autoAdd=${sp.total === 0 && open} />
+      </div><//>
     </div>
     ${canOpen || open ? html`<button type="button" class=${'bc-tg ' + (open ? 'on' : '')} title=${open ? '收起' : '展开步骤和备注'} onClick=${(e) => { e.stopPropagation(); setOpen(!open); }}><${Icon} name=${open ? 'up' : 'down'} size=${12} /></button>`
       : !t.done && html`<button type="button" class="bc-tg add" title="加步骤" onClick=${(e) => { e.stopPropagation(); setOpen(true); }}><${Icon} name="plus" size=${12} /></button>`}

@@ -6,6 +6,7 @@ import { useStore, upsert, get, update, remove } from './store.js';
 import { ctxMenu } from './ctx.js';
 import { Icon, DateInput, TimeInput, Seg, Select } from './ui.js';
 import * as pomo from './pomo.js';
+import { revealText, copied } from './motion.js';
 import { greeting, uid, todayStr, relDay, WEEKDAY_SUN, timeToMin, minToTime, allKinds, pad, weekKey, weekStart, monthKey, hostOf, addDays, parseDate } from './util.js';
 import { typesOf, autoCover } from './views/reading.js';
 import { loginState } from './sync.js';
@@ -172,6 +173,13 @@ export function Seal({ ghost = false } = {}) {
   const [badge, setBadge] = useState(0);
   const [threads, setThreads] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.threads') || '[]'); } catch { return []; } });
   const [tid, setTid] = useState(() => uid());
+  // 汤圆新说的话逐字浮现；打开历史对话、切换对话时已有的消息不重放
+  const seenMsgs = useRef({ tid: null, ids: new Set() });
+  useEffect(() => {
+    const seen = seenMsgs.current;
+    if (seen.tid !== tid) { seenMsgs.current = { tid, ids: new Set(msgs.map((m) => m.id)) }; return; }
+    msgs.forEach((m) => { if (seen.ids.has(m.id)) return; seen.ids.add(m.id); if (m.who === 'bot' && m.text) revealText(document.querySelector(`.sm[data-mid="${m.id}"] .sm-t`)); });
+  }, [msgs, tid]);
   const [view, setView] = useState('chat');      // chat | history
   const [mode, setMode] = useState(() => { try { return localStorage.getItem('ytos.seal.mode') || ''; } catch { return ''; } }); // '' 浮窗 | big 展开 | full 最大化
   const big = !!mode;
@@ -790,7 +798,7 @@ export function Seal({ ghost = false } = {}) {
             ${big && composer}
                         <div class="seal-hints">${cards.map((h, ci) => html`<button key=${h.t} type="button" class=${ci < cprompts.length ? 'ctx' : ''} title=${'落到：' + h.k.join(' · ')} onClick=${() => useHint(h)}><span class="sh-i"><${Icon} name=${h.i} size=${15} /></span><span class="sh-b"><span class="sh-h">${h.h}</span><span class="sh-q">${h.d || h.t}</span></span></button>`)}</div>
           </div>`}
-        ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who}>
+        ${msgs.map((m, mi) => html`<div key=${m.id} class=${'sm ' + m.who} data-mid=${m.id}>
           ${m.who === 'bot' ? html`<div class="sm-t md" onContextMenu=${(e) => botMenu(e, m)} dangerouslySetInnerHTML=${{ __html: renderBot(m.text) }}></div>` : (editMsg && editMsg.id === m.id ? html`<div class="sm-edit"><textarea rows="1" value=${editMsg.text} ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }} onInput=${(e) => setEditMsg({ ...editMsg, text: e.target.value })} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); resend(m, editMsg.text); } if (e.key === 'Escape') { e.stopPropagation(); setEditMsg(null); } }}></textarea><div class="sm-edit-f"><span class="flex1"></span><button type="button" class="sm-ic" title="取消（Esc）" onClick=${() => setEditMsg(null)}><${Icon} name="x" size=${15} /></button><button type="button" class="sm-ic go" title="重新发送（回车）· 后面的回复会被替换" disabled=${!editMsg.text.trim() || busy} onClick=${() => resend(m, editMsg.text)}><${Icon} name="up" size=${15} /></button></div></div>`
             : html`<div class="sm-t" onContextMenu=${(e) => meMenu(e, m)} onDblClick=${() => !busy && setEditMsg({ id: m.id, text: m.text })} title="双击或右键可以改了重新发">${m.text}</div><div class="sm-acts me"><button type="button" title="编辑并重新发送" disabled=${busy} onClick=${() => setEditMsg({ id: m.id, text: m.text })}><${Icon} name="edit" size=${13} /></button><button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button></div>`)}
           ${m.stuckAsk && !m.picked && html`<div class="sm-quick">${STUCK_REASONS.map((r) => html`<button type="button" key=${r.id} disabled=${busy} onClick=${() => stuckPick(m, r)}><${Icon} name=${r.icon} size=${13} />${r.label}</button>`)}</div>`}
@@ -809,7 +817,7 @@ export function Seal({ ghost = false } = {}) {
           </div>`; })()}
           ${m.stuck && m.stuck.src === 'local' && html`<div class="sm-note">没接 AI，这是简单版的建议。</div>`}
           ${m.who === 'bot' && !m.items?.length && !m.steps?.length && !m.stuck && !m.stuckAsk && !busy && html`<div class="sm-acts">
-            <button type="button" title="复制" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(m.text); toast('已复制'); }}><${Icon} name="copy" size=${13} /></button>
+            <button type="button" class="cp-btn" title="复制" onClick=${(e) => { navigator.clipboard && navigator.clipboard.writeText(m.text); copied(e.currentTarget); }}><${Icon} name="copy" size=${13} class="cp-0" /><${Icon} name="check" size=${13} class="cp-1" /></button>
             ${mi > 0 && msgs[mi - 1].who === 'me' && html`<button type="button" title="重新生成" onClick=${() => regen(m)}><${Icon} name="refresh" size=${13} /></button>`}
           </div>`}
           ${m.via === 'fallback' && html`<div class="sm-warn">${m.items && m.items.length ? '下面是按本地规则识别的，请仔细检查。' : ''}<button class="sm-retry" onClick=${() => { setMsgs((list) => list.filter((x) => x.id !== m.id && !(x.who === 'me' && x.text === m.ask && list.indexOf(x) === list.indexOf(m) - 1))); ask(m.ask); }}><${Icon} name="refresh" size=${11} /> 重试</button></div>`}

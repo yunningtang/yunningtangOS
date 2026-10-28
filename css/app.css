@@ -178,7 +178,7 @@ html[data-theme="light"] .theme-glass .im{opacity:0;transform:rotate(-90deg) sca
 .ibtn:hover{background:var(--hover);color:var(--text)}
 .ibtn.danger:hover{color:var(--red)}
 input[type=text],input[type=url],input[type=date],input[type=time],input[type=number],input[type=password],input[type=search],select,textarea{width:100%;padding:8px 12px;border-radius:var(--r2);border:1px solid var(--line);background:var(--input);color:var(--text);font-size:.875rem;outline:none;transition:box-shadow .15s,border-color .15s}
-input:focus,select:focus,textarea:focus{border-color:rgba(var(--ac),.6);box-shadow:0 0 0 2px rgba(var(--ac),.2);background:var(--bg)}
+input:focus,select:focus,textarea:focus{box-shadow:0 0 0 1px rgba(var(--ac),.3),0 0 0 4px rgba(var(--ac),.1);background:var(--bg)}
 input::placeholder,textarea::placeholder{color:var(--text-4)}
 textarea{resize:none;min-height:80px;line-height:1.6;scrollbar-width:none}textarea::-webkit-scrollbar{display:none}
 select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239b9a97' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:26px}
@@ -386,7 +386,7 @@ a.link{color:var(--text-3);text-decoration:none;display:inline-block;margin-top:
 .todo .acts{opacity:0;transition:opacity .1s;display:flex}
 .todo:hover .acts,.todo:focus-within .acts{opacity:1}
 .quickadd{display:flex;gap:8px;align-items:center;padding:4px 8px 4px 12px;border-radius:12px;background:var(--input);margin-bottom:8px;border:1px solid transparent}
-.quickadd:focus-within{border-color:rgba(var(--ac),.5);background:var(--bg)}
+.quickadd:focus-within{box-shadow:0 0 0 1px rgba(var(--ac),.3),0 0 0 4px rgba(var(--ac),.1);background:var(--bg)}
 .quickadd input{border:0;background:none;padding:5px 0;box-shadow:none}.quickadd input:focus{box-shadow:none;background:none}
 .quickadd .hint{font-size:.68rem;color:var(--text-4);white-space:nowrap}
 .filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
@@ -639,7 +639,7 @@ input.page-title::placeholder{color:var(--text-4);opacity:.6}
 .mtag a{color:inherit;text-decoration:none}.mtag button{width:0;height:16px;margin:0;border-radius:5px;color:inherit;opacity:0;font-size:.8rem;line-height:1;display:grid;place-items:center;overflow:hidden;transition:width .12s,margin .12s,opacity .12s}
 .mtag:hover button{width:16px;margin:0 -4px 0 3px;opacity:.7}.mtag button:hover{background:rgba(0,0,0,.1);opacity:1}
 .mtag-in{height:26px;width:96px;padding:0 8px;border-radius:8px;border:1px solid rgba(var(--ac),.5);background:var(--bg);font-size:.78rem;box-shadow:none}
-.mtag-in:focus{outline:none;box-shadow:none;border-color:rgba(var(--ac),.6)}
+.mtag-in:focus{outline:none;box-shadow:0 0 0 1px rgba(var(--ac),.3),0 0 0 4px rgba(var(--ac),.1)}
 .mdate{color:var(--text-4);margin-left:4px;cursor:default;font-variant-numeric:tabular-nums}
 .subpages{margin-top:24px}
 .sub-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r2);text-decoration:none;font-size:.875rem;color:var(--text)}
@@ -3361,7 +3361,7 @@ html[data-skin="glass"] .sx-sw.on{background:var(--ink)}
 .brs-badge.on circle{fill:var(--c);stroke:#fff;stroke-width:1.6}
 .brs-badge.on text{fill:#fff}
 .brs-r.on{filter:saturate(1.2)}
-.brs-badge text{fill:color-mix(in srgb,var(--c) 85%,#000);font-size:10px;font-weight:700;font-family:inherit}
+.brs-badge text{fill:color-mix(in srgb,var(--c) 72%,var(--ink));font-size:10px;font-weight:700;font-family:inherit}
 html[data-theme="dark"] .brs-r.nil{fill:color-mix(in srgb,var(--c) 10%,var(--card-bg))}
 html[data-theme="dark"] .brs-r{fill:color-mix(in srgb,var(--c) var(--k),var(--card-bg))}
 html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
@@ -3424,7 +3424,7 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .bw-stat b{display:block;font-size:1.35rem;font-weight:700;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums}
 .bw-stat span{font-size:.74rem;color:var(--text-3)}
 .bw-next{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:10px;border-radius:10px;background:color-mix(in srgb,var(--c) 8%,transparent)}
-.bw-next-k{font-size:.74rem;font-weight:600;color:color-mix(in srgb,var(--c) 85%,#000);flex:none}
+.bw-next-k{font-size:.74rem;font-weight:600;color:color-mix(in srgb,var(--c) 72%,var(--ink));flex:none}
 .bw-next-t{flex:1;min-width:0;font-size:.92rem;font-weight:550;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .bw-next .btn{flex:none;display:inline-flex;align-items:center;gap:5px}
 .br-rows{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
@@ -3636,7 +3636,7 @@ html[data-theme="dark"] .brs-lines path{stroke:#000;stroke-opacity:.25}
 .st-cat.none{opacity:0}
 .step:hover .st-cat.none{opacity:1}
 /* 大脑页 · 再整理：脑图不放数字、选中的脑区描边；小字说明放页脚 */
-.brs.cute .brs-r.sel{stroke:color-mix(in srgb,var(--c) 75%,#000);stroke-width:2.4;filter:saturate(1.2)}
+.brs.cute .brs-r.sel{stroke:color-mix(in srgb,var(--c) 62%,var(--ink));stroke-width:2.4;filter:saturate(1.2)}
 .brain .br-map{padding:6px 18px 0}
 .brs.cute{max-height:330px}
 .br-foot{margin:4px 0 0;text-align:center;font-size:.72rem;color:var(--text-4)}
@@ -3989,3 +3989,80 @@ html[data-skin="strand"] .card:has(> .card-h)::before{content:"No." counter(gcar
 .ctx-sw.none::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1.5px;background:var(--red,#d2524f);transform:rotate(45deg)}
 .ctx-sw.none.on{box-shadow:0 0 0 2px var(--paper),0 0 0 3.5px var(--ink)}
 html[data-skin="strand"] .ctx-row .ctx-sw,html[data-skin="ark"] .ctx-row .ctx-sw{border-radius:0}
+
+/* =====================================================================
+   高定细节（默认三套主题：笔记 / 暖白 / Claude；游戏和复古主题保留各自的硬边风格）
+   1 不用黑框和纯黑：四层背景，只差 1–3% 明度来分层
+     l0 页面 < l1 侧栏 < l2 卡片 / 浮层；l3 是卡片里凹下去的一层（输入框、代码块、日历格）
+   2 输入框聚焦不换描边颜色，用加深的双环阴影
+   3 深色模式字重整体降一档（正文 400→360，标题 600→560、700→660）
+   5 图标下移 0.125em 和文字对齐；8 正文 text-wrap: pretty，标题 balance
+   ===================================================================== */
+html[data-skin="notion"][data-theme="light"][data-fx]{--l0:#f6f6f5;--l1:#f9f9f8;--l2:#ffffff;--l3:#f3f3f1}
+html[data-skin="notion"][data-theme="dark"][data-fx]{--l0:#171717;--l1:#1b1b1b;--l2:#202020;--l3:#262626}
+html[data-skin="glass"][data-theme="light"][data-fx]{--l0:#f5f5f3;--l1:#f8f8f6;--l2:#ffffff;--l3:#f2f2f0}
+html[data-skin="glass"][data-theme="dark"][data-fx]{--l0:#111215;--l1:#141518;--l2:#18191d;--l3:#1e1f23}
+html[data-skin="claude"][data-theme="light"][data-fx]{--l0:#f3f0e9;--l1:#efebe3;--l2:#faf9f5;--l3:#f1ede5}
+html[data-skin="claude"][data-theme="dark"][data-fx]{--l0:#232321;--l1:#1f1f1d;--l2:#2b2b29;--l3:#323230}
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-fx][data-theme]{
+  --bg:var(--l0);--side:var(--l1);--paper:var(--l2);--card-bg:var(--l2);--glass:var(--l2);--glass-side:var(--l1);
+  --input:var(--l3);--cal-bg:var(--l3);--code-bg:var(--l3);
+  --glass-edge:transparent;--glass-edge-h:transparent;--glass-line:transparent;--glass-hl:transparent;
+}
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-fx][data-theme="light"]{
+  --glass-shadow:0 1px 2px rgba(40,36,30,.035),0 6px 18px -10px rgba(40,36,30,.08);
+  --glass-shadow-h:0 1px 2px rgba(40,36,30,.05),0 14px 34px -18px rgba(40,36,30,.18);
+  --shadow:var(--glass-shadow);--shadow-h:var(--glass-shadow-h);
+  --pop:0 0 0 1px rgba(40,36,30,.045),0 4px 10px -4px rgba(40,36,30,.08),0 18px 40px -14px rgba(40,36,30,.2);
+}
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-fx][data-theme="dark"]{
+  --glass-shadow:0 0 0 0 transparent;--glass-shadow-h:0 0 0 0 transparent;
+  --shadow:none;--shadow-h:none;
+  --pop:0 0 0 1px rgba(255,255,255,.05),0 18px 44px -14px rgba(0,0,0,.6);
+}
+/* 深色里卡片悬停只提亮一点点背景，不加框 */
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-theme="dark"] .card:hover{background:color-mix(in srgb,var(--l2) 94%,#fff)}
+/* 浮层：深色比卡片再亮一层 */
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-theme="dark"] :is(.pop,.popmenu,.modal,.cap,.ctx){background:var(--l3)}
+/* 侧栏和顶栏靠背景分开，不画分隔线 */
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) .side{border-right:0;box-shadow:none}
+/* 输入框：不用边框，靠凹下去的一层背景；聚焦时浮起来（回到卡片色）+ 双环 */
+html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) :is(input[type=text],input[type=url],input[type=date],input[type=time],input[type=number],input[type=password],input[type=search],input[type=email],select,textarea,.quickadd){border-color:transparent}
+html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) :is(input,select,textarea):focus,html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) .quickadd:focus-within{border-color:transparent;background:var(--l2);box-shadow:0 0 0 1px rgba(var(--ac),.28),0 0 0 4px rgba(var(--ac),.1)}
+/* 3 深色字重降一档 */
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-theme="dark"] body{font-weight:360}
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-theme="dark"] :is(.b-text b,.b-text strong,.md b,.md strong,.cv-text b,.sm-t b,.sm-t strong){font-weight:660}
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-theme="dark"] :is(.card-h h3,.mt-b b,.bwn-t){font-weight:560}
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-theme="dark"] :is(.li-i b,.nav a.active){font-weight:460}
+html:is([data-skin="notion"],[data-skin="glass"],[data-skin="claude"])[data-theme="dark"] :is(.page-h h1,.hero .greet h1,input.page-title,.b-h1,.b-h2,.b-h3,h1,h2){font-weight:640}
+/* 5 图标和文字对齐 */
+svg.ic{vertical-align:-.125em;flex-shrink:0}
+/* 8 正文换行更好看：避免最后一行只剩一个字；标题平衡换行 */
+:is(p,li,.b-text,.md,.sm-t,.sm .txt,.cp-goal,.desc,.muted){text-wrap:pretty}
+:is(h1,h2,h3,.page-h h1,.card-h h3,.modal-h h3){text-wrap:balance}
+html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) .sx-input{box-shadow:none}
+html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) .sx-input:focus{background:var(--l2);box-shadow:0 0 0 1px rgba(var(--ac),.28),0 0 0 4px rgba(var(--ac),.1)}
+/* 4 汤圆新回复逐字浮现：每个字 120ms 从 blur(6px) 渐显，错开由 motion.js 给（--d） */
+.rv{animation:rv-in 120ms ease-out both;animation-delay:var(--d,0ms)}
+@keyframes rv-in{from{opacity:0;filter:blur(6px)}to{opacity:1;filter:none}}
+/* 9 弹簧：拖拽 1200/80（过阻尼，零回弹，约 335ms）；按下回弹 380/18（轻微过冲，约 635ms） */
+:root{
+  --spring-drag:linear(0,.0338,.11,.2032,.2994,.3913,.4755,.5504,.6162,.6732,.7223,.7644,.8002,.8307,.8567,.8787,.8973,.9131,.9265,.9378,.9474,.9555,.9624,.9682,.9731,.9772,.9807,.9837,.9862,.9883,.9901,.9917,.9929,.994,.995,.9957,.9964,.9969,.9974,.9978,1);--spring-drag-t:335ms;
+  --spring-pop:linear(0,.0433,.1549,.3086,.4812,.6538,.8121,.9466,1.0521,1.127,1.1728,1.193,1.1922,1.1757,1.1488,1.1163,1.0822,1.0499,1.0214,.9983,.981,.9696,.9636,.962,.964,.9685,.9744,.981,.9875,.9935,.9985,1.0024,1.0051,1.0067,1.0074,1.0073,1.0066,1.0055,1.0043,1.003,1);--spring-pop-t:635ms;
+}
+/* 拖过的时间块、侧栏和总览卡片落位：用拖拽弹簧 */
+.tl .blk:not(.moving){transition:top var(--spring-drag-t) var(--spring-drag),height var(--spring-drag-t) var(--spring-drag),left var(--spring-drag-t) var(--spring-drag),width var(--spring-drag-t) var(--spring-drag)}
+.mt-b{transition:top var(--spring-drag-t) var(--spring-drag),box-shadow .15s}
+/* 勾选、主按钮、色块：按下缩一点，松开带一点回弹（像点赞） */
+:is(.todo .cb,.fp-i .cb,.nt-row .cb,.bcard .cb,.st-cb,.tt-go,.bw-cta,.btn.primary,.pal-sw,.ctx-sw,.bc-tg,.cp-btn,.star,.fav){transition:transform var(--spring-pop-t) var(--spring-pop),background-color .15s,box-shadow .15s,color .15s,opacity .15s}
+:is(.todo .cb,.fp-i .cb,.nt-row .cb,.bcard .cb,.st-cb,.tt-go,.bw-cta,.btn.primary,.pal-sw,.ctx-sw,.bc-tg,.cp-btn,.star,.fav):active{transform:scale(.86);transition-duration:90ms;transition-timing-function:ease-out}
+/* 7 折叠：grid 0fr → 1fr，用拖拽弹簧（不回弹） */
+.clp{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--spring-drag-t) var(--spring-drag)}
+.clp.open{grid-template-rows:1fr}
+.clp-in{min-height:0;overflow:hidden}
+.clp:not(.open)>.clp-in{visibility:hidden;transition:visibility 0s var(--spring-drag-t)}
+/* 10 复制：图标换成对勾 2.5 秒；提示里也带一个对勾 */
+.cp-btn .cp-1{display:none}.cp-btn.copied .cp-0{display:none}.cp-btn.copied .cp-1{display:inline-block;color:var(--green);animation:cp-pop var(--spring-pop-t) var(--spring-pop)}
+@keyframes cp-pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+.toast.ok{display:inline-flex;align-items:center;gap:6px}.toast.ok svg{color:var(--green);flex:none}
+@media (prefers-reduced-motion: reduce){.rv{animation:none}.clp,.clp-in,.tl .blk,.mt-b{transition:none!important}:is(.todo .cb,.tt-go,.btn.primary,.pal-sw,.ctx-sw,.cp-btn):active{transform:none}}
