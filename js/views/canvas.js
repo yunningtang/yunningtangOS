@@ -10,10 +10,17 @@ import { askPrompt, askConfirm } from '../confirm.js';
 import { dropProps } from '../dnd.js';
 import { snippetOf, newNote } from './notes.js';
 import { mdToBlocks, sanitize } from '../blocks.js';
+import { openPalette, customColors } from '../palette.js';
 import { SelToolbar, inlineShortcut } from '../editor.js';
 
 const NODE_COLORS = [['', '默认'], ['#4f7cf5', '蓝'], ['#2d8f88', '青'], ['#4a9a6a', '绿'], ['#c7873a', '琥珀'], ['#c9588a', '玫红'], ['#7461c9', '紫'], ['#d2524f', '红']];
 const PEN_COLORS = ['#1b1d21', '#4f7cf5', '#d2524f', '#4a9a6a', '#c7873a', '#7461c9'];
+// 右键菜单里的一排色块：预设色 + 最近自定义过的几个（和笔记共用），当前的那个打勾
+function colorSwatches(cur, list, set) {
+  const pre = list.map(([c, l]) => ({ color: c, label: l, none: !c, on: (cur || '') === c, onClick: () => set(c) }));
+  const mine = customColors().filter((c) => !list.some(([x]) => x === c)).slice(0, 5).map((c) => ({ color: c, label: c + '（自定义）', on: cur === c, onClick: () => set(c) }));
+  return [...pre, ...mine];
+}
 const now = () => nowISO();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -193,14 +200,28 @@ function Board({ board, notes, notebooks }) {
         n.type === 'note' ? { label: '打开页面', icon: 'note', onClick: () => go('notes/' + n.note) } : { label: '编辑文字', icon: 'edit', onClick: () => setEditing(n.id) },
         n.type === 'text' && { label: '转为页面', icon: 'note', hint: '新建一页并链接', onClick: () => { const lines = (n.text || '').split('\n'); const title = lines[0].trim() || '无标题'; const body = lines.slice(1).join('\n').trim(); const p = newNote({ title, body, blocks: mdToBlocks(body) }); patchNode(n.id, { type: 'note', note: p.id, text: '', h: Math.max(n.h, 110) }); toast('已创建页面', { label: '打开', onClick: () => go('notes/' + p.id) }); } },
         'sep',
-        ...NODE_COLORS.map(([c, l]) => ({ label: l, icon: (n.color || '') === c ? 'check' : 'square', onClick: () => patchNode(n.id, { color: c }) })),
+        { head: '颜色' },
+        { swatches: colorSwatches(n.color || '', NODE_COLORS, (c) => patchNode(n.id, { color: c })) },
+        { label: '更多颜色…', icon: 'sparkle', hint: '自定义', onClick: () => openPalette(e, { kind: 'fill', cur: n.color || '', resetLabel: '默认颜色', presets: NODE_COLORS.filter(([c]) => c).map(([c, l]) => ({ v: c, color: c, title: l })), onPick: (v) => patchNode(n.id, { color: v || '' }) }) },
         'sep',
         { label: '从画布移除', icon: 'trash', danger: true, onClick: () => removeSel({ kind: 'node', id: n.id }) },
       ], n.type === 'note' ? (notes.find((x) => x.id === n.note) || {}).title || '页面' : '文字');
       return;
     }
     const edgeEl = t.closest('.cv-edge'); if (edgeEl) { const id = edgeEl.dataset.id; setSel({ kind: 'edge', id }); ctxMenu(e, [{ label: '写上文字…', icon: 'edit', onClick: () => editLabel(id) }, { label: '反转方向', icon: 'refresh', onClick: () => commit({ ...bRef.current, edges: bRef.current.edges.map((x) => (x.id === id ? { ...x, from: x.to, to: x.from } : x)) }) }, 'sep', { label: '删除连线', icon: 'trash', danger: true, onClick: () => removeSel({ kind: 'edge', id }) }], '连线'); return; }
-    const strokeEl = t.closest('.cv-stroke'); if (strokeEl) { const id = strokeEl.dataset.id; setSel({ kind: 'stroke', id }); ctxMenu(e, [{ label: '删除这一笔', icon: 'trash', danger: true, onClick: () => removeSel({ kind: 'stroke', id }) }], '笔迹'); return; }
+    const strokeEl = t.closest('.cv-stroke'); if (strokeEl) {
+      const id = strokeEl.dataset.id; setSel({ kind: 'stroke', id }); const st0 = bRef.current.strokes.find((x) => x.id === id) || {};
+      const patchStroke = (p) => commit({ ...bRef.current, strokes: bRef.current.strokes.map((x) => (x.id === id ? { ...x, ...p } : x)) });
+      ctxMenu(e, [
+        { head: '颜色' },
+        { swatches: colorSwatches(st0.color, PEN_COLORS.map((c) => [c, c]), (c) => patchStroke({ color: c })) },
+        { label: '更多颜色…', icon: 'sparkle', hint: '自定义', onClick: () => openPalette(e, { kind: 'fill', cur: st0.color, resetLabel: '默认（黑）', presets: PEN_COLORS.map((c) => ({ v: c, color: c, title: c })), onPick: (v) => patchStroke({ color: v || PEN_COLORS[0] }) }) },
+        { head: '粗细' },
+        ...[[2, '细'], [3, '中'], [6, '粗']].map(([w, l]) => ({ label: l, icon: st0.width === w ? 'check' : '', onClick: () => patchStroke({ width: w }) })),
+        'sep',
+        { label: '删除这一笔', icon: 'trash', danger: true, onClick: () => removeSel({ kind: 'stroke', id }) },
+      ], '笔迹'); return;
+    }
     const [wx, wy] = toWorld(e);
     ctxMenu(e, [
       { label: '添加文字', icon: 'type', onClick: () => addText(wx, wy) },

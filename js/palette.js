@@ -16,9 +16,9 @@ export const GRID = [
   ['#5b0f00', '#660000', '#783f04', '#7f6000', '#274e13', '#0c343d', '#1c4587', '#073763', '#20124d', '#4c1130'],
 ];
 const MAX_CUSTOM = 10;
-const customColors = () => { const c = get().settings.customColors; return Array.isArray(c) ? c.filter((x) => /^#[0-9a-f]{6}$/i.test(x)) : []; };
-function rememberColor(hex) { update((d) => { const c = customColors().filter((x) => x !== hex); d.settings.customColors = [hex, ...c].slice(0, MAX_CUSTOM); }); }
-function forgetColor(hex) { update((d) => { d.settings.customColors = customColors().filter((x) => x !== hex); }); }
+const customList = () => { const c = get().settings.customColors; return Array.isArray(c) ? c.filter((x) => /^#[0-9a-f]{6}$/i.test(x)) : []; };
+function rememberColor(hex) { update((d) => { const c = customList().filter((x) => x !== hex); d.settings.customColors = [hex, ...c].slice(0, MAX_CUSTOM); }); }
+function forgetColor(hex) { update((d) => { d.settings.customColors = customList().filter((x) => x !== hex); }); }
 
 let host = null, setCurrent = null;
 function Palette() {
@@ -46,10 +46,10 @@ function Palette() {
   };
   // 按下时别抢走选区
   const sw = (v, color, title, extra = '') => html`<button type="button" key=${v} class=${'pal-sw ' + extra + (cur === String(v).toLowerCase() ? ' on' : '')} title=${title} style=${`--c:${color}`} onMouseDown=${(e) => e.preventDefault()} onClick=${() => pick(v)}>${text && extra.includes('pre') ? 'A' : ''}</button>`;
-  const presets = text ? TEXT_COLORS.map((c) => sw(c, `var(--tc-${c})`, TEXT_COLOR_NAMES[c] + '（跟着深浅色变）', 'pre txt')) : HL_COLORS.map((c) => sw(c, `var(--hs-${c})`, HL_NAMES[c] + '（跟着深浅色变）', 'pre'));
-  const customs = customColors();
+  const presets = m.presets ? m.presets.map((p) => sw(p.v, p.color, p.title)) : text ? TEXT_COLORS.map((c) => sw(c, `var(--tc-${c})`, TEXT_COLOR_NAMES[c] + '（跟着深浅色变）', 'pre txt')) : HL_COLORS.map((c) => sw(c, `var(--hs-${c})`, HL_NAMES[c] + '（跟着深浅色变）', 'pre'));
+  const customs = customList();
   return html`<div class="pal popmenu" ref=${ref} style=${`left:${m.x}px;top:${m.y}px;visibility:hidden`} onContextMenu=${(e) => e.preventDefault()}>
-    <button type="button" class="pal-reset" onMouseDown=${(e) => e.preventDefault()} onClick=${() => pick(text ? '' : null)}><${Icon} name=${text ? 'refresh' : 'x'} size=${13} />${text ? '默认颜色' : '去掉标记'}</button>
+    <button type="button" class="pal-reset" onMouseDown=${(e) => e.preventDefault()} onClick=${() => pick(text || m.presets ? '' : null)}><${Icon} name=${text || m.presets ? 'refresh' : 'x'} size=${13} />${m.resetLabel || (text ? '默认颜色' : '去掉标记')}</button>
     <div class="pal-h">主题色</div>
     <div class="pal-row">${presets}</div>
     <div class="pal-h">更多颜色</div>
@@ -57,16 +57,18 @@ function Palette() {
     <div class="pal-h">自定义<small>右键可以删掉</small></div>
     <div class="pal-row">
       ${customs.map((c) => html`<span key=${c} onContextMenu=${(e) => { e.preventDefault(); forgetColor(c); bump((x) => x + 1); }}>${sw(c, c, c + '（右键删掉）')}</span>`)}
-      <label class="pal-sw pal-add" title="调一个颜色" onMouseDown=${(e) => e.preventDefault()}><${Icon} name="plus" size=${13} /><input type="color" value=${/^#/.test(cur) ? cur : (text ? '#3b6fd6' : '#ffe066')} onChange=${(e) => { const v = e.target.value.toLowerCase(); rememberColor(v); pick(v); }} /></label>
+      <label class="pal-sw pal-add" title="调一个颜色" onMouseDown=${(e) => e.preventDefault()}><${Icon} name="plus" size=${13} /><input type="color" value=${/^#/.test(cur) ? cur : (text || m.presets ? '#3b6fd6' : '#ffe066')} onChange=${(e) => { const v = e.target.value.toLowerCase(); rememberColor(v); pick(v); }} /></label>
     </div>
   </div>`;
 }
 
 // kind：'text' | 'hl'；cur：现在的颜色（预设名或 #hex）；onPick(v)：v 为 '' / null 表示默认 / 去掉
-export function openPalette(e, { kind, cur, onPick }) {
+// presets / resetLabel：别处（画布卡片、笔迹）用自己的一排预设色，选「默认」时 v 为 ''
+export function customColors() { return customList(); }
+export function openPalette(e, { kind, cur, onPick, presets, resetLabel }) {
   e.preventDefault(); e.stopPropagation();
   if (!host) { host = document.createElement('div'); host.id = 'pal-host'; document.body.appendChild(host); render(html`<${Palette} />`, host); }
   const s = getSelection(); const range = s && s.rangeCount ? s.getRangeAt(0).cloneRange() : null;
   const r = e.currentTarget && e.currentTarget.getBoundingClientRect ? e.currentTarget.getBoundingClientRect() : null;
-  setCurrent({ kind, cur, onPick, range, x: r ? r.left : e.clientX, y: r ? r.bottom + 6 : e.clientY });
+  setCurrent({ kind, cur, onPick, presets, resetLabel, range, x: r ? r.left : e.clientX, y: r ? r.bottom + 6 : e.clientY });
 }
