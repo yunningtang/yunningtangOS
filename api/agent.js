@@ -193,12 +193,51 @@ const SCHEMA_BRAIN = { type: 'object', additionalProperties: false, required: ['
 const SCHEMA_DOC = { type: 'object', additionalProperties: false, required: ['reply', 'markdown'], properties: { reply: { type: 'string' }, markdown: S_OR_NULL } };
 const SCHEMA_BREAKDOWN = { type: 'object', additionalProperties: false, required: ['reply', 'goal', 'steps'], properties: { reply: { type: 'string' }, goal: S_OR_NULL, steps: { type: 'array', items: STEP } } };
 
+// ---- 学习画布：对着材料（PDF / 图片 / 一段文字）讲题、讲概念，像一个耐心的家教 ----
+const SYSTEM_LEARN = `${PERSONA}
+
+你现在是对方的学习助教，在一块「学习画布」上帮对方弄懂一份材料（论文、课件、题目、教材段落）。对方问一句，你回一块「讲解面板」，由几张卡片组成。
+原则：
+1. 目标是让对方真的弄懂、以后自己会做，不是只给答案。先讲清楚这一步为什么这么做，再讲怎么做。
+2. 依据对方给的材料回答；材料里没有、需要你补充的背景，直接说明「材料里没写，补充一下」。不确定就说不确定，不要编数据和引用。
+3. 用对方提问的语言回答（问题是中文就用中文讲，英文术语第一次出现时附上原文）。
+4. 数学一律用 LaTeX：行内 $...$，单独一行的公式 $$...$$。不要用 \\( \\) 或 \\[ \\]。
+5. 卡片 2–5 张，按讲解顺序排：
+   - text：一段讲解，body 用简短的 Markdown（可以有列表、粗体、表格）。
+   - formula：一个关键公式，latex 放公式本身（不带 $），body 用一两句解释每个符号。
+   - steps：分步推导或解题步骤，3–7 步。每步 title 是这一步做什么（一句话），hint 是给对方自己试的提示（不剧透结果），detail 是这一步的完整做法和结果。
+   - check：一道小测验检查理解，question 是题目，options 是 3–4 个选项，answer 是正确选项的序号（从 0 开始），explain 解释为什么。每块面板最多一道。
+   - tip：容易错的地方、记忆方法，body 一两句。
+   不用的字段填 null（数组填 []，answer 填 -1）。
+6. 对方说「这一步没看懂」时：只围绕那一步，用更基础、更具体的方式重讲（举数字例子、拆得更细），不要把整题重讲一遍。
+7. title 是这块面板的小标题（8–20 个字），像章节名。reply 是一句话的总结（30 字以内）。`;
+const LEARN_STEP = { type: 'object', additionalProperties: false, required: ['title', 'hint', 'detail'], properties: { title: { type: 'string' }, hint: S_OR_NULL, detail: S_OR_NULL } };
+const LEARN_CARD = { type: 'object', additionalProperties: false, required: ['type', 'title', 'body', 'latex', 'steps', 'question', 'options', 'answer', 'explain'], properties: { type: { type: 'string', enum: ['text', 'formula', 'steps', 'check', 'tip'] }, title: S_OR_NULL, body: S_OR_NULL, latex: S_OR_NULL, steps: { type: 'array', items: LEARN_STEP }, question: S_OR_NULL, options: { type: 'array', items: { type: 'string' } }, answer: { type: 'integer' }, explain: S_OR_NULL } };
+const SCHEMA_LEARN = { type: 'object', additionalProperties: false, required: ['reply', 'title', 'cards'], properties: { reply: { type: 'string' }, title: { type: 'string' }, cards: { type: 'array', items: LEARN_CARD } } };
+const LEARN_TYPES = ['text', 'formula', 'steps', 'check', 'tip'];
+function validateCard(c) {
+  if (!c || typeof c !== 'object' || !LEARN_TYPES.includes(c.type)) return null;
+  const out = { type: c.type, title: str(c.title, 80) || '' };
+  if (c.body) out.body = str(c.body, 4000) || '';
+  if (c.type === 'formula') out.latex = str(c.latex, 600) || '';
+  if (c.type === 'steps') out.steps = (Array.isArray(c.steps) ? c.steps : []).map((x) => x && str(x.title, 200) ? { title: str(x.title, 200), hint: str(x.hint, 600) || '', detail: str(x.detail, 2000) || '' } : null).filter(Boolean).slice(0, 8);
+  if (c.type === 'check') {
+    const opts = (Array.isArray(c.options) ? c.options : []).map((x) => str(x, 200)).filter(Boolean).slice(0, 5);
+    if (!str(c.question, 400) || opts.length < 2) return null;
+    Object.assign(out, { question: str(c.question, 400), options: opts, answer: Number.isInteger(c.answer) && c.answer >= 0 && c.answer < opts.length ? c.answer : -1, explain: str(c.explain, 1200) || '' });
+  }
+  if (c.type === 'steps' && !out.steps.length) return null;
+  if ((c.type === 'text' || c.type === 'tip') && !out.body) return null;
+  return out;
+}
+
 const JSON_HINT = {
   capture: '只输出一个 JSON 对象：{"intent": "chat|capture|plan|modify", "reply": "...", "items": [...]}，每个 item 含 ref,kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
   doc: '只输出一个 JSON 对象：{"reply": "...", "markdown": "..."}（不需要改正文时 markdown 为 null）。markdown 字符串里的换行写成 \\n。不要输出 JSON 之外的任何文字。',
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "goal": "..." 或 null, "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
   stuck: '只输出一个 JSON 对象：{"reply": "...", "first": {"title": "...", "minutes": 5}, "tip": null, "next_steps": []}。不要输出 JSON 之外的任何文字。',
   brain: '只输出一个 JSON 对象：{"reply": "...", "picks": [{"id": "...", "region": "plan|memory|talk|move|habit|alarm"}]}。不要输出 JSON 之外的任何文字。',
+  learn: '只输出一个 JSON 对象：{"reply": "...", "title": "...", "cards": [{"type": "text|formula|steps|check|tip", "title": null, "body": null, "latex": null, "steps": [{"title": "...", "hint": null, "detail": null}], "question": null, "options": [], "answer": -1, "explain": null}]}。字符串里的反斜杠要写成 \\\\（比如 LaTeX 的 \\\\frac），换行写成 \\n。不要输出 JSON 之外的任何文字。',
 };
 
 /* ---------------- 上下文 ---------------- */
@@ -222,6 +261,13 @@ function contextBlock(c, mode) {
     return lines.join('\n');
   }
   if (mode === 'brain') return lines.join('\n');
+  if (mode === 'learn') {
+    if (c.materialName) lines.push(`材料：${String(c.materialName).slice(0, 120)}`);
+    if (c.material) lines.push(`材料内容（节选）：\n<material>\n${String(c.material).slice(0, 16000)}\n</material>`);
+    if (c.prior) lines.push(`之前这块画布上讲过的（节选）：\n${String(c.prior).slice(0, 3000)}`);
+    if (c.focus) lines.push(`对方指着的这一步 / 这一段：\n${String(c.focus).slice(0, 1500)}`);
+    return lines.join('\n');
+  }
   if (mode === 'stuck') {
     lines.push(`卡住的事：${String(c.title || '').slice(0, 120)}`);
     if (c.note) lines.push(`备注：${String(c.note).slice(0, 600)}`);
@@ -341,12 +387,12 @@ async function askDeepSeek(cfg, system, messages, mode, retry = 0) {
   return { out: parseLoose(content), raw: String(content).slice(0, 120), model: j.model || cfg.model, usage: { in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0, cached: j.usage?.prompt_cache_hit_tokens || 0 }, truncated: choice.finish_reason === 'length' };
 }
 
-async function askClaude(cfg, system, schema, messages) {
+async function askClaude(cfg, system, schema, messages, maxTokens = 4096) {
   const client = new Anthropic({ apiKey: cfg.key });
   let r;
   try {
     r = await client.beta.messages.create({
-      model: cfg.model, max_tokens: 4096,
+      model: cfg.model, max_tokens: maxTokens,
       betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
       system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
       output_config: { effort: 'low', format: { type: 'json_schema', schema } },
@@ -395,7 +441,7 @@ export default async function handler(req, res) {
     if (n > freeCalls()) return json(res, 429, { error: `这个月的 ${freeCalls()} 次免费额度用完了。去设置里填自己的 DeepSeek / Claude 密钥就能继续用`, quota: true });
   }
 
-  const body = await readJson(req, 1e6);
+  const body = await readJson(req, 4.6e6); // 学习画布可能带一张图
   if (!body) return json(res, 400, { error: 'bad json' });
   const r = await runAgent(body, cfg);
   json(res, r.status, r.body);
@@ -403,18 +449,22 @@ export default async function handler(req, res) {
 
 // 真正干活的部分，和 HTTP 分开，方便 tools/eval-agent.mjs 直接调用做评测
 export async function runAgent(body, cfg) {
-  const mode = ['breakdown', 'doc', 'brain', 'stuck'].includes(body.mode) ? body.mode : 'capture';
+  const mode = ['breakdown', 'doc', 'brain', 'stuck', 'learn'].includes(body.mode) ? body.mode : 'capture';
   const text = String(body.text || '').trim().slice(0, 4000);
   if (!text) return { status: 400, body: { error: 'text required' } };
   const history = mode === 'capture' ? (Array.isArray(body.history) ? body.history : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-8).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })) : [];
-  const system = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN, stuck: SYSTEM_STUCK }[mode] || SYSTEM_CAPTURE;
-  const schema = { breakdown: SCHEMA_BREAKDOWN, doc: SCHEMA_DOC, brain: SCHEMA_BRAIN, stuck: SCHEMA_STUCK }[mode] || SCHEMA_CAPTURE;
-  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${{ breakdown: '要拆的事', doc: '要求', brain: '要分的待办（每行一件：id | 标题 | 备注）', stuck: '对方自己说的' }[mode] || '说的话'}：${text}` };
+  const system = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN, stuck: SYSTEM_STUCK, learn: SYSTEM_LEARN }[mode] || SYSTEM_CAPTURE;
+  const schema = { breakdown: SCHEMA_BREAKDOWN, doc: SCHEMA_DOC, brain: SCHEMA_BRAIN, stuck: SCHEMA_STUCK, learn: SCHEMA_LEARN }[mode] || SCHEMA_CAPTURE;
+  // 学习画布可以带一张图（截图 / 拍的题）。DeepSeek 看不了图片
+  const img = mode === 'learn' && body.image && typeof body.image === 'object' && /^image\/(png|jpeg|webp|gif)$/.test(body.image.type) && typeof body.image.data === 'string' && /^[A-Za-z0-9+/=]+$/.test(body.image.data.slice(0, 200)) && body.image.data.length < 4.4e6 ? body.image : null;
+  if (img && cfg.provider === 'deepseek') return { status: 400, body: { error: '现在用的是 DeepSeek，它看不了图片。可以把题目文字粘贴进来，或者在设置里换成 Claude', needVision: true } };
+  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${{ breakdown: '要拆的事', doc: '要求', brain: '要分的待办（每行一件：id | 标题 | 备注）', stuck: '对方自己说的', learn: '对方的问题' }[mode] || '说的话'}：${text}` };
+  if (img) userMsg.content = [{ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } }, { type: 'text', text: userMsg.content }];
   const messages = [...history, userMsg];
 
   let got;
   try {
-    got = cfg.provider === 'deepseek' ? await askDeepSeek(cfg, system, messages, mode) : await askClaude(cfg, system, schema, messages);
+    got = cfg.provider === 'deepseek' ? await askDeepSeek(cfg, system, messages, mode) : await askClaude(cfg, system, schema, messages, mode === 'learn' ? 8000 : 4096);
     // DeepSeek：空内容 / 坏 JSON / 被截断 → 最多再试两次（第二次不开 json 模式），用量累加
     for (let k = 1; k <= 2 && cfg.provider === 'deepseek' && (!got.out || got.truncated); k++) {
       const again = await askDeepSeek(cfg, system, messages, mode, k);
@@ -439,6 +489,11 @@ export async function runAgent(body, cfg) {
   if (mode === 'brain') {
     const picks = (Array.isArray(got.out.picks) ? got.out.picks : []).filter((p) => p && typeof p.id === 'string' && BRAIN_IDS.includes(p.region)).map((p) => ({ id: p.id.slice(0, 80), region: p.region })).slice(0, 80);
     return { status: 200, body: { ...base, picks } };
+  }
+  if (mode === 'learn') {
+    const cards = (Array.isArray(got.out.cards) ? got.out.cards : []).map(validateCard).filter(Boolean).slice(0, 6);
+    if (!cards.length) return { status: 502, body: { error: '汤圆这次没讲出东西来，再问一次试试' } };
+    return { status: 200, body: { ...base, title: str(got.out.title, 40) || '讲解', cards } };
   }
   if (mode === 'breakdown') {
     const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).map(validateStep).filter(Boolean).slice(0, 7);

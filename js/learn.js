@@ -1,0 +1,208 @@
+// 学习画布：把要学的东西（PDF / 图片 / 一段文字）放上画布，在下面的框里问汤圆，
+// 汤圆回一块「讲解面板」（讲解 / 公式 / 分步 / 小测验），哪一步不懂就从那一步再分叉出去讲。全部存在画布里，会同步。
+// 节点：{ type: 'src', kind: 'pdf'|'image'|'text', fid?, name, text? }  { type: 'learn', q, title, reply, cards, src, mode, picks, pending, error }
+import { html, useState, useEffect, useRef } from '../vendor/preact.js';
+import { marked } from '../vendor/marked.js';
+import { sanitizeDoc } from './blocks.js';
+import { getFile, fileUrl, kvGet, kvSet } from './files.js';
+import { fetchAttachment, loginState } from './sync.js';
+import { aiEnabled, aiHeaders, recordUsage } from './ai.js';
+import { todayStr, escapeHtml as esc } from './util.js';
+import { Icon } from './ui.js';
+
+const VENDOR = new URL('../vendor/', import.meta.url).href;
+
+/* ---------- 公式：KaTeX 用到时才加载 ---------- */
+let katexP = null;
+export function loadKatex() {
+  if (window.katex) return Promise.resolve(window.katex);
+  if (katexP) return katexP;
+  katexP = new Promise((res, rej) => {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = VENDOR + 'katex/katex.min.css'; document.head.appendChild(l);
+    const sc = document.createElement('script'); sc.src = VENDOR + 'katex/katex.min.js'; sc.onload = () => res(window.katex); sc.onerror = () => { katexP = null; rej(new Error('公式组件加载失败')); }; document.head.appendChild(sc);
+  });
+  return katexP;
+}
+const tex = (s, display) => {
+  const k = window.katex; if (!k) return `<code>${esc(s)}</code>`;
+  try { return k.renderToString(s, { displayMode: display, throwOnError: false, strict: 'ignore', output: 'html' }); } catch { return `<code>${esc(s)}</code>`; }
+};
+// Markdown + 公式：先把 $...$ / $$...$$ 换成占位符（私用区字符，Markdown 和消毒都不会动它），Markdown 渲染并消毒后再换回 KaTeX 的结果（KaTeX 自己会转义）
+export function richHtml(md, inline = false) {
+  const maths = [];
+  const src = String(md || '')
+    .replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => { maths.push([m, true]); return `\uE000${maths.length - 1}\uE001`; })
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => { maths.push([m, true]); return `\uE000${maths.length - 1}\uE001`; })
+    .replace(/\\\(([\s\S]+?)\\\)/g, (_, m) => { maths.push([m, false]); return `\uE000${maths.length - 1}\uE001`; })
+    .replace(/(^|[^\\$])\$([^$\n]+?)\$/g, (_, pre, m) => { maths.push([m, false]); return `${pre}\uE000${maths.length - 1}\uE001`; });
+  let out = sanitizeDoc(inline ? marked.parseInline(src) : marked.parse(src));
+  out = out.replace(/\uE000(\d+)\uE001/g, (_, i) => tex(maths[i][0], maths[i][1]));
+  return out;
+}
+export function useKatex() { const [, set] = useState(!!window.katex); useEffect(() => { if (!window.katex) loadKatex().then(() => set(true)).catch(() => {}); }, []); }
+export const Rich = ({ md, inline, class: cls = '' }) => (inline ? html`<span class=${'lr-md ' + cls} dangerouslySetInnerHTML=${{ __html: richHtml(md, true) }}></span>` : html`<div class=${'lr-md ' + cls} dangerouslySetInnerHTML=${{ __html: richHtml(md) }}></div>`);
+
+/* ---------- PDF：pdf.js 用到时才加载 ---------- */
+let pdfjsP = null;
+function loadPdfjs() {
+  if (!pdfjsP) pdfjsP = import(VENDOR + 'pdfjs/pdf.min.mjs').then((m) => { m.GlobalWorkerOptions.workerSrc = VENDOR + 'pdfjs/pdf.worker.min.mjs'; return m; }).catch((e) => { pdfjsP = null; throw e; });
+  return pdfjsP;
+}
+// 这台设备没有这个附件（别的设备传的）就先从云端取
+export async function fileBlob(fid, meta = {}) {
+  let r = await getFile(fid); if (!r) r = await fetchAttachment(fid, meta);
+  return r ? r.blob : null;
+}
+const docs = new Map();
+export function pdfDoc(fid, name) {
+  if (!docs.has(fid)) docs.set(fid, (async () => { const blob = await fileBlob(fid, { name, mime: 'application/pdf' }); if (!blob) throw new Error('这台设备上还没有这个文件'); const pdfjs = await loadPdfjs(); return pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false }).promise; })().catch((e) => { docs.delete(fid); throw e; }));
+  return docs.get(fid);
+}
+// 每页的文字，抽一次存在本机（不进同步数据，PDF 文字可能很长）
+export async function pdfPages(fid, name) {
+  const key = 'pdftext:' + fid; const cached = await kvGet(key); if (Array.isArray(cached)) return cached;
+  const doc = await pdfDoc(fid, name); const pages = [];
+  for (let i = 1; i <= doc.numPages; i++) { const p = await doc.getPage(i); const tc = await p.getTextContent(); pages.push(tc.items.map((x) => x.str + (x.hasEOL ? '\n' : '')).join('').replace(/[ \t]+/g, ' ').trim()); }
+  await kvSet(key, pages); return pages;
+}
+// 材料太长时挑和问题最相关的几页（按字词重叠打分，「第 N 页」直接带上），总长不超过 limit
+export function pickPages(pages, q, limit = 15000) {
+  const all = pages.map((t, i) => `【第 ${i + 1} 页】\n${t}`);
+  if (all.join('\n\n').length <= limit) return all.join('\n\n');
+  const want = new Set(); for (const m of String(q).matchAll(/第\s*(\d+)\s*页|p(?:age)?\.?\s*(\d+)/gi)) want.add(+(m[1] || m[2]) - 1);
+  const terms = [...new Set((String(q).toLowerCase().match(/[a-z][a-z0-9-]{2,}|[一-鿿]{2}/g) || []))];
+  const score = pages.map((t, i) => { const low = t.toLowerCase(); let s = want.has(i) ? 1e6 : 0; for (const w of terms) { const n = low.split(w).length - 1; s += Math.min(n, 8); } return [s - i * 0.01, i]; });
+  score.sort((a, b) => b[0] - a[0]);
+  const keep = []; let len = 0; for (const [, i] of [[0, 0], ...score]) { if (keep.includes(i)) continue; if (len + all[i].length > limit && keep.length) continue; keep.push(i); len += all[i].length; if (len > limit * 0.95) break; }
+  return keep.sort((a, b) => a - b).map((i) => all[i]).join('\n\n') + `\n\n（材料共 ${pages.length} 页，这里只选了和问题相关的几页）`;
+}
+
+// 一页 PDF：进到视野里才画，宽度跟着节点
+function PdfPage({ doc, num, width }) {
+  const ref = useRef(); const [h, setH] = useState(width * 1.3);
+  useEffect(() => {
+    let alive = true, task = null, drawn = 0;
+    const el = ref.current; if (!el) return;
+    const draw = async () => {
+      if (drawn === width) return; drawn = width;
+      const p = await doc.getPage(num); if (!alive) return;
+      const vp1 = p.getViewport({ scale: 1 }); const scale = width / vp1.width; const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const vp = p.getViewport({ scale: scale * dpr }); setH(vp1.height * scale);
+      const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height; c.style.width = '100%';
+      task = p.render({ canvasContext: c.getContext('2d'), viewport: vp }); await task.promise.catch(() => {}); if (!alive) return;
+      el.replaceChildren(c);
+    };
+    const io = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) draw(); }, { rootMargin: '400px' }); io.observe(el);
+    return () => { alive = false; io.disconnect(); try { task && task.cancel(); } catch {} };
+  }, [doc, num, width]);
+  return html`<div class="lr-page" ref=${ref} style=${`height:${Math.round(h)}px`} data-page=${num}><span class="lr-pn">${num}</span></div>`;
+}
+export function PdfView({ fid, name, width }) {
+  const [st, setSt] = useState({ doc: null, err: '' });
+  useEffect(() => { let alive = true; pdfDoc(fid, name).then((doc) => alive && setSt({ doc, err: '' })).catch((e) => alive && setSt({ doc: null, err: e.message || '打不开这个 PDF' })); return () => { alive = false; }; }, [fid]);
+  if (st.err) return html`<div class="lr-msg">${st.err}</div>`;
+  if (!st.doc) return html`<div class="lr-msg">正在打开 PDF…</div>`;
+  const w = Math.max(160, Math.round(width - 24));
+  return html`<div class="lr-pages">${Array.from({ length: st.doc.numPages }, (_, i) => html`<${PdfPage} key=${i} doc=${st.doc} num=${i + 1} width=${w} />`)}</div>`;
+}
+function ImageView({ fid, name }) {
+  const [u, setU] = useState(null); const [err, setErr] = useState('');
+  useEffect(() => { let alive = true; (async () => { let url = await fileUrl(fid); if (!url) { const r = await fetchAttachment(fid, { name }); if (r) url = await fileUrl(fid); } if (!alive) return; if (url) setU(url); else setErr('这台设备上还没有这张图'); })(); return () => { alive = false; }; }, [fid]);
+  return err ? html`<div class="lr-msg">${err}</div>` : u ? html`<img class="lr-img" src=${u} alt=${name || ''} draggable="false" />` : html`<div class="lr-msg">正在加载…</div>`;
+}
+export function SrcNode({ n }) {
+  const icon = n.kind === 'pdf' ? 'note' : n.kind === 'image' ? 'image' : 'type';
+  return html`<div class="lr-src">
+    <div class="lr-src-h"><${Icon} name=${icon} size=${13} /><b title=${n.name}>${n.name || (n.kind === 'text' ? '一段文字' : '材料')}</b><span class="lr-k">材料</span></div>
+    <div class="lr-src-b cv-scroll">${n.kind === 'pdf' ? html`<${PdfView} fid=${n.fid} name=${n.name} width=${n.w} />` : n.kind === 'image' ? html`<${ImageView} fid=${n.fid} name=${n.name} />` : html`<div class="lr-text">${n.text || ''}</div>`}</div>
+  </div>`;
+}
+
+/* ---------- 讲解面板 ---------- */
+function StepsCard({ c, mode, onStuck }) {
+  const [open, setOpen] = useState({}); // i → 'hint' | 'detail'
+  const tog = (i, what) => setOpen((o) => ({ ...o, [i]: o[i] === what ? null : what }));
+  return html`<ol class="lr-steps">${c.steps.map((s, i) => { const show = mode === 'answer' ? 'detail' : open[i]; return html`<li key=${i} class=${show ? 'open' : ''}>
+    <div class="lr-st-h"><span class="lr-st-n">${i + 1}</span><${Rich} md=${s.title} inline=${true} class="lr-st-t" /></div>
+    ${show === 'hint' && s.hint && html`<div class="lr-hint"><${Icon} name="sparkle" size=${11} /><${Rich} md=${s.hint} inline=${true} /></div>`}
+    ${show === 'detail' && html`<${Rich} md=${s.detail || s.hint || ''} class="lr-detail" />`}
+    <div class="lr-st-a">
+      ${mode !== 'answer' && s.hint && html`<button type="button" class=${show === 'hint' ? 'on' : ''} onClick=${() => tog(i, 'hint')}>提示</button>`}
+      ${mode !== 'answer' && html`<button type="button" class=${show === 'detail' ? 'on' : ''} onClick=${() => tog(i, 'detail')}>${show === 'detail' ? '收起' : '看这一步'}</button>`}
+      <button type="button" class="lr-stuck" onClick=${() => onStuck(`第 ${i + 1} 步：${s.title}\n${s.detail || ''}`, s.title)}>这步不懂</button>
+    </div>
+  </li>`; })}</ol>`;
+}
+function CheckCard({ c, picked, onPick }) {
+  const done = picked != null;
+  return html`<div class="lr-check">
+    <div class="lr-ck-k"><${Icon} name=${done ? (picked === c.answer ? 'check' : 'x') : 'target'} size=${12} />${done ? (picked === c.answer ? '答对了' : '再想想') : '小测验'}</div>
+    <${Rich} md=${c.question} class="lr-ck-q" />
+    <div class="lr-opts">${c.options.map((o, i) => html`<button type="button" key=${i} class=${'lr-opt ' + (done && i === c.answer ? 'right ' : '') + (done && i === picked && i !== c.answer ? 'wrong' : '')} disabled=${done} onClick=${() => onPick(i)}><b>${'ABCDE'[i]}</b><${Rich} md=${o} inline=${true} /></button>`)}</div>
+    ${done && c.explain && html`<${Rich} md=${c.explain} class="lr-ck-x" />`}
+    ${done && html`<button type="button" class="lr-ck-again" onClick=${() => onPick(null)}>重做</button>`}
+  </div>`;
+}
+export function LearnNode({ n, onPatch, onStuck, onRetry }) {
+  useKatex();
+  const mode = n.mode || 'hint';
+  if (n.pending) return html`<div class="lr-panel"><div class="lr-q"><${Icon} name="chat" size=${12} />${n.q}</div><div class="lr-wait"><i></i><i></i><i></i><span>汤圆在看材料…</span></div></div>`;
+  if (n.error) return html`<div class="lr-panel"><div class="lr-q"><${Icon} name="chat" size=${12} />${n.q}</div><div class="lr-err">${n.error}</div><button type="button" class="btn sm" onClick=${onRetry}>再问一次</button></div>`;
+  const cards = n.cards || [];
+  return html`<div class="lr-panel">
+    <div class="lr-q"><${Icon} name="chat" size=${12} /><${Rich} md=${n.q} inline=${true} /></div>
+    <div class="lr-h"><b>${n.title || '讲解'}</b>${cards.some((c) => c.type === 'steps') && html`<div class="lr-mode"><button type="button" class=${mode === 'hint' ? 'on' : ''} onClick=${() => onPatch({ mode: 'hint' })}>提示</button><button type="button" class=${mode === 'answer' ? 'on' : ''} onClick=${() => onPatch({ mode: 'answer' })}>答案</button></div>`}</div>
+    ${cards.map((c, i) => html`<div key=${i} class=${'lr-card ' + c.type}>
+      ${c.title && c.type !== 'check' && html`<div class="lr-ct">${c.type === 'tip' && html`<${Icon} name="sparkle" size=${12} />`}${c.title}</div>`}
+      ${c.type === 'formula' && html`<div class="lr-formula" dangerouslySetInnerHTML=${{ __html: tex(c.latex || '', true) }}></div>`}
+      ${(c.type === 'text' || c.type === 'tip' || c.type === 'formula') && c.body && html`<${Rich} md=${c.body} />`}
+      ${c.type === 'steps' && html`<${StepsCard} c=${c} mode=${mode} onStuck=${onStuck} />`}
+      ${c.type === 'check' && html`<${CheckCard} c=${c} picked=${(n.picks || {})[i]} onPick=${(v) => onPatch({ picks: { ...(n.picks || {}), [i]: v } })} />`}
+      ${(c.type === 'text' || c.type === 'formula') && html`<button type="button" class="lr-stuck lr-card-stuck" onClick=${() => onStuck((c.title ? c.title + '\n' : '') + (c.latex || '') + '\n' + (c.body || ''), c.title || '这一段')}>这段不懂</button>`}
+    </div>`)}
+  </div>`;
+}
+
+/* ---------- 问汤圆 ---------- */
+// 一块面板的纯文字摘要：给下一个问题当「之前讲过的」
+export function panelText(n) {
+  const parts = [`【${n.title || ''}】问：${n.q || ''}`];
+  for (const c of n.cards || []) {
+    if (c.title) parts.push(c.title);
+    if (c.body) parts.push(c.body.slice(0, 400));
+    if (c.latex) parts.push('$$' + c.latex + '$$');
+    if (c.steps) parts.push(c.steps.map((s, i) => `${i + 1}. ${s.title}`).join('\n'));
+    if (c.question) parts.push('小测验：' + c.question);
+  }
+  return parts.join('\n');
+}
+async function imagePayload(blob) {
+  const file = blob instanceof File ? blob : new File([blob], 'image', { type: blob.type || 'image/png' });
+  const { imageToDataUrl } = await import('./util.js');
+  const url = await imageToDataUrl(file, 1600, 0.85); const m = url.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+  return m ? { type: m[1], data: m[2] } : null;
+}
+// 材料：src 节点 → 文字（PDF 抽文字、文字直接用）或图片
+export async function materialOf(src, q) {
+  if (!src) return {};
+  if (src.kind === 'text') return { materialName: src.name || '一段文字', material: String(src.text || '').slice(0, 16000) };
+  if (src.kind === 'pdf') {
+    const pages = await pdfPages(src.fid, src.name);
+    const total = pages.join('').trim().length;
+    if (total < 20) return { materialName: src.name, material: '', scanned: true };
+    return { materialName: src.name, material: pickPages(pages, q) };
+  }
+  if (src.kind === 'image') { const blob = await fileBlob(src.fid, { name: src.name }); return { materialName: src.name || '图片', image: blob ? await imagePayload(blob) : null }; }
+  return {};
+}
+export async function askLearn({ q, src, prior, focus }) {
+  if (!aiEnabled(loginState())) throw new Error('登录并打开 AI 之后，汤圆才能讲解（设置 → 汤圆 → AI）');
+  const m = await materialOf(src, q + ' ' + (focus || ''));
+  if (m.scanned) throw new Error('这份 PDF 读不到文字（可能是扫描件）。可以截图那一页拖进画布，再问汤圆');
+  const now = new Date();
+  const resp = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, signal: AbortSignal.timeout(120000), body: JSON.stringify({ mode: 'learn', text: q, image: m.image || undefined, context: { today: todayStr(), weekday: '', now: `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`, materialName: m.materialName || '', material: m.material || '', prior: prior || '', focus: focus || '' } }) });
+  const j = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(j.error || (resp.status === 413 ? '图片太大了，换一张小一点的' : `出错了（${resp.status}）`));
+  recordUsage(j);
+  return { title: j.title, reply: j.reply, cards: j.cards || [] };
+}

@@ -1,5 +1,6 @@
 // 画布: an infinite board for thinking with pages, text, freehand strokes and arrows between them.
-// { id, title, nodes: [{ id, type: 'text'|'note', x, y, w, h, text?, note?, color? }], edges: [{ id, from, to, label }], strokes: [{ id, color, width, pts: [[x,y]] }] }
+// { id, title, nodes: [{ id, type: 'text'|'note'|'src'|'learn', x, y, w, h, text?, note?, color? }], edges: [{ id, from, to, label }], strokes: [{ id, color, width, pts: [[x,y]] }] }
+// src / learn 是学习画布用的：材料（PDF / 图片 / 文字）和汤圆的讲解面板，见 learn.js
 import { html, useState, useEffect, useRef, useMemo } from '../../vendor/preact.js';
 import { useStore, upsert, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Empty, Modal, Seg } from '../ui.js';
@@ -12,6 +13,9 @@ import { snippetOf, newNote } from './notes.js';
 import { mdToBlocks, sanitize } from '../blocks.js';
 import { openPalette, customColors } from '../palette.js';
 import { SelToolbar, inlineShortcut } from '../editor.js';
+import { SrcNode, LearnNode, askLearn, panelText } from '../learn.js';
+import { saveFile, isPdf, fmtSize } from '../files.js';
+import { pickFile } from '../util.js';
 
 const NODE_COLORS = [['', '默认'], ['#4f7cf5', '蓝'], ['#2d8f88', '青'], ['#4a9a6a', '绿'], ['#c7873a', '琥珀'], ['#c9588a', '玫红'], ['#7461c9', '紫'], ['#d2524f', '红']];
 const PEN_COLORS = ['#1b1d21', '#4f7cf5', '#d2524f', '#4a9a6a', '#c7873a', '#7461c9'];
@@ -76,6 +80,7 @@ function Board({ board, notes, notebooks }) {
   const [temp, setTemp] = useState(null);
   const [guides, setGuides] = useState([]); // alignment guides while dragging a node
   const [picker, setPicker] = useState(false);
+  const [textModal, setTextModal] = useState(false);
   const vp = useRef();
   const node = (id) => bRef.current.nodes.find((n) => n.id === id);
   const toWorld = (e) => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; return [(e.clientX - r.left - v.x) / v.z, (e.clientY - r.top - v.y) / v.z]; };
@@ -109,10 +114,74 @@ function Board({ board, notes, notebooks }) {
   const delStroke = (id) => { if (!bRef.current.strokes.some((s) => s.id === id)) return; setB({ ...bRef.current, strokes: bRef.current.strokes.filter((s) => s.id !== id) }); };
   const patchNode = (id, patch, save = true) => { const next = { ...bRef.current, nodes: bRef.current.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }; if (save) commit(next); else setB(next); };
 
+  /* ---- 学习：材料 + 问汤圆 ---- */
+  // 放一个新节点：从 (x, y) 开始往下找一个不和别人重叠的位置
+  const freeSpot = (x, y, w, h) => { let guard = 0; const others = bRef.current.nodes; while (guard++ < 60 && others.some((o) => x < o.x + o.w + 16 && x + w + 16 > o.x && y < o.y + o.h + 16 && y + h + 16 > o.y)) y += 48; return [Math.round(x), Math.round(y)]; };
+  const showNode = (n) => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; const sx = n.x * v.z + v.x, sy = n.y * v.z + v.y; if (sx > 20 && sx + n.w * v.z < r.width - 20 && sy > 20 && sy < r.height - 160) return; setView({ ...v, x: r.width / 2 - (n.x + n.w / 2) * v.z, y: 70 - n.y * v.z }); };
+  const addFiles = async (files, at) => {
+    let [x, y] = at || (() => { const [cx, cy] = center(); return [cx - 220, cy - 260]; })(); let last = null;
+    for (const f of files) {
+      const pdf = isPdf(f), img = /^image\//.test(f.type || '');
+      if (!pdf && !img) { toast('只能放 PDF 或图片'); continue; }
+      if (f.size > 4 * 1048576) toast(`「${f.name}」${fmtSize(f.size)}，超过 4 MB 的文件只在这台设备上，不会同步到别的设备`);
+      const rec = await saveFile(f);
+      const w = pdf ? 460 : 420, h = pdf ? 620 : 380; const [nx, ny] = freeSpot(x, y, w, h);
+      const n = { id: uid(), type: 'src', kind: pdf ? 'pdf' : 'image', fid: rec.id, name: f.name || (img ? '图片' : '文件'), x: nx, y: ny, w, h, color: '' };
+      commit({ ...bRef.current, nodes: [...bRef.current.nodes, n] }); last = n; x = nx + w + 40;
+    }
+    if (last) { setSel({ kind: 'node', id: last.id }); showNode(last); }
+  };
+  const addTextSrc = (text, name) => { const [cx, cy] = center(); const [x, y] = freeSpot(cx - 220, cy - 200, 440, 360); const n = { id: uid(), type: 'src', kind: 'text', name: name || (text.split('\n')[0].trim().slice(0, 24) || '一段文字'), text: text.slice(0, 60000), x, y, w: 440, h: 360, color: '' }; commit({ ...bRef.current, nodes: [...bRef.current.nodes, n] }); setSel({ kind: 'node', id: n.id }); showNode(n); return n; };
+  const lastOf = (type) => [...bRef.current.nodes].reverse().find((n) => n.type === type && !n.pending);
+  // 问汤圆：锚点是选中的节点（材料 / 讲解面板 / 文字），没选就接着最近的一块讲解或最近的材料
+  const ask = async (q, opt = {}) => {
+    q = String(q || '').trim(); if (!q) return;
+    let anchor = opt.anchorId ? node(opt.anchorId) : sel && sel.kind === 'node' ? node(sel.id) : null;
+    if (!anchor) anchor = lastOf('learn') || lastOf('src') || null;
+    const src = anchor && anchor.type === 'src' ? anchor : anchor && anchor.type === 'learn' ? node(anchor.src) || lastOf('src') : lastOf('src');
+    const prior = anchor && anchor.type === 'learn' ? panelText(anchor) : '';
+    const focus = opt.focus || (anchor && anchor.type === 'text' ? anchor.text || '' : anchor && anchor.type === 'note' ? (notes.find((x) => x.id === anchor.note) || {}).body || '' : '');
+    const w = 420; const [cx, cy] = center();
+    const [x, y] = anchor ? freeSpot(anchor.x + anchor.w + 90, anchor.y + (opt.dy || 0), w, 220) : freeSpot(cx - w / 2, cy - 160, w, 220);
+    const pn = { id: uid(), type: 'learn', q, x, y, w, h: 220, src: src ? src.id : '', from: anchor ? anchor.id : '', focus: (opt.focus || '').slice(0, 1500), pending: true, at: now() };
+    const edges = anchor ? [...bRef.current.edges, { id: uid(), from: anchor.id, to: pn.id, label: opt.label || '' }] : bRef.current.edges;
+    commit({ ...bRef.current, nodes: [...bRef.current.nodes, pn], edges }); setSel({ kind: 'node', id: pn.id }); showNode(pn);
+    runAsk(pn.id, { q, src, prior, focus });
+  };
+  const runAsk = async (id, args) => {
+    try { const r = await askLearn(args); patchNode(id, { pending: false, error: '', title: r.title, reply: r.reply, cards: r.cards, mode: 'hint' }); }
+    catch (e) { patchNode(id, { pending: false, error: e.message || '出错了' }); }
+  };
+  const retry = (n) => { patchNode(n.id, { pending: true, error: '' }); const from = node(n.from); runAsk(n.id, { q: n.q, src: node(n.src), prior: from && from.type === 'learn' ? panelText(from) : '', focus: n.focus || '' }); };
+  const stuckOn = (n, focus, label) => ask(`「${String(label).slice(0, 40)}」这里没看懂，用更基础、更具体的方式再讲一遍`, { anchorId: n.id, focus, label: '这步不懂' });
+  // 讲解面板存成一页笔记（Markdown）
+  const panelToNote = (n) => {
+    const md = [`> 问：${n.q}`, ...(n.cards || []).map((c) => [c.title ? `## ${c.title}` : '', c.latex ? `$$${c.latex}$$` : '', c.body || '', c.steps ? c.steps.map((x, i) => `${i + 1}. **${x.title}**${x.detail ? '\n   ' + x.detail.replace(/\n/g, '\n   ') : ''}`).join('\n') : '', c.question ? `**小测验**：${c.question}\n${(c.options || []).map((o, i) => `- ${'ABCDE'[i]}. ${o}`).join('\n')}\n\n答案：${'ABCDE'[c.answer] || ''}　${c.explain || ''}` : ''].filter(Boolean).join('\n\n'))].join('\n\n');
+    const p = newNote({ title: n.title || '讲解', body: md, blocks: mdToBlocks(md) }); toast('已存成笔记', { label: '打开', onClick: () => go('notes/' + p.id) });
+  };
+  // 拖文件进来 / 粘贴图片或长文字 → 变成材料
+  useEffect(() => {
+    const el = vp.current; if (!el) return;
+    const over = (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); el.classList.add('file-over'); } };
+    const leave = (e) => { if (!el.contains(e.relatedTarget)) el.classList.remove('file-over'); };
+    const drop = (e) => { el.classList.remove('file-over'); const fs = e.dataTransfer && [...e.dataTransfer.files]; if (!fs || !fs.length) return; e.preventDefault(); e.stopPropagation(); addFiles(fs, toWorld(e)); };
+    el.addEventListener('dragover', over); el.addEventListener('dragleave', leave); el.addEventListener('drop', drop, true);
+    const paste = (e) => {
+      if (e.target.closest && e.target.closest('input,textarea,[contenteditable="true"]')) return;
+      const fs = [...(e.clipboardData && e.clipboardData.files || [])].filter((f) => /^image\//.test(f.type) || isPdf(f));
+      if (fs.length) { e.preventDefault(); addFiles(fs); return; }
+      const t = e.clipboardData && e.clipboardData.getData('text/plain'); if (t && t.trim().length > 80) { e.preventDefault(); addTextSrc(t.trim()); }
+    };
+    window.addEventListener('paste', paste);
+    return () => { el.removeEventListener('dragover', over); el.removeEventListener('dragleave', leave); el.removeEventListener('drop', drop, true); window.removeEventListener('paste', paste); };
+  }, []);
+  // 讲解面板 / 材料的真实高度回写到节点里（连线和对齐要用）
+  const measure = (n) => (el) => { if (!el || el._ro) return; el._ro = new ResizeObserver(() => { const cur = node(n.id); const h = Math.round(el.offsetHeight); if (cur && Math.abs(cur.h - h) > 2) patchNode(n.id, { h }, false); }); el._ro.observe(el); };
+
   // wheel: pan; with ⌘/ctrl (or a pinch gesture) zoom around the cursor
   useEffect(() => {
     const el = vp.current; if (!el) return;
-    const h = (e) => { e.preventDefault(); const r = el.getBoundingClientRect(); if (e.ctrlKey || e.metaKey) zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.003)); else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY })); };
+    const h = (e) => { const sc = !e.ctrlKey && !e.metaKey && e.target.closest && e.target.closest('.cv-scroll'); if (sc && sc.scrollHeight > sc.clientHeight + 1) return; e.preventDefault(); const r = el.getBoundingClientRect(); if (e.ctrlKey || e.metaKey) zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.003)); else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY })); };
     el.addEventListener('wheel', h, { passive: false }); return () => el.removeEventListener('wheel', h);
   }, []);
   useEffect(() => {
@@ -133,7 +202,7 @@ function Board({ board, notes, notebooks }) {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) { const pts = [...pointers.current.values()]; dragRef.current = { kind: 'pinch', d0: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1, z0: viewRef.current.z, v0: viewRef.current, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2 }; setTemp(null); return; }
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    if (t.closest('.cv-tb,.cv-hint,.modal-bg')) return;
+    if (t.closest('.cv-tb,.cv-hint,.modal-bg,.cv-ask,.cv-outline')) return;
     const nodeEl = t.closest('.cv-node'); const nodeId = nodeEl && nodeEl.dataset.id;
     if (editing && nodeId === editing) return;
     const [wx, wy] = toWorld(e);
@@ -184,18 +253,28 @@ function Board({ board, notes, notebooks }) {
     else if (d.kind === 'connect') { setTemp(null); const el = document.elementFromPoint(e.clientX, e.clientY); const to = el && el.closest && el.closest('.cv-node'); if (to && to.dataset.id !== d.from && !bRef.current.edges.some((x) => (x.from === d.from && x.to === to.dataset.id) || (x.from === to.dataset.id && x.to === d.from))) { const ed = { id: uid(), from: d.from, to: to.dataset.id, label: '' }; commit({ ...bRef.current, edges: [...bRef.current.edges, ed] }); setSel({ kind: 'edge', id: ed.id }); } }
   };
   const dbl = (e) => {
-    const t = e.target; if (t.closest('.cv-tb,.cv-hint,a,button')) return;
-    const nodeEl = t.closest('.cv-node'); if (nodeEl) { const n = node(nodeEl.dataset.id); if (n && n.type === 'text') { setEditing(n.id); setSel({ kind: 'node', id: n.id }); } else if (n) go('notes/' + n.note); return; }
+    const t = e.target; if (t.closest('.cv-tb,.cv-hint,a,button,.cv-ask,.cv-outline,.lr-panel,.lr-src')) return;
+    const nodeEl = t.closest('.cv-node'); if (nodeEl) { const n = node(nodeEl.dataset.id); if (n && n.type === 'text') { setEditing(n.id); setSel({ kind: 'node', id: n.id }); } else if (n && n.type === 'note') go('notes/' + n.note); return; }
     const edgeEl = t.closest('.cv-edge'); if (edgeEl) { editLabel(edgeEl.dataset.id); return; }
     if (t.closest('.cv-stroke')) return;
     const [wx, wy] = toWorld(e); addText(wx - 20, wy - 16);
   };
   const editLabel = async (id) => { const ed = bRef.current.edges.find((x) => x.id === id); const v = await askPrompt('连线上的文字', ed.label || '', { title: '连线', placeholder: '比如：导致 / 属于' }); if (v != null) commit({ ...bRef.current, edges: bRef.current.edges.map((x) => (x.id === id ? { ...x, label: v.trim() } : x)) }); };
   const ctx = (e) => {
-    const t = e.target; if (t.closest('.cv-tb')) return;
+    const t = e.target; if (t.closest('.cv-tb,.cv-ask,.cv-outline')) return;
     const nodeEl = t.closest('.cv-node');
     if (nodeEl) {
       const n = node(nodeEl.dataset.id); setSel({ kind: 'node', id: n.id });
+      if (n.type === 'src' || n.type === 'learn') {
+        ctxMenu(e, [
+          n.type === 'src' && { label: '问汤圆讲讲这份材料', icon: 'chat', onClick: () => ask('先帮我整体讲一下这份材料讲了什么、重点是什么', { anchorId: n.id }) },
+          n.type === 'learn' && !n.pending && { label: '存成笔记', icon: 'note', onClick: () => panelToNote(n) },
+          n.type === 'learn' && !n.pending && { label: '重新讲一遍', icon: 'refresh', onClick: () => retry(n) },
+          'sep',
+          { label: '从画布移除', icon: 'trash', danger: true, onClick: () => removeSel({ kind: 'node', id: n.id }) },
+        ].filter(Boolean), n.type === 'src' ? n.name || '材料' : n.title || '讲解');
+        return;
+      }
       ctxMenu(e, [
         n.type === 'note' ? { label: '打开页面', icon: 'note', onClick: () => go('notes/' + n.note) } : { label: '编辑文字', icon: 'edit', onClick: () => setEditing(n.id) },
         n.type === 'text' && { label: '转为页面', icon: 'note', hint: '新建一页并链接', onClick: () => { const lines = (n.text || '').split('\n'); const title = lines[0].trim() || '无标题'; const body = lines.slice(1).join('\n').trim(); const p = newNote({ title, body, blocks: mdToBlocks(body) }); patchNode(n.id, { type: 'note', note: p.id, text: '', h: Math.max(n.h, 110) }); toast('已创建页面', { label: '打开', onClick: () => go('notes/' + p.id) }); } },
@@ -264,19 +343,56 @@ function Board({ board, notes, notebooks }) {
       </svg>
       <div class="cv-layer" style=${`transform:${tr}`}>
         ${guides.map((g, i) => g.v != null ? html`<i key=${i} class="cv-guide v" style=${`left:${g.v}px`}></i>` : html`<i key=${i} class="cv-guide h" style=${`top:${g.h}px`}></i>`)}
-        ${b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); return html`<div key=${n.id} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${n.type === 'note' ? 'height' : 'min-height'}:${n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
-          ${n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'true' : 'false'} spellcheck="false" ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerHTML !== textHtml(n)) el.innerHTML = textHtml(n); if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onPaste=${(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } else if (inlineShortcut(e)) { e.preventDefault(); } e.stopPropagation(); }} data-ph="输入文字…"></div>`
+        ${b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); const fixedH = n.type === 'note' || n.type === 'src'; return html`<div key=${n.id} ref=${n.type === 'learn' ? measure(n) : null} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${fixedH ? 'height' : 'min-height'}:${n.type === 'learn' ? 120 : n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
+          ${n.type === 'src' ? html`<${SrcNode} n=${n} />`
+          : n.type === 'learn' ? html`<${LearnNode} n=${n} onPatch=${(p) => patchNode(n.id, p)} onStuck=${(focus, label) => stuckOn(n, focus, label)} onRetry=${() => retry(n)} />`
+          : n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'true' : 'false'} spellcheck="false" ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerHTML !== textHtml(n)) el.innerHTML = textHtml(n); if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onPaste=${(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } else if (inlineShortcut(e)) { e.preventDefault(); } e.stopPropagation(); }} data-ph="输入文字…"></div>`
           : page ? html`<div class="cv-nt">${nbk && html`<i class="nb-dot" style=${`background:${nbk.color}`}></i>`}<b>${page.title || '无标题'}</b><a class="cv-open" href=${'#/notes/' + page.id} title="打开页面"><${Icon} name="external" size=${12} /></a></div><p class="cv-snip">${snippetOf(page) || '空白页'}</p>`
           : html`<div class="cv-nt muted"><${Icon} name="note" size=${13} /><b>页面已删除</b></div>`}
           <span class="cv-handle" title="拖到另一个节点来连线"></span>
           <span class="cv-rz"></span>
         </div>`; })}
       </div>
-      ${b.nodes.length === 0 && b.strokes.length === 0 && html`<div class="cv-empty"><${Icon} name="frame" size=${22} /><p>双击空白处写字，或从左边把页面拖进来。</p></div>`}
-      <div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · ⌘+滚轮缩放</div>
+      ${b.nodes.length === 0 && b.strokes.length === 0 && html`<div class="cv-empty"><${Icon} name="frame" size=${22} /><p>双击空白处写字，或从左边把页面拖进来。</p><p class="cv-empty-learn">想学东西：把 PDF / 图片拖进来（或粘贴一段文字），再在下面问汤圆。</p></div>`}
+      ${b.nodes.length < 3 && html`<div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · ⌘+滚轮缩放</div>`}
     </div>
+    <${AskBar} target=${sel && sel.kind === 'node' ? node(sel.id) : null} notes=${notes} hasSrc=${b.nodes.some((n) => n.type === 'src')} onAsk=${(q) => ask(q)} onClear=${() => setSel(null)} onUpload=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }} onText=${() => setTextModal(true)} />
+    <${Outline} nodes=${b.nodes} onGo=${(id) => { const n = node(id); if (!n) return; const r = vp.current.getBoundingClientRect(); const v = viewRef.current; setView({ ...v, x: r.width / 2 - (n.x + n.w / 2) * v.z, y: 70 - n.y * v.z }); setSel({ kind: 'node', id }); }} />
+    ${textModal && html`<${TextModal} onClose=${() => setTextModal(false)} onSave=${(t, name) => { setTextModal(false); addTextSrc(t, name); }} />`}
     ${picker && html`<${PagePicker} notes=${notes} notebooks=${notebooks} onClose=${() => setPicker(false)} onPick=${(id) => { const [cx, cy] = picker.x != null ? [picker.x, picker.y] : center(); addNote(id, cx - 120, cy - 55); setPicker(false); }} />`}
   </div>`;
+}
+
+// 下面的「问汤圆」框：选中的节点就是在问的东西；+ 号放材料
+function AskBar({ target, notes, hasSrc, onAsk, onClear, onUpload, onText }) {
+  const [q, setQ] = useState(''); const ta = useRef();
+  const about = target && (target.type === 'src' ? target.name || '材料' : target.type === 'learn' ? target.title || target.q : target.type === 'text' ? (target.text || '').slice(0, 20) : target.type === 'note' ? ((notes.find((x) => x.id === target.note) || {}).title || '页面') : '');
+  const send = () => { if (!q.trim()) return; onAsk(q); setQ(''); if (ta.current) ta.current.style.height = ''; };
+  return html`<div class="cv-ask" onPointerDown=${(e) => e.stopPropagation()}>
+    ${about && html`<div class="cv-ask-ctx"><span>关于：${about}</span><button type="button" title="不针对这个" onClick=${onClear}><${Icon} name="x" size=${11} /></button></div>`}
+    <div class="cv-ask-row">
+      <button type="button" class="cv-ask-add" title="放材料：PDF / 图片 / 一段文字" onClick=${(e) => ctxMenu(e, [{ label: '上传 PDF / 图片', icon: 'upload', onClick: onUpload }, { label: '粘贴一段文字', icon: 'type', onClick: onText }], '放材料')}><${Icon} name="plus" size=${16} /></button>
+      <textarea ref=${ta} rows="1" value=${q} placeholder=${about ? '问汤圆这一块…' : hasSrc ? '问汤圆…' : '问汤圆…（先放一份材料会讲得更准）'} onInput=${(e) => { setQ(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px'; }} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } }}></textarea>
+      <button type="button" class="cv-ask-go" title="发送（Enter）" disabled=${!q.trim()} onClick=${send}><${Icon} name="up" size=${16} /></button>
+    </div>
+  </div>`;
+}
+// 右边的目录：每块讲解一行，点一下跳过去
+function Outline({ nodes, onGo }) {
+  const list = nodes.filter((n) => n.type === 'learn').sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')));
+  const [open, setOpen] = useState(true);
+  if (list.length < 2) return null;
+  return html`<div class=${'cv-outline ' + (open ? '' : 'closed')} onPointerDown=${(e) => e.stopPropagation()}>
+    <button type="button" class="cv-ol-t" onClick=${() => setOpen(!open)}><${Icon} name=${open ? 'down' : 'right'} size=${11} />目录</button>
+    ${open && list.map((n) => html`<button type="button" key=${n.id} class="cv-ol-i" onClick=${() => onGo(n.id)}>${n.pending ? '…' : n.title || n.q}</button>`)}
+  </div>`;
+}
+function TextModal({ onClose, onSave }) {
+  const [t, setT] = useState(''); const [name, setName] = useState('');
+  return html`<${Modal} open=${true} onClose=${onClose} title="粘贴一段文字作为材料" foot=${html`<${Btn} onClick=${onClose}>取消<//><${Btn} kind="primary" disabled=${!t.trim()} onClick=${() => onSave(t.trim(), name.trim())}>放到画布上<//>`}>
+    <input type="text" value=${name} placeholder="名字（可选）：比如 第三章 假设检验" onInput=${(e) => setName(e.target.value)} style="margin-bottom:8px" />
+    <textarea rows="10" value=${t} autofocus placeholder="把题目、课本段落、论文摘要贴在这里…" onInput=${(e) => setT(e.target.value)}></textarea>
+  <//>`;
 }
 
 function PagePicker({ notes, notebooks, onClose, onPick }) {
@@ -293,7 +409,7 @@ function CanvasList({ canvases }) {
   const create = async () => { const v = await askPrompt('画布名称', '', { title: '新画布', placeholder: '比如：论文思路 / 项目地图' }); if (v == null) return; const c = newCanvas(v.trim()); go('notes/canvas/' + c.id); };
   return html`<div class="page"><div class="crumbs"><a class="m-back" href="#/notes" title="返回"><${Icon} name="left" size=${16} /></a><a href="#/notes">笔记</a><span>/</span><b>画布</b><span class="flex1"></span><${Btn} small kind="primary" icon="plus" onClick=${create}>新画布<//></div>
     <div class="page-body">
-      <div class="cv-grid"><button class="cv-card new" onClick=${create}><${Icon} name="plus" size=${20} /><span>新画布</span><small>无限白板 · 脑图 · 页面地图</small></button>${list.map((c) => html`<a key=${c.id} class="cv-card" href=${'#/notes/canvas/' + c.id} onContextMenu=${(e) => ctxMenu(e, canvasMenu(c), c.title || '未命名画布')}>
+      <div class="cv-grid"><button class="cv-card new" onClick=${create}><${Icon} name="plus" size=${20} /><span>新画布</span><small>白板 · 脑图 · 拖 PDF 进来问汤圆</small></button>${list.map((c) => html`<a key=${c.id} class="cv-card" href=${'#/notes/canvas/' + c.id} onContextMenu=${(e) => ctxMenu(e, canvasMenu(c), c.title || '未命名画布')}>
         <div class="cv-prev"><svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet">${(() => { const bb = bbox(c); if (!bb) return null; const s = Math.min(180 / Math.max(bb.w, 1), 100 / Math.max(bb.h, 1)); const ox = 100 - (bb.x + bb.w / 2) * s, oy = 60 - (bb.y + bb.h / 2) * s; return html`<g transform=${`translate(${ox},${oy}) scale(${s})`}>${c.edges.map((e) => { const a = c.nodes.find((n) => n.id === e.from), b2 = c.nodes.find((n) => n.id === e.to); return a && b2 ? html`<line key=${e.id} x1=${a.x + a.w / 2} y1=${a.y + a.h / 2} x2=${b2.x + b2.w / 2} y2=${b2.y + b2.h / 2} stroke="currentColor" stroke-width=${2 / s} opacity=".4" />` : null; })}${c.nodes.map((n) => html`<rect key=${n.id} x=${n.x} y=${n.y} width=${n.w} height=${n.h} rx=${8 / s} fill=${n.color || 'currentColor'} opacity=${n.color ? '.8' : '.35'} />`)}${c.strokes.map((st) => html`<path key=${st.id} d=${strokePath(st.pts)} fill="none" stroke=${st.color} stroke-width=${st.width / s} stroke-linecap="round" />`)}</g>`; })()}</svg></div>
         <b>${c.title || '未命名画布'}</b><small>${c.nodes.length} 个节点 · ${c.edges.length} 条连线 · ${c.updated.slice(5, 10).replace('-', '/')}</small>
       </a>`)}</div>
