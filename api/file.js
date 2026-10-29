@@ -3,8 +3,11 @@
 // GET  ?list=1            -> { files: [{ id, size, created }] }   列出云端的全部附件（清理没用的附件时用；只有云端帐号）
 // PUT  { id, name, type, content (base64) }  -> writes / updates the file as a commit
 // DELETE { ids: [...] }   -> { deleted }                            删掉这些附件（最多 200 个；只有云端帐号）
+// 大文件（云端帐号）：不经过本站（Vercel 一次请求最多约 4.5 MB），浏览器拿一个几分钟有效的签名地址直接传给 Supabase（单个文件上限 50 MB）
+// POST { sign: 'upload', id } -> { url }     PUT 文件本身到 url
+// GET  ?id=...&signed=1        -> { url }     GET url 拿到文件
 import { session, json, gh, dataTarget, readJson, resolveBranch } from './_lib.js';
-import { sb, accessToken, errMsg } from './_cloud.js';
+import { sb, accessToken, errMsg, supabaseUrl } from './_cloud.js';
 
 // 云端用户：Supabase Storage 私有桶 attachments/<user id>/<附件 id>（行级权限只允许自己的目录）
 async function cloud(req, res, s) {
@@ -20,6 +23,20 @@ async function cloud(req, res, s) {
       if (rows.length < 1000) break;
     }
     return json(res, 200, { files });
+  }
+  const full = (u) => (/^https?:/.test(u) ? u : supabaseUrl() + '/storage/v1' + (u.startsWith('/') ? u : '/' + u));
+  if (req.method === 'POST') {
+    const body = await readJson(req); const id = String((body && body.id) || '').replace(/[^\w-]/g, '');
+    if (!body || body.sign !== 'upload' || !id) return json(res, 400, { error: 'id required' });
+    const r = await sb(`/storage/v1/object/upload/sign/attachments/${s.uid}/${id}`, { as: tok, method: 'POST', body: {}, headers: { 'x-upsert': 'true' } });
+    if (!r.ok || !r.data || !r.data.url) return json(res, 502, { error: errMsg(r) });
+    return json(res, 200, { url: full(r.data.url) });
+  }
+  if (req.method === 'GET' && url.searchParams.get('signed')) {
+    const id = (url.searchParams.get('id') || '').replace(/[^\w-]/g, ''); if (!id) return json(res, 400, { error: 'id required' });
+    const r = await sb(`/storage/v1/object/sign/attachments/${s.uid}/${id}`, { as: tok, method: 'POST', body: { expiresIn: 600 } });
+    if (!r.ok || !r.data || !(r.data.signedURL || r.data.signedUrl)) return json(res, r.status === 400 || r.status === 404 ? 404 : 502, { error: 'not found' });
+    return json(res, 200, { url: full(r.data.signedURL || r.data.signedUrl) });
   }
   if (req.method === 'DELETE') {
     const body = await readJson(req); const ids = (body && Array.isArray(body.ids) ? body.ids : []).map((x) => String(x).replace(/[^\w-]/g, '')).filter(Boolean).slice(0, 200);
@@ -38,7 +55,7 @@ async function cloud(req, res, s) {
     const body = await readJson(req); if (!body) return json(res, 400, { error: 'bad json' });
     const id = String(body.id || '').replace(/[^\w-]/g, '');
     if (!id || typeof body.content !== 'string' || !/^[A-Za-z0-9+/=\s]*$/.test(body.content)) return json(res, 400, { error: 'id and base64 content required' });
-    if (body.content.length > 5.5e6) return json(res, 413, { error: '附件太大（上限约 4 MB）' });
+    if (body.content.length > 5.5e6) return json(res, 413, { error: '附件太大（这个接口上限约 4 MB，大文件走签名直传）' });
     const type = /^[\w.+-]+\/[\w.+-]+$/.test(String(body.type || '')) ? body.type : 'application/octet-stream';
     const r = await sb(`/storage/v1/object/attachments/${s.uid}/${id}`, { as: tok, method: 'POST', raw: true, body: Buffer.from(body.content, 'base64'), headers: { 'Content-Type': type, 'x-upsert': 'true' } });
     if (!r.ok) return json(res, 502, { error: errMsg(r) });

@@ -6,9 +6,10 @@ import { marked } from '../vendor/marked.js';
 import { sanitizeDoc } from './blocks.js';
 import { getFile, fileUrl, kvGet, kvSet } from './files.js';
 import { fetchAttachment, loginState } from './sync.js';
-import { aiEnabled, aiHeaders, recordUsage } from './ai.js';
+import { aiEnabled, aiHeaders, recordUsage, aiConfig } from './ai.js';
 import { todayStr, escapeHtml as esc } from './util.js';
 import { Icon } from './ui.js';
+import { canSpeak, speak, speakable, stopSpeak } from './voice.js';
 
 const VENDOR = new URL('../vendor/', import.meta.url).href;
 
@@ -143,15 +144,34 @@ function CheckCard({ c, picked, onPick }) {
     ${done && html`<button type="button" class="lr-ck-again" onClick=${() => onPick(null)}>重做</button>`}
   </div>`;
 }
+// 朗读的内容：提示模式只读每一步做什么和提示，答案模式连做法一起读
+function panelSpeech(n, mode) {
+  const out = [n.title || ''];
+  for (const c of n.cards || []) {
+    if (c.title) out.push(c.title + '。');
+    if (c.latex) out.push('$$' + c.latex + '$$');
+    if (c.body) out.push(c.body);
+    if (c.steps) c.steps.forEach((x, i) => out.push(`第 ${i + 1} 步，${x.title}。` + (mode === 'answer' ? (x.detail || '') : x.hint ? '提示：' + x.hint : '')));
+    if (c.question) out.push('小测验：' + c.question + ' ' + (c.options || []).map((o, i) => `${'ABCDE'[i]}，${o}`).join('。'));
+  }
+  return speakable(out.join('\n'));
+}
+function SpeakBtn({ n, mode }) {
+  const [on, setOn] = useState(false); const stopRef = useRef(null);
+  useEffect(() => () => { if (stopRef.current) stopSpeak(); }, []);
+  if (!canSpeak()) return null;
+  const go = () => { if (on) { stopSpeak(); setOn(false); stopRef.current = null; return; } setOn(true); stopRef.current = speak(panelSpeech(n, mode), { onEnd: () => { setOn(false); stopRef.current = null; } }); };
+  return html`<button type="button" class=${'lr-say ' + (on ? 'on' : '')} title=${on ? '停止朗读' : '读给我听'} onClick=${go}><${Icon} name=${on ? 'pause' : 'play'} size=${12} /></button>`;
+}
 export function LearnNode({ n, onPatch, onStuck, onRetry }) {
   useKatex();
   const mode = n.mode || 'hint';
-  if (n.pending) return html`<div class="lr-panel"><div class="lr-q"><${Icon} name="chat" size=${12} />${n.q}</div><div class="lr-wait"><i></i><i></i><i></i><span>汤圆在看材料…</span></div></div>`;
+  if (n.pending) return html`<div class="lr-panel"><div class="lr-q"><${Icon} name="chat" size=${12} />${n.q}</div><div class="lr-wait"><i></i><i></i><i></i><span>${n.status || '汤圆在看材料…'}</span></div></div>`;
   if (n.error) return html`<div class="lr-panel"><div class="lr-q"><${Icon} name="chat" size=${12} />${n.q}</div><div class="lr-err">${n.error}</div><button type="button" class="btn sm" onClick=${onRetry}>再问一次</button></div>`;
   const cards = n.cards || [];
   return html`<div class="lr-panel">
     <div class="lr-q"><${Icon} name="chat" size=${12} /><${Rich} md=${n.q} inline=${true} /></div>
-    <div class="lr-h"><b>${n.title || '讲解'}</b>${cards.some((c) => c.type === 'steps') && html`<div class="lr-mode"><button type="button" class=${mode === 'hint' ? 'on' : ''} onClick=${() => onPatch({ mode: 'hint' })}>提示</button><button type="button" class=${mode === 'answer' ? 'on' : ''} onClick=${() => onPatch({ mode: 'answer' })}>答案</button></div>`}</div>
+    <div class="lr-h"><b>${n.title || '讲解'}</b><${SpeakBtn} n=${n} mode=${mode} />${cards.some((c) => c.type === 'steps') && html`<div class="lr-mode"><button type="button" class=${mode === 'hint' ? 'on' : ''} onClick=${() => onPatch({ mode: 'hint' })}>提示</button><button type="button" class=${mode === 'answer' ? 'on' : ''} onClick=${() => onPatch({ mode: 'answer' })}>答案</button></div>`}</div>
     ${cards.map((c, i) => html`<div key=${i} class=${'lr-card ' + c.type}>
       ${c.title && c.type !== 'check' && html`<div class="lr-ct">${c.type === 'tip' && html`<${Icon} name="sparkle" size=${12} />`}${c.title}</div>`}
       ${c.type === 'formula' && html`<div class="lr-formula" dangerouslySetInnerHTML=${{ __html: tex(c.latex || '', true) }}></div>`}
@@ -183,22 +203,56 @@ async function imagePayload(blob) {
   return m ? { type: m[1], data: m[2] } : null;
 }
 // 材料：src 节点 → 文字（PDF 抽文字、文字直接用）或图片
-export async function materialOf(src, q) {
+// 现在用的 AI 能不能直接看图（Claude 能，DeepSeek 不能）
+export function canSeeImages() {
+  const c = aiConfig(); const login = loginState() || {};
+  return c.provider === 'anthropic' || (c.provider === 'server' && /claude/i.test(login.aiModel || ''));
+}
+// PDF 第 i 页（0 开始）画成一张够清楚的图，给文字识别用
+async function pageCanvas(fid, name, i) {
+  const doc = await pdfDoc(fid, name); const p = await doc.getPage(i + 1);
+  const vp1 = p.getViewport({ scale: 1 }); const vp = p.getViewport({ scale: Math.min(2.5, 1800 / vp1.width) });
+  const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  await p.render({ canvasContext: g, viewport: vp }).promise; return c;
+}
+const OCR_PAGES = 8;
+// 材料：src 节点 → 文字（PDF 抽文字；扫描件和图片在本机识别文字）或图片（AI 能看图时直接给图）
+export async function materialOf(src, q, onStatus) {
   if (!src) return {};
   if (src.kind === 'text') return { materialName: src.name || '一段文字', material: String(src.text || '').slice(0, 16000) };
   if (src.kind === 'pdf') {
     const pages = await pdfPages(src.fid, src.name);
-    const total = pages.join('').trim().length;
-    if (total < 20) return { materialName: src.name, material: '', scanned: true };
-    return { materialName: src.name, material: pickPages(pages, q) };
+    if (pages.join('').trim().length >= 20) return { materialName: src.name, material: pickPages(pages, q) };
+    // 扫描件：识别问到的那几页（「第 N 页」），没说就先认前几页；认过的页存着，下次不用再认
+    const want = [...String(q).matchAll(/第\s*(\d+)\s*页|p(?:age)?\.?\s*(\d+)/gi)].map((m) => +(m[1] || m[2]) - 1).filter((i) => i >= 0 && i < pages.length);
+    const idx = [...new Set([...want, ...Array.from({ length: Math.min(OCR_PAGES, pages.length) }, (_, i) => i)])].slice(0, OCR_PAGES + want.length);
+    const { ocrPdfPages } = await import('./ocr.js');
+    const got = await ocrPdfPages(src.fid, idx, (i) => pageCanvas(src.fid, src.name, i), onStatus);
+    const text = pages.map((_, i) => got[i] || '');
+    if (text.join('').trim().length < 10) return { materialName: src.name, material: '', scanned: true };
+    const note = pages.length > idx.length ? `\n\n（这是扫描版，只识别了第 ${idx.map((i) => i + 1).join('、')} 页；要问别的页可以说「第几页」）` : '';
+    return { materialName: src.name + '（扫描版，文字是自动识别的，可能有错字）', material: pickPages(text.map((t, i) => (got[i] != null ? t : '')), q) + note };
   }
-  if (src.kind === 'image') { const blob = await fileBlob(src.fid, { name: src.name }); return { materialName: src.name || '图片', image: blob ? await imagePayload(blob) : null }; }
+  if (src.kind === 'image') {
+    const blob = await fileBlob(src.fid, { name: src.name }); if (!blob) return { materialName: src.name || '图片' };
+    if (canSeeImages()) return { materialName: src.name || '图片', image: await imagePayload(blob) };
+    const key = 'imgocr:' + src.fid; let text = await kvGet(key);
+    if (typeof text !== 'string') {
+      onStatus && onStatus('正在识别图片里的文字…');
+      const { ocrImage } = await import('./ocr.js');
+      text = await ocrImage(blob, (p) => onStatus && onStatus(`正在识别图片里的文字 ${Math.round(p * 100)}%`)); await kvSet(key, text);
+    }
+    if (!text.trim()) return { materialName: src.name, material: '', scanned: true };
+    return { materialName: (src.name || '图片') + '（图片里的文字是自动识别的，公式和符号可能认错）', material: text.slice(0, 16000) };
+  }
   return {};
 }
-export async function askLearn({ q, src, prior, focus }) {
+export async function askLearn({ q, src, prior, focus, onStatus }) {
   if (!aiEnabled(loginState())) throw new Error('登录并打开 AI 之后，汤圆才能讲解（设置 → 汤圆 → AI）');
-  const m = await materialOf(src, q + ' ' + (focus || ''));
-  if (m.scanned) throw new Error('这份 PDF 读不到文字（可能是扫描件）。可以截图那一页拖进画布，再问汤圆');
+  const m = await materialOf(src, q + ' ' + (focus || ''), onStatus);
+  if (m.scanned) throw new Error(src && src.kind === 'image' ? '这张图里没认出文字。可以换一张清楚点的，或者把题目打字发给汤圆' : '这份 PDF 里没认出文字（可能太模糊）。可以截一张清楚的图拖进来，或者把题目打字发给汤圆');
+  onStatus && onStatus('汤圆在看材料…');
   const now = new Date();
   const resp = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...aiHeaders() }, signal: AbortSignal.timeout(120000), body: JSON.stringify({ mode: 'learn', text: q, image: m.image || undefined, context: { today: todayStr(), weekday: '', now: `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`, materialName: m.materialName || '', material: m.material || '', prior: prior || '', focus: focus || '' } }) });
   const j = await resp.json().catch(() => ({}));

@@ -16,6 +16,7 @@ import { SelToolbar, inlineShortcut } from '../editor.js';
 import { SrcNode, LearnNode, askLearn, panelText } from '../learn.js';
 import { saveFile, isPdf, fmtSize } from '../files.js';
 import { pickFile } from '../util.js';
+import { canDictate, dictate } from '../voice.js';
 
 const NODE_COLORS = [['', '默认'], ['#4f7cf5', '蓝'], ['#2d8f88', '青'], ['#4a9a6a', '绿'], ['#c7873a', '琥珀'], ['#c9588a', '玫红'], ['#7461c9', '紫'], ['#d2524f', '红']];
 const PEN_COLORS = ['#1b1d21', '#4f7cf5', '#d2524f', '#4a9a6a', '#c7873a', '#7461c9'];
@@ -123,7 +124,7 @@ function Board({ board, notes, notebooks }) {
     for (const f of files) {
       const pdf = isPdf(f), img = /^image\//.test(f.type || '');
       if (!pdf && !img) { toast('只能放 PDF 或图片'); continue; }
-      if (f.size > 4 * 1048576) toast(`「${f.name}」${fmtSize(f.size)}，超过 4 MB 的文件只在这台设备上，不会同步到别的设备`);
+      if (f.size > 50 * 1048576) { toast(`「${f.name}」${fmtSize(f.size)}，超过 50 MB 放不进来`); continue; }
       const rec = await saveFile(f);
       const w = pdf ? 460 : 420, h = pdf ? 620 : 380; const [nx, ny] = freeSpot(x, y, w, h);
       const n = { id: uid(), type: 'src', kind: pdf ? 'pdf' : 'image', fid: rec.id, name: f.name || (img ? '图片' : '文件'), x: nx, y: ny, w, h, color: '' };
@@ -149,8 +150,8 @@ function Board({ board, notes, notebooks }) {
     runAsk(pn.id, { q, src, prior, focus });
   };
   const runAsk = async (id, args) => {
-    try { const r = await askLearn(args); patchNode(id, { pending: false, error: '', title: r.title, reply: r.reply, cards: r.cards, mode: 'hint' }); }
-    catch (e) { patchNode(id, { pending: false, error: e.message || '出错了' }); }
+    try { const r = await askLearn({ ...args, onStatus: (st) => patchNode(id, { status: st }, false) }); patchNode(id, { pending: false, error: '', status: '', title: r.title, reply: r.reply, cards: r.cards, mode: 'hint' }); }
+    catch (e) { patchNode(id, { pending: false, status: '', error: e.message || '出错了' }); }
   };
   const retry = (n) => { patchNode(n.id, { pending: true, error: '' }); const from = node(n.from); runAsk(n.id, { q: n.q, src: node(n.src), prior: from && from.type === 'learn' ? panelText(from) : '', focus: n.focus || '' }); };
   const stuckOn = (n, focus, label) => ask(`「${String(label).slice(0, 40)}」这里没看懂，用更基础、更具体的方式再讲一遍`, { anchorId: n.id, focus, label: '这步不懂' });
@@ -366,14 +367,24 @@ function Board({ board, notes, notebooks }) {
 // 下面的「问汤圆」框：选中的节点就是在问的东西；+ 号放材料
 function AskBar({ target, notes, hasSrc, onAsk, onClear, onUpload, onText }) {
   const [q, setQ] = useState(''); const ta = useRef();
+  // 语音输入：说的话接在已经打的字后面
+  const [listening, setListening] = useState(null); const baseQ = useRef('');
+  const fit = () => { const el = ta.current; if (el) { el.style.height = 'auto'; el.style.height = Math.min(140, el.scrollHeight) + 'px'; } };
+  const mic = () => {
+    if (listening) { listening(); setListening(null); return; }
+    baseQ.current = q ? q.replace(/\s*$/, ' ') : '';
+    const stop = dictate({ onText: (t) => { setQ(baseQ.current + t); setTimeout(fit, 0); }, onEnd: () => setListening(null), onError: (m) => { toast(m); setListening(null); } });
+    setListening(() => stop);
+  };
   const about = target && (target.type === 'src' ? target.name || '材料' : target.type === 'learn' ? target.title || target.q : target.type === 'text' ? (target.text || '').slice(0, 20) : target.type === 'note' ? ((notes.find((x) => x.id === target.note) || {}).title || '页面') : '');
   const send = () => { if (!q.trim()) return; onAsk(q); setQ(''); if (ta.current) ta.current.style.height = ''; };
   return html`<div class="cv-ask" onPointerDown=${(e) => e.stopPropagation()}>
     ${about && html`<div class="cv-ask-ctx"><span>关于：${about}</span><button type="button" title="不针对这个" onClick=${onClear}><${Icon} name="x" size=${11} /></button></div>`}
     <div class="cv-ask-row">
       <button type="button" class="cv-ask-add" title="放材料：PDF / 图片 / 一段文字" onClick=${(e) => ctxMenu(e, [{ label: '上传 PDF / 图片', icon: 'upload', onClick: onUpload }, { label: '粘贴一段文字', icon: 'type', onClick: onText }], '放材料')}><${Icon} name="plus" size=${16} /></button>
-      <textarea ref=${ta} rows="1" value=${q} placeholder=${about ? '问汤圆这一块…' : hasSrc ? '问汤圆…' : '问汤圆…（先放一份材料会讲得更准）'} onInput=${(e) => { setQ(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px'; }} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } }}></textarea>
-      <button type="button" class="cv-ask-go" title="发送（Enter）" disabled=${!q.trim()} onClick=${send}><${Icon} name="up" size=${16} /></button>
+      <textarea ref=${ta} rows="1" value=${q} placeholder=${about ? '问汤圆这一块…' : hasSrc ? '问汤圆…' : '问汤圆…（先放一份材料会讲得更准）'} onInput=${(e) => { setQ(e.target.value); fit(); }} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } }}></textarea>
+      ${canDictate() && html`<button type="button" class=${'cv-ask-mic ' + (listening ? 'on' : '')} title=${listening ? '停止' : '说话输入'} onClick=${mic}><${Icon} name="mic" size=${16} /></button>`}
+      <button type="button" class="cv-ask-go" title="发送（Enter）" disabled=${!q.trim()} onClick=${() => { if (listening) { listening(); setListening(null); } send(); }}><${Icon} name="up" size=${16} /></button>
     </div>
   </div>`;
 }

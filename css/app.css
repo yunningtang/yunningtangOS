@@ -4146,3 +4146,9 @@ html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) .sx-in
 .lr-err{font-size:.82rem;color:var(--red);line-height:1.5}
 .cv-node.learn .katex{font-size:1.05em}
 .cv-outline{opacity:.55;transition:opacity .2s}.cv-outline:hover{opacity:1;background:var(--paper);box-shadow:var(--pop)}
+.cv-ask-mic{flex:none;width:34px;height:34px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;color:var(--text-3);background:transparent}
+.cv-ask-mic:hover{background:var(--hover);color:var(--text)}
+.cv-ask-mic.on{color:#fff;background:var(--red);animation:mic-pulse 1.4s ease-in-out infinite}
+@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--red) 45%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
+.lr-say{flex:none;width:26px;height:26px;border-radius:50%;border:0;display:grid;place-items:center;background:var(--hover);color:var(--text-3);cursor:pointer}
+.lr-say:hover{color:var(--text);background:var(--hover-2)}.lr-say.on{background:var(--ink);color:var(--paper)}

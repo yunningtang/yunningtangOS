@@ -702,7 +702,7 @@ export function BlockEditor({ blocks: initial, onChange, notes = [], notesRef, n
       if (/^image\//.test(f.type)) { const u = await imageToDataUrl(f, 1600).catch(() => null); if (u) out.push(block('image', '', { url: u })); continue; }
       // Markdown / 纯文本文件：直接解析成块，不当附件
       if (/\.(md|markdown|txt)$/i.test(f.name) || f.type === 'text/markdown' || f.type === 'text/plain') { const t = await f.text().catch(() => ''); if (t.trim()) out.push(...mdToBlocks(t)); continue; }
-      if (f.size > 4 * 1048576) { toast(`「${f.name}」超过 4 MB，没有导入（同步接口的上限）`); continue; }
+      if (f.size > 50 * 1048576) { toast(`「${f.name}」超过 50 MB，没有导入`); continue; }
       const rec = await saveFile(f); out.push(block('file', '', { fid: rec.id, name: rec.name, mime: rec.type, size: rec.size }));
     }
     return out;

@@ -78,6 +78,14 @@ const transport = () => (loggedIn() ? viaApi : viaToken);
 const assetDir = (path) => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) + '/assets' : 'assets');
 const files = {
   async put(rec) {
+    // 云端帐号的大文件：拿签名地址直接传给 Supabase，不经过本站（本站一次最多收约 4.5 MB）
+    if (loggedIn() && api.cloud && rec.blob.size > 3 * 1048576) {
+      const r = await fetch('/api/file', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sign: 'upload', id: rec.id }) });
+      const j = await readRes(r);
+      const up = await fetch(j.url, { method: 'PUT', headers: { 'Content-Type': rec.type || 'application/octet-stream', 'x-upsert': 'true' }, body: rec.blob });
+      if (!up.ok) throw new Error('attachment upload failed (' + up.status + ')');
+      return;
+    }
     const content = await blobToBase64(rec.blob);
     if (loggedIn()) { const r = await fetch('/api/file', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: rec.id, name: rec.name, type: rec.type, content }) }); if (!r.ok) throw new Error('attachment upload failed'); return; }
     const c = cfg(); const file = `${API}/repos/${c.repo}/contents/${assetDir(c.path)}/${rec.id}`;
@@ -86,7 +94,11 @@ const files = {
     if (!r.ok) throw new Error('attachment upload failed');
   },
   async get(id) {
-    if (loggedIn()) { const r = await fetch('/api/file?id=' + encodeURIComponent(id)); if (!r.ok) return null; return (await r.json()).content; }
+    if (loggedIn()) {
+      // 云端帐号：先要一个签名地址直接从 Supabase 下载（大文件也行），不行再走本站
+      if (api.cloud) { try { const r = await fetch('/api/file?signed=1&id=' + encodeURIComponent(id)); if (r.ok) { const f = await fetch((await r.json()).url); if (f.ok) return f.blob(); } } catch {} }
+      const r = await fetch('/api/file?id=' + encodeURIComponent(id)); if (!r.ok) return null; return (await r.json()).content;
+    }
     const c = cfg(); const r = await fetch(`${API}/repos/${c.repo}/contents/${assetDir(c.path)}/${id}?ref=${c.branch}`, { headers: headers(c.token) });
     if (!r.ok) return null; const j = await r.json(); if (j.content) return j.content; if (j.download_url) { const f = await fetch(j.download_url); return blobToBase64(await f.blob()); } return null;
   },
@@ -99,7 +111,7 @@ export async function pushAttachments() {
 }
 // fetch one attachment that exists on another device (returns the stored record or null)
 export async function fetchAttachment(id, meta = {}) {
-  try { const b64 = await files.get(id); if (!b64) return null; return await putRemote(id, meta.name || id, meta.mime || 'application/octet-stream', base64ToBlob(b64, meta.mime || 'application/octet-stream')); } catch { return null; }
+  try { const got = await files.get(id); if (!got) return null; const type = meta.mime || (got instanceof Blob && got.type) || 'application/octet-stream'; return await putRemote(id, meta.name || id, type, got instanceof Blob ? new Blob([got], { type }) : base64ToBlob(got, type)); } catch { return null; }
 }
 export const canSyncFiles = () => { try { return loggedIn() || !!(get().settings.sync.repo && get().settings.sync.token); } catch { return false; } };
 
