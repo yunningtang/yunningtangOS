@@ -95,14 +95,18 @@ function PdfPage({ doc, num, width, anns }) {
       const vp = p.getViewport({ scale: scale * dpr }); setH(vp1.height * scale);
       const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height; c.style.width = '100%';
       task = p.render({ canvasContext: c.getContext('2d'), viewport: vp }); await task.promise.catch(() => {}); if (!alive) return;
-      el.replaceChildren(c);
+      // 文字层：透明的字叠在图上，可以选中、复制、拿去问汤圆
+      const tl = document.createElement('div'); tl.className = 'textLayer'; tl.style.setProperty('--scale-factor', String(scale));
+      try { const pdfjs = await loadPdfjs(); await new pdfjs.TextLayer({ textContentSource: p.streamTextContent(), container: tl, viewport: p.getViewport({ scale }) }).render(); } catch {}
+      if (!alive) return;
+      el.replaceChildren(c, tl);
     };
     const io = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) draw(); }, { rootMargin: '400px' }); io.observe(el);
     return () => { alive = false; io.disconnect(); try { task && task.cancel(); } catch {} };
   }, [doc, num, width]);
   // 圈出来的原文：位置按页面比例存，所以不管画多宽都对得上
-  return html`<div class="lr-page" style=${`height:${Math.round(h)}px`} data-page=${num}><div class="lr-page-c" ref=${ref}></div><span class="lr-pn">${num}</span>
-    ${(anns || []).map((a) => html`<i key=${a.k} class=${'lr-ann ' + (a.on ? 'on' : '')} data-k=${a.k} style=${`left:${(a.rx * 100).toFixed(2)}%;top:${(a.ry * 100).toFixed(2)}%;width:${(a.rw * 100).toFixed(2)}%;height:${(a.rh * 100).toFixed(2)}%`}>${a.label && html`<b>${a.label}</b>`}</i>`)}
+  return html`<div class="lr-page" style=${`width:${width}px;height:${Math.round(h)}px`} data-page=${num}><div class="lr-page-c" ref=${ref}></div><span class="lr-pn">${num}</span>
+    ${(anns || []).map((a) => html`<i key=${a.k} class=${'lr-ann ' + (a.on ? 'on ' : '') + (a.mine ? 'mine' : '')} data-k=${a.k} style=${`left:${(a.rx * 100).toFixed(2)}%;top:${(a.ry * 100).toFixed(2)}%;width:${(a.rw * 100).toFixed(2)}%;height:${(a.rh * 100).toFixed(2)}%`}>${a.label && html`<b>${a.label}</b>`}</i>`)}
   </div>`;
 }
 export function PdfView({ fid, name, width, anns }) {
@@ -125,22 +129,44 @@ function TextBody({ text, anns }) {
   while (rest && guard++ < 50) {
     let best = null; for (const a of marks) { const i = rest.indexOf(a.text); if (i >= 0 && (!best || i < best.i)) best = { i, a }; }
     if (!best) { parts.push(rest); break; }
-    parts.push(rest.slice(0, best.i)); parts.push(html`<mark class=${'lr-ann-t ' + (best.a.on ? 'on' : '')} data-k=${best.a.k}>${best.a.text}</mark>`); rest = rest.slice(best.i + best.a.text.length);
+    parts.push(rest.slice(0, best.i)); parts.push(html`<mark class=${'lr-ann-t ' + (best.a.on ? 'on ' : '') + (best.a.mine ? 'mine' : '')} data-k=${best.a.k}>${best.a.text}</mark>`); rest = rest.slice(best.i + best.a.text.length);
   }
   return html`<div class="lr-text">${parts}</div>`;
 }
 // anns：讲解面板圈出来的原文 [{ k, page, rx, ry, rw, rh, label, text, on }]
+const ZOOMS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3];
 export function SrcNode({ n, anns }) {
   const body = useRef();
+  // PDF 自己的缩放（不是画布的缩放）：记在这台设备上
+  const zkey = 'ytos.pdfz.' + n.id;
+  const [zoom, setZoom0] = useState(() => { try { return +localStorage.getItem(zkey) || 1; } catch { return 1; } });
+  const setZoom = (z, anchorY) => {
+    z = Math.max(0.5, Math.min(3, z)); const box = body.current;
+    // 缩放时保持看着的那一处不跑
+    if (box) { const ay = anchorY != null ? anchorY : box.clientHeight / 2; const ratio = (box.scrollTop + ay) / Math.max(1, box.scrollHeight); requestAnimationFrame(() => { box.scrollTop = ratio * box.scrollHeight - ay; }); }
+    setZoom0(z); try { localStorage.setItem(zkey, String(z)); } catch {}
+  };
+  const step = (d) => { const i = ZOOMS.findIndex((z) => z >= zoom - 1e-3); setZoom(ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? ZOOMS.length - 1 : i) + d))]); };
+  // ⌘ / Ctrl + 滚轮（或触控板捏合）在 PDF 上：缩放 PDF，不缩放画布
+  useEffect(() => {
+    const el = body.current; if (!el || n.kind !== 'pdf') return;
+    const h = (e) => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); e.stopPropagation(); const r = el.getBoundingClientRect(); setZoom(zoomRef.current * Math.exp(Math.max(-0.25, Math.min(0.25, -e.deltaY * 0.004))), e.clientY - r.top); };
+    el.addEventListener('wheel', h, { passive: false }); return () => el.removeEventListener('wheel', h);
+  }, [n.kind]);
+  const zoomRef = useRef(zoom); zoomRef.current = zoom;
   // 点面板上的「原文」：滚到那一处，圈闪一下
   useEffect(() => {
-    const h = (e) => { const el = body.current && body.current.querySelector(`[data-k="${e.detail.k}"]`); if (!el) return; const box = body.current; const r = el.getBoundingClientRect(), br = box.getBoundingClientRect(); box.scrollTo({ top: box.scrollTop + r.top - br.top - box.clientHeight / 3, behavior: 'smooth' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+    const h = (e) => { const el = body.current && body.current.querySelector(`[data-k="${e.detail.k}"]`); if (!el) return; const box = body.current; const r = el.getBoundingClientRect(), br = box.getBoundingClientRect(); box.scrollTo({ top: box.scrollTop + r.top - br.top - box.clientHeight / 3, left: Math.max(0, box.scrollLeft + r.left - br.left - 20), behavior: 'smooth' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
     const on = (e) => { if (e.detail.src === n.id) h(e); }; window.addEventListener('lr:goto', on); return () => window.removeEventListener('lr:goto', on);
   }, [n.id]);
   const icon = n.kind === 'pdf' ? 'note' : n.kind === 'image' ? 'image' : 'type';
+  // 自己圈的（选中文字 → 圈出来）和汤圆圈的放在一起画
+  const all = [...(anns || []), ...(n.marks || []).map((m) => ({ ...m, k: 'm:' + m.id, mine: true, label: '' }))];
   return html`<div class="lr-src">
-    <div class="lr-src-h"><${Icon} name=${icon} size=${13} /><b title=${n.name}>${n.name || (n.kind === 'text' ? '一段文字' : '材料')}</b><span class="lr-k">材料</span></div>
-    <div class="lr-src-b cv-scroll" ref=${body}>${n.kind === 'pdf' ? html`<${PdfView} fid=${n.fid} name=${n.name} width=${n.w} anns=${anns} />` : n.kind === 'image' ? html`<${ImageView} fid=${n.fid} name=${n.name} />` : html`<${TextBody} text=${n.text} anns=${anns} />`}</div>
+    <div class="lr-src-h"><${Icon} name=${icon} size=${13} /><b title=${n.name}>${n.name || (n.kind === 'text' ? '一段文字' : '材料')}</b>
+      ${n.kind === 'pdf' ? html`<div class="lr-zoom" onPointerDown=${(e) => e.stopPropagation()}><button type="button" title="缩小（⌘ + 滚轮）" onClick=${() => step(-1)}><${Icon} name="minus" size=${12} /></button><button type="button" class="lr-zv" title="适应宽度" onClick=${() => setZoom(1)}>${Math.round(zoom * 100)}%</button><button type="button" title="放大（⌘ + 滚轮）" onClick=${() => step(1)}><${Icon} name="plus" size=${12} /></button></div>` : html`<span class="lr-k">材料</span>`}
+    </div>
+    <div class="lr-src-b cv-scroll" ref=${body}>${n.kind === 'pdf' ? html`<${PdfView} fid=${n.fid} name=${n.name} width=${Math.round((n.w - 24) * zoom) + 24} anns=${all} />` : n.kind === 'image' ? html`<${ImageView} fid=${n.fid} name=${n.name} />` : html`<${TextBody} text=${n.text} anns=${all} />`}</div>
   </div>`;
 }
 // 汤圆给的原文引用 → 在材料里找到位置（PDF：文字层里的坐标；文字材料：原文本身）
@@ -320,4 +346,15 @@ export async function askLearn({ q, src, prior, focus, onStatus }) {
   if (!resp.ok) throw new Error(j.error || (resp.status === 413 ? '图片太大了，换一张小一点的' : `出错了（${resp.status}）`));
   recordUsage(j);
   return { title: j.title, reply: j.reply, cards: j.cards || [], quotes: j.quotes || [] };
+}
+
+// 选中的文字 → 圈：在 PDF 上按页面比例记位置；文字材料记原文
+export function selectionMark(range) {
+  const start = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+  const page = start && start.closest('.lr-page'); const text = range.toString().replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (!page) return text ? { text } : null;
+  const pr = page.getBoundingClientRect(); let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const r of range.getClientRects()) { if (r.width < 1 || r.bottom < pr.top || r.top > pr.bottom) continue; x1 = Math.min(x1, r.left); y1 = Math.min(y1, r.top); x2 = Math.max(x2, r.right); y2 = Math.max(y2, r.bottom); }
+  if (x1 === Infinity) return null;
+  const pad = 4; return { page: +page.dataset.page - 1, rx: Math.max(0, (x1 - pad - pr.left) / pr.width), ry: Math.max(0, (y1 - pad - pr.top) / pr.height), rw: Math.min(1, (x2 - x1 + pad * 2) / pr.width), rh: Math.min(1, (y2 - y1 + pad * 2) / pr.height), text };
 }
