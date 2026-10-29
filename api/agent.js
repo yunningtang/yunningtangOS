@@ -208,18 +208,30 @@ const SYSTEM_LEARN = `${PERSONA}
    - steps：分步推导或解题步骤，3–7 步。每步 title 是这一步做什么（一句话），hint 是给对方自己试的提示（不剧透结果），detail 是这一步的完整做法和结果。
    - check：一道小测验检查理解，question 是题目，options 是 3–4 个选项，answer 是正确选项的序号（从 0 开始），explain 解释为什么。每块面板最多一道。
    - tip：容易错的地方、记忆方法，body 一两句。
+   - figure：一张图，帮对方「看见」关系（比较、区间、分布、流程）。能画图的时候尽量给一张，每块面板最多两张。figure 字段是一个 JSON 字符串，title 写图的名字，body 一句话说图里看什么。figure 的格式（数值都用数字）：
+     · 数轴（区间、点估计、是否包含 0）：{"kind":"numberline","min":-0.3,"max":0.1,"points":[{"x":-0.12,"label":"点估计"}],"intervals":[{"from":-0.23,"to":-0.01,"label":"95% CI"}],"marks":[{"x":0,"label":"0"}]}
+     · 柱状图（几组数比较）：{"kind":"bars","labels":["A 组","B 组"],"values":[72,84],"unit":"%"}
+     · 正态分布（拒绝域、p 值、标准分）：{"kind":"normal","mean":0,"sd":1,"shade":{"from":-1.96,"to":1.96},"tails":true,"marks":[{"x":-2.05,"label":"Z=-2.05"}]}（tails 为 true 表示涂两边尾巴，false 表示涂中间）
+     · 折线 / 函数曲线：{"kind":"line","xlabel":"x","ylabel":"y","series":[{"name":"f(x)","points":[[0,0],[1,1],[2,4]]}]}（点 5–40 个）
+     · 流程 / 推理链：{"kind":"flow","nodes":["原假设 p1=p2","合并比例","标准误","Z 值","结论"],"edges":[[0,1],[1,2],[2,3],[3,4,"比较 1.96"]]}
+     · 以上都不合适时，可以给一张简单的 SVG：{"kind":"svg","svg":"<svg viewBox='0 0 300 160'>…</svg>"}（只用 rect / circle / ellipse / line / polyline / polygon / path / text，不要脚本和外链，颜色用 #333 / #d2524f / #4f7cf5）
    不用的字段填 null（数组填 []，answer 填 -1）。
+   在卡片正文里，把 1–3 个最关键的词、数字或结论用 ==...== 圈出来（例如 ==合并比例==），不要圈太多。
 6. 对方说「这一步没看懂」时：只围绕那一步，用更基础、更具体的方式重讲（举数字例子、拆得更细），不要把整题重讲一遍。
-7. title 是这块面板的小标题（8–20 个字），像章节名。reply 是一句话的总结（30 字以内）。`;
+7. title 是这块面板的小标题（8–20 个字），像章节名。reply 是一句话的总结（30 字以内）。
+8. 有材料时，在 quotes 里给出 1–3 处和这个问题最相关的原文：text 必须从材料里原样复制（一字不差，10–60 个字，可以是一句话、一个公式或一个数字所在的短语），label 用几个字说明这是什么（比如「题目给的数据」「要用的公式」）。没有材料就给 []。`;
 const LEARN_STEP = { type: 'object', additionalProperties: false, required: ['title', 'hint', 'detail'], properties: { title: { type: 'string' }, hint: S_OR_NULL, detail: S_OR_NULL } };
-const LEARN_CARD = { type: 'object', additionalProperties: false, required: ['type', 'title', 'body', 'latex', 'steps', 'question', 'options', 'answer', 'explain'], properties: { type: { type: 'string', enum: ['text', 'formula', 'steps', 'check', 'tip'] }, title: S_OR_NULL, body: S_OR_NULL, latex: S_OR_NULL, steps: { type: 'array', items: LEARN_STEP }, question: S_OR_NULL, options: { type: 'array', items: { type: 'string' } }, answer: { type: 'integer' }, explain: S_OR_NULL } };
-const SCHEMA_LEARN = { type: 'object', additionalProperties: false, required: ['reply', 'title', 'cards'], properties: { reply: { type: 'string' }, title: { type: 'string' }, cards: { type: 'array', items: LEARN_CARD } } };
-const LEARN_TYPES = ['text', 'formula', 'steps', 'check', 'tip'];
+const LEARN_CARD = { type: 'object', additionalProperties: false, required: ['type', 'title', 'body', 'latex', 'steps', 'question', 'options', 'answer', 'explain', 'figure'], properties: { type: { type: 'string', enum: ['text', 'formula', 'steps', 'check', 'tip', 'figure'] }, figure: S_OR_NULL, title: S_OR_NULL, body: S_OR_NULL, latex: S_OR_NULL, steps: { type: 'array', items: LEARN_STEP }, question: S_OR_NULL, options: { type: 'array', items: { type: 'string' } }, answer: { type: 'integer' }, explain: S_OR_NULL } };
+const LEARN_QUOTE = { type: 'object', additionalProperties: false, required: ['text', 'label'], properties: { text: { type: 'string' }, label: S_OR_NULL } };
+const SCHEMA_LEARN = { type: 'object', additionalProperties: false, required: ['reply', 'title', 'cards', 'quotes'], properties: { reply: { type: 'string' }, title: { type: 'string' }, cards: { type: 'array', items: LEARN_CARD }, quotes: { type: 'array', items: LEARN_QUOTE } } };
+const LEARN_TYPES = ['text', 'formula', 'steps', 'check', 'tip', 'figure'];
 function validateCard(c) {
   if (!c || typeof c !== 'object' || !LEARN_TYPES.includes(c.type)) return null;
   const out = { type: c.type, title: str(c.title, 80) || '' };
   if (c.body) out.body = str(c.body, 4000) || '';
   if (c.type === 'formula') out.latex = str(c.latex, 600) || '';
+  // 图：只留一个 JSON 字符串，前端按 kind 自己画（svg 在前端再消毒一遍）
+  if (c.type === 'figure') { const f = typeof c.figure === 'string' ? c.figure : c.figure && typeof c.figure === 'object' ? JSON.stringify(c.figure) : ''; try { const o = JSON.parse(f); if (!o || typeof o.kind !== 'string') return null; out.figure = JSON.stringify(o).slice(0, 12000); } catch { return null; } }
   if (c.type === 'steps') out.steps = (Array.isArray(c.steps) ? c.steps : []).map((x) => x && str(x.title, 200) ? { title: str(x.title, 200), hint: str(x.hint, 600) || '', detail: str(x.detail, 2000) || '' } : null).filter(Boolean).slice(0, 8);
   if (c.type === 'check') {
     const opts = (Array.isArray(c.options) ? c.options : []).map((x) => str(x, 200)).filter(Boolean).slice(0, 5);
@@ -237,7 +249,7 @@ const JSON_HINT = {
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "goal": "..." 或 null, "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
   stuck: '只输出一个 JSON 对象：{"reply": "...", "first": {"title": "...", "minutes": 5}, "tip": null, "next_steps": []}。不要输出 JSON 之外的任何文字。',
   brain: '只输出一个 JSON 对象：{"reply": "...", "picks": [{"id": "...", "region": "plan|memory|talk|move|habit|alarm"}]}。不要输出 JSON 之外的任何文字。',
-  learn: '只输出一个 JSON 对象：{"reply": "...", "title": "...", "cards": [{"type": "text|formula|steps|check|tip", "title": null, "body": null, "latex": null, "steps": [{"title": "...", "hint": null, "detail": null}], "question": null, "options": [], "answer": -1, "explain": null}]}。字符串里的反斜杠要写成 \\\\（比如 LaTeX 的 \\\\frac），换行写成 \\n。不要输出 JSON 之外的任何文字。',
+  learn: '只输出一个 JSON 对象：{"reply": "...", "title": "...", "cards": [{"type": "text|formula|steps|check|tip", "title": null, "body": null, "latex": null, "steps": [{"title": "...", "hint": null, "detail": null}], "question": null, "options": [], "answer": -1, "explain": null, "figure": null}], "quotes": [{"text": "材料原文", "label": "..."}]}。figure 是 JSON 字符串（里面的引号要转义）。字符串里的反斜杠要写成 \\\\（比如 LaTeX 的 \\\\frac），换行写成 \\n。不要输出 JSON 之外的任何文字。',
 };
 
 /* ---------------- 上下文 ---------------- */
@@ -491,9 +503,10 @@ export async function runAgent(body, cfg) {
     return { status: 200, body: { ...base, picks } };
   }
   if (mode === 'learn') {
-    const cards = (Array.isArray(got.out.cards) ? got.out.cards : []).map(validateCard).filter(Boolean).slice(0, 6);
+    const cards = (Array.isArray(got.out.cards) ? got.out.cards : []).map(validateCard).filter(Boolean).slice(0, 7);
     if (!cards.length) return { status: 502, body: { error: '汤圆这次没讲出东西来，再问一次试试' } };
-    return { status: 200, body: { ...base, title: str(got.out.title, 40) || '讲解', cards } };
+    const quotes = (Array.isArray(got.out.quotes) ? got.out.quotes : []).map((q) => q && str(q.text, 200) ? { text: str(q.text, 200), label: str(q.label, 30) || '' } : null).filter(Boolean).slice(0, 4);
+    return { status: 200, body: { ...base, title: str(got.out.title, 40) || '讲解', cards, quotes } };
   }
   if (mode === 'breakdown') {
     const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).map(validateStep).filter(Boolean).slice(0, 7);

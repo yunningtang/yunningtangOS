@@ -10,6 +10,7 @@ import { aiEnabled, aiHeaders, recordUsage, aiConfig } from './ai.js';
 import { todayStr, escapeHtml as esc } from './util.js';
 import { Icon } from './ui.js';
 import { canSpeak, speak, speakable, stopSpeak } from './voice.js';
+import { Figure } from './figure.js';
 
 const VENDOR = new URL('../vendor/', import.meta.url).href;
 
@@ -35,8 +36,11 @@ export function richHtml(md, inline = false) {
     .replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => { maths.push([m, true]); return `\uE000${maths.length - 1}\uE001`; })
     .replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => { maths.push([m, true]); return `\uE000${maths.length - 1}\uE001`; })
     .replace(/\\\(([\s\S]+?)\\\)/g, (_, m) => { maths.push([m, false]); return `\uE000${maths.length - 1}\uE001`; })
-    .replace(/(^|[^\\$])\$([^$\n]+?)\$/g, (_, pre, m) => { maths.push([m, false]); return `${pre}\uE000${maths.length - 1}\uE001`; });
+    .replace(/(^|[^\\$])\$([^$\n]+?)\$/g, (_, pre, m) => { maths.push([m, false]); return `${pre}\uE000${maths.length - 1}\uE001`; })
+    // ==重点== 圈出来：先换成占位符，消毒之后再变成带红圈的 span
+    .replace(/==([^=\n]{1,60})==/g, (_, m) => `\uE002${encodeURIComponent(m)}\uE003`);
   let out = sanitizeDoc(inline ? marked.parseInline(src) : marked.parse(src));
+  out = out.replace(/\uE002([^\uE003]*)\uE003/g, (_, m) => `<span class="lr-circ">${esc(decodeURIComponent(m))}</span>`);
   out = out.replace(/\uE000(\d+)\uE001/g, (_, i) => tex(maths[i][0], maths[i][1]));
   return out;
 }
@@ -79,7 +83,7 @@ export function pickPages(pages, q, limit = 15000) {
 }
 
 // 一页 PDF：进到视野里才画，宽度跟着节点
-function PdfPage({ doc, num, width }) {
+function PdfPage({ doc, num, width, anns }) {
   const ref = useRef(); const [h, setH] = useState(width * 1.3);
   useEffect(() => {
     let alive = true, task = null, drawn = 0;
@@ -96,28 +100,83 @@ function PdfPage({ doc, num, width }) {
     const io = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) draw(); }, { rootMargin: '400px' }); io.observe(el);
     return () => { alive = false; io.disconnect(); try { task && task.cancel(); } catch {} };
   }, [doc, num, width]);
-  return html`<div class="lr-page" ref=${ref} style=${`height:${Math.round(h)}px`} data-page=${num}><span class="lr-pn">${num}</span></div>`;
+  // 圈出来的原文：位置按页面比例存，所以不管画多宽都对得上
+  return html`<div class="lr-page" style=${`height:${Math.round(h)}px`} data-page=${num}><div class="lr-page-c" ref=${ref}></div><span class="lr-pn">${num}</span>
+    ${(anns || []).map((a) => html`<i key=${a.k} class=${'lr-ann ' + (a.on ? 'on' : '')} data-k=${a.k} style=${`left:${(a.rx * 100).toFixed(2)}%;top:${(a.ry * 100).toFixed(2)}%;width:${(a.rw * 100).toFixed(2)}%;height:${(a.rh * 100).toFixed(2)}%`}>${a.label && html`<b>${a.label}</b>`}</i>`)}
+  </div>`;
 }
-export function PdfView({ fid, name, width }) {
+export function PdfView({ fid, name, width, anns }) {
   const [st, setSt] = useState({ doc: null, err: '' });
   useEffect(() => { let alive = true; pdfDoc(fid, name).then((doc) => alive && setSt({ doc, err: '' })).catch((e) => alive && setSt({ doc: null, err: e.message || '打不开这个 PDF' })); return () => { alive = false; }; }, [fid]);
   if (st.err) return html`<div class="lr-msg">${st.err}</div>`;
   if (!st.doc) return html`<div class="lr-msg">正在打开 PDF…</div>`;
   const w = Math.max(160, Math.round(width - 24));
-  return html`<div class="lr-pages">${Array.from({ length: st.doc.numPages }, (_, i) => html`<${PdfPage} key=${i} doc=${st.doc} num=${i + 1} width=${w} />`)}</div>`;
+  return html`<div class="lr-pages">${Array.from({ length: st.doc.numPages }, (_, i) => html`<${PdfPage} key=${i} doc=${st.doc} num=${i + 1} width=${w} anns=${(anns || []).filter((a) => a.page === i)} />`)}</div>`;
 }
 function ImageView({ fid, name }) {
   const [u, setU] = useState(null); const [err, setErr] = useState('');
   useEffect(() => { let alive = true; (async () => { let url = await fileUrl(fid); if (!url) { const r = await fetchAttachment(fid, { name }); if (r) url = await fileUrl(fid); } if (!alive) return; if (url) setU(url); else setErr('这台设备上还没有这张图'); })(); return () => { alive = false; }; }, [fid]);
   return err ? html`<div class="lr-msg">${err}</div>` : u ? html`<img class="lr-img" src=${u} alt=${name || ''} draggable="false" />` : html`<div class="lr-msg">正在加载…</div>`;
 }
-export function SrcNode({ n }) {
+// 文字材料里圈出来的原文
+function TextBody({ text, anns }) {
+  const marks = (anns || []).filter((a) => a.text); if (!marks.length) return html`<div class="lr-text">${text || ''}</div>`;
+  const parts = []; let rest = String(text || ''), guard = 0;
+  while (rest && guard++ < 50) {
+    let best = null; for (const a of marks) { const i = rest.indexOf(a.text); if (i >= 0 && (!best || i < best.i)) best = { i, a }; }
+    if (!best) { parts.push(rest); break; }
+    parts.push(rest.slice(0, best.i)); parts.push(html`<mark class=${'lr-ann-t ' + (best.a.on ? 'on' : '')} data-k=${best.a.k}>${best.a.text}</mark>`); rest = rest.slice(best.i + best.a.text.length);
+  }
+  return html`<div class="lr-text">${parts}</div>`;
+}
+// anns：讲解面板圈出来的原文 [{ k, page, rx, ry, rw, rh, label, text, on }]
+export function SrcNode({ n, anns }) {
+  const body = useRef();
+  // 点面板上的「原文」：滚到那一处，圈闪一下
+  useEffect(() => {
+    const h = (e) => { const el = body.current && body.current.querySelector(`[data-k="${e.detail.k}"]`); if (!el) return; const box = body.current; const r = el.getBoundingClientRect(), br = box.getBoundingClientRect(); box.scrollTo({ top: box.scrollTop + r.top - br.top - box.clientHeight / 3, behavior: 'smooth' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+    const on = (e) => { if (e.detail.src === n.id) h(e); }; window.addEventListener('lr:goto', on); return () => window.removeEventListener('lr:goto', on);
+  }, [n.id]);
   const icon = n.kind === 'pdf' ? 'note' : n.kind === 'image' ? 'image' : 'type';
   return html`<div class="lr-src">
     <div class="lr-src-h"><${Icon} name=${icon} size=${13} /><b title=${n.name}>${n.name || (n.kind === 'text' ? '一段文字' : '材料')}</b><span class="lr-k">材料</span></div>
-    <div class="lr-src-b cv-scroll">${n.kind === 'pdf' ? html`<${PdfView} fid=${n.fid} name=${n.name} width=${n.w} />` : n.kind === 'image' ? html`<${ImageView} fid=${n.fid} name=${n.name} />` : html`<div class="lr-text">${n.text || ''}</div>`}</div>
+    <div class="lr-src-b cv-scroll" ref=${body}>${n.kind === 'pdf' ? html`<${PdfView} fid=${n.fid} name=${n.name} width=${n.w} anns=${anns} />` : n.kind === 'image' ? html`<${ImageView} fid=${n.fid} name=${n.name} />` : html`<${TextBody} text=${n.text} anns=${anns} />`}</div>
   </div>`;
 }
+// 汤圆给的原文引用 → 在材料里找到位置（PDF：文字层里的坐标；文字材料：原文本身）
+const norm = (t) => String(t || '').toLowerCase().replace(/[\s\u200b]+/g, '').replace(/[“”"']/g, '');
+const pageItems = new Map();
+async function itemsOf(fid, name, i) {
+  const key = fid + ':' + i; if (pageItems.has(key)) return pageItems.get(key);
+  const doc = await pdfDoc(fid, name); const p = await doc.getPage(i + 1); const vp = p.getViewport({ scale: 1 }); const tc = await p.getTextContent();
+  let str = ''; const owner = [];
+  tc.items.forEach((it, j) => { for (const ch of it.str || '') { const c = norm(ch); if (!c) continue; str += c; owner.push(j); } });
+  const out = { vp, items: tc.items, str, owner }; pageItems.set(key, out); return out;
+}
+export async function locateQuotes(src, quotes) {
+  if (!src || !Array.isArray(quotes) || !quotes.length) return [];
+  if (src.kind === 'text') return quotes.filter((q) => String(src.text || '').includes(q.text)).map((q) => ({ text: q.text, label: q.label || '' }));
+  if (src.kind !== 'pdf') return [];
+  const out = []; let doc; try { doc = await pdfDoc(src.fid, src.name); } catch { return []; }
+  for (const q of quotes) {
+    const nq = norm(q.text); if (nq.length < 4) continue;
+    let hit = null;
+    for (let i = 0; i < doc.numPages && !hit; i++) {
+      const P = await itemsOf(src.fid, src.name, i);
+      // 先找整句，找不到就找最长的开头（至少 8 个字）
+      let at = P.str.indexOf(nq), len = nq.length;
+      if (at < 0) for (let L = Math.min(nq.length - 1, 40); L >= 8 && at < 0; L -= 4) { at = P.str.indexOf(nq.slice(0, L)); len = L; }
+      if (at < 0) continue;
+      const idx = [...new Set(P.owner.slice(at, at + len))]; let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      for (const j of idx) { const it = P.items[j]; const [, , c, d, e, f] = it.transform; const fh = Math.hypot(c, d) || it.height || 10; const r = P.vp.convertToViewportRectangle([e, f - fh * 0.25, e + (it.width || fh), f + fh * 0.85]); x1 = Math.min(x1, r[0], r[2]); x2 = Math.max(x2, r[0], r[2]); y1 = Math.min(y1, r[1], r[3]); y2 = Math.max(y2, r[1], r[3]); }
+      const W = P.vp.width, H = P.vp.height, padX = 6, padY = 4;
+      hit = { page: i, rx: Math.max(0, (x1 - padX) / W), ry: Math.max(0, (y1 - padY) / H), rw: Math.min(1, (x2 - x1 + padX * 2) / W), rh: Math.min(1, (y2 - y1 + padY * 2) / H), label: q.label || '', text: q.text };
+    }
+    if (hit) out.push(hit);
+  }
+  return out;
+}
+export const gotoQuote = (srcId, k) => window.dispatchEvent(new CustomEvent('lr:goto', { detail: { src: srcId, k } }));
 
 /* ---------- 讲解面板 ---------- */
 function StepsCard({ c, mode, onStuck }) {
@@ -172,10 +231,12 @@ export function LearnNode({ n, onPatch, onStuck, onRetry }) {
   return html`<div class="lr-panel">
     <div class="lr-q"><${Icon} name="chat" size=${12} /><${Rich} md=${n.q} inline=${true} /></div>
     <div class="lr-h"><b>${n.title || '讲解'}</b><${SpeakBtn} n=${n} mode=${mode} />${cards.some((c) => c.type === 'steps') && html`<div class="lr-mode"><button type="button" class=${mode === 'hint' ? 'on' : ''} onClick=${() => onPatch({ mode: 'hint' })}>提示</button><button type="button" class=${mode === 'answer' ? 'on' : ''} onClick=${() => onPatch({ mode: 'answer' })}>答案</button></div>`}</div>
+    ${(n.anns || []).length > 0 && html`<div class="lr-quotes">${n.anns.map((a, i) => html`<button type="button" key=${i} class="lr-qchip" title=${a.text} onClick=${() => gotoQuote(n.src, n.id + ':' + i)}><span class="lr-qdot"></span>原文${a.page != null ? ` · 第 ${a.page + 1} 页` : ''}${a.label ? ' · ' + a.label : ''}</button>`)}</div>`}
     ${cards.map((c, i) => html`<div key=${i} class=${'lr-card ' + c.type}>
       ${c.title && c.type !== 'check' && html`<div class="lr-ct">${c.type === 'tip' && html`<${Icon} name="sparkle" size=${12} />`}${c.title}</div>`}
       ${c.type === 'formula' && html`<div class="lr-formula" dangerouslySetInnerHTML=${{ __html: tex(c.latex || '', true) }}></div>`}
-      ${(c.type === 'text' || c.type === 'tip' || c.type === 'formula') && c.body && html`<${Rich} md=${c.body} />`}
+      ${c.type === 'figure' && html`<${Figure} spec=${c.figure} />`}
+      ${(c.type === 'text' || c.type === 'tip' || c.type === 'formula' || c.type === 'figure') && c.body && html`<${Rich} md=${c.body} />`}
       ${c.type === 'steps' && html`<${StepsCard} c=${c} mode=${mode} onStuck=${onStuck} />`}
       ${c.type === 'check' && html`<${CheckCard} c=${c} picked=${(n.picks || {})[i]} onPick=${(v) => onPatch({ picks: { ...(n.picks || {}), [i]: v } })} />`}
       ${(c.type === 'text' || c.type === 'formula') && html`<button type="button" class="lr-stuck lr-card-stuck" onClick=${() => onStuck((c.title ? c.title + '\n' : '') + (c.latex || '') + '\n' + (c.body || ''), c.title || '这一段')}>这段不懂</button>`}
@@ -258,5 +319,5 @@ export async function askLearn({ q, src, prior, focus, onStatus }) {
   const j = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(j.error || (resp.status === 413 ? '图片太大了，换一张小一点的' : `出错了（${resp.status}）`));
   recordUsage(j);
-  return { title: j.title, reply: j.reply, cards: j.cards || [] };
+  return { title: j.title, reply: j.reply, cards: j.cards || [], quotes: j.quotes || [] };
 }

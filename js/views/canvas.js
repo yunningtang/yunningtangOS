@@ -1,7 +1,7 @@
 // 画布: an infinite board for thinking with pages, text, freehand strokes and arrows between them.
 // { id, title, nodes: [{ id, type: 'text'|'note'|'src'|'learn', x, y, w, h, text?, note?, color? }], edges: [{ id, from, to, label }], strokes: [{ id, color, width, pts: [[x,y]] }] }
 // src / learn 是学习画布用的：材料（PDF / 图片 / 文字）和汤圆的讲解面板，见 learn.js
-import { html, useState, useEffect, useRef, useMemo } from '../../vendor/preact.js';
+import { html, useState, useEffect, useLayoutEffect, useRef, useMemo } from '../../vendor/preact.js';
 import { useStore, upsert, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Empty, Modal, Seg } from '../ui.js';
 import { uid, todayStr, sortBy, escapeHtml as esc, nowISO } from '../util.js';
@@ -13,7 +13,7 @@ import { snippetOf, newNote } from './notes.js';
 import { mdToBlocks, sanitize } from '../blocks.js';
 import { openPalette, customColors } from '../palette.js';
 import { SelToolbar, inlineShortcut } from '../editor.js';
-import { SrcNode, LearnNode, askLearn, panelText } from '../learn.js';
+import { SrcNode, LearnNode, askLearn, panelText, locateQuotes, gotoQuote } from '../learn.js';
 import { saveFile, isPdf, fmtSize } from '../files.js';
 import { pickFile } from '../util.js';
 import { canDictate, dictate } from '../voice.js';
@@ -28,6 +28,7 @@ function colorSwatches(cur, list, set) {
 }
 const now = () => nowISO();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ZMIN = 0.1, ZMAX = 4;
 
 export function newCanvas(title = '') { const c = { id: uid(), title, nodes: [], edges: [], strokes: [], created: todayStr(), updated: now() }; upsert('canvases', c); return c; }
 export function canvasesOf(s, noteId) { return (s.canvases || []).filter((c) => (c.nodes || []).some((n) => n.note === noteId)); }
@@ -72,7 +73,18 @@ function Board({ board, notes, notebooks }) {
   useEffect(() => { if (!dragRef.current && board !== bRef.current) setB(board); }, [board]);
   const commit = (next) => { setB(next); upsert('canvases', { ...next, updated: now() }); };
   const [view, setViewState] = useState(() => lsGet('ytos.cv.' + board.id) || { x: 80, y: 80, z: 1 });
-  const viewRef = useRef(view); const setView = (v) => { const next = typeof v === 'function' ? v(viewRef.current) : v; viewRef.current = next; setViewState(next); };
+  // 视图（平移 / 缩放）：先改 ref，每一帧最多重画一次；拖动、滚轮、捏合都走这里
+  const viewRef = useRef(view); const rafV = useRef(0);
+  const setView = (v) => { viewRef.current = typeof v === 'function' ? v(viewRef.current) : v; if (!rafV.current) rafV.current = requestAnimationFrame(() => { rafV.current = 0; setViewState(viewRef.current); }); };
+  const animRef = useRef(0);
+  // 缩放按钮、适应内容这些「跳过去」的操作带一点过渡（约 260ms，减速收尾）
+  const animateView = (to, ms = 260) => {
+    cancelAnimationFrame(animRef.current);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setView(to); return; }
+    const from = { ...viewRef.current }; const t0 = performance.now(); const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const step = (t) => { const k = Math.min(1, (t - t0) / ms), e = ease(k); setView({ x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, z: from.z + (to.z - from.z) * e }); if (k < 1) animRef.current = requestAnimationFrame(step); };
+    animRef.current = requestAnimationFrame(step);
+  };
   useEffect(() => { const t = setTimeout(() => lsSet('ytos.cv.' + board.id, view), 300); return () => clearTimeout(t); }, [view]);
   const [tool, setTool] = useState('select');
   const [pen, setPen] = useState({ color: '#4f7cf5', width: 3 });
@@ -86,9 +98,13 @@ function Board({ board, notes, notebooks }) {
   const node = (id) => bRef.current.nodes.find((n) => n.id === id);
   const toWorld = (e) => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; return [(e.clientX - r.left - v.x) / v.z, (e.clientY - r.top - v.y) / v.z]; };
   const center = () => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; return [(r.width / 2 - v.x) / v.z, (r.height / 2 - v.y) / v.z]; };
-  const zoomAt = (cx, cy, f) => setView((v) => { const z = clamp(v.z * f, 0.2, 3); return { x: cx - (cx - v.x) * z / v.z, y: cy - (cy - v.y) * z / v.z, z }; });
-  const zoomBy = (f) => { const r = vp.current.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, f); };
-  const fit = () => { const bb = bbox(bRef.current); const r = vp.current.getBoundingClientRect(); if (!bb) { setView({ x: r.width / 2, y: r.height / 2, z: 1 }); return; } const z = clamp(Math.min((r.width - 80) / bb.w, (r.height - 80) / bb.h, 1.5), 0.2, 1.5); setView({ x: (r.width - bb.w * z) / 2 - bb.x * z, y: (r.height - bb.h * z) / 2 - bb.y * z, z }); };
+  const zoomed = (v, cx, cy, z) => { z = clamp(z, ZMIN, ZMAX); return { x: cx - (cx - v.x) * z / v.z, y: cy - (cy - v.y) * z / v.z, z }; };
+  const zoomAt = (cx, cy, f) => { cancelAnimationFrame(animRef.current); setView((v) => zoomed(v, cx, cy, v.z * f)); };
+  const zoomBy = (f) => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; animateView(zoomed(v, r.width / 2, r.height / 2, v.z * f), 200); };
+  const zoomTo = (z) => { const r = vp.current.getBoundingClientRect(); animateView(zoomed(viewRef.current, r.width / 2, r.height / 2, z), 220); };
+  const frame = (bb, maxZ = 1.5) => { const r = vp.current.getBoundingClientRect(); if (!bb) return { x: r.width / 2, y: r.height / 2, z: 1 }; const z = clamp(Math.min((r.width - 80) / Math.max(bb.w, 1), (r.height - 140) / Math.max(bb.h, 1), maxZ), ZMIN, maxZ); return { x: (r.width - bb.w * z) / 2 - bb.x * z, y: (r.height - 60 - bb.h * z) / 2 - bb.y * z, z }; };
+  const fit = () => animateView(frame(bbox(bRef.current)), 320);
+  const zoomToSel = () => { const n = sel && sel.kind === 'node' ? node(sel.id) : null; if (n) animateView(frame({ x: n.x, y: n.y, w: n.w, h: n.h }, 2), 300); else fit(); };
 
   const addText = (x, y, text = '') => { const n = { id: uid(), type: 'text', x: Math.round(x), y: Math.round(y), w: 220, h: 64, text, color: '' }; commit({ ...bRef.current, nodes: [...bRef.current.nodes, n] }); setSel({ kind: 'node', id: n.id }); setEditing(n.id); return n; };
   const addNote = (noteId, x, y) => { if (bRef.current.nodes.some((n) => n.note === noteId)) { toast('这一页已经在画布上了'); return; } const n = { id: uid(), type: 'note', note: noteId, x: Math.round(x), y: Math.round(y), w: 240, h: 110, color: '' }; commit({ ...bRef.current, nodes: [...bRef.current.nodes, n] }); setSel({ kind: 'node', id: n.id }); };
@@ -118,7 +134,7 @@ function Board({ board, notes, notebooks }) {
   /* ---- 学习：材料 + 问汤圆 ---- */
   // 放一个新节点：从 (x, y) 开始往下找一个不和别人重叠的位置
   const freeSpot = (x, y, w, h) => { let guard = 0; const others = bRef.current.nodes; while (guard++ < 60 && others.some((o) => x < o.x + o.w + 16 && x + w + 16 > o.x && y < o.y + o.h + 16 && y + h + 16 > o.y)) y += 48; return [Math.round(x), Math.round(y)]; };
-  const showNode = (n) => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; const sx = n.x * v.z + v.x, sy = n.y * v.z + v.y; if (sx > 20 && sx + n.w * v.z < r.width - 20 && sy > 20 && sy < r.height - 160) return; setView({ ...v, x: r.width / 2 - (n.x + n.w / 2) * v.z, y: 70 - n.y * v.z }); };
+  const showNode = (n) => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; const sx = n.x * v.z + v.x, sy = n.y * v.z + v.y; if (sx > 20 && sx + n.w * v.z < r.width - 20 && sy > 20 && sy < r.height - 160) return; animateView({ ...v, x: r.width / 2 - (n.x + n.w / 2) * v.z, y: 70 - n.y * v.z }, 320); };
   const addFiles = async (files, at) => {
     let [x, y] = at || (() => { const [cx, cy] = center(); return [cx - 220, cy - 260]; })(); let last = null;
     for (const f of files) {
@@ -150,7 +166,13 @@ function Board({ board, notes, notebooks }) {
     runAsk(pn.id, { q, src, prior, focus });
   };
   const runAsk = async (id, args) => {
-    try { const r = await askLearn({ ...args, onStatus: (st) => patchNode(id, { status: st }, false) }); patchNode(id, { pending: false, error: '', status: '', title: r.title, reply: r.reply, cards: r.cards, mode: 'hint' }); }
+    try {
+      const r = await askLearn({ ...args, onStatus: (st) => patchNode(id, { status: st }, false) });
+      const anns = await locateQuotes(args.src, r.quotes).catch(() => []);
+      patchNode(id, { pending: false, error: '', status: '', title: r.title, reply: r.reply, cards: r.cards, mode: 'hint', anns });
+      // 原文里圈出来的地方：翻到那里
+      if (anns.length && args.src) setTimeout(() => gotoQuote(args.src.id, id + ':0'), 450);
+    }
     catch (e) { patchNode(id, { pending: false, status: '', error: e.message || '出错了' }); }
   };
   const retry = (n) => { patchNode(n.id, { pending: true, error: '' }); const from = node(n.from); runAsk(n.id, { q: n.q, src: node(n.src), prior: from && from.type === 'learn' ? panelText(from) : '', focus: n.focus || '' }); };
@@ -182,28 +204,56 @@ function Board({ board, notes, notebooks }) {
   // wheel: pan; with ⌘/ctrl (or a pinch gesture) zoom around the cursor
   useEffect(() => {
     const el = vp.current; if (!el) return;
-    const h = (e) => { const sc = !e.ctrlKey && !e.metaKey && e.target.closest && e.target.closest('.cv-scroll'); if (sc && sc.scrollHeight > sc.clientHeight + 1) return; e.preventDefault(); const r = el.getBoundingClientRect(); if (e.ctrlKey || e.metaKey) zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.003)); else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY })); };
-    el.addEventListener('wheel', h, { passive: false }); return () => el.removeEventListener('wheel', h);
+    let gesture = null;
+    const h = (e) => {
+      const sc = !e.ctrlKey && !e.metaKey && e.target.closest && e.target.closest('.cv-scroll'); if (sc && sc.scrollHeight > sc.clientHeight + 1) return;
+      e.preventDefault(); if (gesture) return;
+      const r = el.getBoundingClientRect(); const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? r.height : 1;
+      // 触控板捏合 / ⌘+滚轮：每一下最多缩放 ±30%，鼠标滚轮一格也不会跳太多
+      if (e.ctrlKey || e.metaKey) { zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(clamp(-e.deltaY * unit * 0.0025, -0.3, 0.3))); return; }
+      cancelAnimationFrame(animRef.current);
+      const dx = (e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * unit, dy = (e.shiftKey && !e.deltaX ? 0 : e.deltaY) * unit;
+      setView((v) => ({ ...v, x: v.x - dx, y: v.y - dy }));
+    };
+    // Safari 的触控板捏合发的是 gesture 事件
+    const gs = (e) => { e.preventDefault(); gesture = { z: viewRef.current.z }; };
+    const gc = (e) => { e.preventDefault(); if (!gesture) return; const r = el.getBoundingClientRect(); setView((v) => zoomed(v, e.clientX - r.left, e.clientY - r.top, gesture.z * e.scale)); };
+    const ge = (e) => { e.preventDefault(); gesture = null; };
+    el.addEventListener('wheel', h, { passive: false }); el.addEventListener('gesturestart', gs); el.addEventListener('gesturechange', gc); el.addEventListener('gestureend', ge);
+    return () => { el.removeEventListener('wheel', h); el.removeEventListener('gesturestart', gs); el.removeEventListener('gesturechange', gc); el.removeEventListener('gestureend', ge); };
   }, []);
   useEffect(() => {
     const h = (e) => {
       if (e.target.closest('input,textarea,.modal') || (e.target.closest('[contenteditable]') && e.key !== 'Tab' && !(e.key === 'Enter' && !e.shiftKey && (e.metaKey || e.ctrlKey)))) return;
+      // 缩放：⌘+ / ⌘− / ⌘0（100%），Shift+1 适应全部，Shift+2 放大到选中的
+      if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoomBy(1.25); return; }
+      if ((e.metaKey || e.ctrlKey) && (e.key === '-' || e.key === '_')) { e.preventDefault(); zoomBy(0.8); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key === '0') { e.preventDefault(); zoomTo(1); return; }
+      if (e.shiftKey && e.code === 'Digit1' && !editing) { e.preventDefault(); fit(); return; }
+      if (e.shiftKey && e.code === 'Digit2' && !editing) { e.preventDefault(); zoomToSel(); return; }
+      if (e.key === ' ' && !editing) { e.preventDefault(); if (!spaceRef.current) { spaceRef.current = true; wrapRef.current && wrapRef.current.classList.add('space-pan'); } return; }
+      if (e.key === '/' && !editing) { e.preventDefault(); openAsk(); return; }
       if ((e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) && (sel && sel.kind === 'node' || editing)) { e.preventDefault(); spawn(editing || sel.id, e.key === 'Tab'); return; }
       if (editing) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); removeSel(); }
       else if (e.key === 'Escape') { setSel(null); setTool('select'); }
       else if (e.key === 'v') setTool('select'); else if (e.key === 't') setTool('text'); else if (e.key === 'p') setTool('pen'); else if (e.key === 'e') setTool('erase');
     };
-    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
+    const up = (e) => { if (e.key === ' ') { spaceRef.current = false; wrapRef.current && wrapRef.current.classList.remove('space-pan'); } };
+    window.addEventListener('keydown', h); window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', h); window.removeEventListener('keyup', up); };
   }, [sel, editing]);
+  const spaceRef = useRef(false);
 
   const pointers = useRef(new Map());
   const down = (e) => {
     const t = e.target;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) { const pts = [...pointers.current.values()]; dragRef.current = { kind: 'pinch', d0: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1, z0: viewRef.current.z, v0: viewRef.current, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2 }; setTemp(null); return; }
+    if (t.closest('.cv-tb,.cv-hint,.modal-bg,.cv-ask,.cv-ask-fab,.cv-outline')) return;
+    // 中键拖动、按住空格拖动：不管点在哪都是平移画布
+    if (e.button === 1 || (spaceRef.current && e.button === 0)) { e.preventDefault(); cancelAnimationFrame(animRef.current); try { vp.current.setPointerCapture(e.pointerId); } catch {} dragRef.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y, moved: false }; vp.current.classList.add('panning'); return; }
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    if (t.closest('.cv-tb,.cv-hint,.modal-bg,.cv-ask,.cv-outline')) return;
     const nodeEl = t.closest('.cv-node'); const nodeId = nodeEl && nodeEl.dataset.id;
     if (editing && nodeId === editing) return;
     const [wx, wy] = toWorld(e);
@@ -216,7 +266,24 @@ function Board({ board, notes, notebooks }) {
     const edgeEl = t.closest('.cv-edge'); if (edgeEl) { setSel({ kind: 'edge', id: edgeEl.dataset.id }); setEditing(null); dragRef.current = null; return; }
     const strokeEl = t.closest('.cv-stroke'); if (strokeEl) { setSel({ kind: 'stroke', id: strokeEl.dataset.id }); setEditing(null); dragRef.current = null; return; }
     if (tool === 'text') { addText(wx - 20, wy - 16); setTool('select'); return; }
-    dragRef.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y, moved: false }; setSel(null); setEditing(null);
+    cancelAnimationFrame(animRef.current);
+    dragRef.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y, moved: false }; vp.current.classList.add('panning'); setSel(null); setEditing(null);
+  };
+  // 拖着卡片靠近边缘时，画布自己往那边走
+  const edgeRaf = useRef(0);
+  const edgePan = () => {
+    if (edgeRaf.current) return;
+    const tick = () => {
+      edgeRaf.current = 0; const d = dragRef.current; if (!d || d.kind !== 'node' || !d.last) return;
+      const r = vp.current.getBoundingClientRect(); const ev = d.last; const M = 48;
+      const sx = ev.clientX < r.left + M ? (r.left + M - ev.clientX) : ev.clientX > r.right - M ? -(ev.clientX - (r.right - M)) : 0;
+      const sy = ev.clientY < r.top + M ? (r.top + M - ev.clientY) : ev.clientY > r.bottom - M ? -(ev.clientY - (r.bottom - M)) : 0;
+      if (!sx && !sy) return;
+      setView((v) => ({ ...v, x: v.x + clamp(sx, -M, M) * 0.25, y: v.y + clamp(sy, -M, M) * 0.25 }));
+      move({ ...ev, pointerId: ev.pointerId, clientX: ev.clientX, clientY: ev.clientY, shiftKey: ev.shiftKey, _auto: true });
+      edgeRaf.current = requestAnimationFrame(tick);
+    };
+    edgeRaf.current = requestAnimationFrame(tick);
   };
   const move = (e) => {
     const d = dragRef.current; if (!d) return;
@@ -236,6 +303,7 @@ function Board({ board, notes, notebooks }) {
         if (bx) { nx += bx.d; gs.push({ v: bx.at }); } if (by) { ny += by.d; gs.push({ h: by.at }); }
       }
       setGuides(gs); patchNode(d.id, { x: nx, y: ny }, false);
+      if (!e._auto) { d.last = e; edgePan(); }
     }
     else if (d.kind === 'resize') patchNode(d.id, { w: Math.round(clamp(d.w + wx - d.x, 120, 900)), h: Math.round(clamp(d.h + wy - d.y, 40, 900)) }, false);
     else if (d.kind === 'pen') { d.pts.push([Math.round(wx), Math.round(wy)]); setTemp({ pts: d.pts.slice() }); }
@@ -246,7 +314,7 @@ function Board({ board, notes, notebooks }) {
     pointers.current.delete(e.pointerId);
     const d = dragRef.current; if (!d) return;
     if (d.kind === 'pinch') { if (pointers.current.size < 2) dragRef.current = null; return; }
-    dragRef.current = null;
+    dragRef.current = null; vp.current && vp.current.classList.remove('panning');
     setGuides([]);
     if (d.kind === 'node' || d.kind === 'resize') { if (d.kind === 'resize' || d.moved) commit(bRef.current); }
     else if (d.kind === 'pen') { setTemp(null); if (d.pts.length > 1) commit({ ...bRef.current, strokes: [...bRef.current.strokes, { id: uid(), color: pen.color, width: pen.width, pts: simplify(d.pts) }] }); }
@@ -308,7 +376,7 @@ function Board({ board, notes, notebooks }) {
       { label: '添加页面…', icon: 'note', onClick: () => setPicker({ x: wx, y: wy }) },
       'sep',
       { label: '适应内容', icon: 'maximize', onClick: fit },
-      { label: '100%', icon: 'target', onClick: () => setView((v) => ({ ...v, z: 1 })) },
+      { label: '100%', icon: 'target', onClick: () => zoomTo(1) },
       'sep',
       ...canvasMenu(b, { onDelete: () => go('notes/canvas') }).filter((it) => !(it && it.label === '打开')),
     ], b.title || '画布');
@@ -319,6 +387,49 @@ function Board({ board, notes, notebooks }) {
   const wrapRef = useRef();
 
   const byId = useMemo(() => new Map(b.nodes.map((n) => [n.id, n])), [b.nodes]);
+  // 图层分开记住：平移 / 缩放只改外面的 transform，卡片、连线、笔迹不重画（画布上东西多时拖起来不卡）
+  const annsBySrc = useMemo(() => { const m = new Map(); for (const n of b.nodes) if (n.type === 'learn' && n.anns && n.anns.length && n.src) { const l = m.get(n.src) || []; n.anns.forEach((a, i) => l.push({ ...a, k: n.id + ':' + i, on: !!(sel && sel.id === n.id) })); m.set(n.src, l); } return m; }, [b.nodes, sel]);
+  const nodeLayer = useMemo(() => b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); const fixedH = n.type === 'note' || n.type === 'src'; return html`<div key=${n.id} ref=${n.type === 'learn' ? measure(n) : null} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${fixedH ? 'height' : 'min-height'}:${n.type === 'learn' ? 120 : n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
+          ${n.type === 'src' ? html`<${SrcNode} n=${n} anns=${annsBySrc.get(n.id)} />`
+          : n.type === 'learn' ? html`<${LearnNode} n=${n} onPatch=${(p) => patchNode(n.id, p)} onStuck=${(focus, label) => stuckOn(n, focus, label)} onRetry=${() => retry(n)} />`
+          : n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'true' : 'false'} spellcheck="false" ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerHTML !== textHtml(n)) el.innerHTML = textHtml(n); if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onPaste=${(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } else if (inlineShortcut(e)) { e.preventDefault(); } e.stopPropagation(); }} data-ph="输入文字…"></div>`
+          : page ? html`<div class="cv-nt">${nbk && html`<i class="nb-dot" style=${`background:${nbk.color}`}></i>`}<b>${page.title || '无标题'}</b><a class="cv-open" href=${'#/notes/' + page.id} title="打开页面"><${Icon} name="external" size=${12} /></a></div><p class="cv-snip">${snippetOf(page) || '空白页'}</p>`
+          : html`<div class="cv-nt muted"><${Icon} name="note" size=${13} /><b>页面已删除</b></div>`}
+          <span class="cv-handle" title="拖到另一个节点来连线"></span>
+          <span class="cv-rz"></span>
+        </div>`; }), [b.nodes, sel, editing, notes, notebooks, annsBySrc]);
+  const strokeLayer = useMemo(() => b.strokes.map((s) => html`<path key=${s.id} class=${'cv-stroke ' + (sel && sel.kind === 'stroke' && sel.id === s.id ? 'sel' : '')} data-id=${s.id} d=${strokePath(s.pts)} stroke=${s.color} stroke-width=${s.width} />`), [b.strokes, sel]);
+  const edgeLayer = useMemo(() => b.edges.map((ed) => { const a = byId.get(ed.from), c = byId.get(ed.to); if (!a || !c) return null; const { d, mx, my } = edgePath(a, c); const on = sel && sel.kind === 'edge' && sel.id === ed.id; return html`<g key=${ed.id} class=${'cv-edge ' + (on ? 'sel' : '')} data-id=${ed.id}><path class="hit" d=${d} /><path class="line" d=${d} marker-end="url(#cv-arrow)" />${ed.label && html`<text x=${mx} y=${my} text-anchor="middle" dominant-baseline="middle">${ed.label}</text>`}</g>`; }), [b.edges, byId, sel]);
+  // 讲解面板圈出来的原文 → 红色虚线连到面板（原文在材料卡片里滚动，所以按实际位置量）
+  const [links, setLinks] = useState([]);
+  const measureLinks = () => {
+    const el = vp.current; if (!el) return; const vr = el.getBoundingClientRect(); const v = viewRef.current; const out = [];
+    for (const n of bRef.current.nodes) {
+      if (n.type !== 'learn' || !n.anns || !n.anns.length || !n.src) continue;
+      n.anns.forEach((a, i) => {
+        const k = n.id + ':' + i; const mk = el.querySelector(`.cv-node[data-id="${n.src}"] [data-k="${k}"]`); if (!mk) return;
+        const box = mk.closest('.lr-src-b'); const r = mk.getBoundingClientRect(), br = box ? box.getBoundingClientRect() : r;
+        const vis = r.bottom > br.top && r.top < br.bottom; const cy = clamp(r.top + r.height / 2, br.top + 8, br.bottom - 8);
+        const toRight = n.x > (r.left - vr.left - v.x) / v.z;
+        const x1 = vis ? (toRight ? r.right : r.left) : (toRight ? br.right : br.left);
+        out.push({ k, from: n.id, x1: (x1 - vr.left - v.x) / v.z, y1: (cy - vr.top - v.y) / v.z, x2: toRight ? n.x : n.x + n.w, y2: n.y + 30 + i * 16, vis });
+      });
+    }
+    setLinks((prev) => (JSON.stringify(prev) === JSON.stringify(out) ? prev : out));
+  };
+  useLayoutEffect(() => { measureLinks(); }, [b.nodes, sel]);
+  useEffect(() => {
+    const el = vp.current; if (!el) return; let raf = 0;
+    const later = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; measureLinks(); }); };
+    el.addEventListener('scroll', later, true); const t = setInterval(() => { if (bRef.current.nodes.some((n) => n.anns && n.anns.length)) measureLinks(); }, 800);
+    return () => { el.removeEventListener('scroll', later, true); clearInterval(t); cancelAnimationFrame(raf); };
+  }, []);
+  const linkLayer = links.map((l) => { const mx = (l.x1 + l.x2) / 2; const on = sel && sel.id === l.from; return html`<g key=${l.k} class=${'cv-link ' + (on ? 'on ' : '') + (l.vis ? '' : 'off')}><path d=${`M${l.x1},${l.y1} C${mx},${l.y1} ${mx},${l.y2} ${l.x2},${l.y2}`} /><circle cx=${l.x1} cy=${l.y1} r="3" /></g>`; });
+  // 问汤圆的框可以收起来（记住），收起后右下角一个小按钮，按 / 也能打开
+  const [askOpen, setAskOpen] = useState(() => lsGet('ytos.cv.ask') !== false);
+  const openAsk = () => { setAskOpen(true); lsSet('ytos.cv.ask', true); setTimeout(() => { const t = wrapRef.current && wrapRef.current.querySelector('.cv-ask textarea'); t && t.focus(); }, 30); };
+  const hideAsk = () => { setAskOpen(false); lsSet('ytos.cv.ask', false); };
+  const zoomMenu = (e) => ctxMenu(e, [{ label: '适应全部', icon: 'maximize', hint: 'Shift 1', onClick: fit }, { label: '放大到选中的', icon: 'target', hint: 'Shift 2', onClick: zoomToSel }, 'sep', ...[0.5, 1, 1.5, 2].map((z) => ({ label: Math.round(z * 100) + '%', icon: Math.abs(viewRef.current.z - z) < 0.01 ? 'check' : '', hint: z === 1 ? '⌘0' : '', onClick: () => zoomTo(z) }))], '缩放');
   const tr = `translate(${view.x}px, ${view.y}px) scale(${view.z})`;
   const nb = (id) => notebooks.find((x) => x.id === id);
   return html`<div class=${'cv-wrap tool-' + tool} ref=${wrapRef}>
@@ -330,42 +441,35 @@ function Board({ board, notes, notebooks }) {
       ${tool === 'pen' && html`<div class="cv-pens">${PEN_COLORS.map((c) => html`<button key=${c} class=${'cv-pen ' + (pen.color === c ? 'on' : '')} style=${`--c:${c}`} onClick=${() => setPen({ ...pen, color: c })}></button>`)}<span class="cv-sep"></span>${[[2, '细'], [3, '中'], [6, '粗']].map(([w, l]) => html`<button key=${w} class=${'cv-w ' + (pen.width === w ? 'on' : '')} onClick=${() => setPen({ ...pen, width: w })}>${l}</button>`)}</div>`}
       <button class="btn ghost sm cv-add" title="添加页面" onClick=${() => setPicker({})}><${Icon} name="note" size=${13} /><span class="t">添加页面</span></button>
       <span class="flex1"></span>
-      <div class="cv-zoom"><button class="ibtn" title="缩小" onClick=${() => zoomBy(1 / 1.25)}><${Icon} name="minus" size=${13} /></button><button class="cv-z" title="适应内容" onClick=${fit}>${Math.round(view.z * 100)}%</button><button class="ibtn" title="放大" onClick=${() => zoomBy(1.25)}><${Icon} name="plus" size=${13} /></button></div>
-      <${IconBtn} icon="dots" title="更多…" onClick=${(e) => ctxMenu(e, [{ label: '适应内容', icon: 'maximize', onClick: fit }, { label: '100%', icon: 'target', onClick: () => setView((v) => ({ ...v, z: 1 })) }, 'sep', ...canvasMenu(b, { onDelete: () => go('notes/canvas') }).filter((it) => !(it && it.label === '打开'))], b.title || '画布')} />
+      <div class="cv-zoom"><button class="ibtn" title="缩小" onClick=${() => zoomBy(1 / 1.25)}><${Icon} name="minus" size=${13} /></button><button class="cv-z" title="缩放（⌘+ / ⌘− / ⌘0）" onClick=${zoomMenu}>${Math.round(view.z * 100)}%</button><button class="ibtn" title="放大" onClick=${() => zoomBy(1.25)}><${Icon} name="plus" size=${13} /></button></div>
+      <${IconBtn} icon="dots" title="更多…" onClick=${(e) => ctxMenu(e, [{ label: '适应全部', icon: 'maximize', hint: 'Shift 1', onClick: fit }, { label: '100%', icon: 'target', hint: '⌘0', onClick: () => zoomTo(1) }, { label: askOpen ? '收起问汤圆' : '打开问汤圆', icon: 'chat', hint: '/', onClick: () => (askOpen ? hideAsk() : openAsk()) }, 'sep', ...canvasMenu(b, { onDelete: () => go('notes/canvas') }).filter((it) => !(it && it.label === '打开'))], b.title || '画布')} />
     </div>
     <div class="cv-vp" ref=${vp} style=${`background-position:${view.x}px ${view.y}px;background-size:${24 * view.z}px ${24 * view.z}px`} onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onDblClick=${dbl} onContextMenu=${ctx} ...${dropProps('page', (d, { event }) => { const [x, y] = toWorld(event); addNote(d.id, x - 120, y - 40); })}>
       <svg class="cv-svg"><defs><marker id="cv-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
         <g transform=${`translate(${view.x},${view.y}) scale(${view.z})`}>
-          ${b.strokes.map((s) => html`<path key=${s.id} class=${'cv-stroke ' + (sel && sel.kind === 'stroke' && sel.id === s.id ? 'sel' : '')} data-id=${s.id} d=${strokePath(s.pts)} stroke=${s.color} stroke-width=${s.width} />`)}
+          ${strokeLayer}
           ${temp && temp.pts && html`<path class="cv-stroke tmp" d=${strokePath(temp.pts)} stroke=${pen.color} stroke-width=${pen.width} />`}
-          ${b.edges.map((ed) => { const a = byId.get(ed.from), c = byId.get(ed.to); if (!a || !c) return null; const { d, mx, my } = edgePath(a, c); const on = sel && sel.kind === 'edge' && sel.id === ed.id; return html`<g key=${ed.id} class=${'cv-edge ' + (on ? 'sel' : '')} data-id=${ed.id}><path class="hit" d=${d} /><path class="line" d=${d} marker-end="url(#cv-arrow)" />${ed.label && html`<text x=${mx} y=${my} text-anchor="middle" dominant-baseline="middle">${ed.label}</text>`}</g>`; })}
+          ${edgeLayer}
           ${temp && temp.from && byId.get(temp.from) && html`<path class="cv-tmpline" d=${`M${byId.get(temp.from).x + byId.get(temp.from).w},${byId.get(temp.from).y + byId.get(temp.from).h / 2} L${temp.x},${temp.y}`} />`}
         </g>
       </svg>
       <div class="cv-layer" style=${`transform:${tr}`}>
         ${guides.map((g, i) => g.v != null ? html`<i key=${i} class="cv-guide v" style=${`left:${g.v}px`}></i>` : html`<i key=${i} class="cv-guide h" style=${`top:${g.h}px`}></i>`)}
-        ${b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); const fixedH = n.type === 'note' || n.type === 'src'; return html`<div key=${n.id} ref=${n.type === 'learn' ? measure(n) : null} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${fixedH ? 'height' : 'min-height'}:${n.type === 'learn' ? 120 : n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
-          ${n.type === 'src' ? html`<${SrcNode} n=${n} />`
-          : n.type === 'learn' ? html`<${LearnNode} n=${n} onPatch=${(p) => patchNode(n.id, p)} onStuck=${(focus, label) => stuckOn(n, focus, label)} onRetry=${() => retry(n)} />`
-          : n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'true' : 'false'} spellcheck="false" ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerHTML !== textHtml(n)) el.innerHTML = textHtml(n); if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onPaste=${(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } else if (inlineShortcut(e)) { e.preventDefault(); } e.stopPropagation(); }} data-ph="输入文字…"></div>`
-          : page ? html`<div class="cv-nt">${nbk && html`<i class="nb-dot" style=${`background:${nbk.color}`}></i>`}<b>${page.title || '无标题'}</b><a class="cv-open" href=${'#/notes/' + page.id} title="打开页面"><${Icon} name="external" size=${12} /></a></div><p class="cv-snip">${snippetOf(page) || '空白页'}</p>`
-          : html`<div class="cv-nt muted"><${Icon} name="note" size=${13} /><b>页面已删除</b></div>`}
-          <span class="cv-handle" title="拖到另一个节点来连线"></span>
-          <span class="cv-rz"></span>
-        </div>`; })}
+        ${nodeLayer}
       </div>
+      ${links.length > 0 && html`<svg class="cv-svg cv-svg-top"><g transform=${`translate(${view.x},${view.y}) scale(${view.z})`}>${linkLayer}</g></svg>`}
       ${b.nodes.length === 0 && b.strokes.length === 0 && html`<div class="cv-empty"><${Icon} name="frame" size=${22} /><p>双击空白处写字，或从左边把页面拖进来。</p><p class="cv-empty-learn">想学东西：把 PDF / 图片拖进来（或粘贴一段文字），再在下面问汤圆。</p></div>`}
-      ${b.nodes.length < 3 && html`<div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · ⌘+滚轮缩放</div>`}
+      ${b.nodes.length === 0 && html`<div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · 按住空格或中键拖动画布 · ⌘+滚轮 / 双指缩放 · Shift+1 看全部</div>`}
     </div>
-    <${AskBar} target=${sel && sel.kind === 'node' ? node(sel.id) : null} notes=${notes} hasSrc=${b.nodes.some((n) => n.type === 'src')} onAsk=${(q) => ask(q)} onClear=${() => setSel(null)} onUpload=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }} onText=${() => setTextModal(true)} />
-    <${Outline} nodes=${b.nodes} onGo=${(id) => { const n = node(id); if (!n) return; const r = vp.current.getBoundingClientRect(); const v = viewRef.current; setView({ ...v, x: r.width / 2 - (n.x + n.w / 2) * v.z, y: 70 - n.y * v.z }); setSel({ kind: 'node', id }); }} />
+    ${askOpen ? html`<${AskBar} onHide=${hideAsk} target=${sel && sel.kind === 'node' ? node(sel.id) : null} notes=${notes} hasSrc=${b.nodes.some((n) => n.type === 'src')} onAsk=${(q) => ask(q)} onClear=${() => setSel(null)} onUpload=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }} onText=${() => setTextModal(true)} />` : html`<button type="button" class="cv-ask-fab" title="问汤圆（/）" onClick=${openAsk}><${Icon} name="chat" size=${17} /></button>`}
+    <${Outline} nodes=${b.nodes} onGo=${(id) => { const n = node(id); if (!n) return; const r = vp.current.getBoundingClientRect(); const v = viewRef.current; animateView({ ...v, x: r.width / 2 - (n.x + n.w / 2) * v.z, y: 70 - n.y * v.z }, 320); setSel({ kind: 'node', id }); }} />
     ${textModal && html`<${TextModal} onClose=${() => setTextModal(false)} onSave=${(t, name) => { setTextModal(false); addTextSrc(t, name); }} />`}
     ${picker && html`<${PagePicker} notes=${notes} notebooks=${notebooks} onClose=${() => setPicker(false)} onPick=${(id) => { const [cx, cy] = picker.x != null ? [picker.x, picker.y] : center(); addNote(id, cx - 120, cy - 55); setPicker(false); }} />`}
   </div>`;
 }
 
 // 下面的「问汤圆」框：选中的节点就是在问的东西；+ 号放材料
-function AskBar({ target, notes, hasSrc, onAsk, onClear, onUpload, onText }) {
+function AskBar({ target, notes, hasSrc, onAsk, onClear, onUpload, onText, onHide }) {
   const [q, setQ] = useState(''); const ta = useRef();
   // 语音输入：说的话接在已经打的字后面
   const [listening, setListening] = useState(null); const baseQ = useRef('');
@@ -384,6 +488,7 @@ function AskBar({ target, notes, hasSrc, onAsk, onClear, onUpload, onText }) {
       <button type="button" class="cv-ask-add" title="放材料：PDF / 图片 / 一段文字" onClick=${(e) => ctxMenu(e, [{ label: '上传 PDF / 图片', icon: 'upload', onClick: onUpload }, { label: '粘贴一段文字', icon: 'type', onClick: onText }], '放材料')}><${Icon} name="plus" size=${16} /></button>
       <textarea ref=${ta} rows="1" value=${q} placeholder=${about ? '问汤圆这一块…' : hasSrc ? '问汤圆…' : '问汤圆…（先放一份材料会讲得更准）'} onInput=${(e) => { setQ(e.target.value); fit(); }} onKeyDown=${(e) => { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } }}></textarea>
       ${canDictate() && html`<button type="button" class=${'cv-ask-mic ' + (listening ? 'on' : '')} title=${listening ? '停止' : '说话输入'} onClick=${mic}><${Icon} name="mic" size=${16} /></button>`}
+      <button type="button" class="cv-ask-hide" title="收起（按 / 再打开）" onClick=${onHide}><${Icon} name="down" size=${15} /></button>
       <button type="button" class="cv-ask-go" title="发送（Enter）" disabled=${!q.trim()} onClick=${() => { if (listening) { listening(); setListening(null); } send(); }}><${Icon} name="up" size=${16} /></button>
     </div>
   </div>`;
