@@ -4242,3 +4242,25 @@ html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) .sx-in
 .cv-ol-n{flex:none;min-width:18px;height:18px;display:grid;place-items:center;border-radius:6px;font-size:.66rem;font-weight:600;color:var(--text-4);background:var(--hover);font-variant-numeric:tabular-nums}
 .cv-ol-i.on .cv-ol-n{color:#fff;background:var(--blue,#4f7cf5)}
 .cv-ol-x{flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-wrap:pretty}
+
+/* 画布：分区（一块带名字的底色区域）、侧边打开页面、摘录卡片的「原文」 */
+.cv-sec{position:absolute;border-radius:18px;pointer-events:none;--sc:#8a93a6;background:color-mix(in srgb,var(--sc) 6%,transparent);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--sc) 18%,transparent);transition:box-shadow .15s}
+.cv-sec.sel{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--sc) 55%,transparent)}
+.cv-sec-h{pointer-events:auto;position:absolute;left:4px;bottom:100%;margin-bottom:6px;max-width:max(220px,100%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 10px;border-radius:8px;font-size:13px;font-weight:600;line-height:1.5;cursor:grab;user-select:none;-webkit-user-select:none;
+  color:color-mix(in srgb,var(--sc) 62%,var(--text));background:color-mix(in srgb,var(--sc) 14%,var(--paper));transform:scale(var(--iz,1));transform-origin:0 100%}
+.cv-sec-h:active{cursor:grabbing}
+.cv-sec-rz{pointer-events:auto;position:absolute;right:-5px;bottom:-5px;width:16px;height:16px;cursor:nwse-resize;border-radius:4px}
+.cv-sec.sel .cv-sec-rz,.cv-sec-rz:hover{background:linear-gradient(135deg,transparent 55%,color-mix(in srgb,var(--sc) 60%,transparent) 55%)}
+.cv-ol-sep{display:block;height:1px;margin:4px 8px;background:color-mix(in srgb,var(--text) 7%,transparent)}
+.cv-ol-i.sec .cv-ol-n{font-size:.6rem}
+.cv-ref{position:absolute;right:8px;bottom:-11px;display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 7px;border:0;border-radius:999px;font-size:.68rem;color:var(--text-3);background:var(--paper);box-shadow:0 0 0 1px var(--line),0 2px 6px -3px rgba(0,0,0,.2);cursor:pointer}
+.cv-ref:hover{color:var(--text)}
+.cv-ref svg{margin-top:.125em}
+.cv-side{position:absolute;right:12px;top:58px;bottom:12px;width:min(440px,calc(100% - 24px));z-index:7;display:flex;flex-direction:column;border-radius:16px;background:var(--paper);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--text) 7%,transparent),0 16px 40px -18px rgba(20,24,40,.35);animation:pop .16s var(--ease,ease)}
+.cv-side-h{flex:none;display:flex;align-items:center;gap:6px;padding:8px 8px 6px 14px;font-size:.74rem;font-weight:600;color:var(--text-4)}
+.cv-side-b{flex:1;min-height:0;overflow:auto;padding:4px 22px 40px;overscroll-behavior:contain;cursor:auto;user-select:text;-webkit-user-select:text}
+.cv-side-title{width:100%;border:0;background:none;outline:none;font-size:1.4rem;font-weight:700;color:var(--text);padding:6px 0 10px}
+.cv-side-title:focus{box-shadow:none}
+.cv-side .cv-side-title,.cv-side .cv-side-title:focus{font-size:1.4rem;font-weight:700;background:none;box-shadow:none;border:0;border-radius:0;padding:6px 0 10px;height:auto}
+@media (min-width:900px){.cv-wrap.side-open .cv-ask{left:calc(50% - 230px);width:min(620px,calc(100% - 520px))}}

@@ -1034,7 +1034,7 @@ function phFor(b) {
 
 /* ---------- 给块编辑器之外的 contenteditable 用的浮动格式条（画布文字等） ----------
    选中 within 里可编辑区域的文字就出现：粗体 / 斜体 / 下划线 / 删除线 / 荧光标记 / 清除格式 */
-export function SelToolbar({ within, onChange }) {
+export function SelToolbar({ within, onChange, skip }) {
   const [pos, setPos] = useState(null);
   useEffect(() => {
     const h = () => {
@@ -1042,7 +1042,7 @@ export function SelToolbar({ within, onChange }) {
       if (!root || !s.rangeCount || s.isCollapsed) { setPos((x) => (x ? null : x)); return; }
       const r = s.getRangeAt(0); let el = r.commonAncestorContainer; if (el.nodeType !== 1) el = el.parentElement;
       const ce = el && el.closest('[contenteditable="true"]');
-      if (!ce || !root.contains(ce) || document.activeElement !== ce) { setPos((x) => (x ? null : x)); return; }
+      if (!ce || !root.contains(ce) || document.activeElement !== ce || (skip && ce.closest(skip))) { setPos((x) => (x ? null : x)); return; }
       const rect = r.getBoundingClientRect(); if (!rect.width && !rect.height) { setPos((x) => (x ? null : x)); return; }
       const nx = Math.round(rect.left + rect.width / 2), ny = Math.round(rect.top);
       setPos((x) => (x && x.x === nx && x.y === ny ? x : { x: nx, y: ny }));
