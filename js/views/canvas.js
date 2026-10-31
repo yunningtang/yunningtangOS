@@ -152,6 +152,27 @@ function Board({ board, notes, notebooks }) {
   const [side, setSide] = useState(null);
   const openByTitle = (t) => { const p = findByTitle(notes, t); if (p) setSide(p.id); else toast('没有叫「' + t + '」的页面'); };
   // 摘录卡片：跳回原文那一处
+  // 多选：Shift + 拖空白处框选，Shift + 点卡片加 / 减；拖其中一张全部一起走
+  const [multi, setMulti0] = useState([]); const multiRef = useRef([]);
+  const setMulti = (ids) => { multiRef.current = ids; setMulti0(ids); };
+  const [box, setBox] = useState(null);
+  const multiNodes = () => bRef.current.nodes.filter((n) => multiRef.current.includes(n.id));
+  const removeMulti = () => {
+    const ids = new Set(multiRef.current); if (!ids.size) return; const prev = bRef.current;
+    commit({ ...prev, nodes: prev.nodes.filter((n) => !ids.has(n.id)), edges: prev.edges.filter((e) => !ids.has(e.from) && !ids.has(e.to)) }); setMulti([]); setSel(null);
+    toast(`已删除 ${ids.size} 张`, { label: '撤销', onClick: () => commit(prev) });
+  };
+  const multiToSec = () => { const ms = multiNodes(); if (!ms.length) return; const bb = bbox({ nodes: ms, strokes: [] }); setMulti([]); newSecAt(bb.x - 36, bb.y - 36, bb.w + 72, bb.h + 72); };
+  // 对齐 / 排开：按当前位置的先后顺序
+  const arrange = (how) => {
+    const ms = multiNodes(); if (ms.length < 2) return; const pos = new Map(); const G = 24;
+    if (how === 'left') { const x = Math.min(...ms.map((n) => n.x)); ms.forEach((n) => pos.set(n.id, { x })); }
+    else if (how === 'top') { const y = Math.min(...ms.map((n) => n.y)); ms.forEach((n) => pos.set(n.id, { y })); }
+    else if (how === 'col') { const l = [...ms].sort((a, c) => a.y - c.y); const x = Math.min(...l.map((n) => n.x)); let y = l[0].y; l.forEach((n) => { pos.set(n.id, { x, y }); y += n.h + G; }); }
+    else if (how === 'row') { const l = [...ms].sort((a, c) => a.x - c.x); const y = Math.min(...l.map((n) => n.y)); let x = l[0].x; l.forEach((n) => { pos.set(n.id, { x, y }); x += n.w + G; }); }
+    commit({ ...bRef.current, nodes: bRef.current.nodes.map((n) => (pos.has(n.id) ? { ...n, ...pos.get(n.id) } : n)) });
+  };
+  const arrangeMenu = (e) => ctxMenu(e, [{ label: '左对齐', icon: 'left', onClick: () => arrange('left') }, { label: '顶对齐', icon: 'up', onClick: () => arrange('top') }, 'sep', { label: '竖着排成一列', icon: 'list', onClick: () => arrange('col') }, { label: '横着排成一行', icon: 'right', onClick: () => arrange('row') }], '排列');
   const goRef = (ref) => { const src = node(ref.src); if (!src) { toast('原文已经不在画布上了'); return; } setSel({ kind: 'node', id: src.id }); showNode(src); if (ref.mark) setTimeout(() => gotoQuote(src.id, 'm:' + ref.mark), 380); };
 
   /* ---- 学习：材料 + 问汤圆 ---- */
@@ -262,10 +283,12 @@ function Board({ board, notes, notebooks }) {
       if (e.shiftKey && e.code === 'Digit2' && !editing) { e.preventDefault(); zoomToSel(); return; }
       if (e.key === ' ' && !editing) { e.preventDefault(); if (!spaceRef.current) { spaceRef.current = true; wrapRef.current && wrapRef.current.classList.add('space-pan'); } return; }
       if (e.key === '/' && !editing) { e.preventDefault(); openAsk(); return; }
-      if ((e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) && (sel && sel.kind === 'node' || editing)) { e.preventDefault(); spawn(editing || sel.id, e.key === 'Tab'); return; }
+      if ((e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) && (sel && sel.kind === 'node' && !multiRef.current.length || editing)) { e.preventDefault(); spawn(editing || sel.id, e.key === 'Tab'); return; }
       if (editing) return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); removeSel(); }
-      else if (e.key === 'Escape') { setSel(null); setTool('select'); }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') { e.preventDefault(); setSel(null); setMulti(bRef.current.nodes.map((n) => n.id)); return; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && multiRef.current.length) { e.preventDefault(); removeMulti(); }
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); removeSel(); }
+      else if (e.key === 'Escape') { setSel(null); setMulti([]); setTool('select'); }
       else if (e.key === 'v') setTool('select'); else if (e.key === 't') setTool('text'); else if (e.key === 'p') setTool('pen'); else if (e.key === 'e') setTool('erase');
     };
     const up = (e) => { if (e.key === ' ') { spaceRef.current = false; wrapRef.current && wrapRef.current.classList.remove('space-pan'); } };
@@ -286,7 +309,7 @@ function Board({ board, notes, notebooks }) {
     const nodeEl = t.closest('.cv-node'); const nodeId = nodeEl && nodeEl.dataset.id;
     if (editing && nodeId === editing) return;
     // 材料和讲解里的文字可以直接选（选中后浮出「问汤圆 / 圈出来 / 记到画布」）；拖卡片用标题栏
-    if (tool === 'select' && nodeId && e.pointerType === 'mouse' && t.closest(TEXT_SEL) && !t.closest('a,button')) { if (!sel || sel.id !== nodeId) setSel({ kind: 'node', id: nodeId }); if (editing) setEditing(null); return; }
+    if (tool === 'select' && nodeId && !e.shiftKey && e.pointerType === 'mouse' && t.closest(TEXT_SEL) && !t.closest('a,button')) { if (!sel || sel.id !== nodeId) setSel({ kind: 'node', id: nodeId }); if (editing) setEditing(null); return; }
     const [wx, wy] = toWorld(e);
     try { vp.current.setPointerCapture(e.pointerId); } catch {}
     if (tool === 'pen') { dragRef.current = { kind: 'pen', pts: [[Math.round(wx), Math.round(wy)]] }; setTemp({ pts: dragRef.current.pts }); setSel(null); setEditing(null); return; }
@@ -300,10 +323,22 @@ function Board({ board, notes, notebooks }) {
       setSel({ kind: 'sec', id: s0.id }); setEditing(null); return;
     }
     if (t.closest('.cv-rz')) { const n = node(nodeId); dragRef.current = { kind: 'resize', id: nodeId, w: n.w, h: n.h, x: wx, y: wy }; return; }
+    if (nodeId && !t.closest('a,button') && tool === 'select') {
+      if (e.shiftKey) { // Shift + 点：加进 / 移出多选
+        const cur = multiRef.current.length ? multiRef.current : sel && sel.kind === 'node' ? [sel.id] : [];
+        const next = cur.includes(nodeId) ? cur.filter((x) => x !== nodeId) : [...cur, nodeId];
+        if (next.length > 1) { setMulti(next); setSel(null); } else { setMulti([]); setSel(next.length ? { kind: 'node', id: next[0] } : null); }
+        setEditing(null); dragRef.current = null; return;
+      }
+      if (multiRef.current.length > 1 && multiRef.current.includes(nodeId)) { dragRef.current = { kind: 'multi', wx, wy, moved: false, items: multiNodes().map((n) => [n.id, n.x, n.y]) }; setEditing(null); return; }
+      if (multiRef.current.length) setMulti([]);
+    }
     if (nodeId) { if (t.closest('a,button')) { try { vp.current.releasePointerCapture(e.pointerId); } catch {} return; } const n = node(nodeId); dragRef.current = { kind: 'node', id: nodeId, x0: n.x, y0: n.y, wx, wy, moved: false }; setSel({ kind: 'node', id: nodeId }); if (editing !== nodeId) setEditing(null); return; }
     const edgeEl = t.closest('.cv-edge'); if (edgeEl) { setSel({ kind: 'edge', id: edgeEl.dataset.id }); setEditing(null); dragRef.current = null; return; }
     const strokeEl = t.closest('.cv-stroke'); if (strokeEl) { setSel({ kind: 'stroke', id: strokeEl.dataset.id }); setEditing(null); dragRef.current = null; return; }
     if (tool === 'text') { addText(wx - 20, wy - 16); setTool('select'); return; }
+    if (e.shiftKey && tool === 'select') { const keep = multiRef.current.length ? multiRef.current : sel && sel.kind === 'node' ? [sel.id] : []; dragRef.current = { kind: 'box', x0: wx, y0: wy, keep }; setBox({ x: wx, y: wy, w: 0, h: 0 }); setSel(null); setEditing(null); return; }
+    if (multiRef.current.length) setMulti([]);
     cancelAnimationFrame(animRef.current);
     dragRef.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y, moved: false }; vp.current.classList.add('panning'); setSel(null); setEditing(null);
     try { const s = getSelection(); if (s.rangeCount && !s.isCollapsed && vp.current.contains(s.anchorNode)) s.removeAllRanges(); } catch {}
@@ -344,6 +379,15 @@ function Board({ board, notes, notebooks }) {
       setGuides(gs); patchNode(d.id, { x: nx, y: ny }, false);
       if (!e._auto) { d.last = e; edgePan(); }
     }
+    else if (d.kind === 'box') {
+      const r = { x: Math.min(d.x0, wx), y: Math.min(d.y0, wy), w: Math.abs(wx - d.x0), h: Math.abs(wy - d.y0) }; setBox(r);
+      const hit = bRef.current.nodes.filter((n) => n.x < r.x + r.w && n.x + n.w > r.x && n.y < r.y + r.h && n.y + n.h > r.y).map((n) => n.id);
+      const next = [...new Set([...d.keep, ...hit])]; if (next.join() !== multiRef.current.join()) setMulti(next);
+    }
+    else if (d.kind === 'multi') {
+      const dx = Math.round(wx - d.wx), dy = Math.round(wy - d.wy); if (Math.abs(dx) + Math.abs(dy) > 1) d.moved = true;
+      const mm = new Map(d.items.map((m) => [m[0], m])); setB({ ...bRef.current, nodes: bRef.current.nodes.map((n) => (mm.has(n.id) ? { ...n, x: mm.get(n.id)[1] + dx, y: mm.get(n.id)[2] + dy } : n)) });
+    }
     else if (d.kind === 'sec') {
       const dx = Math.round(wx - d.wx), dy = Math.round(wy - d.wy); if (Math.abs(dx) + Math.abs(dy) > 1) d.moved = true;
       const mm = new Map(d.members.map((m) => [m[0], m])), sm = new Map(d.strokes); const bb = bRef.current;
@@ -361,6 +405,8 @@ function Board({ board, notes, notebooks }) {
     if (d.kind === 'pinch') { if (pointers.current.size < 2) dragRef.current = null; return; }
     dragRef.current = null; vp.current && vp.current.classList.remove('panning');
     setGuides([]);
+    if (d.kind === 'box') { setBox(null); if (multiRef.current.length === 1) { setSel({ kind: 'node', id: multiRef.current[0] }); setMulti([]); } return; }
+    if (d.kind === 'multi') { if (d.moved) commit(bRef.current); return; }
     if (d.kind === 'node' || d.kind === 'resize' || d.kind === 'sec' || d.kind === 'secrz') { if (d.kind === 'resize' || d.kind === 'secrz' || d.moved) commit(bRef.current); }
     else if (d.kind === 'pen') { setTemp(null); if (d.pts.length > 1) commit({ ...bRef.current, strokes: [...bRef.current.strokes, { id: uid(), color: pen.color, width: pen.width, pts: simplify(d.pts) }] }); }
     else if (d.kind === 'erase') { if (d.hit) commit(bRef.current); }
@@ -394,7 +440,18 @@ function Board({ board, notes, notebooks }) {
       return;
     }
     const nodeEl = t.closest('.cv-node');
+    if (nodeEl && multiRef.current.length > 1 && multiRef.current.includes(nodeEl.dataset.id)) {
+      const k = multiRef.current.length;
+      ctxMenu(e, [
+        { label: '放进新分区', icon: 'frame', onClick: multiToSec },
+        { label: '排列…', icon: 'list', onClick: () => arrangeMenu(e) },
+        'sep',
+        { label: `删除这 ${k} 张`, icon: 'trash', danger: true, onClick: removeMulti },
+      ], `选中了 ${k} 张`);
+      return;
+    }
     if (nodeEl) {
+      setMulti([]);
       const n = node(nodeEl.dataset.id); setSel({ kind: 'node', id: n.id });
       if (n.type === 'src' || n.type === 'learn') {
         ctxMenu(e, [
@@ -458,7 +515,7 @@ function Board({ board, notes, notebooks }) {
   const byId = useMemo(() => new Map(b.nodes.map((n) => [n.id, n])), [b.nodes]);
   // 图层分开记住：平移 / 缩放只改外面的 transform，卡片、连线、笔迹不重画（画布上东西多时拖起来不卡）
   const annsBySrc = useMemo(() => { const m = new Map(); for (const n of b.nodes) if (n.type === 'learn' && n.anns && n.anns.length && n.src) { const l = m.get(n.src) || []; n.anns.forEach((a, i) => l.push({ ...a, k: n.id + ':' + i, on: !!(sel && sel.id === n.id) })); m.set(n.src, l); } return m; }, [b.nodes, sel]);
-  const nodeLayer = useMemo(() => b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); const fixedH = n.type === 'note' || n.type === 'src'; return html`<div key=${n.id} ref=${n.type === 'learn' ? measure(n) : null} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${fixedH ? 'height' : 'min-height'}:${n.type === 'learn' ? 120 : n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
+  const nodeLayer = useMemo(() => b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); const fixedH = n.type === 'note' || n.type === 'src'; return html`<div key=${n.id} ref=${n.type === 'learn' ? measure(n) : null} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${multi.includes(n.id) ? 'msel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${fixedH ? 'height' : 'min-height'}:${n.type === 'learn' ? 120 : n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
           ${n.type === 'src' ? html`<${SrcNode} n=${n} anns=${annsBySrc.get(n.id)} />`
           : n.type === 'learn' ? html`<${LearnNode} n=${n} onPatch=${(p) => patchNode(n.id, p)} onStuck=${(focus, label) => stuckOn(n, focus, label)} onRetry=${() => retry(n)} />`
           : n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'true' : 'false'} spellcheck="false" ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerHTML !== textHtml(n)) el.innerHTML = textHtml(n); if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onPaste=${(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } else if (inlineShortcut(e)) { e.preventDefault(); } e.stopPropagation(); }} data-ph="输入文字…"></div>`
@@ -467,7 +524,7 @@ function Board({ board, notes, notebooks }) {
           ${n.type === 'text' && n.ref && html`<button type="button" class="cv-ref" title="跳到原文" onClick=${() => goRef(n.ref)}><${Icon} name="target" size=${11} />原文</button>`}
           <span class="cv-handle" title="拖到另一个节点来连线"></span>
           <span class="cv-rz"></span>
-        </div>`; }), [b.nodes, sel, editing, notes, notebooks, annsBySrc]);
+        </div>`; }), [b.nodes, sel, editing, notes, notebooks, annsBySrc, multi]);
   const secLayer = useMemo(() => secsOf(b).map((x) => html`<div key=${x.id} class=${'cv-sec ' + (sel && sel.kind === 'sec' && sel.id === x.id ? 'sel' : '')} style=${`left:${x.x}px;top:${x.y}px;width:${x.w}px;height:${x.h}px;${x.color ? '--sc:' + x.color : ''}`}><div class="cv-sec-h" data-id=${x.id} title="拖动：整个分区一起走 · 双击改名 · 右键更多">${x.title || '未命名分区'}</div><span class="cv-sec-rz" data-id=${x.id}></span></div>`), [b.sections, sel]);
   const strokeLayer = useMemo(() => b.strokes.map((s) => html`<path key=${s.id} class=${'cv-stroke ' + (sel && sel.kind === 'stroke' && sel.id === s.id ? 'sel' : '')} data-id=${s.id} d=${strokePath(s.pts)} stroke=${s.color} stroke-width=${s.width} />`), [b.strokes, sel]);
   const edgeLayer = useMemo(() => b.edges.map((ed) => { const a = byId.get(ed.from), c = byId.get(ed.to); if (!a || !c) return null; const { d, mx, my } = edgePath(a, c); const on = sel && sel.kind === 'edge' && sel.id === ed.id; return html`<g key=${ed.id} class=${'cv-edge ' + (on ? 'sel' : '')} data-id=${ed.id}><path class="hit" d=${d} /><path class="line" d=${d} marker-end="url(#cv-arrow)" />${ed.label && html`<text x=${mx} y=${my} text-anchor="middle" dominant-baseline="middle">${ed.label}</text>`}</g>`; }), [b.edges, byId, sel]);
@@ -543,12 +600,15 @@ function Board({ board, notes, notebooks }) {
       </svg>
       <div class="cv-layer" style=${`transform:${tr};--iz:${Math.min(6, Math.max(1, 0.85 / view.z)).toFixed(3)}`}>
         ${secLayer}
+        ${box && html`<i class="cv-box" style=${`left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${box.h}px`}></i>`}
         ${guides.map((g, i) => g.v != null ? html`<i key=${i} class="cv-guide v" style=${`left:${g.v}px`}></i>` : html`<i key=${i} class="cv-guide h" style=${`top:${g.h}px`}></i>`)}
         ${nodeLayer}
       </div>
+      ${multi.length > 1 && !box && (() => { const ms = b.nodes.filter((n) => multi.includes(n.id)); if (ms.length < 2) return null; const bb = bbox({ nodes: ms, strokes: [] }); const x = (bb.x + bb.w / 2) * view.z + view.x, y = Math.max(8, bb.y * view.z + view.y - 46);
+        return html`<div class="cv-multi" style=${`left:${Math.round(x)}px;top:${Math.round(y)}px`} onPointerDown=${(e) => e.stopPropagation()}><span>选中 ${ms.length} 张</span><button type="button" onClick=${multiToSec}><${Icon} name="frame" size=${13} />放进分区</button><button type="button" onClick=${arrangeMenu}><${Icon} name="list" size=${13} />排列</button><button type="button" class="danger" title="删除（Delete）" onClick=${removeMulti}><${Icon} name="trash" size=${13} /></button><button type="button" title="取消选择（Esc）" onClick=${() => setMulti([])}><${Icon} name="x" size=${13} /></button></div>`; })()}
       ${links.length > 0 && html`<svg class="cv-svg cv-svg-top"><g transform=${`translate(${view.x},${view.y}) scale(${view.z})`}>${linkLayer}</g></svg>`}
       ${b.nodes.length === 0 && b.strokes.length === 0 && html`<div class="cv-empty"><${Icon} name="frame" size=${22} /><p>双击空白处写字，或从左边把页面拖进来。</p><p class="cv-empty-learn">想学东西：把 PDF / 图片拖进来（或粘贴一段文字），再在下面问汤圆。</p></div>`}
-      ${b.nodes.length === 0 && html`<div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · 按住空格或中键拖动画布 · ⌘+滚轮 / 双指缩放 · Shift+1 看全部</div>`}
+      ${b.nodes.length === 0 && html`<div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · 按住空格或中键拖动画布 · Shift+拖动框选多张 · ⌘+滚轮 / 双指缩放 · Shift+1 看全部</div>`}
     </div>
     ${askOpen ? html`<${AskBar} onHide=${hideAsk} target=${sel && sel.kind === 'node' ? node(sel.id) : null} notes=${notes} hasSrc=${b.nodes.some((n) => n.type === 'src')} quote=${quote} onAsk=${(q) => { if (quote) { ask(q, { anchorId: quote.id, focus: quote.text, label: '选中' }); setQuote(null); } else ask(q); }} onClear=${() => (quote ? setQuote(null) : setSel(null))} onUpload=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }} onText=${() => setTextModal(true)} />` : html`<button type="button" class="cv-ask-fab" title="问汤圆（/）" onClick=${openAsk}><${Icon} name="chat" size=${17} /></button>`}
     ${side && (() => { const pg = notes.find((x) => x.id === side); return pg ? html`<${CardPanel} key=${pg.id} note=${pg} notes=${notes} onClose=${() => setSide(null)} onOpenTitle=${openByTitle} />` : null; })()}

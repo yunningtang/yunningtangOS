@@ -4264,3 +4264,14 @@ html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) .sx-in
 .cv-side-title:focus{box-shadow:none}
 .cv-side .cv-side-title,.cv-side .cv-side-title:focus{font-size:1.4rem;font-weight:700;background:none;box-shadow:none;border:0;border-radius:0;padding:6px 0 10px;height:auto}
 @media (min-width:900px){.cv-wrap.side-open .cv-ask{left:calc(50% - 230px);width:min(620px,calc(100% - 520px))}}
+
+/* 画布：框选多张 */
+.cv-box{position:absolute;pointer-events:none;border-radius:6px;background:rgba(79,124,245,.08);box-shadow:inset 0 0 0 1px rgba(79,124,245,.55)}
+.cv-node.msel{box-shadow:0 0 0 2px #4f7cf5,var(--shadow)}
+.cv-multi{position:absolute;z-index:6;transform:translateX(-50%);display:flex;align-items:center;gap:2px;padding:3px;border-radius:11px;background:var(--ink);color:var(--bg);box-shadow:var(--pop);font-size:.78rem;white-space:nowrap;animation:pop .14s var(--ease,ease)}
+.cv-multi span{padding:0 8px 0 6px;opacity:.7;font-variant-numeric:tabular-nums}
+.cv-multi button{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;border:0;border-radius:8px;background:none;color:inherit;font:inherit;cursor:pointer}
+.cv-multi button:hover{background:rgba(255,255,255,.15)}
+html[data-theme="dark"] .cv-multi button:hover{background:rgba(0,0,0,.2)}
+.cv-multi button.danger:hover{color:#ff8a80}
+.cv-multi button svg{margin-top:.125em}
