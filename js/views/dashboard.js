@@ -9,7 +9,7 @@ import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
 import { upsert, remove } from '../store.js';
-import { goalPct, BlockModal, blockMenuItems, slotMenu } from './planner.js';
+import { goalPct, BlockModal, blockMenuItems, slotMenu, MonthCal } from './planner.js';
 import { ancestors, noteTitle, isBlank, newNote, nbOf } from './notes.js';
 import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
@@ -24,27 +24,6 @@ import { MoneyWidget } from './money.js';
 import { focusFor, usePomoLive, focusLabel, focusMenu, FocusBar } from '../focusline.js';
 
 const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
-
-function MonthCal({ s, today }) {
-  const [ym, setYm] = useState(today.slice(0, 7));
-  const [y, m] = ym.split('-').map(Number);
-  const first = new Date(y, m - 1, 1);
-  const startDay = first.getDay(); // Sunday first like the reference
-  const days = new Date(y, m, 0).getDate();
-  const prevDays = new Date(y, m - 1, 0).getDate();
-  const cells = [];
-  for (let i = startDay - 1; i >= 0; i--) cells.push({ d: prevDays - i, out: true, key: `p${i}` });
-  for (let d = 1; d <= days; d++) cells.push({ d, key: `${ym}-${pad(d)}`, date: `${ym}-${pad(d)}` });
-  while (cells.length % 7) cells.push({ d: cells.length - days - startDay + 1, out: true, key: `n${cells.length}` });
-  const busy = useMemo(() => { const set = new Set(); s.todos.forEach((t) => t.due && !t.done && set.add(t.due)); s.blocks.forEach((b) => set.add(b.date)); return set; }, [s.todos, s.blocks]);
-  const shift = (n) => { const d = new Date(y, m - 1 + n, 1); setYm(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`); };
-  return html`<${Card} class="mcal">
-    <div class="card-h"><h3>${y} 年 ${m} 月</h3><div class="card-act"><button class="ibtn" onClick=${() => shift(-1)}><${Icon} name="left" size=${14} /></button><button class="ibtn" onClick=${() => shift(1)}><${Icon} name="right" size=${14} /></button></div></div>
-    <div class="mc-grid">${['日', '一', '二', '三', '四', '五', '六'].map((w) => html`<span class="mc-w">${w}</span>`)}
-      ${cells.map((c) => html`<button class=${'mc-d ' + (c.out ? 'out' : '') + (c.date === today ? ' today' : '') + (c.date && busy.has(c.date) ? ' busy' : '')} key=${c.key} onClick=${() => c.date && go('plan/day?d=' + c.date)}>${c.d}</button>`)}
-    </div>
-  <//>`;
-}
 
 function Ring({ value, label, sub }) {
   const r = 34, c = 2 * Math.PI * r, v = Math.max(0, Math.min(1, value));

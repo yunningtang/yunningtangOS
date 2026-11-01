@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select, colorSub } from '../ui.js';
-import { uid, todayStr, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet, KIND_COLOR_NAMES, nowISO } from '../util.js';
+import { uid, todayStr, pad, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet, KIND_COLOR_NAMES, nowISO } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
@@ -210,6 +210,31 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
   </div>`;
 }
 
+// 月历：总览的卡片和「今天」页共用。selected + onPick 时点一下就切到那天（今天页）；不给就跳到那天的「今天」页（总览）
+// 有时间块或没做完的待办的日子下面有个小点
+export function MonthCal({ s, today, selected, onPick }) {
+  const [ym, setYm] = useState((selected || today).slice(0, 7));
+  useEffect(() => { if (selected && selected.slice(0, 7) !== ym) setYm(selected.slice(0, 7)); }, [selected]);
+  const [y, m] = ym.split('-').map(Number);
+  const first = new Date(y, m - 1, 1);
+  const startDay = first.getDay(); // Sunday first like the reference
+  const days = new Date(y, m, 0).getDate();
+  const prevDays = new Date(y, m - 1, 0).getDate();
+  const cells = [];
+  for (let i = startDay - 1; i >= 0; i--) cells.push({ d: prevDays - i, out: true, key: `p${i}` });
+  for (let d = 1; d <= days; d++) cells.push({ d, key: `${ym}-${pad(d)}`, date: `${ym}-${pad(d)}` });
+  while (cells.length % 7) cells.push({ d: cells.length - days - startDay + 1, out: true, key: `n${cells.length}` });
+  const busy = useMemo(() => { const set = new Set(); s.todos.forEach((t) => t.due && !t.done && set.add(t.due)); s.blocks.forEach((b) => set.add(b.date)); return set; }, [s.todos, s.blocks]);
+  const shift = (n) => { const d = new Date(y, m - 1 + n, 1); setYm(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`); };
+  const pick = (date) => (onPick ? onPick(date) : go('plan/day?d=' + date));
+  return html`<${Card} class="mcal">
+    <div class="card-h"><h3>${y} 年 ${m} 月</h3><div class="card-act">${onPick && ym !== today.slice(0, 7) && html`<button class="btn ghost sm" onClick=${() => { setYm(today.slice(0, 7)); pick(today); }}>回到今天</button>`}<button class="ibtn" title="上个月" onClick=${() => shift(-1)}><${Icon} name="left" size=${14} /></button><button class="ibtn" title="下个月" onClick=${() => shift(1)}><${Icon} name="right" size=${14} /></button></div></div>
+    <div class="mc-grid">${['日', '一', '二', '三', '四', '五', '六'].map((w) => html`<span class="mc-w">${w}</span>`)}
+      ${cells.map((c) => html`<button class=${'mc-d ' + (c.out ? 'out' : '') + (c.date === today ? ' today' : '') + (c.date && c.date === selected && c.date !== today ? ' sel' : '') + (c.date && busy.has(c.date) ? ' busy' : '')} key=${c.key} disabled=${!c.date} onClick=${() => c.date && pick(c.date)}>${c.d}</button>`)}
+    </div>
+  <//>`;
+}
+
 function DayView({ initial }) {
   const s = useStore();
   const [date, setDate] = useState(initial || todayStr());
@@ -256,6 +281,7 @@ function DayView({ initial }) {
       <//>
       <${Splitter} varName="dayside" min=${240} max=${520} dir=${-1} class="sp-col" />
       <div class="stack">
+        <${MonthCal} s=${s} today=${todayStr()} selected=${date} onPick=${setDate} />
         <${Card} class="grow" title="当天待办" sub=${`${todos.filter((t) => t.done).length}/${todos.length}`}>
           ${todos.length === 0 ? html`<${Empty} icon="checksq" text="这天没有安排待办。" />` : todos.map((t) => html`<${TodoItem} t=${t} compact onEdit=${(x) => setTEdit(x)} />`)}
         <//>
