@@ -44,7 +44,7 @@ export const ROUTES = [
   { path: 'plan', href: 'plan/day', name: '今天', icon: 'sun', nav: true, match: (r) => r.path === 'plan' && r.sub === 'day' },
   { path: 'plan', name: '计划', icon: 'calendar', view: Planner, match: (r) => r.path === 'plan' && r.sub !== 'day' },
   { path: 'focus', name: '专注', icon: 'clock', view: Focus },
-  { path: 'money', name: '钱', icon: 'wallet', view: Money, count: (s) => dueSoon(s).length },
+  { path: 'money', name: '钱包', icon: 'wallet', view: Money, count: (s) => dueSoon(s).length },
   { sep: '输入与输出' },
   { path: 'reading', name: '阅读', icon: 'book', view: Reading, count: (s) => s.books.filter((b) => b.status === 'reading').length },
   { path: 'links', name: '收藏', icon: 'link', view: Links },

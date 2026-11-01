@@ -1,4 +1,4 @@
-// 钱：概览 / 记账 / 订阅 / 资产 / 宇宙支票，加一个「AI 录入」。计算都在 ../money.js。
+// 钱包：概览 / 记账 / 订阅 / 资产 / 宇宙支票，加一个「AI 录入」。计算都在 ../money.js。
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, upsert, removeUndo, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, Select, DateInput } from '../ui.js';
@@ -409,7 +409,7 @@ function MoneySettings({ c, onClose }) {
   const [busy, setBusy] = useState(false);
   const save = () => { const list = cats.split(/[、,，\s]+/).map((x) => x.trim()).filter(Boolean); M.setCfg({ rates: { USD: +rates.USD || c.rates.USD, CNY: +rates.CNY || c.rates.CNY }, cats: list.length ? [...new Set(list)] : M.DEFAULT_CATS }); onClose(); };
   const refresh = async () => { setBusy(true); try { const r = await M.refreshRates(); setRates(r); toast('汇率已更新'); } catch (e) { toast(e.message); } finally { setBusy(false); } };
-  return html`<${Modal} open=${true} onClose=${onClose} title="钱 · 设置" foot=${html`<span class="flex1"></span><${Btn} onClick=${onClose}>取消<//><${Btn} kind="primary" onClick=${save}>保存<//>`}>
+  return html`<${Modal} open=${true} onClose=${onClose} title="钱包 · 设置" foot=${html`<span class="flex1"></span><${Btn} onClick=${onClose}>取消<//><${Btn} kind="primary" onClick=${save}>保存<//>`}>
     <div class="mo-form">
       <${Field} label="主币种" hint="概览、汇总都换算成这个币种"><${Seg} options=${M.CURS.map((v) => ({ v, label: v }))} value=${c.base} onChange=${(v) => M.setCfg({ base: v })} /><//>
       <${Field} label="汇率（1 单位 = 多少加币）" hint=${c.ratesAt ? `上次更新 ${c.ratesAt}（欧洲央行数据）` : '默认是大概值，可以联网更新或手动填'}>
@@ -428,7 +428,7 @@ function MoneySettings({ c, onClose }) {
 export function MoneyWidget({ s }) {
   const c = M.cfg(s); const spent = M.spentIn(s, todayStr().slice(0, 7), c); const subsM = M.subsMonthly(s, c); const due = M.dueSoon(s, 7); const st = M.streak(s);
   return html`<${Card} class="mo-w">
-    <div class="card-h"><h3><a href="#/money">钱</a></h3><div class="card-act"><a class="ibtn" href="#/money" title="打开"><${Icon} name="right" size=${14} /></a></div></div>
+    <div class="card-h"><h3><a href="#/money">钱包</a></h3><div class="card-act"><a class="ibtn" href="#/money" title="打开"><${Icon} name="right" size=${14} /></a></div></div>
     <div class="mo-w-stats"><div><small>本月已花</small><b>${M.fmt(spent, c.base, { int: spent >= 1000 })}</b></div><div><small>订阅月均</small><b>${M.fmt(subsM, c.base)}</b></div></div>
     ${due.length ? html`<div class="mo-list">${due.slice(0, 3).map(({ sub, due: d }) => html`<a class="mo-row hot" key=${sub.id} href="#/money/subs"><b>${sub.name}</b><span class="muted">${dd(d)}</span><span class="mo-amt">${M.fmt(sub.amount, sub.cur || c.base)}</span></a>`)}</div>` : html`<p class="muted small">一周内没有订阅扣费${st ? ` · 已连续记账 ${st} 天` : ''}</p>`}
   <//>`;

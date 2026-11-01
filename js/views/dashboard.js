@@ -181,7 +181,7 @@ export default function Dashboard() {
     now: { title: '此刻', span: 1, el: html`<${NowWidget} />` },
     photo: { title: '图片', span: 1, el: html`<${PhotoWidget} />` },
     brain: { title: '今天的大脑', span: 1, el: html`<${BrainCard} s=${s} />` },
-    money: { title: '钱', span: 1, el: html`<${MoneyWidget} s=${s} />` },
+    money: { title: '钱包', span: 1, el: html`<${MoneyWidget} s=${s} />` },
     ai: { title: '汤圆的建议', span: 1, el: html`<${SuggestWidget} s=${s} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${blocks0.length ? blocks0.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>

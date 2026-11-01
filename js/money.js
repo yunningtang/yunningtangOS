@@ -1,4 +1,4 @@
-// 钱：资产、订阅、记账、宇宙支票的数据和计算；一句话 / 截图 / CSV / 邮件收据的识别和去重。界面在 views/money.js。
+// 钱包：资产、订阅、记账、宇宙支票的数据和计算；一句话 / 截图 / CSV / 邮件收据的识别和去重。界面在 views/money.js。
 // 数据都是顶层列表（跟着同步、合并、删除记录走）：
 //   assets  { id, name, price, cur, bought, img(附件 id), status: use|retired|sold, retiredAt, soldAt, soldPrice, note }
 //   subs    { id, name, amount, cur, cycle: week|month|quarter|year, next, card, status: active|cancelled, cancelledAt, lastUsed, consider, note }
