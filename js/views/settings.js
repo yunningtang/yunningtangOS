@@ -1,9 +1,9 @@
 import { html, useState, useEffect } from '../../vendor/preact.js';
-import { useStore, update, replace, exportJSON, blank } from '../store.js';
+import { useStore, update, replace, exportJSON, blank, get } from '../store.js';
 import { WIDGETS, normLayout, toggleWidget } from '../widgets.js';
-import { Icon, Btn, Card, Field, Seg, confirmDel } from '../ui.js';
+import { Icon, Btn, Card, Field, Seg, Modal, confirmDel } from '../ui.js';
 import { download, readFile, todayStr, pickFile, imageToSquare } from '../util.js';
-import { push, pull, smartSync, guarded, loginState, detectLogin, status as syncStatus, findUnusedAttachments, deleteAttachments } from '../sync.js';
+import { push, pull, smartSync, guarded, loginState, detectLogin, status as syncStatus, findUnusedAttachments, deleteAttachments, cloudHistory, restoreVersion } from '../sync.js';
 import { fmtSize } from '../files.js';
 import { seed } from '../seed.js';
 import { toast } from '../nav.js';
@@ -198,6 +198,7 @@ export default function Settings() {
 
   const connected = !!(login && login.user);
   const cloudUser = connected && login.cloud && login.user.email;
+  const [histOpen, setHistOpen] = useState(false);
   const cleanFiles = async () => {
     setBusy(true);
     try {
@@ -318,6 +319,7 @@ export default function Settings() {
       ${(connected || tokenMode) && html`<${Group} title="手动同步">
         <${Row} icon="upload" label="本机覆盖云端"><button class="sx-btn" disabled=${busy} onClick=${() => run(push, '已用本机数据覆盖云端')}>覆盖</button><//>
         <${Row} icon="download" label="云端覆盖本机"><button class="sx-btn" disabled=${busy} onClick=${async () => { if (await askConfirm('本机还没同步上去的改动会丢失。', { title: '用云端数据覆盖本机？', ok: '覆盖本机' })) run(pull, '已用云端数据覆盖本机'); }}>覆盖</button><//>
+        ${cloudUser && html`<${Row} icon="history" label="云端历史版本" hint="云端每隔一段时间自动留一份，最多 48 份；数据出问题时可以整份恢复"><button class="sx-btn" onClick=${() => setHistOpen(true)}>查看</button><//>`}
         ${cloudUser && html`<${Row} icon="trash" label="清理没用的附件" hint="云端里已经没有笔记在用、超过 7 天的图片和文件"><button class="sx-btn" disabled=${busy} onClick=${cleanFiles}>检查</button><//>`}
       <//>`}
       <${Group} title="危险操作">
@@ -339,6 +341,7 @@ export default function Settings() {
   const hit = (label, id) => !ql || label.toLowerCase().includes(ql) || ({ account: '帐号账号登录同步邮箱名字头像', look: '主题深浅暗色毛玻璃', dash: '卡片图片小组件', seal: '海豹光效强调色', ai: '模型密钥deepseekclaude用量', prompts: '提示词', data: '备份导入导出清空', keys: '快捷键' }[id] || '').includes(ql);
 
   return html`<div class="sx">
+    ${histOpen && html`<${HistoryModal} onClose=${() => setHistOpen(false)} />`}
     <aside class="sx-nav">
       <label class="sx-search"><${Icon} name="search" size=${14} /><input type="text" placeholder="搜索设置" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
       ${NAV.map(([g, items]) => { const vis = items.filter(([id, label]) => hit(id === 'account' ? name + ' 帐号' : label, id)); return vis.length > 0 && html`<div class="sx-ng" key=${g}>
@@ -350,4 +353,31 @@ export default function Settings() {
     </aside>
     <main class="sx-main">${pages[tab] ? pages[tab]() : pages.account()}</main>
   </div>`;
+}
+
+// 云端历史版本：列出时间、笔记 / 待办数量、大小；恢复前确认，本机会先存一份恢复前的数据（可撤销）
+function HistoryModal({ onClose }) {
+  const [st, setSt] = useState({ loading: true, list: [], missing: false, err: '' });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { cloudHistory().then((r) => setSt({ loading: false, list: r.list || [], missing: !!r.missing, err: '' })).catch((e) => setSt({ loading: false, list: [], missing: false, err: e.message })); }, []);
+  const when = (t) => new Date(t).toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const restore = async (h) => {
+    const now = get();
+    if (!(await askConfirm(`恢复到 ${when(h.saved_at)} 的版本：笔记 ${h.n_notes}、待办 ${h.n_todos}。\n现在：笔记 ${now.notes.length}、待办 ${now.todos.length}。\n会整份替换现在的数据，并同步到其他设备。恢复后可以撤销。`, { title: '恢复这个版本？', ok: '恢复' }))) return;
+    setBusy(true);
+    try {
+      await restoreVersion(h.id); onClose();
+      toast('已恢复', { label: '撤销', onClick: () => { try { const prev = localStorage.getItem('ytos.v1.prev'); if (prev) { replace(JSON.parse(prev)); toast('已撤销，恢复前的数据回来了'); } } catch {} } });
+    } catch (e) { toast(e.message || '恢复失败'); } finally { setBusy(false); }
+  };
+  return html`<${Modal} open=${true} onClose=${onClose} title="云端历史版本">
+    ${st.loading ? html`<p class="muted">正在读取…</p>`
+      : st.err ? html`<p class="sx-err block">${st.err}</p>`
+      : st.missing ? html`<p class="muted">云端还没开启历史版本：在 Supabase 的 SQL Editor 里运行一次仓库里的 supabase/history-and-guard.sql 就好。</p>`
+      : !st.list.length ? html`<p class="muted">还没有历史版本。之后每隔一段时间同步时会自动留一份。</p>`
+      : html`<div class="hist-list">${st.list.map((h) => html`<div class="hist-row" key=${h.id}>
+          <div class="hist-m"><b>${when(h.saved_at)}</b><small>笔记 ${h.n_notes} · 待办 ${h.n_todos} · ${fmtSize(h.bytes || 0)}</small></div>
+          <button class="sx-btn" disabled=${busy} onClick=${() => restore(h)}>恢复</button>
+        </div>`)}</div>`}
+  <//>`;
 }

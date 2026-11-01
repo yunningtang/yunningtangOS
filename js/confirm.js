@@ -2,13 +2,16 @@
 import { html, render, useState, useEffect, useRef } from '../vendor/preact.js';
 import { DateInput } from './ui.js';
 
-let host, setReq;
+// 同时来了好几个（比如同步弹出的提醒 + 你刚点的确认）：叠起来，最新的在最上面；一个也不丢（丢了的那个会永远等不到答案）
+let host, push;
+const setReq = (r) => push(r);
 function Host() {
-  const [req, set] = useState(null); setReq = set;
+  const [stack, setStack] = useState([]); push = (r) => setStack((l) => [...l, r]);
+  const req = stack[stack.length - 1] || null;
   const ref = useRef();
   useEffect(() => { if (req && ref.current) { ref.current.focus(); if (ref.current.select) ref.current.select(); } }, [req]);
   if (!req) return null;
-  const done = (v) => { set(null); req.resolve(v); };
+  const done = (v) => { setStack((l) => l.filter((x) => x !== req)); req.resolve(v); };
   return html`<div class="modal-bg" onMouseDown=${(e) => e.target === e.currentTarget && done(req.kind === 'prompt' || req.kind === 'date' ? null : false)}>
     <div class="modal confirm" role="dialog" onKeyDown=${(e) => { if (e.key === 'Escape') done(req.kind === 'prompt' || req.kind === 'date' ? null : false); }}>
       <div class="modal-b" style="padding:22px 22px 6px">

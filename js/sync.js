@@ -8,6 +8,7 @@ import { listFiles, markSynced, putRemote, blobToBase64, base64ToBlob, kvGet, kv
 import { seedDoc } from './seed.js';
 import { merge3, syncView, SHARED_SETTINGS } from './merge.js';
 import { debounce, nowISO, syncClock } from './util.js';
+import { askConfirm } from './confirm.js';
 
 const API = 'https://api.github.com';
 let api = null; // { configured, user, target } or null when /api is unavailable
@@ -43,6 +44,8 @@ const viaApi = {
   },
   // 只问云端现在是第几版（几十字节），没变就不用把整份数据拉下来
   async head() { const r = await fetch('/api/sync?head=1', { cache: 'no-store' }); const j = await readRes(r); return j.sha == null ? null : String(j.sha); },
+  async history() { const r = await fetch('/api/sync?history=list', { cache: 'no-store' }); return readRes(r); },
+  async historyDoc(id) { const r = await fetch('/api/sync?history=' + encodeURIComponent(id), { cache: 'no-store' }); return readRes(r); },
   async push(content, sha) {
     if (content.length > MAX_DOC) throw new Error(`数据太大了（${(content.length / 1048576).toFixed(1)} MB），云端一次只收 4 MB 左右。多半是笔记里直接粘贴的大图片——删掉几张，或者改成「上传图片」（图片会作为附件单独同步）`);
     const r = await fetch('/api/sync', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, sha }) });
@@ -80,8 +83,8 @@ const transport = () => (loggedIn() ? viaApi : viaToken);
 const assetDir = (path) => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) + '/assets' : 'assets');
 const files = {
   async put(rec) {
-    // 云端帐号的大文件：拿签名地址直接传给 Supabase，不经过本站（本站一次最多收约 4.5 MB）
-    if (loggedIn() && api.cloud && rec.blob.size > 3 * 1048576) {
+    // 云端帐号：拿签名地址直接传给 Supabase，不经过本站（不占 Vercel 的流量，也没有 4.5 MB 的上限）
+    if (loggedIn() && api.cloud) {
       const r = await fetch('/api/file', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sign: 'upload', id: rec.id }) });
       const j = await readRes(r);
       const up = await fetch(j.url, { method: 'PUT', headers: { 'Content-Type': rec.type || 'application/octet-stream', 'x-upsert': 'true' }, body: rec.blob });
@@ -106,9 +109,16 @@ const files = {
   },
 };
 // push every attachment that has not reached the repo yet; failures are reported, not fatal
+// 传失败的附件：隔 1、2、4、8 分钟再试，最多 5 次（这个页面开着期间）；不再每次同步都重传一遍
+const attTry = new Map(); // id → { n, next }
 export async function pushAttachments() {
   let n = 0, failed = 0;
-  for (const rec of await listFiles()) { if (rec.synced) continue; try { await files.put(rec); await markSynced(rec.id); n++; } catch (e) { failed++; } }
+  for (const rec of await listFiles()) {
+    if (rec.synced) continue;
+    const t = attTry.get(rec.id); if (t && (t.n >= 5 || Date.now() < t.next)) { failed++; continue; }
+    try { await files.put(rec); await markSynced(rec.id); attTry.delete(rec.id); n++; }
+    catch (e) { const k = (t ? t.n : 0) + 1; attTry.set(rec.id, { n: k, next: Date.now() + 60000 * 2 ** (k - 1) }); failed++; }
+  }
   return { n, failed };
 }
 // fetch one attachment that exists on another device (returns the stored record or null)
@@ -195,20 +205,41 @@ export async function pull() {
   await setBase(remote.data);
 }
 
+/* ---- 云端历史版本 ---- */
+export async function cloudHistory() { if (!loggedIn() || !(api && api.cloud)) return { list: [], unsupported: true }; return viaApi.history(); }
+// 把云端某个历史版本恢复成当前数据：先在本机存一份恢复前的（可以撤销），再整份上传
+export async function restoreVersion(id) {
+  const row = await viaApi.historyDoc(id); if (!row || !row.doc) throw new Error('找不到这个版本');
+  try { localStorage.setItem('ytos.v1.prev', exportJSON()); } catch {}
+  replace(keepLocal(row.doc));
+  // 刚同步过的话云端会限速（429），等一下再传
+  for (let i = 0; ; i++) { try { await push(); break; } catch (e) { if (e.status !== 429 || i >= 2) throw e; await new Promise((r) => setTimeout(r, 2000)); } }
+  setStatus({ error: '', last: nowISO() });
+  return row;
+}
+
 // Three-way merge: local and remote changes since the last sync are combined record by record,
 // so two devices can both edit without one overwriting the other.
 // 另一台设备刚好同时同步（409）：重新拉一次再合并，最多再试两次
-export async function smartSync() {
+export async function smartSync(opts = {}) {
   for (let i = 0; ; i++) {
-    try { return await syncOnce(); } catch (e) { if (e.status !== 409 || i >= 2) throw e; await new Promise((r) => setTimeout(r, 400 + i * 600)); }
+    try { return await syncOnce(opts); }
+    catch (e) {
+      // 429：云端限速（两次写入隔得太近）——等 2 秒再试一次；409：另一台设备刚同步过——重新拉取合并
+      if (e.status === 429 && i < 1) { await new Promise((r) => setTimeout(r, 2000)); continue; }
+      if (e.status !== 409 || i >= 2) throw e; await new Promise((r) => setTimeout(r, 400 + i * 600));
+    }
   }
 }
+// 一份数据里有多少条东西（笔记、待办……），用来发现「这次要上传的一下子少了很多」
+const LISTS_COUNTED = ['notes', 'todos', 'books', 'links', 'trips', 'canvases', 'blocks', 'sessions'];
+const itemCount = (d) => LISTS_COUNTED.reduce((n, k) => n + (Array.isArray(d && d[k]) ? d[k].length : 0), 0);
 // 云端上次同步后的版本号：自动同步时先问一下版本，没变、本机也没改，就不拉整份数据
 let knownSha = null;
 // 同步自己写进本机的东西（合并结果、上次同步时间）不算「本机改了」，不然同步完又触发下一次同步，永远停不下来
 let selfWrite = false;
 const quiet = (fn) => { selfWrite = true; try { fn(); } finally { selfWrite = false; } };
-async function syncOnce() {
+async function syncOnce(opts = {}) {
   const remote = await pullRemote();
   const local = get();
   if (!remote) { const sent = exportJSON(loggedIn() ? 0 : 2); knownSha = await transport().push(sent); quiet(() => update((d) => { d.settings.lastSync = nowISO(); })); await setBase(sent); pushAttachments().catch(() => {}); return 'pushed'; }
@@ -230,6 +261,14 @@ async function syncOnce() {
   if (localChanged) quiet(() => replace(keepLocal(merged)));
   // base 必须是「两边此刻真正一致的那份」：推上去的就是它，不推的话云端就是它。
   // 不能在 await 之后再取 get()——推送的这几秒里删掉的东西，会被当成「云端新加的」又合并回来
+  // 保护：要上传的比云端少了一半以上（云端至少有 20 条）→ 先问一句。批量删除就点继续；不是的话别传，去历史版本里找回
+  if (remoteChanged && !opts.allowShrink) {
+    const was = itemCount(remote.data), now = itemCount(merged);
+    if (was >= 20 && now < was * 0.5) {
+      const ok = await askConfirm(`这次同步后，云端会从 ${was} 条变成 ${now} 条（笔记、待办等加起来）。\n如果是你自己批量删除的，点「继续上传」；如果不是，先别传——可以在设置 → 云端历史版本里找回之前的数据。`, { title: '要上传的数据少了很多', ok: '继续上传' });
+      if (!ok) { const e = new Error(`同步已暂停：要上传的数据比云端少了很多（${was} → ${now} 条）`); e.code = 'shrink'; throw e; }
+    }
+  }
   const sent = exportJSON(loggedIn() ? 0 : 2);
   knownSha = remoteChanged ? await transport().push(sent, remote.sha) : remote.sha;
   quiet(() => update((d) => { d.settings.lastSync = nowISO(); }));
@@ -252,7 +291,26 @@ export function autoSync(subscribe) {
   armed = true;
   // dirty：本机有还没同步上去的改动（同步自己写的不算）。同步途中又改的，跑完再来一次
   let dirty = false;
-  const run = () => { dirty = false; return guarded(smartSync).then(() => { if (dirty) soon(); }).catch(() => { dirty = true; }); };
+  // 熔断：10 分钟里自动同步超过 20 次就停 10 分钟（任何 bug 引起的循环都烧不了流量）；手动同步不受影响
+  const runs = []; let pausedUntil = 0, resumeT = 0;
+  const pause = (msg) => { pausedUntil = Date.now() + 600000; setStatus({ error: msg }); clearTimeout(resumeT); resumeT = setTimeout(() => { pausedUntil = 0; if (dirty) run(); }, 600000); };
+  // 失败后自动重试：约 5 秒、15 秒、45 秒、2 分钟、5 分钟（带一点随机），最多 5 次；成功一次就清零
+  let fails = 0, retryT = 0;
+  const retry = () => { if (fails > 5) return; clearTimeout(retryT); const base = [5, 15, 45, 120, 300][fails - 1] * 1000; retryT = setTimeout(() => { if (navigator.onLine !== false) run(); }, base * (0.8 + Math.random() * 0.4)); };
+  const run = () => {
+    if (Date.now() < pausedUntil) return Promise.resolve();
+    const t = Date.now(); while (runs.length && t - runs[0] > 600000) runs.shift(); runs.push(t);
+    if (runs.length > 20) { pause('自动同步太频繁，已暂停 10 分钟（防止流量失控）。需要的话可以在设置里手动同步'); return Promise.resolve(); }
+    dirty = false;
+    return guarded(smartSync).then(() => { fails = 0; if (dirty) soon(); }).catch((e) => {
+      dirty = true;
+      if (e.status === 401 || e.code === 'shrink') return; // 登录过期 / 等你确认：不自动重试
+      if (e.status === 429) { pause('云端限速了（同步太频繁），10 分钟后自动恢复'); return; }
+      fails++; retry();
+    });
+  };
+  // 断网时改的：一联网就同步
+  window.addEventListener('online', () => { if (dirty) run(); });
   // 回到页面时：先问云端版本（很小），别的设备没改过、本机也没改就什么都不做
   let lastCheck = 0;
   const check = async () => {

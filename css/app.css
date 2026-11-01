@@ -4275,3 +4275,14 @@ html:where([data-skin="notion"],[data-skin="glass"],[data-skin="claude"]) .sx-in
 html[data-theme="dark"] .cv-multi button:hover{background:rgba(0,0,0,.2)}
 .cv-multi button.danger:hover{color:#ff8a80}
 .cv-multi button svg{margin-top:.125em}
+
+/* 设置：云端历史版本 */
+.hist-list{display:flex;flex-direction:column;gap:2px;max-height:min(60vh,520px);overflow:auto}
+.hist-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px}
+.hist-row:hover{background:var(--hover)}
+.hist-m{flex:1;min-width:0;display:flex;flex-direction:column}
+.hist-m b{font-weight:600;font-variant-numeric:tabular-nums}
+.hist-m small{color:var(--text-3);font-variant-numeric:tabular-nums}
+
+/* 确认框永远在其他弹窗上面（比如在「历史版本」窗口里点恢复） */
+#confirm-host .modal-bg{z-index:120}
