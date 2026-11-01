@@ -4470,7 +4470,11 @@ html[data-theme="dark"] .cq-paper{filter:brightness(.9)}
 .fp-battle-main .tt-break{padding:0 4px 0 0}
 /* 时长选择：一行放下，不再把「自定义」挤到第二行；窄的时候平分宽度 */
 .fp-battle-main .fp-timer .tt-card.full .tt-chips{flex-wrap:nowrap;gap:6px;width:100%;max-width:340px;margin:0 auto}
-.fp-battle-main .fp-timer .tt-card.full .tt-chip{flex:1 1 0;min-width:0;max-width:78px;padding:0 6px;height:36px;font-size:.82rem}
+.fp-battle-main .fp-timer .tt-card.full .tt-chips .tt-chip{flex:1 1 0;min-width:0;max-width:78px;padding:0 6px;height:36px;font-size:.82rem}
+/* 一轮结束后的检查点：按钮按文字宽度、和主按钮一样高，放不下就整齐换行 */
+.fp-battle-main .tt-card.full .tt-cp .cp-acts{flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;row-gap:8px}
+.fp-battle-main .tt-card.full .tt-cp .cp-acts .tt-chip{flex:none;max-width:none;min-width:0;height:44px;padding:0 18px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.fp-battle-main .tt-card.full .tt-cp .cp-acts .tt-go{height:44px;padding:0 22px}
 /* 主按钮和旁边的按钮一样高、中线对齐 */
 .fp-battle-main .fp-timer .tt-card.full .tt-acts{align-items:center;gap:10px;margin-top:14px}
 .fp-battle-main .fp-timer .tt-card.full .tt-go{height:44px;padding:0 24px}
@@ -4532,3 +4536,5 @@ html[data-theme="dark"] .cq-paper{filter:brightness(.9)}
 .fd-week svg{margin-left:auto;flex:none;opacity:.6}
 .fd-week:hover{color:var(--text)}
 @media (max-width:700px){.fd-card.wide .fd-cols{grid-template-columns:minmax(0,1fr)}.fd-card.wide .fd-col:not(.is-today){padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:12px}}
+.fp-battle-main .tt-card.full .tt-cp .cp-k{margin-bottom:12px}
+.fp-battle-main .tt-card.full .tt-cp .cp-goal{margin:-6px 0 12px}
