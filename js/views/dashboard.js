@@ -20,6 +20,7 @@ import { DoingWidget } from './battle.js';
 import { SPAN, DEFAULT_LAYOUT, normLayout } from '../widgets.js';
 import { dailySuggestions } from '../prompts.js';
 import { lsGet, lsSet } from '../util.js';
+import { MoneyWidget } from './money.js';
 import { focusFor, usePomoLive, focusLabel, focusMenu, FocusBar } from '../focusline.js';
 
 const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
@@ -201,6 +202,7 @@ export default function Dashboard() {
     now: { title: '此刻', span: 1, el: html`<${NowWidget} />` },
     photo: { title: '图片', span: 1, el: html`<${PhotoWidget} />` },
     brain: { title: '今天的大脑', span: 1, el: html`<${BrainCard} s=${s} />` },
+    money: { title: '钱', span: 1, el: html`<${MoneyWidget} s=${s} />` },
     ai: { title: '汤圆的建议', span: 1, el: html`<${SuggestWidget} s=${s} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${blocks0.length ? blocks0.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>

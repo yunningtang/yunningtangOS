@@ -14,6 +14,8 @@ import Explore from './views/explore.js';
 import Settings from './views/settings.js';
 import Focus, { MiniPomo } from './views/focus.js';
 import Brain from './views/brain.js';
+import Money from './views/money.js';
+import { dueSoon, remindDue } from './money.js';
 import { unsortedCount } from './brain.js';
 import { SearchPalette, setSearchRoutes } from './search.js';
 import { PageTree, useTreeState, newNote, newNotebook, ancestors, noteTitle, notebookMenu, movePage } from './views/notes.js';
@@ -42,6 +44,7 @@ export const ROUTES = [
   { path: 'plan', href: 'plan/day', name: '今天', icon: 'sun', nav: true, match: (r) => r.path === 'plan' && r.sub === 'day' },
   { path: 'plan', name: '计划', icon: 'calendar', view: Planner, match: (r) => r.path === 'plan' && r.sub !== 'day' },
   { path: 'focus', name: '专注', icon: 'clock', view: Focus },
+  { path: 'money', name: '钱', icon: 'wallet', view: Money, count: (s) => dueSoon(s).length },
   { sep: '输入与输出' },
   { path: 'reading', name: '阅读', icon: 'book', view: Reading, count: (s) => s.books.filter((b) => b.status === 'reading').length },
   { path: 'links', name: '收藏', icon: 'link', view: Links },
@@ -244,3 +247,5 @@ detectLogin().then(async (login) => {
   autoSync(subscribe);
 });
 render(html`<${App} />`, document.getElementById('app'));
+// 订阅扣费前提醒：打开网站几秒后看一眼（同步拉到最新的再提醒），每个订阅每天只提醒一次
+setTimeout(() => { try { remindDue(toast, go); } catch {} }, 4000);
