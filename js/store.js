@@ -25,6 +25,11 @@ export function blank() {
     vision: { statements: [], board: [], areas: [], longterm: [] },
     trips: [],
     canvases: [],
+    // 钱：资产、订阅、记账、宇宙支票（见 money.js）
+    assets: [],
+    subs: [],
+    txns: [],
+    cheques: [],
     settings: { theme: 'auto', sync: { repo: '', branch: 'main', path: 'data/os.json', token: '' }, lastSync: null, seeded: false },
     updatedAt: null,
   };
@@ -37,7 +42,7 @@ function migrate(s) {
   const out = { ...b, ...s };
   for (const k of Object.keys(b)) if (out[k] == null) out[k] = b[k];
   // 列表字段必须是数组，里面必须是对象（手改过 / 写坏的 JSON 不能让整份文档加载失败）
-  for (const k of ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions']) out[k] = (Array.isArray(out[k]) ? out[k] : []).filter((x) => x && typeof x === 'object');
+  for (const k of ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions', 'assets', 'subs', 'txns', 'cheques']) out[k] = (Array.isArray(out[k]) ? out[k] : []).filter((x) => x && typeof x === 'object');
   if (!out.goals || typeof out.goals !== 'object') out.goals = {}; if (!out.weeks || typeof out.weeks !== 'object') out.weeks = {};
   // 每条记录的基本字段类型（视图里直接 .map / .includes，缺了会整页白掉）
   const arr = (v) => (Array.isArray(v) ? v.map((x) => String(x)) : []);
@@ -122,7 +127,7 @@ let state = (() => {
 export let persistError = '';
 // 删除记录：每次改动后比一比各个列表，消失的 id 记下删除时间；又出现的（撤销、恢复）把记录去掉并盖上新时间戳。
 // 同步合并时，删除时间晚于最后一次编辑的东西不会被另一边「带回来」——就算「上次同步的那份」不准也一样
-const TOMB_LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions'];
+const TOMB_LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions', 'assets', 'subs', 'txns', 'cheques'];
 function tombDiff(prev, next) {
   if (!prev || !next || prev === next) return next;
   const now = nowISO(); let tombs = null;

@@ -232,7 +232,7 @@ export async function smartSync(opts = {}) {
   }
 }
 // 一份数据里有多少条东西（笔记、待办……），用来发现「这次要上传的一下子少了很多」
-const LISTS_COUNTED = ['notes', 'todos', 'books', 'links', 'trips', 'canvases', 'blocks', 'sessions'];
+const LISTS_COUNTED = ['notes', 'todos', 'books', 'links', 'trips', 'canvases', 'blocks', 'sessions', 'assets', 'subs', 'txns', 'cheques'];
 const itemCount = (d) => LISTS_COUNTED.reduce((n, k) => n + (Array.isArray(d && d[k]) ? d[k].length : 0), 0);
 // 云端上次同步后的版本号：自动同步时先问一下版本，没变、本机也没改，就不拉整份数据
 let knownSha = null;

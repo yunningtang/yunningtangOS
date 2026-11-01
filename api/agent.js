@@ -243,7 +243,24 @@ function validateCard(c) {
   return out;
 }
 
+const MONEY_CATS_DEFAULT = ['餐饮', '交通', '购物', '住房', '学习', '娱乐', '医疗', '订阅', '其他'];
+const MONEY_SOURCES = ['salary', 'scholarship', 'side', 'windfall', 'other'];
+const MONEY_CYCLES = ['week', 'month', 'quarter', 'year'];
+const MONEY_CURS = ['CAD', 'USD', 'CNY'];
+const SYSTEM_MONEY = `${PERSONA}
+
+你的工作：从对方给的内容里（一句话、收据 / 账单截图、银行导出的文字、邮件收据）找出记账记录和订阅，整理成结构化数据。对方会先看草稿、确认了才保存，所以宁可少记，不要编。要点：
+1. txns：每一笔实际发生的收支。date 用 YYYY-MM-DD，「今天 / 昨天 / 前天 / 周几 / 上周五」按 <context> 里的今天换算；没写日期就用今天。amount 是正数，kind 支出 out、收入 in。
+2. currency 只能是 CAD、USD、CNY：写了「美元 / 美刀 / USD / US$」→ USD；「人民币 / 元 / ¥ / RMB」→ CNY；「加币 / CAD / C$」→ CAD；只写「刀 / 块 / dollar / $」用 <context> 里的默认币种。
+3. category 从 <context> 的分类里选最贴切的一个；merchant 是商家（星巴克、Uber……），note 是简短说明（不超过 30 字）。收入写 source：salary 工资、scholarship 奖学金、side 副业、windfall 意外之财（红包、退税、中奖）、other。
+4. subs：订阅（按周 / 月 / 季 / 年自动扣费的服务，比如 Vercel、Spotify、iCloud）。cycle 是 week|month|quarter|year；next 是下次扣费日（能推算就填，不能就 null）；card 是扣费卡（比如「Visa 1234」，没有就 null）。同一个订阅只出现一次。<context> 里已经有的订阅不要重复列。
+5. 一张收据上有多个商品时，记成一笔（总额），note 里写主要内容；银行账单 / 对账单每一行是一笔。退款记成收入，category 用原来的分类，note 写「退款」。
+6. reply：一句话说明识别了什么，有拿不准的地方（比如币种、日期）就提一句。`;
+const MONEY_TXN = { type: 'object', additionalProperties: false, required: ['date', 'amount', 'currency', 'kind', 'category', 'merchant', 'note', 'source'], properties: { date: { type: 'string' }, amount: { type: 'number' }, currency: { type: 'string', enum: MONEY_CURS }, kind: { type: 'string', enum: ['out', 'in'] }, category: S_OR_NULL, merchant: S_OR_NULL, note: S_OR_NULL, source: { anyOf: [{ type: 'string', enum: MONEY_SOURCES }, { type: 'null' }] } } };
+const MONEY_SUB = { type: 'object', additionalProperties: false, required: ['name', 'amount', 'currency', 'cycle', 'next', 'card'], properties: { name: { type: 'string' }, amount: { type: 'number' }, currency: { type: 'string', enum: MONEY_CURS }, cycle: { type: 'string', enum: MONEY_CYCLES }, next: S_OR_NULL, card: S_OR_NULL } };
+const SCHEMA_MONEY = { type: 'object', additionalProperties: false, required: ['reply', 'txns', 'subs'], properties: { reply: { type: 'string' }, txns: { type: 'array', items: MONEY_TXN }, subs: { type: 'array', items: MONEY_SUB } } };
 const JSON_HINT = {
+  money: '只输出一个 JSON 对象：{"reply": "...", "txns": [{"date": "YYYY-MM-DD", "amount": 6.5, "currency": "CAD|USD|CNY", "kind": "out|in", "category": "...", "merchant": null, "note": null, "source": null}], "subs": [{"name": "...", "amount": 20, "currency": "USD", "cycle": "week|month|quarter|year", "next": null, "card": null}]}。没有就给空数组。不要输出 JSON 之外的任何文字。',
   capture: '只输出一个 JSON 对象：{"intent": "chat|capture|plan|modify", "reply": "...", "items": [...]}，每个 item 含 ref,kind,title,subitems,url,author,date,time,start,end,priority,tags,block_kind,notebook,body（没有就 null，tags 和 subitems 是数组）。不要输出 JSON 之外的任何文字。',
   doc: '只输出一个 JSON 对象：{"reply": "...", "markdown": "..."}（不需要改正文时 markdown 为 null）。markdown 字符串里的换行写成 \\n。不要输出 JSON 之外的任何文字。',
   breakdown: '只输出一个 JSON 对象：{"reply": "...", "goal": "..." 或 null, "steps": [...]}，每个 step 含 title,minutes,kind,hint（hint 没有就 null）。不要输出 JSON 之外的任何文字。',
@@ -273,6 +290,13 @@ function contextBlock(c, mode) {
     return lines.join('\n');
   }
   if (mode === 'brain') return lines.join('\n');
+  if (mode === 'money') {
+    lines.push(`默认币种：${MONEY_CURS.includes(c.currency) ? c.currency : 'CAD'}`);
+    lines.push(`支出分类：${(Array.isArray(c.cats) && c.cats.length ? c.cats : MONEY_CATS_DEFAULT).map((x) => String(x).slice(0, 12)).slice(0, 30).join('、')}`);
+    if (Array.isArray(c.subs) && c.subs.length) lines.push(`已有的订阅：${c.subs.map((x) => String(x).slice(0, 40)).slice(0, 60).join('、')}`);
+    if (c.focus === 'subs') lines.push('这次主要是找订阅（邮件收据）：订阅放进 subs；只有一次性的购买才放进 txns。');
+    if (c.sourceKind) lines.push(`内容来自：${String(c.sourceKind).slice(0, 30)}`);
+  }
   if (mode === 'learn') {
     if (c.materialName) lines.push(`材料：${String(c.materialName).slice(0, 120)}`);
     if (c.material) lines.push(`材料内容（节选）：\n<material>\n${String(c.material).slice(0, 16000)}\n</material>`);
@@ -461,22 +485,22 @@ export default async function handler(req, res) {
 
 // 真正干活的部分，和 HTTP 分开，方便 tools/eval-agent.mjs 直接调用做评测
 export async function runAgent(body, cfg) {
-  const mode = ['breakdown', 'doc', 'brain', 'stuck', 'learn'].includes(body.mode) ? body.mode : 'capture';
-  const text = String(body.text || '').trim().slice(0, 4000);
+  const mode = ['breakdown', 'doc', 'brain', 'stuck', 'learn', 'money'].includes(body.mode) ? body.mode : 'capture';
+  const text = String(body.text || '').trim().slice(0, mode === 'money' ? 20000 : 4000); // 记账：账单 / 邮件可能很长
   if (!text) return { status: 400, body: { error: 'text required' } };
   const history = mode === 'capture' ? (Array.isArray(body.history) ? body.history : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-8).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })) : [];
-  const system = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN, stuck: SYSTEM_STUCK, learn: SYSTEM_LEARN }[mode] || SYSTEM_CAPTURE;
-  const schema = { breakdown: SCHEMA_BREAKDOWN, doc: SCHEMA_DOC, brain: SCHEMA_BRAIN, stuck: SCHEMA_STUCK, learn: SCHEMA_LEARN }[mode] || SCHEMA_CAPTURE;
+  const system = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN, stuck: SYSTEM_STUCK, learn: SYSTEM_LEARN, money: SYSTEM_MONEY }[mode] || SYSTEM_CAPTURE;
+  const schema = { breakdown: SCHEMA_BREAKDOWN, doc: SCHEMA_DOC, brain: SCHEMA_BRAIN, stuck: SCHEMA_STUCK, learn: SCHEMA_LEARN, money: SCHEMA_MONEY }[mode] || SCHEMA_CAPTURE;
   // 学习画布可以带一张图（截图 / 拍的题）。DeepSeek 看不了图片
-  const img = mode === 'learn' && body.image && typeof body.image === 'object' && /^image\/(png|jpeg|webp|gif)$/.test(body.image.type) && typeof body.image.data === 'string' && /^[A-Za-z0-9+/=]+$/.test(body.image.data.slice(0, 200)) && body.image.data.length < 4.4e6 ? body.image : null;
+  const img = (mode === 'learn' || mode === 'money') && body.image && typeof body.image === 'object' && /^image\/(png|jpeg|webp|gif)$/.test(body.image.type) && typeof body.image.data === 'string' && /^[A-Za-z0-9+/=]+$/.test(body.image.data.slice(0, 200)) && body.image.data.length < 4.4e6 ? body.image : null;
   if (img && cfg.provider === 'deepseek') return { status: 400, body: { error: '现在用的是 DeepSeek，它看不了图片。可以把题目文字粘贴进来，或者在设置里换成 Claude', needVision: true } };
-  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${{ breakdown: '要拆的事', doc: '要求', brain: '要分的待办（每行一件：id | 标题 | 备注）', stuck: '对方自己说的', learn: '对方的问题' }[mode] || '说的话'}：${text}` };
+  const userMsg = { role: 'user', content: `<context>\n${contextBlock(body.context, mode)}\n</context>\n\n${{ breakdown: '要拆的事', doc: '要求', brain: '要分的待办（每行一件：id | 标题 | 备注）', stuck: '对方自己说的', learn: '对方的问题', money: '要识别的内容' }[mode] || '说的话'}：${text}` };
   if (img) userMsg.content = [{ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } }, { type: 'text', text: userMsg.content }];
   const messages = [...history, userMsg];
 
   let got;
   try {
-    got = cfg.provider === 'deepseek' ? await askDeepSeek(cfg, system, messages, mode) : await askClaude(cfg, system, schema, messages, mode === 'learn' ? 8000 : 4096);
+    got = cfg.provider === 'deepseek' ? await askDeepSeek(cfg, system, messages, mode) : await askClaude(cfg, system, schema, messages, mode === 'learn' || mode === 'money' ? 8000 : 4096);
     // DeepSeek：空内容 / 坏 JSON / 被截断 → 最多再试两次（第二次不开 json 模式），用量累加
     for (let k = 1; k <= 2 && cfg.provider === 'deepseek' && (!got.out || got.truncated); k++) {
       const again = await askDeepSeek(cfg, system, messages, mode, k);
@@ -507,6 +531,14 @@ export async function runAgent(body, cfg) {
     if (!cards.length) return { status: 502, body: { error: '汤圆这次没讲出东西来，再问一次试试' } };
     const quotes = (Array.isArray(got.out.quotes) ? got.out.quotes : []).map((q) => q && str(q.text, 200) ? { text: str(q.text, 200), label: str(q.label, 30) || '' } : null).filter(Boolean).slice(0, 4);
     return { status: 200, body: { ...base, title: str(got.out.title, 40) || '讲解', cards, quotes } };
+  }
+  if (mode === 'money') {
+    const day = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+    const amt = (v) => { const n = Math.round(Math.abs(Number(v)) * 100) / 100; return n > 0 && n < 1e8 ? n : null; };
+    const cur = (v) => (MONEY_CURS.includes(v) ? v : null);
+    const txns = (Array.isArray(got.out.txns) ? got.out.txns : []).map((t) => t && amt(t.amount) ? { date: day(t.date), amount: amt(t.amount), currency: cur(t.currency), kind: t.kind === 'in' ? 'in' : 'out', category: str(t.category, 20) || '', merchant: str(t.merchant, 40) || '', note: str(t.note, 60) || '', source: MONEY_SOURCES.includes(t.source) ? t.source : '' } : null).filter(Boolean).slice(0, 300);
+    const subs = (Array.isArray(got.out.subs) ? got.out.subs : []).map((x) => x && str(x.name, 40) && amt(x.amount) ? { name: str(x.name, 40), amount: amt(x.amount), currency: cur(x.currency), cycle: MONEY_CYCLES.includes(x.cycle) ? x.cycle : 'month', next: day(x.next), card: str(x.card, 30) || '' } : null).filter(Boolean).slice(0, 60);
+    return { status: 200, body: { ...base, txns, subs } };
   }
   if (mode === 'breakdown') {
     const steps = (Array.isArray(got.out.steps) ? got.out.steps : []).map(validateStep).filter(Boolean).slice(0, 7);

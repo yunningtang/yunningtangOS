@@ -4,7 +4,7 @@
 // field changed on both sides the newer `updated` stamp wins (local when there is none).
 // A deletion loses to an edit on the other side.
 import { blocksToMd } from './blocks.js';
-const LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions'];
+const LISTS = ['todos', 'blocks', 'books', 'links', 'notes', 'notebooks', 'trash', 'trips', 'canvases', 'sessions', 'assets', 'subs', 'txns', 'cheques'];
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const stamp = (x) => (x && (x.updated || x.updatedAt || x.deletedAt || x.completedAt || '')) || '';
 
@@ -94,7 +94,7 @@ export function mergeMap(base = {}, local = {}, remote = {}, mergeVal) {
 }
 
 // 跟着帐号走的设置（换设备也要在）；其余（主题、外观、汤圆的样子、同步凭据）留在这台设备
-export const SHARED_SETTINGS = ['dash', 'place', 'focusGoal', 'kinds', 'brainWords', 'brainReview', 'brainNav', 'doing', 'navOrder', 'readTypes', 'prompts', 'tagColors', 'photo', 'customColors'];
+export const SHARED_SETTINGS = ['dash', 'place', 'focusGoal', 'kinds', 'brainWords', 'brainReview', 'brainNav', 'doing', 'navOrder', 'readTypes', 'prompts', 'tagColors', 'photo', 'customColors', 'money'];
 // 一项设置的三方合并：列表按条合并，对象按键合并，其余谁改了用谁（两边都改用本地）
 export function mergeSetting(b, l, r) {
   if (Array.isArray(l) || Array.isArray(r)) return mergeList(Array.isArray(b) ? b : [], Array.isArray(l) ? l : [], Array.isArray(r) ? r : []);
