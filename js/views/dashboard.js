@@ -21,6 +21,7 @@ import { SPAN, DEFAULT_LAYOUT, normLayout } from '../widgets.js';
 import { dailySuggestions } from '../prompts.js';
 import { lsGet, lsSet } from '../util.js';
 import { MoneyWidget } from './money.js';
+import { FocusDaysWidget } from './daily.js';
 import { focusFor, usePomoLive, focusLabel, focusMenu, FocusBar } from '../focusline.js';
 
 const FOCUS_KINDS = ['focus', 'study', 'work', 'create'];
@@ -216,11 +217,8 @@ export default function Dashboard() {
         <div class="card-h"><h3>本月目标</h3><div class="card-act"><a class="ibtn" href="#/plan/month" title="全部"><${Icon} name="plus" size=${15} /></a></div></div>
         ${goals.length === 0 ? html`<${Empty} icon="target" text="这个月还没定目标。" />` : html`<div class="glist">${goals.map((g) => { const p = goalPct(g); return html`<a class="g-row" href="#/plan/month" key=${g.id}><${Icon} name="target" size=${14} class="muted" /><span class="g-t">${g.title}</span><span class="g-bar"><${Progress} value=${p} /></span><span class="g-p">${p}%</span><${Tag} color=${p >= 100 ? 'var(--green)' : p >= 50 ? 'var(--blue)' : 'var(--amber)'}>${p >= 100 ? '完成' : p >= 50 ? '进行中' : '刚开始'}<//></a>`; })}</div>`}
       <//>` },
-    focusweek: { title: '本周焦点', span: 2, el: html`<${Card}>
-        <div class="card-h"><h3>本周焦点</h3><div class="card-act"><a class="ibtn" href="#/plan/week" title="周计划"><${Icon} name="right" size=${15} /></a></div></div>
-        ${wk && wk.focus && wk.focus.trim() ? html`<ol class="focus-ol">${wk.focus.split('\n').map((l) => l.replace(/^\s*\d+[.、)]\s*/, '').trim()).filter(Boolean).map((l, i) => html`<li key=${i}><span class="n">${i + 1}</span>${l}</li>`)}</ol>` : html`<p class="small muted">还没写本周焦点。去周计划里写下这周最重要的三件事。</p>`}
-        ${quote && html`<div class="quote-line"><${Icon} name="sparkle" size=${13} /> ${quote.text}</div>`}
-      <//>` },
+    // 原来的「本周焦点」卡改成今日焦点（今天 / 明天最重要的 1–3 件事），本周焦点缩成卡片底部一行
+    focusweek: { title: '今日焦点', span: 2, el: html`<${FocusDaysWidget} s=${s} wide=${spanOf('focusweek') >= 2} quote=${quote} />` },
     calendar: { title: '月历', span: 1, el: html`<${MonthCal} s=${s} today=${today} />` },
     focus: { title: '专注', span: 1, el: html`<${DoingWidget} s=${s} Timer=${PomoCard} Card=${Card} />` },
     notes: { title: '笔记', span: 1, el: html`<${Card}>

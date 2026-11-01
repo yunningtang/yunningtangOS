@@ -4486,3 +4486,49 @@ html[data-theme="dark"] .cq-paper{filter:brightness(.9)}
 .bwn-busy svg{margin-top:.125em}
 .bwn-h{align-items:center}
 .bwn-h .bwn-k{align-self:center}
+
+/* 总览：今日焦点（今天 / 明天最重要的 1–3 件事） */
+.fd-card .card-h{margin-bottom:6px}
+.fd-tabs{display:inline-flex;padding:2px;border-radius:8px;background:var(--hover)}
+.fd-tabs button{height:24px;padding:0 10px;border:0;border-radius:6px;background:none;font:inherit;font-size:.74rem;color:var(--text-3);cursor:pointer}
+.fd-tabs button.on{background:var(--paper);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.fd-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.fd-card.wide .fd-cols{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+.fd-col{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fd-card.wide .fd-col:not(.is-today){padding-left:16px;border-left:1px solid var(--line)}
+.fd-h{display:flex;align-items:baseline;gap:8px}
+.fd-h b{font-size:.86rem;font-weight:650}.fd-col:not(.is-today) .fd-h b{color:var(--text-2)}
+.fd-h small{font-size:.72rem;color:var(--text-4);font-variant-numeric:tabular-nums}
+.fd-n{margin-left:auto;font-size:.72rem;color:var(--text-3);font-variant-numeric:tabular-nums}
+.fd-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.fd-list li{display:flex;align-items:center;gap:10px;min-height:38px;padding:4px 6px;border-radius:10px}
+.fd-list li:hover{background:var(--hover)}
+.fd-cb{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line-2,var(--line));background:var(--paper);color:var(--text-3);font:inherit;font-size:.72rem;font-weight:650;cursor:pointer;font-variant-numeric:tabular-nums;transition:border-color .15s,background .15s}
+.fd-cb:hover{border-color:var(--blue);color:var(--blue)}
+.fd-col.is-today .fd-cb{width:26px;height:26px;font-size:.78rem}
+.fd-list li.done .fd-cb{background:var(--blue);border-color:var(--blue);color:#fff}
+.fd-t{flex:1;min-width:0;font-size:.92rem;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-wrap:pretty}
+.fd-col.is-today .fd-t{font-size:.98rem;font-weight:550}
+.fd-col:not(.is-today) .fd-t{color:var(--text-2)}
+.fd-list li.done .fd-t{color:var(--text-4);text-decoration:line-through;font-weight:400}
+.fd-t .q-tag{margin-left:6px;vertical-align:.1em}
+.fd-go,.fd-more{flex:none;width:28px;height:28px;border:0;border-radius:8px;display:grid;place-items:center;background:none;color:var(--text-3);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}
+.fd-list li:hover .fd-go,.fd-list li:hover .fd-more{opacity:1}
+.fd-go{background:var(--ink);color:var(--paper)}.fd-go svg{fill:currentColor}
+.fd-more:hover{background:var(--hover-2,var(--hover));color:var(--text)}
+@media (hover:none){.fd-go,.fd-more{opacity:1}}
+.fd-won{margin:2px 6px 0;display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--green,#3f8f62)}
+.fd-add{display:flex;align-items:center;gap:6px;padding:2px 2px 0 6px}
+.fd-add input{flex:1;min-width:0;height:34px;border-radius:9px;font-size:.88rem}
+.fd-pick{flex:none;width:34px;height:34px;border:0;border-radius:9px;display:grid;place-items:center;background:var(--hover);color:var(--text-3);cursor:pointer}
+.fd-pick:hover{color:var(--text)}
+.fd-left{display:flex;align-items:center;gap:8px;margin:2px 6px 0;padding:6px 10px;border-radius:9px;font-size:.76rem;color:var(--text-3);background:color-mix(in srgb,var(--amber,#c7873a) 9%,transparent)}
+.fd-left span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fd-left button{flex:none;border:0;background:none;font:inherit;font-weight:600;color:var(--amber,#c7873a);cursor:pointer;padding:0}
+.fd-card .quote-line{margin-top:10px}
+.fd-week{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:.78rem;color:var(--text-3);text-decoration:none;min-width:0}
+.fd-week b{flex:none;font-weight:650;color:var(--text-2)}
+.fd-week{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fd-week svg{margin-left:auto;flex:none;opacity:.6}
+.fd-week:hover{color:var(--text)}
+@media (max-width:700px){.fd-card.wide .fd-cols{grid-template-columns:minmax(0,1fr)}.fd-card.wide .fd-col:not(.is-today){padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:12px}}

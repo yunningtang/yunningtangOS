@@ -5,6 +5,7 @@ import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGe
 import { ctxMenu } from '../ctx.js';
 import { brainMenu, stepCat, stepRegionItems } from '../brain.js';
 import { doThis } from '../doing.js';
+import { focusMenuItem } from './daily.js';
 import { goalMenu } from '../quest.js';
 import { askConfirm, askDate, askPrompt } from '../confirm.js';
 import { linkedPage } from './notes.js';
@@ -131,6 +132,7 @@ export function todoMenu(t, onEdit) {
   const today = todayStr();
   return [
     !t.done && { label: '做这件', icon: 'target', hint: '放到专注', onClick: () => doThis(t) },
+    focusMenuItem(get(), t),
     { label: '开始专注', icon: 'clock', onClick: () => go('focus?todo=' + t.id) },
     { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
     !t.done && { label: '卡住了…', icon: 'chat', hint: '问汤圆', onClick: () => window.dispatchEvent(new CustomEvent('stuck:open', { detail: t.id })) },
