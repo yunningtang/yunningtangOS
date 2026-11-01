@@ -440,7 +440,8 @@ function WeekTimeline() {
   </div>`;
 }
 
-/* ---------- 月时间线：一行一天，横轴是一天的钟点；整个月的时间块一眼看完 ---------- */
+/* ---------- 月时间线：像 Outlook 的月视图，一周一行、一天一格，格子里按时间列出当天的安排 ---------- */
+const MAX_IN_CELL = 4;
 function MonthTimeline() {
   const s = useStore();
   const [mk, setMk] = useState(() => todayStr().slice(0, 7));
@@ -448,45 +449,40 @@ function MonthTimeline() {
   const [modal, setModal] = useState(false);
   const [newAt, setNewAt] = useState({ date: todayStr(), start: '09:00' });
   const [y, m] = mk.split('-').map(Number);
-  const n = new Date(y, m, 0).getDate();
-  const days = Array.from({ length: n }, (_, i) => `${mk}-${pad(i + 1)}`);
+  // 从这个月第一天所在那周的周一开始，铺满整周（前后是上 / 下个月的日子，淡一点）
+  const first = `${mk}-01`; const last = `${mk}-${pad(new Date(y, m, 0).getDate())}`;
+  const gridStart = weekStart(first); const gridEnd = addDays(weekStart(last), 6);
+  const cells = []; for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) cells.push(d);
   // 每天的时间块 + 没落在时间块里的专注记录（和日 / 周时间线一样）
-  const rows = useMemo(() => days.map((d) => { const bl = sortBy(s.blocks.filter((b) => b.date === d && !b.pomo), 'start'); const fx = focusFor(d, bl, s.sessions, null); return { d, items: [...bl, ...fx.extra] }; }), [s.blocks, s.sessions, mk]);
-  // 横轴范围：默认 6–24 点，有更早 / 更晚的块就放宽
-  let from = 6, to = 24;
-  rows.forEach((r) => r.items.forEach((b) => { from = Math.min(from, Math.floor(timeToMin(b.start) / 60)); to = Math.max(to, Math.ceil(timeToMin(b.end) / 60)); }));
-  from = Math.max(0, from); to = Math.min(24, Math.max(to, from + 6)); const span = (to - from) * 60;
-  const pct = (min) => ((min - from * 60) / span) * 100;
+  const byDay = useMemo(() => { const out = {}; cells.forEach((d) => { const bl = sortBy(s.blocks.filter((b) => b.date === d && !b.pomo), 'start'); out[d] = sortBy([...bl, ...focusFor(d, bl, s.sessions, null).extra], 'start'); }); return out; }, [s.blocks, s.sessions, mk]);
   const mins = (b) => Math.max(0, timeToMin(b.end) - timeToMin(b.start));
-  const dayTotal = (r) => r.items.filter((b) => !b.focus).reduce((x, b) => x + mins(b), 0);
-  const total = rows.reduce((x, r) => x + dayTotal(r), 0);
-  const byKind = useMemo(() => { const k = {}; rows.forEach((r) => r.items.forEach((b) => { if (b.focus) return; k[b.kind] = (k[b.kind] || 0) + mins(b); })); return allKinds().filter((x) => k[x.v]).map((x) => ({ ...x, min: k[x.v] })).sort((a, b) => b.min - a.min); }, [rows]);
+  const inMonth = cells.filter((d) => d.startsWith(mk));
+  const total = inMonth.reduce((x, d) => x + byDay[d].filter((b) => !b.focus).reduce((n, b) => n + mins(b), 0), 0);
+  const byKind = useMemo(() => { const k = {}; inMonth.forEach((d) => byDay[d].forEach((b) => { if (!b.focus) k[b.kind] = (k[b.kind] || 0) + mins(b); })); return allKinds().filter((x) => k[x.v]).map((x) => ({ ...x, min: k[x.v] })).sort((a, b) => b.min - a.min); }, [byDay]);
   const maxKind = byKind.length ? byKind[0].min : 1;
-  const today = todayStr(); const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+  const today = todayStr();
   const shift = (k) => { const t = new Date(y, m - 1 + k, 1); setMk(`${t.getFullYear()}-${pad(t.getMonth() + 1)}`); };
-  // 点空白处：在那个钟点新建（取整到半小时）
-  const create = (e, d) => { const r = e.currentTarget.getBoundingClientRect(); const min = from * 60 + Math.round(((e.clientX - r.left) / r.width) * span / 30) * 30; setEditing(null); setNewAt({ date: d, start: minToTime(Math.max(0, Math.min(23 * 60 + 30, min))) }); setModal(true); };
-  const ticks = []; for (let h = from; h <= to; h += to - from > 12 ? 2 : 1) ticks.push(h);
+  const edit = (b) => { setEditing(b); setModal(true); };
+  const create = (d) => { setEditing(null); setNewAt({ date: d, start: '09:00' }); setModal(true); };
   return html`<div class="stack">
     <div class="page-h" style="margin-bottom:0">
       <div class="dnav">
-        <div class="dnav-l"><b>${y} 年 ${m} 月</b><span class="muted">共 ${(total / 60).toFixed(1)}h · ${rows.filter((r) => r.items.length).length} 天有安排</span></div>
+        <div class="dnav-l"><b>${y} 年 ${m} 月</b><span class="muted">共 ${(total / 60).toFixed(1)}h · ${inMonth.filter((d) => byDay[d].length).length} 天有安排</span></div>
         <div class="dstrip"><${IconBtn} icon="left" title="上个月" onClick=${() => shift(-1)} /><${Btn} kind="ghost" small onClick=${() => setMk(today.slice(0, 7))} disabled=${mk === today.slice(0, 7)}>本月<//><${IconBtn} icon="right" title="下个月" onClick=${() => shift(1)} /></div>
-        <div class="dnav-r"><${Btn} kind="primary" small icon="plus" onClick=${() => { setEditing(null); setNewAt({ date: today.slice(0, 7) === mk ? today : mk + '-01', start: '09:00' }); setModal(true); }}>时间块<//></div>
+        <div class="dnav-r"><${Btn} kind="primary" small icon="plus" onClick=${() => create(today.slice(0, 7) === mk ? today : first)}>时间块<//></div>
       </div>
     </div>
-    <${Card} pad=${false} class="mtl-card">
-      <div class="mtl-axis"><div class="mtl-lab"></div><div class="mtl-ticks">${ticks.map((h) => html`<span key=${h} style=${`left:${pct(h * 60)}%`}>${pad(h)}</span>`)}</div><div class="mtl-sum"></div></div>
-      <div class="mtl-rows">${rows.map((r) => { const dt = parseDate(r.d); const wd = dt.getDay(); const t = dayTotal(r); return html`<div key=${r.d} class=${'mtl-row ' + (r.d === today ? 'today ' : '') + (wd === 0 || wd === 6 ? 'wkend ' : '') + (r.d < today ? 'past' : '')}>
-          <a class="mtl-lab" href=${'#/plan/day?d=' + r.d} title="打开这一天"><b>${Number(r.d.slice(8))}</b><small>${WEEKDAY_SUN[wd].slice(1)}</small></a>
-          <div class="mtl-track" onClick=${(e) => { if (e.target === e.currentTarget) create(e, r.d); }} title="点空白处在这个钟点新建">
-            ${ticks.map((h) => html`<i key=${h} class="mtl-grid" style=${`left:${pct(h * 60)}%`}></i>`)}
-            ${r.items.map((b) => { const a = timeToMin(b.start), e2 = Math.max(timeToMin(b.end), a + 10); const left = Math.max(0, pct(a)), w = Math.max(0.6, Math.min(100, pct(e2)) - left); return b.focus
-              ? html`<span key=${b.id} class="mtl-b fx" style=${`left:${left}%;width:${w}%`} title=${`专注 · ${b.title} ${b.start}–${b.end}`} onClick=${() => go('focus')}></span>`
-              : html`<span key=${b.id} class="mtl-b" style=${`left:${left}%;width:${w}%;--c:${kindColor(b.kind)}`} title=${`${b.title} ${b.start}–${b.end} · ${kindOf(b.kind).name}`} onClick=${() => { setEditing(b); setModal(true); }} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit: () => { setEditing(b); setModal(true); } }), b.title)}>${w > 7 ? b.title : ''}</span>`; })}
-            ${r.d === today && nowMin >= from * 60 && nowMin <= to * 60 && html`<i class="mtl-now" style=${`left:${pct(nowMin)}%`}></i>`}
+    <${Card} pad=${false} class="mv-card">
+      <div class="mv-head">${WEEKDAY.map((w, i) => html`<span key=${w} class=${i >= 5 ? 'wkend' : ''}>${w}</span>`)}</div>
+      <div class="mv-grid" style=${`--weeks:${cells.length / 7}`}>${cells.map((d, i) => { const list = byDay[d]; const more = list.length - MAX_IN_CELL; const out = !d.startsWith(mk); const t = list.filter((b) => !b.focus).reduce((n, b) => n + mins(b), 0);
+        return html`<div key=${d} class=${'mv-cell ' + (out ? 'out ' : '') + (d === today ? 'today ' : '') + (i % 7 >= 5 ? 'wkend ' : '') + (d < today ? 'past' : '')} onClick=${(e) => { if (e.target === e.currentTarget || e.target.classList.contains('mv-items')) create(d); }} title="点空白处新建时间块">
+          <div class="mv-top"><a class="mv-num" href=${'#/plan/day?d=' + d} title="打开这一天">${Number(d.slice(8)) === 1 ? `${Number(d.slice(5, 7))}月1日` : Number(d.slice(8))}</a>${t > 0 && html`<span class="mv-total">${(t / 60).toFixed(t % 60 ? 1 : 0)}h</span>`}</div>
+          <div class="mv-items">
+            ${list.slice(0, more > 0 ? MAX_IN_CELL - 1 : MAX_IN_CELL).map((b) => b.focus
+              ? html`<button type="button" key=${b.id} class="mv-ev fx" title=${`专注 · ${b.title} ${b.start}–${b.end}`} onClick=${() => go('focus')}><span class="mv-t">${b.start}</span>${b.title || '专注'}</button>`
+              : html`<button type="button" key=${b.id} class="mv-ev" style=${`--c:${kindColor(b.kind)}`} title=${`${b.title} ${b.start}–${b.end} · ${kindOf(b.kind).name}`} onClick=${() => edit(b)} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit: () => edit(b) }), b.title)}><span class="mv-t">${b.start}</span>${b.title || kindOf(b.kind).name}</button>`)}
+            ${more > 0 && html`<a class="mv-more" href=${'#/plan/day?d=' + d}>还有 ${more + 1} 项</a>`}
           </div>
-          <span class="mtl-sum">${t ? (t / 60).toFixed(1) + 'h' : ''}</span>
         </div>`; })}</div>
     <//>
     ${byKind.length > 0 && html`<${Card} title="这个月的时间去哪了">
