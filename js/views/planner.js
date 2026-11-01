@@ -1,7 +1,7 @@
 import { html, useState, useMemo, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update, upsert, remove, get, removeUndo } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, Seg, Progress, confirmDel, AutoTextarea, DateInput, TimeInput, Select, colorSub } from '../ui.js';
-import { uid, todayStr, pad, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet, KIND_COLOR_NAMES, nowISO } from '../util.js';
+import { uid, todayStr, pad, WEEKDAY_SUN, addDays, parseDate, weekStart, weekKey, weekDays, WEEKDAY, fmtShort, fmtDate, monthKey, shiftMonth, timeToMin, minToTime, BLOCK_KINDS, allKinds, kindOf, KIND_COLORS, kindColor, PRIORITY, AREAS, sortBy, relDay , lsGet, lsSet, KIND_COLOR_NAMES, nowISO } from '../util.js';
 import { TodoItem, TodoModal, todoMenu } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { askPrompt } from '../confirm.js';
@@ -281,7 +281,6 @@ function DayView({ initial }) {
       <//>
       <${Splitter} varName="dayside" min=${240} max=${520} dir=${-1} class="sp-col" />
       <div class="stack">
-        <${MonthCal} s=${s} today=${todayStr()} selected=${date} onPick=${setDate} />
         <${Card} class="grow" title="当天待办" sub=${`${todos.filter((t) => t.done).length}/${todos.length}`}>
           ${todos.length === 0 ? html`<${Empty} icon="checksq" text="这天没有安排待办。" />` : todos.map((t) => html`<${TodoItem} t=${t} compact onEdit=${(x) => setTEdit(x)} />`)}
         <//>
@@ -441,20 +440,77 @@ function WeekTimeline() {
   </div>`;
 }
 
+/* ---------- 月时间线：一行一天，横轴是一天的钟点；整个月的时间块一眼看完 ---------- */
+function MonthTimeline() {
+  const s = useStore();
+  const [mk, setMk] = useState(() => todayStr().slice(0, 7));
+  const [editing, setEditing] = useState(null);
+  const [modal, setModal] = useState(false);
+  const [newAt, setNewAt] = useState({ date: todayStr(), start: '09:00' });
+  const [y, m] = mk.split('-').map(Number);
+  const n = new Date(y, m, 0).getDate();
+  const days = Array.from({ length: n }, (_, i) => `${mk}-${pad(i + 1)}`);
+  // 每天的时间块 + 没落在时间块里的专注记录（和日 / 周时间线一样）
+  const rows = useMemo(() => days.map((d) => { const bl = sortBy(s.blocks.filter((b) => b.date === d && !b.pomo), 'start'); const fx = focusFor(d, bl, s.sessions, null); return { d, items: [...bl, ...fx.extra] }; }), [s.blocks, s.sessions, mk]);
+  // 横轴范围：默认 6–24 点，有更早 / 更晚的块就放宽
+  let from = 6, to = 24;
+  rows.forEach((r) => r.items.forEach((b) => { from = Math.min(from, Math.floor(timeToMin(b.start) / 60)); to = Math.max(to, Math.ceil(timeToMin(b.end) / 60)); }));
+  from = Math.max(0, from); to = Math.min(24, Math.max(to, from + 6)); const span = (to - from) * 60;
+  const pct = (min) => ((min - from * 60) / span) * 100;
+  const mins = (b) => Math.max(0, timeToMin(b.end) - timeToMin(b.start));
+  const dayTotal = (r) => r.items.filter((b) => !b.focus).reduce((x, b) => x + mins(b), 0);
+  const total = rows.reduce((x, r) => x + dayTotal(r), 0);
+  const byKind = useMemo(() => { const k = {}; rows.forEach((r) => r.items.forEach((b) => { if (b.focus) return; k[b.kind] = (k[b.kind] || 0) + mins(b); })); return allKinds().filter((x) => k[x.v]).map((x) => ({ ...x, min: k[x.v] })).sort((a, b) => b.min - a.min); }, [rows]);
+  const maxKind = byKind.length ? byKind[0].min : 1;
+  const today = todayStr(); const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+  const shift = (k) => { const t = new Date(y, m - 1 + k, 1); setMk(`${t.getFullYear()}-${pad(t.getMonth() + 1)}`); };
+  // 点空白处：在那个钟点新建（取整到半小时）
+  const create = (e, d) => { const r = e.currentTarget.getBoundingClientRect(); const min = from * 60 + Math.round(((e.clientX - r.left) / r.width) * span / 30) * 30; setEditing(null); setNewAt({ date: d, start: minToTime(Math.max(0, Math.min(23 * 60 + 30, min))) }); setModal(true); };
+  const ticks = []; for (let h = from; h <= to; h += to - from > 12 ? 2 : 1) ticks.push(h);
+  return html`<div class="stack">
+    <div class="page-h" style="margin-bottom:0">
+      <div class="dnav">
+        <div class="dnav-l"><b>${y} 年 ${m} 月</b><span class="muted">共 ${(total / 60).toFixed(1)}h · ${rows.filter((r) => r.items.length).length} 天有安排</span></div>
+        <div class="dstrip"><${IconBtn} icon="left" title="上个月" onClick=${() => shift(-1)} /><${Btn} kind="ghost" small onClick=${() => setMk(today.slice(0, 7))} disabled=${mk === today.slice(0, 7)}>本月<//><${IconBtn} icon="right" title="下个月" onClick=${() => shift(1)} /></div>
+        <div class="dnav-r"><${Btn} kind="primary" small icon="plus" onClick=${() => { setEditing(null); setNewAt({ date: today.slice(0, 7) === mk ? today : mk + '-01', start: '09:00' }); setModal(true); }}>时间块<//></div>
+      </div>
+    </div>
+    <${Card} pad=${false} class="mtl-card">
+      <div class="mtl-axis"><div class="mtl-lab"></div><div class="mtl-ticks">${ticks.map((h) => html`<span key=${h} style=${`left:${pct(h * 60)}%`}>${pad(h)}</span>`)}</div><div class="mtl-sum"></div></div>
+      <div class="mtl-rows">${rows.map((r) => { const dt = parseDate(r.d); const wd = dt.getDay(); const t = dayTotal(r); return html`<div key=${r.d} class=${'mtl-row ' + (r.d === today ? 'today ' : '') + (wd === 0 || wd === 6 ? 'wkend ' : '') + (r.d < today ? 'past' : '')}>
+          <a class="mtl-lab" href=${'#/plan/day?d=' + r.d} title="打开这一天"><b>${Number(r.d.slice(8))}</b><small>${WEEKDAY_SUN[wd].slice(1)}</small></a>
+          <div class="mtl-track" onClick=${(e) => { if (e.target === e.currentTarget) create(e, r.d); }} title="点空白处在这个钟点新建">
+            ${ticks.map((h) => html`<i key=${h} class="mtl-grid" style=${`left:${pct(h * 60)}%`}></i>`)}
+            ${r.items.map((b) => { const a = timeToMin(b.start), e2 = Math.max(timeToMin(b.end), a + 10); const left = Math.max(0, pct(a)), w = Math.max(0.6, Math.min(100, pct(e2)) - left); return b.focus
+              ? html`<span key=${b.id} class="mtl-b fx" style=${`left:${left}%;width:${w}%`} title=${`专注 · ${b.title} ${b.start}–${b.end}`} onClick=${() => go('focus')}></span>`
+              : html`<span key=${b.id} class="mtl-b" style=${`left:${left}%;width:${w}%;--c:${kindColor(b.kind)}`} title=${`${b.title} ${b.start}–${b.end} · ${kindOf(b.kind).name}`} onClick=${() => { setEditing(b); setModal(true); }} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit: () => { setEditing(b); setModal(true); } }), b.title)}>${w > 7 ? b.title : ''}</span>`; })}
+            ${r.d === today && nowMin >= from * 60 && nowMin <= to * 60 && html`<i class="mtl-now" style=${`left:${pct(nowMin)}%`}></i>`}
+          </div>
+          <span class="mtl-sum">${t ? (t / 60).toFixed(1) + 'h' : ''}</span>
+        </div>`; })}</div>
+    <//>
+    ${byKind.length > 0 && html`<${Card} title="这个月的时间去哪了">
+      <div class="mtl-kinds">${byKind.map((k) => html`<div class="mtl-kind" key=${k.v}><span><i style=${`background:${k.color}`}></i>${k.name}</span><b style=${`--w:${(k.min / maxKind) * 100}%;--c:${k.color}`}></b><em>${(k.min / 60).toFixed(1)}h</em></div>`)}</div>
+    <//>`}
+    <${BlockModal} open=${modal} block=${editing} date=${newAt.date} start=${newAt.start} onClose=${() => setModal(false)} />
+  </div>`;
+}
+
 export default function Planner({ route }) {
   // 「今天」在侧栏有自己的入口（plan/day），所以「计划」不记、也不回到每日时间线，免得两个入口点进去一样
   const last = lsGet('ytos.plan.tab', 'week');
   const sub = route.sub || (last && last !== 'day' ? last : 'week');
   useEffect(() => { if (route.sub && route.sub !== 'day') lsSet('ytos.plan.tab', route.sub); }, [route.sub]);
-  const ALL = { week: '周计划', day: '每日时间线', weektl: '周时间线', month: '月度目标' };
+  const ALL = { week: '周计划', day: '每日时间线', weektl: '周时间线', monthtl: '月时间线', month: '月度目标' };
   // 页签顺序可以拖动调整，记住
-  const [order, setOrder] = useState(() => { const saved = lsGet('ytos.plan.tabs', '').split(',').filter((k) => ALL[k]); return [...saved, ...Object.keys(ALL).filter((k) => !saved.includes(k))]; });
+  const [order, setOrder] = useState(() => { const saved = lsGet('ytos.plan.tabs', '').split(',').filter((k) => ALL[k]); const out = [...saved]; Object.keys(ALL).filter((k) => !saved.includes(k)).forEach((k) => { const i = k === 'monthtl' ? out.indexOf('weektl') : -1; if (i >= 0) out.splice(i + 1, 0, k); else out.push(k); }); return out; });
   const reorder = (id, target, after) => setOrder((o) => { const next = o.filter((k) => k !== id); let i = next.indexOf(target); if (after) i++; next.splice(i, 0, id); lsSet('ytos.plan.tabs', next.join(',')); return next; });
   return html`<div>
     <nav class="subnav" data-liquid="a"><span class="liq"></span>${order.map((k) => html`<a key=${k} href=${'#/plan/' + k} class=${sub === k ? 'active' : ''} title="拖动可调整顺序" ...${dragProps('ptab', { id: k })} ...${dropProps('ptab', (d, { after }) => { if (d.id !== k) reorder(d.id, k, after); }, { position: true, horizontal: true })}>${ALL[k]}</a>`)}</nav>
     ${sub === 'week' && html`<${WeekBoard} />`}
     ${sub === 'day' && html`<${DayView} initial=${route.query && route.query.d} />`}
     ${sub === 'weektl' && html`<${WeekTimeline} />`}
+    ${sub === 'monthtl' && html`<${MonthTimeline} />`}
     ${sub === 'month' && html`<${MonthGoals} openId=${route.query && route.query.open} />`}
   </div>`;
 }
