@@ -9,7 +9,7 @@ import { Icon, Card, Btn, Seg, Empty, Tag, Select, Collapse } from '../ui.js';
 import { todayStr, sortBy, timeToMin, kindColor, addDays, pad, PRIORITY } from '../util.js';
 import * as pomo from '../pomo.js';
 import { nextStep, stepsOf } from '../steps.js';
-import { go } from '../nav.js';
+import { go, toast } from '../nav.js';
 import { BattleCard } from './battle.js';
 import { doingOf, setDoing } from '../doing.js';
 import { mainFirst, isMain } from '../quest.js';
@@ -59,13 +59,23 @@ export default function Focus({ route }) {
   const quiet = running && !peek;
   const pick = (t) => { if (st.phase !== 'idle') return; pomo.setLabel(t.title, t.id); pomo.setGoal((nextStep(t) || {}).title || ''); };
   const go1 = (t) => { const w = t.focusLen || st.workLen || 25; pomo.start({ label: t.title, todoId: t.id, goal: (nextStep(t) || {}).title || '', workLen: w, breakLen: Math.max(3, Math.round(w / 5)) }); };
+  // 换一件「正在做」：从待办里挑（主线在前），或者新写一件；计时中换的话，这一轮还算在原来那件上
+  const follow = useRef(false); // 计时中换了「正在做」：这一轮结束、回到空闲时，计时器换到新的那件
+  useEffect(() => { if (follow.current && st.phase === 'idle' && doing) { follow.current = false; pomo.setLabel(doing.title, doing.id); pomo.setGoal((nextStep(doing) || {}).title || ''); } }, [st.phase]);
+  const switchTo = (id) => { const was = doing; setDoing(id); if (st.phase !== 'idle') follow.current = true; if (st.phase !== 'idle' && was) toast(`已换成新的一件。这一轮还记在「${was.title.slice(0, 14)}」上，结束后计时器会跟上`); };
+  const switchMenu = (e) => ctxMenu(e, [
+    ...picksAll.filter((t) => !doing || t.id !== doing.id).slice(0, 12).map((t) => ({ label: t.title, icon: isMain(s, t) ? 'target' : 'checksq', hint: isMain(s, t) ? '主线' : t.due && t.due < today ? '已过期' : t.due === today ? '今天' : '', onClick: () => switchTo(t.id) })),
+    picksAll.length > (doing ? 1 : 0) && 'sep',
+    { label: '新写一件…', icon: 'plus', onClick: async () => { const v = await askPrompt('现在要做什么？', '', { title: '换一件事', placeholder: '比如：写方法部分第二段' }); if (!v || !v.trim()) return; const id = uid(); upsert('todos', { id, title: v.trim(), done: false, priority: 2, tags: [], due: today, created: today }); switchTo(id); } },
+    doing && { label: '先不做这件', icon: 'x', hint: '回到挑选', onClick: () => setDoing('') },
+  ].filter(Boolean), '换一件事');
   const rowMenu = (e, t) => ctxMenu(e, [{ label: '现在开始', icon: 'play', disabled: st.phase !== 'idle', onClick: () => go1(t) }, { label: '先做 2 分钟', icon: 'clock', disabled: st.phase !== 'idle', onClick: () => pomo.start({ label: t.title, todoId: t.id, goal: (nextStep(t) || {}).title || '', once: 2 }) }, { label: '专注时长', icon: 'clock', sub: LENS.map((n) => ({ label: `${n} 分钟`, icon: (t.focusLen || 25) === n ? 'check' : '', onClick: () => upsert('todos', { id: t.id, focusLen: n }) })) }, 'sep', { label: '标为完成', icon: 'check', onClick: () => toggleTodo(t.id) }, { label: '打开待办', icon: 'external', onClick: () => go('todos?open=' + t.id) }], t.title);
   return html`<div class=${'focus-page2 ' + (quiet ? 'quiet' : '')}>
     ${quiet && html`<div class="fq-bar"><span>专注中 · 其他内容先收起来了</span><button type="button" onClick=${() => setPeek(true)}>看一眼其他内容</button></div>`}
     ${running && peek && html`<div class="fq-bar"><span>正在专注</span><button type="button" onClick=${() => setPeek(false)}>回到专注视图</button></div>`}
     <div class=${'fp-main fp-battle-main ' + (doing ? 'has-doing' : '')}>
       <div class="fp-battle">
-        ${doing ? html`<${BattleCard} t=${doing} key=${doing.id} label="正在做" big onEdit=${setEditing} />`
+        ${doing ? html`<${BattleCard} t=${doing} key=${doing.id} label="正在做" big onEdit=${setEditing} onSwitch=${switchMenu} busy=${st.phase !== 'idle'} />`
           : html`<div class="fb-empty"><b>先选一件事来做</b><span>一次只做一件事，其他的先留在待办里。</span>
             <div class="fb-pick">${picksAll.slice(0, 5).map((t) => html`<button type="button" key=${t.id} onClick=${() => setDoing(t.id)}><i class=${'fq-p p' + (t.priority ?? 2)}></i>${isMain(s, t) && html`<i class="q-tag">主线</i>`}${t.title}</button>`)}${todos.length === 0 && html`<a href="#/todos">去待办里加一件</a>`}</div></div>`}
         ${!quiet && rest.length > 0 && html`<div class="fb-others">
@@ -130,7 +140,7 @@ export function PomoCard({ full = false, initialTodo = '' }) {
   const tint = s.settings.pomoColor || 'blue';
   const rv = pst.review;
   const rvTodo = rv && rv.todoId ? s.todos.find((t) => t.id === rv.todoId) : null; const rvStep = rvTodo && rv.stepId ? stepsOf(rvTodo).find((x) => x.id === rv.stepId) : null;
-  const sub = pst.phase === 'idle' ? html`${pst.workLen} 分钟<${Span} rem=${rem} />${full ? html`<button type="button" class="tt-break" title="休息时长" onClick=${breakMenu}>· 休息 ${pst.breakLen} 分</button>` : ''}`
+  const sub = pst.phase === 'idle' ? html`${pst.workLen} 分钟<${Span} rem=${rem} />${full ? html`<button type="button" class="tt-break" title="休息时长" onClick=${breakMenu}><i>·</i>休息 ${pst.breakLen} 分</button>` : ''}`
     : pst.phase === 'break' ? html`休息一下<${Span} rem=${rem} />` : html`${pst.paused ? '已暂停' : '专注中'}<${Span} rem=${rem} />`;
   const save = (after) => { pomo.checkpoint({ note, next, done: after === 'done', stepDone: after === 'step' }); if (after === 'again') { pomo.skip(); setTimeout(() => pomo.start({ label: rv.label, todoId: rv.todoId, goal: next.trim() }), 0); } };
   // ---- 检查点：一轮结束后问两句，写回这件事；计时结束 ≠ 任务完成 ----

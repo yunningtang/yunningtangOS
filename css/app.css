@@ -4462,3 +4462,27 @@ html[data-theme="dark"] .cq-paper{filter:brightness(.9)}
 .mtl-kind b::after{content:'';position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--c);border-radius:inherit;opacity:.8}
 .mtl-kind em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2)}
 @media (max-width:700px){.mtl-axis,.mtl-row{grid-template-columns:40px minmax(0,1fr) 36px}.mtl-b{font-size:0}}
+
+/* 专注页：番茄钟对齐 */
+/* 第二行「25 分钟 · 21:24 → 21:49 · 休息 5 分」：点号间距统一，只由点号自己的左右留白决定 */
+.fp-battle-main .tt-sub{gap:0;line-height:1.6}
+.tt-break i,.pomo-span i{font-style:normal;margin:0 7px;opacity:.55}
+.fp-battle-main .tt-break{padding:0 4px 0 0}
+/* 时长选择：一行放下，不再把「自定义」挤到第二行；窄的时候平分宽度 */
+.fp-battle-main .fp-timer .tt-card.full .tt-chips{flex-wrap:nowrap;gap:6px;width:100%;max-width:340px;margin:0 auto}
+.fp-battle-main .fp-timer .tt-card.full .tt-chip{flex:1 1 0;min-width:0;max-width:78px;padding:0 6px;height:36px;font-size:.82rem}
+/* 主按钮和旁边的按钮一样高、中线对齐 */
+.fp-battle-main .fp-timer .tt-card.full .tt-acts{align-items:center;gap:10px;margin-top:14px}
+.fp-battle-main .fp-timer .tt-card.full .tt-go{height:44px;padding:0 24px}
+.fp-battle-main .fp-timer .tt-card.full .tt-chip.tt-two{flex:none;max-width:none;height:44px;padding:0 18px}
+.fp-battle-main .fp-timer .tt-card.full .tt-round{width:44px;height:44px}
+/* 专注中（收起其他内容）：左边的卡片和右边的钟面上下居中对齐 */
+.focus-page2.quiet .fp-battle-main{align-items:center}
+.focus-page2.quiet .fp-battle-main .fp-timer .tt-card.full .fw-hero{padding-top:8px}
+/* 「正在做」卡片头部：换一件 / 卡住了 两个文字按钮挨在一起 */
+.bwn-h .bw-text{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.bwn-h .bw-text svg{margin-top:.125em}
+.bwn-busy{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:.8rem;color:var(--text-3)}
+.bwn-busy svg{margin-top:.125em}
+.bwn-h{align-items:center}
+.bwn-h .bwn-k{align-self:center}

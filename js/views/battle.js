@@ -17,7 +17,8 @@ import { useStore } from '../store.js';
 const QuestLine = ({ q }) => q && html`<a class="quest" href=${'#/plan/month?open=' + q.goal.id} title="打开这个目标"><${Icon} name="target" size=${12} /><b>主线</b><span>推进：${q.goal.title}</span><small>${q.done}/${q.total}</small></a>`;
 const doneToast = (s, t) => { const q = questOf(s, t); toast(q ? `主线推进了一步 · ${q.goal.title} ${q.done + 1}/${q.total}` : `「${t.title.slice(0, 16)}」完成了`); };
 
-export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big = false }) {
+// onSwitch：换一件事（专注页给）；busy：计时器正在跑，卡片上就不再放「开始」按钮，免得点了把这一轮重开
+export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big = false, onSwitch = null, busy = false }) {
   const s = useStore(); const q = questOf(s, t);
   const sp = stepsProgress(t); const ns = nextStep(t); const allDone = sp.total > 0 && !ns;
   const [editing, setEditing] = useState(false); const [v, setV] = useState(t.goal || '');
@@ -34,6 +35,7 @@ export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big 
     <div class="bwn-h">
       <span class="bwn-k">${label}</span>
       <b class="bwn-t" title="编辑" onClick=${() => onEdit && onEdit(t)}>${t.title}</b>
+      ${onSwitch && html`<button type="button" class="bw-text" onClick=${onSwitch} title="换成另一件事"><${Icon} name="refresh" size=${12} />换一件</button>`}
       <button type="button" class="bw-text" onClick=${() => openStuck(t)} title="不知道怎么推进？问问汤圆">卡住了</button>
     </div>
     <${QuestLine} q=${q} />
@@ -47,6 +49,7 @@ export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big 
       : html`<div class="bwn-empty"><span>还没有完成条件。拆成几个能勾的小步，会好开始很多。</span><button type="button" class="bw-text strong" onClick=${breakdown}><${Icon} name="sparkle" size=${12} />让汤圆拆一下</button></div>`}
     <div class="bwn-f">
       ${allDone ? html`<span class="bwn-won"><${Icon} name="sparkle" size=${14} />${t.goal ? '本次目标达成' : '条件都完成了'}</span><span class="flex1"></span><button type="button" class="bw-text" onClick=${nextGoal}>定下一个目标</button><button type="button" class="bw-cta" onClick=${finish}><${Icon} name="check" size=${12} />完成这件事</button>`
+        : busy ? html`<span class="bwn-busy"><${Icon} name="clock" size=${12} />计时中，专心做这一步</span>`
         : ns ? html`${onPick && html`<button type="button" class="bw-text" onClick=${onPick}>做这件</button>`}<button type="button" class="bw-cta" onClick=${startStep}><${Icon} name="play" size=${11} />开始：${ns.title} · ${clampMin(ns.minutes)} 分</button>`
         : html`${onPick && html`<button type="button" class="bw-text" onClick=${onPick}>做这件</button>`}<button type="button" class="bw-text" onClick=${finish}>做完了</button><button type="button" class="bw-cta" onClick=${() => { pomo.start({ label: t.title, todoId: t.id, workLen: t.focusLen || 25 }); toast(`开始：${t.title}`); }}><${Icon} name="play" size=${11} />直接开始</button>`}
     </div>
