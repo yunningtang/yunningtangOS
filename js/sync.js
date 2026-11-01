@@ -41,10 +41,12 @@ const viaApi = {
     const j = await readRes(r);
     return j.data ? { sha: j.sha, data: j.data } : null;
   },
+  // 只问云端现在是第几版（几十字节），没变就不用把整份数据拉下来
+  async head() { const r = await fetch('/api/sync?head=1', { cache: 'no-store' }); const j = await readRes(r); return j.sha == null ? null : String(j.sha); },
   async push(content, sha) {
     if (content.length > MAX_DOC) throw new Error(`数据太大了（${(content.length / 1048576).toFixed(1)} MB），云端一次只收 4 MB 左右。多半是笔记里直接粘贴的大图片——删掉几张，或者改成「上传图片」（图片会作为附件单独同步）`);
     const r = await fetch('/api/sync', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, sha }) });
-    await readRes(r);
+    const j = await readRes(r); return j && j.sha != null ? String(j.sha) : null;
   },
 };
 function cfg() {
@@ -178,9 +180,9 @@ const keepLocal = (doc) => { const l = get(); return { ...doc, settings: { ...(d
 // force: local overwrites remote
 export async function push() {
   const remote = await pullRemote();
-  const sent = exportJSON();
-  await transport().push(sent, remote ? remote.sha : undefined);
-  update((d) => { d.settings.lastSync = nowISO(); });
+  const sent = exportJSON(loggedIn() ? 0 : 2);
+  knownSha = await transport().push(sent, remote ? remote.sha : undefined);
+  quiet(() => update((d) => { d.settings.lastSync = nowISO(); }));
   await setBase(sent);
   pushAttachments().catch(() => {});
 }
@@ -201,10 +203,15 @@ export async function smartSync() {
     try { return await syncOnce(); } catch (e) { if (e.status !== 409 || i >= 2) throw e; await new Promise((r) => setTimeout(r, 400 + i * 600)); }
   }
 }
+// 云端上次同步后的版本号：自动同步时先问一下版本，没变、本机也没改，就不拉整份数据
+let knownSha = null;
+// 同步自己写进本机的东西（合并结果、上次同步时间）不算「本机改了」，不然同步完又触发下一次同步，永远停不下来
+let selfWrite = false;
+const quiet = (fn) => { selfWrite = true; try { fn(); } finally { selfWrite = false; } };
 async function syncOnce() {
   const remote = await pullRemote();
   const local = get();
-  if (!remote) { const sent = exportJSON(); await transport().push(sent); update((d) => { d.settings.lastSync = nowISO(); }); await setBase(sent); pushAttachments().catch(() => {}); return 'pushed'; }
+  if (!remote) { const sent = exportJSON(loggedIn() ? 0 : 2); knownSha = await transport().push(sent); quiet(() => update((d) => { d.settings.lastSync = nowISO(); })); await setBase(sent); pushAttachments().catch(() => {}); return 'pushed'; }
   const base = await getBase();
   // 这台设备第一次同步（没有 base）：不能拿远端当 base，否则本地没有的东西全被当成「本地删除」，会把远端清掉。
   // 本地只是一份没动过的示例数据 → 直接以远端为准；本地有自己的内容 → 以空 base 合并（只加不删）。
@@ -220,12 +227,12 @@ async function syncOnce() {
   }
   const localChanged = syncView(merged) !== syncView(local);
   const remoteChanged = syncView(merged) !== syncView(remote.data);
-  if (localChanged) replace(keepLocal(merged));
+  if (localChanged) quiet(() => replace(keepLocal(merged)));
   // base 必须是「两边此刻真正一致的那份」：推上去的就是它，不推的话云端就是它。
   // 不能在 await 之后再取 get()——推送的这几秒里删掉的东西，会被当成「云端新加的」又合并回来
-  const sent = exportJSON();
-  if (remoteChanged) await transport().push(sent, remote.sha);
-  update((d) => { d.settings.lastSync = nowISO(); });
+  const sent = exportJSON(loggedIn() ? 0 : 2);
+  knownSha = remoteChanged ? await transport().push(sent, remote.sha) : remote.sha;
+  quiet(() => update((d) => { d.settings.lastSync = nowISO(); }));
   await setBase(remoteChanged ? sent : remote.data);
   if (remoteChanged) pushAttachments().then((r) => { if (r.failed) setStatus({ error: `有 ${r.failed} 个附件（图片 / 文件）没传上去，下次同步会再试` }); }).catch(() => {});
   return remoteChanged ? (localChanged ? 'merged' : 'pushed') : (localChanged ? 'pulled' : 'same');
@@ -243,11 +250,19 @@ let armed = false;
 export function autoSync(subscribe) {
   if (armed || !loggedIn()) return;
   armed = true;
-  let lastSeen = get().updatedAt;
-  // 记「开始同步那一刻」的版本：同步途中又改的东西，跑完会发现还没同步、几秒后再跑一次（以前会被当成已同步，要等下次再改才上去）
-  const run = () => { const startedAt = get().updatedAt; return guarded(smartSync).then(() => { lastSeen = startedAt; if (get().updatedAt !== startedAt) soon(); }).catch(() => {}); };
+  // dirty：本机有还没同步上去的改动（同步自己写的不算）。同步途中又改的，跑完再来一次
+  let dirty = false;
+  const run = () => { dirty = false; return guarded(smartSync).then(() => { if (dirty) soon(); }).catch(() => { dirty = true; }); };
+  // 回到页面时：先问云端版本（很小），别的设备没改过、本机也没改就什么都不做
+  let lastCheck = 0;
+  const check = async () => {
+    if (Date.now() - lastCheck < 20000) return; lastCheck = Date.now();
+    if (dirty || knownSha == null || !viaApi.head || transport() !== viaApi) return run();
+    try { const sha = await viaApi.head(); if (sha !== knownSha) run(); } catch {}
+  };
   run();
-  const soon = debounce(() => { if (get().updatedAt !== lastSeen) run(); }, 8000);
-  subscribe(() => { if (get().updatedAt !== lastSeen) soon(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && get().updatedAt !== lastSeen) run(); else if (document.visibilityState === 'visible') run(); });
+  const soon = debounce(() => { if (dirty) run(); }, 8000);
+  // 另一个标签页写进来的不算：那边的改动由那边自己同步，不然两个标签页会互相触发、来回同步
+  subscribe((src) => { if (selfWrite || src === 'tab') return; dirty = true; soon(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { if (dirty) run(); } else check(); });
 }

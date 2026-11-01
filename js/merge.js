@@ -137,8 +137,10 @@ export function merge3(base, local, remote, opts = {}) {
 }
 
 // what the sync compares: everything except per-device settings and the stamp（跟着帐号走的设置算在内）
+// 键按字母排好再比：云端数据库（Postgres jsonb）存回来的键顺序和本机不一样，按原样比会以为「变了」，每次都重新上传
+const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
 export function syncView(doc) {
   const { settings, updatedAt, ...rest } = doc || {};
   const st = settings || {};
-  return JSON.stringify({ ...rest, settings: Object.fromEntries(SHARED_SETTINGS.map((k) => [k, st[k]])) });
+  return JSON.stringify(canon({ ...rest, settings: Object.fromEntries(SHARED_SETTINGS.map((k) => [k, st[k]])) }));
 }

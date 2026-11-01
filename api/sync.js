@@ -7,6 +7,13 @@ import { sb, accessToken, errMsg } from './_cloud.js';
 async function cloud(req, res, s) {
   let tok; try { tok = await accessToken(s, res); } catch (e) { return json(res, 401, { error: e.message }); }
   if (req.method === 'GET') {
+    // ?head=1：只要版本号（几十字节），前端用来判断要不要拉整份数据
+    if (/[?&]head=1\b/.test(req.url || '')) {
+      const h = await sb('/rest/v1/docs?select=version&user_id=eq.' + encodeURIComponent(s.uid), { as: tok });
+      if (!h.ok) return json(res, 502, { error: errMsg(h) });
+      const row = Array.isArray(h.data) ? h.data[0] : null;
+      return json(res, 200, { sha: row ? String(row.version) : null });
+    }
     const r = await sb('/rest/v1/docs?select=doc,version&user_id=eq.' + encodeURIComponent(s.uid), { as: tok });
     if (!r.ok) return json(res, 502, { error: errMsg(r) });
     const row = Array.isArray(r.data) ? r.data[0] : null;
@@ -24,7 +31,8 @@ async function cloud(req, res, s) {
       return json(res, 200, { sha: '1' });
     }
     const v = parseInt(String(body.sha), 10); if (!(v > 0)) return json(res, 400, { error: 'bad sha' });
-    const r = await sb(`/rest/v1/docs?user_id=eq.${encodeURIComponent(s.uid)}&version=eq.${v}`, { as: tok, method: 'PATCH', body: { doc, version: v + 1, updated_at: now }, headers: { Prefer: 'return=representation' } });
+    // select=version：写成功只回版本号，不把整份数据再传回来
+    const r = await sb(`/rest/v1/docs?user_id=eq.${encodeURIComponent(s.uid)}&version=eq.${v}&select=version`, { as: tok, method: 'PATCH', body: { doc, version: v + 1, updated_at: now }, headers: { Prefer: 'return=representation' } });
     if (!r.ok) return json(res, 502, { error: errMsg(r) });
     if (!Array.isArray(r.data) || !r.data.length) return json(res, 409, { error: '另一台设备刚同步过，重新同步一次就好' });
     return json(res, 200, { sha: String(v + 1) });

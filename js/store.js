@@ -175,7 +175,7 @@ window.addEventListener('storage', (e) => {
     const incoming = JSON.parse(e.newValue);
     const mine = JSON.stringify(state);
     state = migrate(lastSeen && mine !== lastSeen ? merge3(JSON.parse(lastSeen), state, incoming, { allSettings: true }) : incoming);
-    lastSeen = e.newValue; subs.forEach((f) => f());
+    lastSeen = e.newValue; subs.forEach((f) => f('tab')); // 'tab'：另一个标签页改的（那边自己会同步）
   } catch (err) { console.warn('cross-tab merge failed', err); }
 });
 
@@ -216,11 +216,11 @@ export function useStore() {
   return state;
 }
 
-export function exportJSON() {
-  // 导出 / 同步的文档里不带本机的 GitHub token
+export function exportJSON(space = 2) {
+  // 导出 / 同步的文档里不带本机的 GitHub token；同步到云端时不缩进（space = 0），省一半流量
   const { settings, ...rest } = state;
   const { sync, ...sRest } = settings || {};
-  return JSON.stringify({ ...rest, settings: { ...sRest, sync: { ...(sync || {}), token: '' } } }, null, 2);
+  return JSON.stringify({ ...rest, settings: { ...sRest, sync: { ...(sync || {}), token: '' } } }, null, space || undefined);
 }
 
 // Convenience mutators used by several views.
