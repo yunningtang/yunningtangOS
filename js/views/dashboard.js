@@ -9,7 +9,7 @@ import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
 import { upsert, remove } from '../store.js';
-import { goalPct, BlockModal, blockMenuItems, slotMenu, MonthCal } from './planner.js';
+import { goalPct, BlockModal, blockMenuItems, slotMenu, MonthCal, isCheck, CheckMark, stackChecks } from './planner.js';
 import { ancestors, noteTitle, isBlank, newNote, nbOf } from './notes.js';
 import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
@@ -77,7 +77,9 @@ export default function Dashboard() {
   const todos = todoGroups.flatMap(([, l]) => l);
   const doneTodos = useMemo(() => sortBy(s.todos.filter((t) => t.done && t.completedAt === today), 'priority'), [s.todos]);
   const [showDone, setShowDone] = useState(false);
-  const blocks0 = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today && !b.pomo), 'start'), [s.blocks]);
+  const blocksAll = useMemo(() => sortBy(s.blocks.filter((b) => b.date === today && !b.pomo), 'start'), [s.blocks, today]);
+  // 检查点（零时长的点）单独画，不参与时间块的排列
+  const blocks0 = useMemo(() => blocksAll.filter((b) => !isCheck(b)), [blocksAll]); const checks0 = useMemo(() => blocksAll.filter(isCheck), [blocksAll]);
   // 专注记录合进时间线：落在块里的算进块，其余单独一条（见 focusline.js）
   const live = usePomoLive(); const liveKey = live ? live.start + live.end + live.title : '';
   const fx = useMemo(() => focusFor(today, blocks0, s.sessions, live), [blocks0, s.sessions, liveKey]);
@@ -185,19 +187,20 @@ export default function Dashboard() {
     money: { title: '钱包', span: 1, el: html`<${MoneyWidget} s=${s} />` },
     ai: { title: '汤圆的建议', span: 1, el: html`<${SuggestWidget} s=${s} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
-        <div class="card-h"><h3>今天 <span class="muted small">${blocks0.length ? blocks0.length + ' 个时间块' : ''}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
+        <div class="card-h"><h3>今天 <span class="muted small">${[blocks0.length && blocks0.length + ' 个时间块', checks0.length && checks0.length + ' 个检查点'].filter(Boolean).join(' · ')}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
         <div class="mini-tl-wrap" ref=${tlRef} onScroll=${onTlScroll}>
-        <div class="mini-tl" onContextMenu=${(e) => { if (e.target.closest('.mt-b')) return; const r = e.currentTarget.getBoundingClientRect(); const min = Math.max(from * 60, Math.min(to * 60 - 15, from * 60 + Math.floor(((e.clientY - r.top) / hourH) * 60 / 15) * 15)); slotMenu(e, { date: today, min, onCreate: (t) => setBlk({ start: t }) }); }} style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
+        <div class="mini-tl" onContextMenu=${(e) => { if (e.target.closest('.mt-b, .ck')) return; const r = e.currentTarget.getBoundingClientRect(); const min = Math.max(from * 60, Math.min(to * 60 - 15, from * 60 + Math.floor(((e.clientY - r.top) / hourH) * 60 / 15) * 15)); slotMenu(e, { date: today, min, onCreate: (t, k) => setBlk({ start: t, kind: k || '' }) }); }} style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}>${Math.abs(i * hourH - y(nowMin)) > 12 && html`<span>${pad(from + i)}:00</span>`}</div>`)}
           ${laid.map(({ b, a, e, lane, lanes, top, h }) => { const real = timeToMin(b.end); const cur = a <= nowMin && real > nowMin; const w = 100 / lanes; const f = b.focus || fx.byBlock.get(b.id); const pos = `top:${top}px;height:${h}px;left:calc(6px + ${lane * w}%);width:calc(${w}% - ${lanes > 1 ? 8 : 6}px);--bc:${kindColor(b.kind)}`;
             const cls = 'mt-b ' + (cur ? 'cur' : '') + (real <= nowMin && !(f && f.live) ? ' past' : '') + (h < 36 ? ' one' : '') + (b.focus ? ' fx' + (b.focus.live ? ' live' : '') : '');
             if (b.focus) return html`<div class=${cls} key=${b.id} style=${pos} onClick=${() => go('focus')} onContextMenu=${(ev) => focusMenu(ev, b)} title=${`${b.title} ${b.start} – ${b.end} · ${focusLabel(b.focus)}`}><b><${Icon} name="clock" size=${11} />${b.title}</b><small>${b.focus.live ? '专注中 · 到 ' + b.end : `${b.start} – ${b.end} · ${b.focus.mins} 分`}</small></div>`;
             return html`<div class=${cls} key=${b.id} style=${pos} ...${dragProps('block', { kind: 'block', id: b.id })} onClick=${() => setBlk({ block: b })} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit: () => setBlk({ block: b }), extra: ['sep', { label: '在每日时间线里打开', icon: 'right', onClick: () => go('plan/day') }] }), b.title)} title=${`${b.title} ${b.start} – ${b.end}${f ? ' · ' + focusLabel(f) : ''}`}>${f && html`<${FocusBar} f=${f} a=${a} e=${real} />`}<b>${b.title || b.place || '（无标题）'}</b><small>${b.start} – ${b.end}</small>${f && h >= 50 && html`<small class="mt-fl">${focusLabel(f)}</small>`}</div>`; })}
+          ${stackChecks(checks0.filter((b) => { const m = timeToMin(b.start); return m >= from * 60 && m <= to * 60; }), y, 22).map(({ b, top, dy }) => html`<${CheckMark} key=${b.id} b=${b} date=${today} nowMin=${nowMin} top=${top} dy=${dy} cls="ck mck" onEdit=${(x) => setBlk({ block: x })} />`)}
           <div class="mt-now" style=${`top:${y(nowMin)}px`}><span>${pad(now.getHours())}:${pad(now.getMinutes())}</span></div>
         </div>
         </div>
         ${tlAway && html`<button class="mt-back" onClick=${() => scrollToNow(true)}><${Icon} name="clock" size=${11} /> 回到现在</button>`}
-        <${BlockModal} open=${!!blk} block=${blk && blk.block} date=${today} start=${(blk && blk.start) || '09:00'} onClose=${() => setBlk(null)} />
+        <${BlockModal} open=${!!blk} block=${blk && blk.block} date=${today} start=${(blk && blk.start) || '09:00'} kind=${(blk && blk.kind) || ''} onClose=${() => setBlk(null)} />
       <//>` },
     todos: { title: '待办', span: 1, el: html`<${Card} class="todo-card" ...${dropProps('todo', (d) => upsert('todos', { id: d.id, due: today }))}>
         <div class="card-h"><h3>待办 ${todos.length > 0 && html`<span class="muted small">${todos.length}</span>`}</h3><div class="card-act"><a class="ibtn" href="#/todos" title="全部"><${Icon} name="right" size=${15} /></a></div></div>

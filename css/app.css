@@ -4538,3 +4538,36 @@ html[data-theme="dark"] .cq-paper{filter:brightness(.9)}
 @media (max-width:700px){.fd-card.wide .fd-cols{grid-template-columns:minmax(0,1fr)}.fd-card.wide .fd-col:not(.is-today){padding-left:0;border-left:0;border-top:1px solid var(--line);padding-top:12px}}
 .fp-battle-main .tt-card.full .tt-cp .cp-k{margin-bottom:12px}
 .fp-battle-main .tt-card.full .tt-cp .cp-goal{margin:-6px 0 12px}
+
+/* 检查点：时间线上的一个点（菱形 + 细线 + 一行字） */
+.ck{position:absolute;left:44px;right:0;height:0;z-index:4;cursor:pointer;--ckc:var(--text-3)}
+.mini-tl .ck{left:0}
+.ck-d{position:absolute;left:-6px;top:-6px;width:12px;height:12px;transform:rotate(45deg);border-radius:2px;background:var(--paper);box-shadow:0 0 0 1.5px var(--ckc);display:grid;place-items:center;transition:transform .15s}
+.ck-d svg{transform:rotate(-45deg);color:#fff}
+.ck:hover .ck-d{transform:rotate(45deg) scale(1.15)}
+.ck-l{position:absolute;left:8px;right:0;top:0;border-top:1.5px dashed color-mix(in srgb,var(--ckc) 70%,transparent);pointer-events:none}
+.ck-t{position:absolute;right:6px;top:-11px;max-width:calc(100% - 24px);display:flex;align-items:baseline;gap:6px;height:22px;padding:0 9px;border-radius:999px;background:var(--paper);box-shadow:0 0 0 1px color-mix(in srgb,var(--ckc) 35%,transparent),0 2px 6px -3px rgba(0,0,0,.18);font-size:.74rem;line-height:22px;white-space:nowrap;overflow:hidden}
+.ck-t small{font-variant-numeric:tabular-nums;color:var(--text-4);font-size:.68rem}
+.ck-t b{font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis}
+.ck-t em{font-style:normal;color:var(--text-4);overflow:hidden;text-overflow:ellipsis}
+.ck-t em::before{content:'· '}
+/* 到点了还没点：醒目；达成：绿、淡；没达成：红，「怎么办」突出 */
+.ck.due{--ckc:var(--amber,#c7873a)}
+.ck.due .ck-d{background:var(--ckc);animation:ck-pulse 1.8s ease-in-out infinite}
+@keyframes ck-pulse{0%,100%{box-shadow:0 0 0 1.5px var(--ckc),0 0 0 0 color-mix(in srgb,var(--ckc) 40%,transparent)}50%{box-shadow:0 0 0 1.5px var(--ckc),0 0 0 6px transparent}}
+@media (prefers-reduced-motion:reduce){.ck.due .ck-d{animation:none}}
+.ck.ok{--ckc:var(--green,#3f8f62)}.ck.ok .ck-d{background:var(--ckc)}.ck.ok .ck-t{opacity:.6}.ck.ok .ck-t b{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--text) 35%,transparent)}
+.ck.miss{--ckc:var(--red,#d2524f)}.ck.miss .ck-d{background:var(--ckc)}.ck.miss .ck-t em{color:var(--red,#d2524f);font-weight:600}
+.mini-tl .ck-t{font-size:.7rem;height:20px;line-height:20px;top:-10px;padding:0 8px}
+/* 月视图格子里的检查点 */
+.mv-ev.ck{--c:var(--text-3);display:flex;align-items:center;gap:5px;background:none;color:var(--text-2);padding-left:4px}
+.mv-ev.ck:hover{background:var(--hover)}
+.mv-dia{flex:none;width:7px;height:7px;transform:rotate(45deg);border-radius:1px;box-shadow:0 0 0 1.2px var(--text-3)}
+.mv-ev.ck.due .mv-dia{background:var(--amber,#c7873a);box-shadow:none}.mv-ev.ck.due{color:var(--amber,#c7873a)}
+.mv-ev.ck.ok .mv-dia{background:var(--green,#3f8f62);box-shadow:none}.mv-ev.ck.ok{opacity:.6;text-decoration:line-through}
+.mv-ev.ck.miss .mv-dia{background:var(--red,#d2524f);box-shadow:none}.mv-ev.ck.miss{color:var(--red,#d2524f)}
+/* 检查点：菱形让开钟点数字；相近的检查点文字往下错开（--dy），用一小段斜线连回自己的时间 */
+.tl .ck{left:52px}
+.mini-tl .ck{left:8px}
+.ck-t{transform:translateY(var(--dy,0px))}
+.ck-t::before{content:'';display:none}

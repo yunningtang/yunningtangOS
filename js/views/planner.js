@@ -76,23 +76,40 @@ function WeekBoard() {
 }
 
 /* ---------- Daily timeline ---------- */
-export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
+export function BlockModal({ open, block, onClose, date, start = '09:00', kind = '' }) {
   const [f, setF] = useState(null);
   useEffect(() => {
-    if (open) setF(block ? { ...block } : { id: uid(), date, start, end: minToTime(timeToMin(start) + 60), title: '', kind: 'focus', note: '' });
+    if (open) setF(block ? { ...block } : { id: uid(), date, start, end: kind === 'check' ? start : minToTime(timeToMin(start) + 60), title: '', kind: kind || 'focus', note: '' });
   }, [open, block]);
   if (!open || !f) return null;
   const set = (k, v) => setF({ ...f, [k]: v });
   const save = () => {
     if (!f.title.trim()) return;
-    if (timeToMin(f.end) <= timeToMin(f.start)) f.end = minToTime(timeToMin(f.start) + 30);
-    upsert('blocks', { ...f, title: f.title.trim() });
+    if (ck) f.end = f.start; else if (timeToMin(f.end) <= timeToMin(f.start)) f.end = minToTime(timeToMin(f.start) + 30);
+    upsert('blocks', { ...f, title: f.title.trim(), note: (f.note || '').trim() });
     onClose();
   };
+  const ck = f.kind === 'check';
+  // 时间块 ↔ 检查点：检查点只有一个时刻
+  const setType = (v) => setF(v === 'check' ? { ...f, kind: 'check', end: f.start } : { ...f, kind: f.kind === 'check' ? 'focus' : f.kind, end: timeToMin(f.end) > timeToMin(f.start) ? f.end : minToTime(Math.min(24 * 60, timeToMin(f.start) + 60)) });
+  if (ck) return html`<${Modal} open=${open} onClose=${onClose} title=${block ? '编辑检查点' : '新建检查点'} foot=${html`
+    ${block && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { removeUndo('blocks', block.id, block.title); onClose(); }}>删除<//>`}
+    <span class="flex1"></span><${Btn} kind="ghost" onClick=${onClose}>取消<//><${Btn} kind="primary" icon="check" onClick=${save}>保存<//>`}>
+    <div class="form">
+      ${!block && html`<${Seg} options=${[{ v: 'block', label: '时间块' }, { v: 'check', label: '检查点' }]} value="check" onChange=${setType} />`}
+      <${Field} label="到这个时间，应该做到哪" hint="写一个能数的目标，到点一眼就知道达没达成"><input type="text" autofocus value=${f.title} placeholder="剪完 14 个视频" onInput=${(e) => set('title', e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && save()} /><//>
+      <div class="grid3">
+        <${Field} label="日期"><${DateInput} value=${f.date} clearable=${false} onChange=${(v) => set('date', v)} /><//>
+        <${Field} label="时间"><${TimeInput} value=${f.start} clearable=${false} onChange=${(v) => setF({ ...f, start: v, end: v })} /><//>
+      </div>
+      <${Field} label="没达成怎么办（可选）" hint="提前想好，到时候不用纠结"><input type="text" value=${f.note || ''} placeholder="不到 10 个就只做裁剪和导出" onInput=${(e) => set('note', e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && save()} /><//>
+    </div>
+  <//>`;
   return html`<${Modal} open=${open} onClose=${onClose} title=${block ? '编辑时间块' : '新建时间块'} foot=${html`
     ${block && html`<${Btn} kind="ghost danger" icon="trash" onClick=${() => { removeUndo('blocks', block.id, block.title); onClose(); }}>删除<//>`}
     <span class="flex1"></span><${Btn} kind="ghost" onClick=${onClose}>取消<//><${Btn} kind="primary" icon="check" onClick=${save}>保存<//>`}>
     <div class="form">
+      ${!block && html`<${Seg} options=${[{ v: 'block', label: '时间块' }, { v: 'check', label: '检查点' }]} value="block" onChange=${setType} />`}
       <${Field} label="做什么"><input type="text" autofocus value=${f.title} onInput=${(e) => set('title', e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && save()} /><//>
       <div class="grid3">
         <${Field} label="日期"><${DateInput} value=${f.date} clearable=${false} onChange=${(v) => set('date', v)} /><//>
@@ -105,6 +122,31 @@ export function BlockModal({ open, block, onClose, date, start = '09:00' }) {
   <//>`;
 }
 
+
+// 检查点：时间线上的一个「点」——零时长的块（kind = 'check'），title 是目标，note 是没达成时怎么办。
+// 到点点一下：达成 / 没达成（status = 'ok' | 'miss'）；过了时间还没点就一直醒目
+export const isCheck = (b) => !!b && b.kind === 'check';
+export const checkState = (b, date, nowMin) => (b.status === 'ok' ? 'ok' : b.status === 'miss' ? 'miss' : date < todayStr() || (date === todayStr() && timeToMin(b.start) <= nowMin) ? 'due' : '');
+export function checkMenu(e, b, onEdit) {
+  ctxMenu(e, [
+    { label: b.status === 'ok' ? '取消「达成」' : '达成了', icon: 'check', onClick: () => upsert('blocks', { id: b.id, status: b.status === 'ok' ? '' : 'ok' }) },
+    { label: b.status === 'miss' ? '取消「没达成」' : '没达成', icon: 'x', hint: b.note ? '按写好的办法调整' : '', onClick: () => { upsert('blocks', { id: b.id, status: b.status === 'miss' ? '' : 'miss' }); if (b.status !== 'miss' && b.note) toast('照计划调整：' + b.note); } },
+    'sep',
+    { label: '编辑', icon: 'edit', onClick: () => onEdit && onEdit(b) },
+    { label: '复制到明天', icon: 'calendar', onClick: () => upsert('blocks', { ...b, id: uid(), date: addDays(b.date, 1), status: '' }) },
+    { label: '删除', icon: 'trash', danger: true, onClick: () => removeUndo('blocks', b.id, b.title) },
+  ], `检查点 · ${b.start}`);
+}
+// 时间线上的那一个点：菱形 + 一条细线 + 一行字（目标 · 没达成怎么办）
+// 时间很近的几个检查点：线在各自的时间上，文字往下错开，免得叠在一起
+export function stackChecks(list, y, gap = 24) { let last = -1e9; return [...list].sort((a, b) => timeToMin(a.start) - timeToMin(b.start)).map((b) => { const top = y(timeToMin(b.start)); const at = Math.max(top, last + gap); last = at; return { b, top, dy: at - top }; }); }
+export function CheckMark({ b, date, nowMin, top, dy = 0, onEdit, cls = 'ck' }) {
+  const st = checkState(b, date, nowMin);
+  return html`<div class=${cls + ' ' + st} style=${`top:${top}px;--dy:${dy}px`} onClick=${(ev) => { ev.stopPropagation(); checkMenu(ev, b, onEdit); }} onContextMenu=${(ev) => { ev.preventDefault(); ev.stopPropagation(); checkMenu(ev, b, onEdit); }} title=${`检查点 ${b.start} · ${b.title}${b.note ? '（没达成：' + b.note + '）' : ''}`}>
+    <i class="ck-d">${st === 'ok' ? html`<${Icon} name="check" size=${9} />` : st === 'miss' ? html`<${Icon} name="x" size=${9} />` : ''}</i><span class="ck-l"></span>
+    <span class="ck-t"><small>${b.start}</small><b>${b.title}</b>${b.note && html`<em>${b.note}</em>`}</span>
+  </div>`;
+}
 
 // 时间块的右键菜单（每日 / 周时间线和总览的「今天」共用）
 export function blockMenuItems(b, { onEdit, extra = [] } = {}) {
@@ -131,6 +173,7 @@ export function slotMenu(e, { date, min, onCreate }) {
   const todos = sortBy(get().todos.filter((x) => !x.done && !placed.has(x.id) && (!x.due || x.due <= date)), 'priority').slice(0, 10);
   ctxMenu(e, [
     { label: `在 ${t} 新建时间块`, icon: 'plus', onClick: () => onCreate(t) },
+    { label: `在 ${t} 加检查点`, icon: 'flag', hint: '到这时应该做到哪', onClick: () => onCreate(t, 'check') },
     todos.length > 0 && { label: '把待办放到这里', icon: 'checksq', sub: todos.map((td) => ({ label: td.title, onClick: () => {
       upsert('todos', { id: td.id, due: date, time: t });
       upsert('blocks', { id: uid(), date, start: t, end: minToTime(Math.min(24 * 60, min + (td.focusLen || 60))), title: td.title, kind: 'focus', note: '', todoId: td.id });
@@ -139,7 +182,9 @@ export function slotMenu(e, { date, min, onCreate }) {
   ], `${date === todayStr() ? '今天' : fmtShort(date)} ${t}`);
 }
 
-export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, hourH = 52 }) {
+export function Timeline({ date, blocks: all, onEdit, onCreate, from = 0, to = 24, hourH = 52 }) {
+  // 检查点单独画成一个点，不参与时间块的排列
+  const blocks = useMemo(() => all.filter((b) => !isCheck(b)), [all]); const checks = useMemo(() => all.filter(isCheck), [all]);
   const [now, setNow] = useState(new Date());
   const [ghost, setGhost] = useState(null); // { id, start, end }
   const dragRef = useRef(null);
@@ -185,7 +230,7 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
     if (onCreate && !get().blocks.some((x) => x.date === date && x.title === t.title)) upsert('blocks', { id: uid(), date, start: minToTime(min), end: minToTime(Math.min(to * 60, min + 60)), title: t.title, kind: 'focus', note: '', todoId: t.id });
   };
   const onSlotMenu = (e) => {
-    if (!onCreate || e.target.closest('.blk')) return;
+    if (!onCreate || e.target.closest('.blk, .ck')) return;
     const r = e.currentTarget.getBoundingClientRect();
     const min = Math.max(from * 60, Math.min(to * 60 - 15, from * 60 + Math.floor(((e.clientY - r.top) / hourH) * 60 / 15) * 15));
     slotMenu(e, { date, min, onCreate });
@@ -206,6 +251,7 @@ export function Timeline({ date, blocks, onEdit, onCreate, from = 0, to = 24, ho
       const step = stepTodo ? stepsOf(stepTodo).find((x) => x.id === b.stepId) : null;
       return html`<div class=${'blk ' + (ghost && ghost.id === b.id ? 'moving ' : '') + (step ? 'is-step ' : '') + (step && step.done ? 'step-done' : '') + (hh < 34 ? ' one' : '') + (f ? ' has-fx' : '')} key=${b.id} style=${`${ln(b0.id)}top:${y(s)}px;height:${hh}px;--bc:${kindColor(b.kind)}`} title=${`${b.title} ${b.start}–${b.end}${f ? ' · ' + focusLabel(f) : ''}`} onPointerDown=${(ev) => beginDrag(ev, b0, 'move')} onClick=${(ev) => ev.stopPropagation()} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit }), b.title)}>${step && html`<button class="st-cb" title=${step.done ? '标为未完成' : '这一步做完了'} onPointerDown=${(ev) => ev.stopPropagation()} onClick=${(ev) => { ev.stopPropagation(); toggleStep(stepTodo.id, step.id); }}><${Icon} name="check" size=${9} /></button>`}${f && html`<${FocusBar} f=${f} a=${timeToMin(b.start)} e=${timeToMin(b.end)} />`}<b>${b.title}</b><small>${b.start}–${b.end}</small>${f && hh >= 50 && html`<small class="mt-fl">${focusLabel(f)}</small>`}<span class="rz" onPointerDown=${(ev) => beginDrag(ev, b0, 'resize')}></span></div>`;
     })}
+    ${stackChecks(checks.filter((b) => { const m = timeToMin(b.start); return m >= from * 60 && m <= to * 60; }), y).map(({ b, top, dy }) => html`<${CheckMark} key=${b.id} b=${b} date=${date} nowMin=${nowMin} top=${top} dy=${dy} onEdit=${onEdit} />`)}
     ${isToday && nowMin >= from * 60 && nowMin <= to * 60 && html`<div class="now" style=${`top:${y(nowMin)}px`}></div>`}
   </div>`;
 }
@@ -240,7 +286,7 @@ function DayView({ initial }) {
   const [date, setDate] = useState(initial || todayStr());
   const [editing, setEditing] = useState(null);
   const [modal, setModal] = useState(false);
-  const [start, setStart] = useState('09:00');
+  const [start, setStart] = useState('09:00'); const [newKind, setNewKind] = useState('');
   const [tEdit, setTEdit] = useState(null);
   const blocks = useMemo(() => sortBy(s.blocks.filter((b) => b.date === date && !b.pomo), 'start'), [s.blocks, date]);
   const todos = useMemo(() => sortBy(s.todos.filter((t) => t.due === date), 'done', 'priority', 'time'), [s.todos, date]);
@@ -259,7 +305,7 @@ function DayView({ initial }) {
   const copyYesterday = () => {
     const prev = s.blocks.filter((b) => b.date === addDays(date, -1));
     if (!prev.length) return;
-    update((d) => { prev.forEach((b) => d.blocks.push({ ...b, id: uid(), date })); });
+    update((d) => { prev.forEach((b) => d.blocks.push({ ...b, id: uid(), date, ...(isCheck(b) ? { status: '' } : {}) })); });
   };
   return html`<div class="stack">
     <div class="page-h" style="margin-bottom:0">
@@ -270,13 +316,13 @@ function DayView({ initial }) {
           ${Array.from({ length: 7 }, (_, i) => addDays(date, i - 3)).map((d) => html`<button key=${d} class=${'dchip ' + (d === date ? 'on ' : '') + (d === todayStr() ? 'today' : '')} onClick=${() => setDate(d)}><small>${WEEKDAY[(parseDate(d).getDay() + 6) % 7].slice(1)}</small><b>${Number(d.slice(8))}</b></button>`)}
           <${IconBtn} icon="right" title="下一周" onClick=${() => setDate(addDays(date, 7))} />
         </div>
-        <div class="dnav-r"><${Btn} kind="ghost" small onClick=${() => setDate(todayStr())} disabled=${date === todayStr()}>今天<//><${DateInput} value=${date} clearable=${false} onChange=${(v) => v && setDate(v)} />${blocks.length === 0 && html`<${Btn} small kind="ghost" icon="refresh" title="复制昨天的安排" onClick=${copyYesterday}>复制昨天<//>`}<${Btn} kind="primary" small icon="plus" onClick=${() => { setEditing(null); setStart('09:00'); setModal(true); }}>时间块<//></div>
+        <div class="dnav-r"><${Btn} kind="ghost" small onClick=${() => setDate(todayStr())} disabled=${date === todayStr()}>今天<//><${DateInput} value=${date} clearable=${false} onChange=${(v) => v && setDate(v)} />${blocks.length === 0 && html`<${Btn} small kind="ghost" icon="refresh" title="复制昨天的安排" onClick=${copyYesterday}>复制昨天<//>`}<${Btn} small kind="ghost" icon="flag" title="在时间线上放一个检查点：到这时应该做到哪" onClick=${() => { const n = new Date(); setEditing(null); setStart(minToTime(Math.min(23 * 60 + 30, Math.ceil((n.getHours() * 60 + n.getMinutes() + 60) / 30) * 30))); setNewKind('check'); setModal(true); }}>检查点<//><${Btn} kind="primary" small icon="plus" onClick=${() => { setEditing(null); setStart('09:00'); setNewKind(''); setModal(true); }}>时间块<//></div>
       </div>
     </div>
     <div class="day-layout">
       <${Card} title="时间线" sub="0–24 小时 · 点击空白处在该小时新建">
         <div class="tl-scroll" ref=${tlRef}>
-        <${Timeline} date=${date} blocks=${blocks} onEdit=${(b) => { setEditing(b); setModal(true); }} onCreate=${(t) => { setEditing(null); setStart(t); setModal(true); }} />
+        <${Timeline} date=${date} blocks=${blocks} onEdit=${(b) => { setEditing(b); setModal(true); }} onCreate=${(t, k) => { setEditing(null); setStart(t); setNewKind(k || ''); setModal(true); }} />
         </div>
       <//>
       <${Splitter} varName="dayside" min=${240} max=${520} dir=${-1} class="sp-col" />
@@ -289,7 +335,7 @@ function DayView({ initial }) {
         <//>
       </div>
     </div>
-    <${BlockModal} open=${modal} block=${editing} date=${date} start=${start} onClose=${() => setModal(false)} />
+    <${BlockModal} open=${modal} block=${editing} date=${date} start=${start} kind=${newKind} onClose=${() => setModal(false)} />
     <${TodoModal} open=${!!tEdit} todo=${tEdit} onClose=${() => setTEdit(null)} />
   </div>`;
 }
@@ -432,11 +478,11 @@ function WeekTimeline() {
       <div class="wtl-scroll" ref=${ref}>
         <div class="wtl" style=${`--h:${hourH}px`}>
           <div class="wtl-gut">${Array.from({ length: to - from }, (_, i) => html`<span key=${i} style=${`top:${i * hourH}px`}>${String(from + i).padStart(2, '0')}:00</span>`)}</div>
-          ${days.map((d) => html`<div key=${d} class=${'wtl-col ' + (d === todayStr() ? 'today' : '')}><${Timeline} date=${d} blocks=${byDay[d]} hourH=${hourH} from=${from} to=${to} onEdit=${(b) => { setEditing(b); setModal(true); }} onCreate=${(t) => { setEditing(null); setNewAt({ date: d, start: t }); setModal(true); }} /></div>`)}
+          ${days.map((d) => html`<div key=${d} class=${'wtl-col ' + (d === todayStr() ? 'today' : '')}><${Timeline} date=${d} blocks=${byDay[d]} hourH=${hourH} from=${from} to=${to} onEdit=${(b) => { setEditing(b); setModal(true); }} onCreate=${(t, k) => { setEditing(null); setNewAt({ date: d, start: t, kind: k || '' }); setModal(true); }} /></div>`)}
         </div>
       </div>
     <//>
-    <${BlockModal} open=${modal} block=${editing} date=${newAt.date} start=${newAt.start} onClose=${() => setModal(false)} />
+    <${BlockModal} open=${modal} block=${editing} date=${newAt.date} start=${newAt.start} kind=${newAt.kind || ''} onClose=${() => setModal(false)} />
   </div>`;
 }
 
@@ -478,7 +524,9 @@ function MonthTimeline() {
         return html`<div key=${d} class=${'mv-cell ' + (out ? 'out ' : '') + (d === today ? 'today ' : '') + (i % 7 >= 5 ? 'wkend ' : '') + (d < today ? 'past' : '')} onClick=${(e) => { if (e.target === e.currentTarget || e.target.classList.contains('mv-items')) create(d); }} title="点空白处新建时间块">
           <div class="mv-top"><a class="mv-num" href=${'#/plan/day?d=' + d} title="打开这一天">${Number(d.slice(8)) === 1 ? `${Number(d.slice(5, 7))}月1日` : Number(d.slice(8))}</a>${t > 0 && html`<span class="mv-total">${(t / 60).toFixed(t % 60 ? 1 : 0)}h</span>`}</div>
           <div class="mv-items">
-            ${list.slice(0, more > 0 ? MAX_IN_CELL - 1 : MAX_IN_CELL).map((b) => b.focus
+            ${list.slice(0, more > 0 ? MAX_IN_CELL - 1 : MAX_IN_CELL).map((b) => isCheck(b)
+              ? html`<button type="button" key=${b.id} class=${'mv-ev ck ' + checkState(b, d, d === today ? new Date().getHours() * 60 + new Date().getMinutes() : 0)} title=${`检查点 ${b.start} · ${b.title}${b.note ? '（没达成：' + b.note + '）' : ''}`} onClick=${(ev) => checkMenu(ev, b, edit)} onContextMenu=${(ev) => { ev.preventDefault(); checkMenu(ev, b, edit); }}><i class="mv-dia"></i><span class="mv-t">${b.start}</span>${b.title}</button>`
+              : b.focus
               ? html`<button type="button" key=${b.id} class="mv-ev fx" title=${`专注 · ${b.title} ${b.start}–${b.end}`} onClick=${() => go('focus')}><span class="mv-t">${b.start}</span>${b.title || '专注'}</button>`
               : html`<button type="button" key=${b.id} class="mv-ev" style=${`--c:${kindColor(b.kind)}`} title=${`${b.title} ${b.start}–${b.end} · ${kindOf(b.kind).name}`} onClick=${() => edit(b)} onContextMenu=${(ev) => ctxMenu(ev, blockMenuItems(b, { onEdit: () => edit(b) }), b.title)}><span class="mv-t">${b.start}</span>${b.title || kindOf(b.kind).name}</button>`)}
             ${more > 0 && html`<a class="mv-more" href=${'#/plan/day?d=' + d}>还有 ${more + 1} 项</a>`}
@@ -488,7 +536,7 @@ function MonthTimeline() {
     ${byKind.length > 0 && html`<${Card} title="这个月的时间去哪了">
       <div class="mtl-kinds">${byKind.map((k) => html`<div class="mtl-kind" key=${k.v}><span><i style=${`background:${k.color}`}></i>${k.name}</span><b style=${`--w:${(k.min / maxKind) * 100}%;--c:${k.color}`}></b><em>${(k.min / 60).toFixed(1)}h</em></div>`)}</div>
     <//>`}
-    <${BlockModal} open=${modal} block=${editing} date=${newAt.date} start=${newAt.start} onClose=${() => setModal(false)} />
+    <${BlockModal} open=${modal} block=${editing} date=${newAt.date} start=${newAt.start} kind=${newAt.kind || ''} onClose=${() => setModal(false)} />
   </div>`;
 }
 
