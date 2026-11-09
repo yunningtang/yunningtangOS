@@ -1,0 +1,55 @@
+name: Desktop app
+# 打 desktop-v* 的 tag（比如 desktop-v0.1.0）就构建 Windows / macOS / Linux 安装包，发到 GitHub Releases
+on:
+  push:
+    tags: ['desktop-v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx electron-builder --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sealonote-${{ matrix.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.AppImage
+          if-no-files-found: error
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Sealonote 桌面版 ${{ github.ref_name }}
+          files: out/*
+          body: |
+            下载对应系统的安装包：
+            - **Windows**：`.exe`（第一次打开如果提示「Windows 已保护你的电脑」，点「更多信息 → 仍要运行」）
+            - **macOS**：`.dmg`（拖进「应用程序」后，第一次打开如果提示「已损坏」或「无法验证开发者」，在终端运行 `xattr -cr /Applications/Sealonote.app`，再右键 → 打开）
+            - **Linux**：`.AppImage`（`chmod +x` 后双击）
+
+            桌面版打开的就是 www.sealonote.com，登录同一个账号，和网页版同一份数据、实时同步。托盘图标里可以开关「便签」。

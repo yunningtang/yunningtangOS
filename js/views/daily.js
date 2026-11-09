@@ -25,7 +25,7 @@ export function focusMenuItem(s, t) {
   return { label: '设为焦点', icon: 'flag', sub: [{ label: '今天的焦点', icon: 'sun', disabled: full(today), hint: full(today) ? '已经 3 件了' : '', onClick: () => setFocus(t, today) }, { label: '明天的焦点', icon: 'calendar', disabled: full(tmr), hint: full(tmr) ? '已经 3 件了' : '', onClick: () => setFocus(t, tmr) }] };
 }
 
-function Col({ s, date, label, sub, main }) {
+export function FocusCol({ s, date, label, sub, main, bare }) {
   const list = focusOn(s, date); const today = todayStr();
   const [text, setText] = useState('');
   const add = () => { const v = text.trim(); if (!v) return; if (list.length >= MAX_FOCUS) { toast('焦点最多 3 件——少一点才是焦点'); return; } addFocus(v, date); setText(''); };
@@ -44,7 +44,7 @@ function Col({ s, date, label, sub, main }) {
   // 前几天没做完的焦点：今天还有空位时提醒一下，可以一键挪过来
   const left = main ? s.todos.filter((t) => !t.done && t.focus && t.focus < today && t.focus >= addDays(today, -7)) : [];
   return html`<div class=${'fd-col ' + (main ? 'is-today' : '')}>
-    <div class="fd-h"><b>${label}</b><small>${sub}</small>${list.length > 0 && html`<span class="fd-n">${done}/${list.length}</span>`}</div>
+    ${!bare && html`<div class="fd-h"><b>${label}</b><small>${sub}</small>${list.length > 0 && html`<span class="fd-n">${done}/${list.length}</span>`}</div>`}
     <ol class="fd-list">
       ${list.map((t, i) => html`<li key=${t.id} class=${t.done ? 'done' : ''} onContextMenu=${(e) => menu(e, t)}>
         <button type="button" class="fd-cb" title=${t.done ? '标为未完成' : '完成'} onClick=${() => toggleTodo(t.id)}>${t.done ? html`<${Icon} name="check" size=${11} />` : i + 1}</button>
@@ -71,8 +71,8 @@ export function FocusDaysWidget({ s, wide, quote }) {
   return html`<${Card} class=${'fd-card ' + (wide ? 'wide' : '')}>
     <div class="card-h"><h3>今日焦点</h3><div class="card-act">${!wide && html`<div class="fd-tabs"><button type="button" class=${tab === 'today' ? 'on' : ''} onClick=${() => setTab('today')}>今天</button><button type="button" class=${tab === 'tmr' ? 'on' : ''} onClick=${() => setTab('tmr')}>明天</button></div>`}</div></div>
     <div class="fd-cols">
-      ${(wide || tab === 'today') && html`<${Col} s=${s} date=${today} label="今天" sub=${`${fmtShort(today)} 周${wd(today)}`} main />`}
-      ${(wide || tab === 'tmr') && html`<${Col} s=${s} date=${tmr} label="明天" sub=${`${fmtShort(tmr)} 周${wd(tmr)}`} />`}
+      ${(wide || tab === 'today') && html`<${FocusCol} s=${s} date=${today} label="今天" sub=${`${fmtShort(today)} 周${wd(today)}`} main />`}
+      ${(wide || tab === 'tmr') && html`<${FocusCol} s=${s} date=${tmr} label="明天" sub=${`${fmtShort(tmr)} 周${wd(tmr)}`} />`}
     </div>
     ${quote && html`<div class="quote-line"><${Icon} name="sparkle" size=${13} /> ${quote.text}</div>`}
     <a class="fd-week" href="#/plan/week" title="去周计划里改">${weekLines.length ? html`<b>本周</b>${weekLines.join(' · ')}` : html`<b>本周</b><span class="muted">还没写本周焦点</span>`}<${Icon} name="right" size=${12} /></a>

@@ -15,6 +15,7 @@ import Settings from './views/settings.js';
 import Focus, { MiniPomo } from './views/focus.js';
 import Brain from './views/brain.js';
 import Money from './views/money.js';
+import Sticky, { keepSticky, popSticky } from './views/sticky.js';
 import { dueSoon, remindDue } from './money.js';
 import { unsortedCount } from './brain.js';
 import { SearchPalette, setSearchRoutes } from './search.js';
@@ -193,6 +194,7 @@ function App() {
         <${IconBtn} class="ibtn hamb" icon="menu" title="菜单" onClick=${() => setMenu(true)} />
         <div class="ttl crumb-top">${curNote ? html`<a href="#/notes">笔记</a>${ancestors(s.notes, curNote).map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${noteTitle(curNote)}</b>` : route.path === 'notes' && route.sub && !curNote ? html`<a href="#/notes">笔记</a><span>/</span><b>${route.sub.startsWith('canvas') ? '画布' : { tasks: '行动', graph: '图谱', tags: '标签', files: '附件' }[route.sub] || '笔记'}</b>` : route.path === 'plan' ? html`<a href="#/plan">计划</a><span>/</span><b>${{ week: '周计划', day: '每日时间线', weektl: '周时间线', monthtl: '月时间线', month: '月度目标' }[route.sub] || '周计划'}</b>` : html`<b>${active.name}</b>`}</div>
         <div class="sp"></div>
+        <${IconBtn} class="ibtn tb-sticky" icon="tack" title="桌面便签（今天的焦点和安排，小窗口）" onClick=${() => (window.sealonote ? window.sealonote.showSticky() : popSticky())} />
         <${IconBtn} class="ibtn" icon="search" title="搜索（⌘K）" onClick=${() => setSearch(true)} />
         <button class="theme-glass" onClick=${toggleTheme} title="切换主题"><${Icon} name="moon" class="is" size=${15} /><${Icon} name="sun" class="im" size=${15} /></button>
       </header>
@@ -250,6 +252,9 @@ detectLogin().then(async (login) => {
   if (login && login.user && login.user.avatar && !get().profile.avatar) update((d) => { d.profile.avatar = login.user.avatar; });
   autoSync(subscribe);
 });
-render(html`<${App} />`, document.getElementById('app'));
+// 便签窗口（#/sticky）：没有侧栏，只渲染便签；点到别的页面交给主窗口
+const STICKY = /^#\/sticky/.test(location.hash);
+if (STICKY) { document.documentElement.classList.add('is-sticky'); document.title = '便签 · Sealonote'; keepSticky(); }
+render(STICKY ? html`<${Sticky} />` : html`<${App} />`, document.getElementById('app'));
 // 订阅扣费前提醒：打开网站几秒后看一眼（同步拉到最新的再提醒），每个订阅每天只提醒一次
-setTimeout(() => { try { remindDue(toast, go); } catch {} }, 4000);
+if (!STICKY) setTimeout(() => { try { remindDue(toast, go); } catch {} }, 4000);
