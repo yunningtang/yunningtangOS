@@ -29,6 +29,7 @@ npm run dist                                # 打当前系统的安装包到 dis
 ```bash
 # 改 desktop/package.json 里的 version，然后
 git tag desktop-v0.1.1 && git push origin desktop-v0.1.1
+# 或者：GitHub → Actions → Desktop app → Run workflow（tag 自动用 package.json 的 version）
 ```
 
 GitHub Actions（`.github/workflows/desktop.yml`）会在 Windows / macOS / Linux 上分别打包，发布到 Releases。
