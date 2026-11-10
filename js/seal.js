@@ -30,7 +30,7 @@ const KIND_LABEL = { todo: '待办', block: '时间块', note: '笔记', goal: '
 /* ---------------- 把 AI / 本地解析结果统一成一种预览条目 ---------------- */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const fixTime = (t) => { const m = typeof t === 'string' && t.match(/^(\d{1,2}):(\d{2})$/); return m ? `${pad(+m[1])}:${m[2]}` : ''; };
-function fromAI(it, s) {
+export function fromAI(it, s) {
   const kinds = allKinds();
   const kind = kinds.find((k) => k.name === it.block_kind || k.v === it.block_kind);
   const nb = it.notebook ? s.notebooks.find((b) => b.name === it.notebook) : null;
@@ -52,7 +52,12 @@ function fromAI(it, s) {
   if (item.kind === 'note' && !nb) item.inferred.push('nb');
   // ref 是已有待办的 id：这是在改那条待办（改期 / 改优先级），保存时更新它而不是新建
   const ex = it.ref && item.kind === 'todo' ? s.todos.find((t) => t.id === it.ref) : null;
-  if (ex) { item.upd = ex.id; item.id = uid(); item.was = ex.due || ''; if (!item.title) item.title = ex.title; item.inferred = item.inferred.filter((k) => k !== 'priority'); if (!Number.isInteger(it.priority)) item.priority = ex.priority ?? 2; }
+  if (ex) { item.upd = ex.id; item.id = uid(); item.was = ex.due || ''; if (!item.title) item.title = ex.title; item.inferred = item.inferred.filter((k) => k !== 'priority'); if (!Number.isInteger(it.priority)) item.priority = ex.priority ?? 2;
+    if (!item.date) { item.date = ex.due || ''; if (!item.time) item.time = ex.time || ''; } // 只改优先级 / 时间：日期别被清空
+    if (item.date && item.date < todayStr()) { item.date = todayStr(); item.inferred.push('date'); } } // 重排还给了过去的日子：放到今天
+  // 排成时间块的已有待办：ref 指向那条待办，保存时直接挂上去（标题被改写了也认得）
+  const exT = it.ref && item.kind === 'block' ? s.todos.find((t) => t.id === it.ref && !t.done) : null;
+  if (exT) { item.todoRef = exT.id; item.id = uid(); if (item.date < todayStr()) { item.date = todayStr(); item.inferred.push('date'); } }
   return item.title ? item : null;
 }
 function fromLocal(text, s) {
@@ -78,7 +83,9 @@ function metaOf(it, s) {
 const normT = (x) => String(x || '').toLowerCase().replace(/[\s「」"'“”]/g, '');
 function matchTodo(title, date, used) {
   const k = normT(title); if (!k) return null;
-  const c = get().todos.filter((x) => !x.done && !used.has(x.id) && normT(x.title) === k);
+  const all = get().todos.filter((x) => !x.done && !used.has(x.id));
+  let c = all.filter((x) => normT(x.title) === k);
+  if (!c.length && k.length >= 4) c = all.filter((x) => { const y = normT(x.title); return y.length >= 4 && (y.includes(k) || k.includes(y)); });
   const rank = (x) => (x.due === date ? 0 : !x.due || x.due < date ? 1 : 2);
   return c.sort((a, b) => rank(a) - rank(b) || String(a.time || '99').localeCompare(String(b.time || '99')))[0] || null;
 }
@@ -89,13 +96,14 @@ function autoBlock(id, undos) {
 }
 export function saveItems(items) {
   let n = 0, last = null; const undos = []; const used = new Set();
-  for (const it of items) {
+  for (let it of items) {
     if (!it.on) continue;
     if (it.kind === 'todo' && it.upd) { const prev = get().todos.find((x) => x.id === it.upd); if (!prev) continue; const before = { id: prev.id, title: prev.title, due: prev.due || '', time: prev.time || '', priority: prev.priority }; upsert('todos', { id: prev.id, title: it.title, due: it.date, time: it.time, priority: it.priority }); last = 'todos?open=' + prev.id; undos.push(() => upsert('todos', before)); autoBlock(prev.id, undos); }
     else if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; undos.push(() => remove('todos', t.id)); autoBlock(t.id, undos); }
     else if (it.kind === 'block') {
       // 排的是一件已有的待办（标题一样）：时间块挂到那条待办上，待办的日期 / 时间也改成这块的——待办列表、总览卡片、时间线是同一件事
-      const td = matchTodo(it.title, it.date, used);
+      const td = (it.todoRef && !used.has(it.todoRef) && get().todos.find((x) => x.id === it.todoRef && !x.done)) || matchTodo(it.title, it.date, used);
+      if (td && it.date < todayStr() && td.due && td.due < todayStr()) it = { ...it, date: todayStr() }; // 过期的事排到过去的日子：放到今天
       const b = { id: uid(), date: it.date, start: it.start, end: it.end, title: it.title, kind: it.kindV, note: it.body, ...(td ? { todoId: td.id } : {}) }; upsert('blocks', b); last = 'plan/day?d=' + b.date; undos.push(() => remove('blocks', b.id));
       if (td) { used.add(td.id); const before = { id: td.id, due: td.due || '', time: td.time || '' }; upsert('todos', { id: td.id, due: it.date, time: it.start }); undos.push(() => upsert('todos', before)); }
     }

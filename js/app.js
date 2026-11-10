@@ -290,5 +290,18 @@ if (BARE) {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeNow);
 }
 render(BARE === 'seal' ? html`<${Seal} standalone />` : BARE ? html`<${Sticky} />` : html`<${App} />`, document.getElementById('app'));
+// 过了半夜（桌面版、标签页一直开着）：「今天」换了，整个界面重新算一遍——没在打字时直接刷新；窗口重新回到前台时也看一眼
+(() => {
+  let day = todayStr();
+  const check = () => {
+    if (todayStr() === day) return;
+    const el = document.activeElement; const typing = el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+    if (typing || document.querySelector('.modal-bg, #ctx-host .pm')) return; // 等你打完字 / 关掉弹窗
+    day = todayStr(); location.reload();
+  };
+  setInterval(check, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  window.addEventListener('focus', check);
+})();
 // 订阅扣费前提醒：打开网站几秒后看一眼（同步拉到最新的再提醒），每个订阅每天只提醒一次
 if (!STICKY) setTimeout(() => { try { remindDue(toast, go); } catch {} }, 4000);
