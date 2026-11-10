@@ -12,6 +12,7 @@ const PARTITION = 'persist:sealonote';
 const AUTH_HOSTS = [/\.supabase\.co$/, /^accounts\.google\.com$/, /^accounts\.youtube\.com$/, /(^|\.)google\.[a-z.]+$/];
 
 let main = null, sticky = null, tray = null, quitting = false;
+const TB_H = 40; // 标题栏按钮的高度（网页顶栏 52px，按钮放在上半部分）
 
 // ---- 设置（窗口位置、便签是否置顶 / 是否开着、开机启动）----
 const cfgFile = () => path.join(app.getPath('userData'), 'window-state.json');
@@ -55,7 +56,9 @@ function webPrefs() {
 
 function createMain() {
   const b = onScreen(cfg.main) ? cfg.main : { width: 1280, height: 820 };
-  main = new BrowserWindow({ ...b, minWidth: 380, minHeight: 500, show: false, title: 'Sealonote', backgroundColor: '#f4f6fa', icon: path.join(__dirname, 'icon.png'), autoHideMenuBar: true, webPreferences: webPrefs() });
+  // Windows / Linux：去掉系统标题栏，网页顶栏当标题栏；右上角留系统的最小化 / 最大化 / 关闭，颜色由网页按主题传过来
+  const chrome = process.platform === 'darwin' ? {} : { titleBarStyle: 'hidden', titleBarOverlay: { color: cfg.tbColor || '#f7f7f5', symbolColor: cfg.tbSymbol || '#5f5e5b', height: TB_H } };
+  main = new BrowserWindow({ ...b, minWidth: 380, minHeight: 500, show: false, title: 'Sealonote', backgroundColor: cfg.tbColor || '#f7f7f5', icon: path.join(__dirname, 'icon.png'), autoHideMenuBar: true, ...chrome, webPreferences: webPrefs() });
   if (cfg.mainMax) main.maximize();
   trackBounds(main, 'main'); guard(main);
   main.once('ready-to-show', () => main.show());
@@ -93,6 +96,7 @@ function createSticky() {
     roundedCorners: true, hasShadow: true, icon: path.join(__dirname, 'icon.png'), webPreferences: webPrefs(),
   });
   if (cfg.stickyPin !== false) sticky.setAlwaysOnTop(true, 'floating');
+  if (cfg.stickyOpacity) sticky.setOpacity(cfg.stickyOpacity);
   sticky.setVisibleOnAllWorkspaces(!!cfg.stickyAllSpaces, { visibleOnFullScreen: false });
   trackBounds(sticky, 'sticky'); guard(sticky);
   sticky.once('ready-to-show', () => { if (cfg.stickyOpen !== false) sticky.showInactive(); });
@@ -163,6 +167,17 @@ else {
     ipcMain.handle('sticky:hide', () => { hideSticky(); });
     ipcMain.handle('sticky:getPin', () => cfg.stickyPin !== false);
     ipcMain.handle('sticky:setPin', (_e, on) => setPin(on));
+    ipcMain.handle('sticky:getOpacity', () => cfg.stickyOpacity || 1);
+    ipcMain.handle('sticky:setOpacity', (_e, v) => { const o = Math.max(0.3, Math.min(1, Number(v) || 1)); cfg.stickyOpacity = o; saveCfg(); if (sticky && !sticky.isDestroyed()) sticky.setOpacity(o); return o; });
+    ipcMain.handle('titlebar:set', (e, c) => {
+      const win = BrowserWindow.fromWebContents(e.sender); if (!win || win !== main || process.platform === 'darwin' || !c) return;
+      const ok = (x) => typeof x === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([\d.,\s%]+\))$/i.test(x.trim());
+      if (!ok(c.color) || !ok(c.symbolColor)) return;
+      // 半透明的颜色放到系统按钮上会发灰：去掉透明度
+      const solid = (x) => x.replace(/^rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)$/, 'rgb($1,$2,$3)');
+      cfg.tbColor = solid(c.color); cfg.tbSymbol = solid(c.symbolColor); saveCfg();
+      try { win.setTitleBarOverlay({ color: cfg.tbColor, symbolColor: cfg.tbSymbol, height: TB_H }); win.setBackgroundColor(cfg.tbColor); } catch {}
+    });
     ipcMain.handle('main:open', (_e, hash) => { showMain(typeof hash === 'string' ? hash : ''); });
 
     appMenu(); createTray();

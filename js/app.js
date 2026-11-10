@@ -15,7 +15,7 @@ import Settings from './views/settings.js';
 import Focus, { MiniPomo } from './views/focus.js';
 import Brain from './views/brain.js';
 import Money from './views/money.js';
-import Sticky, { keepSticky, popSticky } from './views/sticky.js';
+import Sticky, { keepSticky, popSticky, StickiesPage } from './views/sticky.js';
 import { dueSoon, remindDue } from './money.js';
 import { unsortedCount } from './brain.js';
 import { SearchPalette, setSearchRoutes } from './search.js';
@@ -45,6 +45,7 @@ export const ROUTES = [
   { path: 'plan', href: 'plan/day', name: '今天', icon: 'sun', nav: true, match: (r) => r.path === 'plan' && r.sub === 'day' },
   { path: 'plan', name: '计划', icon: 'calendar', view: Planner, match: (r) => r.path === 'plan' && r.sub !== 'day' },
   { path: 'focus', name: '专注', icon: 'clock', view: Focus },
+  { path: 'stickies', name: '便签', icon: 'tack', view: StickiesPage, show: (s) => s.settings.stickyNav !== false },
   { path: 'money', name: '钱包', icon: 'wallet', view: Money, count: (s) => dueSoon(s).length },
   { sep: '输入与输出' },
   { path: 'reading', name: '阅读', icon: 'book', view: Reading, count: (s) => s.books.filter((b) => b.status === 'reading').length },
@@ -194,7 +195,7 @@ function App() {
         <${IconBtn} class="ibtn hamb" icon="menu" title="菜单" onClick=${() => setMenu(true)} />
         <div class="ttl crumb-top">${curNote ? html`<a href="#/notes">笔记</a>${ancestors(s.notes, curNote).map((a) => html`<span>/</span><a href=${'#/notes/' + a.id}>${noteTitle(a)}</a>`)}<span>/</span><b>${noteTitle(curNote)}</b>` : route.path === 'notes' && route.sub && !curNote ? html`<a href="#/notes">笔记</a><span>/</span><b>${route.sub.startsWith('canvas') ? '画布' : { tasks: '行动', graph: '图谱', tags: '标签', files: '附件' }[route.sub] || '笔记'}</b>` : route.path === 'plan' ? html`<a href="#/plan">计划</a><span>/</span><b>${{ week: '周计划', day: '每日时间线', weektl: '周时间线', monthtl: '月时间线', month: '月度目标' }[route.sub] || '周计划'}</b>` : html`<b>${active.name}</b>`}</div>
         <div class="sp"></div>
-        <${IconBtn} class="ibtn tb-sticky" icon="tack" title="桌面便签（今天的焦点和安排，小窗口）" onClick=${() => (window.sealonote ? window.sealonote.showSticky() : popSticky())} />
+        <${IconBtn} class="ibtn tb-sticky" icon="tack" title="桌面便签（今天的焦点和安排，小窗口）" onClick=${() => popSticky()} />
         <${IconBtn} class="ibtn" icon="search" title="搜索（⌘K）" onClick=${() => setSearch(true)} />
         <button class="theme-glass" onClick=${toggleTheme} title="切换主题"><${Icon} name="moon" class="is" size=${15} /><${Icon} name="sun" class="im" size=${15} /></button>
       </header>
@@ -231,6 +232,25 @@ window.addEventListener('ytos:persist-error', (e) => toast(e.detail === 'quota' 
 })();
 setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors);
 subscribe(() => { setExtraKinds(get().settings.kinds); setTagOverrides(get().settings.tagColors); });
+// 滚动条：平时藏起来，滚动的时候才出现，停下一会儿又藏起来
+(() => {
+  const tm = new WeakMap();
+  document.addEventListener('scroll', (e) => {
+    const el = e.target === document ? document.documentElement : e.target; if (!el || !el.classList) return;
+    el.classList.add('is-scrolling'); clearTimeout(tm.get(el)); tm.set(el, setTimeout(() => el.classList.remove('is-scrolling'), 900));
+  }, { capture: true, passive: true });
+})();
+// 桌面版：标题栏融进网页，右上角三个按钮的颜色跟着主题变
+if (window.sealonote) {
+  document.documentElement.classList.add('is-desktop');
+  if (window.sealonote.setTitleBar) {
+    const probe = document.createElement('i'); probe.style.cssText = 'position:fixed;width:0;height:0;visibility:hidden;background:var(--bg);color:var(--text-2)'; document.body.appendChild(probe);
+    let last = '';
+    const push = () => { const cs = getComputedStyle(probe); let bg = cs.backgroundColor; if (!bg || /rgba\(.*,\s*0\)$/.test(bg) || bg === 'transparent') bg = getComputedStyle(document.body).backgroundColor; const k = bg + cs.color; if (k === last) return; last = k; window.sealonote.setTitleBar({ color: bg, symbolColor: cs.color }); };
+    new MutationObserver(() => requestAnimationFrame(push)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-skin', 'style', 'class'] });
+    setTimeout(push, 50); setTimeout(push, 1000);
+  }
+}
 applySizes();
 setSearchRoutes(ROUTES);
 initLiquid();

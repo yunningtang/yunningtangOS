@@ -284,6 +284,7 @@ export default function Settings() {
       <p class="sx-foot">顺序和大小在总览右上角「自定义」里拖动调整。</p>
       <${Group} title="侧栏">
         <${Row} icon="brain" label="大脑" hint="按脑区看待办"><${Switch} label="侧栏显示大脑" on=${s.settings.brainNav !== false} onChange=${(v) => update((d) => { d.settings.brainNav = v; })} /><//>
+        <${Row} icon="tack" label="便签" hint="待办和计划 / 笔记和便利贴，可以弹出到桌面"><${Switch} label="侧栏显示便签" on=${s.settings.stickyNav !== false} onChange=${(v) => update((d) => { d.settings.stickyNav = v; })} /><//>
       <//>
     <//>`,
     seal: () => html`<${Page} title="汤圆" sub="角落里的小海豹">

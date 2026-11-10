@@ -7,5 +7,8 @@ contextBridge.exposeInMainWorld('sealonote', {
   hideSticky: () => ipcRenderer.invoke('sticky:hide'),
   getPin: () => ipcRenderer.invoke('sticky:getPin'),
   setPin: (on) => ipcRenderer.invoke('sticky:setPin', !!on),
+  getOpacity: () => ipcRenderer.invoke('sticky:getOpacity'),
+  setOpacity: (v) => ipcRenderer.invoke('sticky:setOpacity', Number(v)),
+  setTitleBar: (c) => ipcRenderer.invoke('titlebar:set', { color: String((c && c.color) || ''), symbolColor: String((c && c.symbolColor) || '') }),
   openMain: (hash) => ipcRenderer.invoke('main:open', String(hash || '')),
 });

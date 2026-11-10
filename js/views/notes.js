@@ -168,6 +168,7 @@ export function pageMenu(n, notes, extra = {}) {
     'sep',
     { label: '新建子页面', icon: 'plus', onClick: () => { const c = newNote({ parent: n.id }); extra.openPath && extra.openPath([n.id]); go('notes/' + c.id); } },
     { label: n.pinned ? '取消收藏' : '收藏', icon: 'star', onClick: () => upsert('notes', { id: n.id, pinned: !n.pinned }) },
+    { label: n.sticky ? '从便签上取下' : '贴到便签', icon: 'tack', hint: n.sticky ? '页面还在' : '便签里的便利贴', onClick: () => upsert('notes', { id: n.id, sticky: n.sticky ? '' : 'yellow', stickyAt: n.sticky ? '' : nowISO() }) },
     { label: '复制一份', icon: 'layers', onClick: () => { const c = newNote({ ...n, id: undefined, ref: undefined, title: n.title + ' 副本', pinned: false, created: todayStr(), updated: nowISO(), blocks: (n.blocks || []).map((b) => ({ ...b, id: uid() })) }); go('notes/' + c.id); } },
     { label: '复制链接', icon: 'link', onClick: () => { navigator.clipboard && navigator.clipboard.writeText(location.origin + location.pathname + '#/notes/' + n.id); toast('已复制链接'); } },
     extra.move && { label: '移动到…', icon: 'layers', onClick: extra.move },
