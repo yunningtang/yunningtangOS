@@ -8,6 +8,7 @@ import { ctxMenu } from '../ctx.js';
 import { go, toast } from '../nav.js';
 import { doThis } from '../doing.js';
 import { mainFirst, isMain } from '../quest.js';
+import { nextStep } from '../steps.js';
 
 export const MAX_FOCUS = 3;
 export const focusOn = (s, date) => sortBy(s.todos.filter((t) => t.focus === date), 'focusAt');
@@ -43,15 +44,22 @@ export function FocusCol({ s, date, label, sub, main, bare }) {
   const done = list.filter((t) => t.done).length;
   // 前几天没做完的焦点：今天还有空位时提醒一下，可以一键挪过来
   const left = main ? s.todos.filter((t) => !t.done && t.focus && t.focus < today && t.focus >= addDays(today, -7)) : [];
+  // 层级：第一件没做完的是「最重要的一件」，字大一号；优先级只在紧急 / 重要时用一个小色标说出来，不用数字圈
+  const leadId = main ? (list.find((t) => !t.done) || {}).id : '';
+  const pct = list.length ? Math.round((done / list.length) * 100) : 0;
   return html`<div class=${'fd-col ' + (main ? 'is-today' : '')}>
-    ${!bare && html`<div class="fd-h"><b>${label}</b><small>${sub}</small>${list.length > 0 && html`<span class="fd-n">${done}/${list.length}</span>`}</div>`}
+    ${!bare && html`<div class="fd-h"><b>${label}</b><small>${sub}</small>${list.length > 0 && html`<span class="fd-n" title=${`完成 ${done}/${list.length}`}><i class="fd-bar"><i style=${`width:${pct}%`}></i></i>${done}/${list.length}</span>`}</div>`}
     <ol class="fd-list">
-      ${list.map((t, i) => html`<li key=${t.id} class=${t.done ? 'done' : ''} onContextMenu=${(e) => menu(e, t)}>
-        <button type="button" class="fd-cb" style=${`--pc:${(PRIORITY[t.priority] || PRIORITY[2]).color}`} title=${t.done ? '标为未完成' : `完成 · ${(PRIORITY[t.priority] || PRIORITY[2]).label} ${(PRIORITY[t.priority] || PRIORITY[2]).name}`} onClick=${() => toggleTodo(t.id)}>${t.done ? html`<${Icon} name="check" size=${11} />` : i + 1}</button>
-        <span class="fd-t" title=${t.title}>${t.title}${isMain(s, t) && html`<i class="q-tag">主线</i>`}</span>
-        ${!t.done && main && html`<button type="button" class="fd-go" title="现在就做（放到专注）" onClick=${() => doThis(t)}><${Icon} name="play" size=${11} /></button>`}
+      ${list.map((t) => { const p = PRIORITY[t.priority] || PRIORITY[2]; const lead = t.id === leadId; const ns = !t.done && nextStep(t);
+        return html`<li key=${t.id} class=${(t.done ? 'done ' : '') + (lead ? 'lead' : '')} style=${`--pc:${p.color}`} onContextMenu=${(e) => menu(e, t)}>
+        <button type="button" class="fd-cb" title=${t.done ? '标为未完成' : '完成'} onClick=${() => toggleTodo(t.id)}>${t.done && html`<${Icon} name="check" size=${11} />`}</button>
+        <div class="fd-tx">
+          <span class="fd-t" title=${t.title}>${t.title}${isMain(s, t) && html`<i class="q-tag">主线</i>`}</span>
+          ${!t.done && (lead || t.priority <= 1 || t.time || ns) && html`<small class="fd-m">${lead && html`<b class="fd-lead">最重要</b>`}${t.priority <= 1 && html`<i class="fd-pri">${p.name}</i>`}${t.time && html`<span>${t.time}</span>`}${ns && html`<span class="fd-ns">下一步：${ns.title}</span>`}</small>`}
+        </div>
+        ${!t.done && main && html`<button type="button" class="fd-go" title="现在就做" onClick=${() => doThis(t)}><${Icon} name="play" size=${11} /></button>`}
         <button type="button" class="fd-more" title="更多" onClick=${(e) => menu(e, t)}><${Icon} name="dots" size=${13} /></button>
-      </li>`)}
+      </li>`; })}
     </ol>
     ${list.length > 0 && done === list.length && html`<p class="fd-won"><${Icon} name="sparkle" size=${12} />${main ? '今天的焦点都完成了' : '明天的焦点定好了'}</p>`}
     ${list.length < MAX_FOCUS && html`<div class="fd-add">

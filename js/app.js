@@ -17,6 +17,7 @@ import Brain from './views/brain.js';
 import Money from './views/money.js';
 import Sticky, { keepSticky, popSticky, StickiesPage } from './views/sticky.js';
 import { WinControls, initDesktop } from './winctl.js';
+import { CountdownPage } from './views/countdown.js';
 import { dueSoon, remindDue } from './money.js';
 import { unsortedCount } from './brain.js';
 import { SearchPalette, setSearchRoutes } from './search.js';
@@ -47,6 +48,7 @@ export const ROUTES = [
   { path: 'plan', name: '计划', icon: 'calendar', view: Planner, match: (r) => r.path === 'plan' && r.sub !== 'day' },
   { path: 'focus', name: '专注', icon: 'clock', view: Focus },
   { path: 'stickies', name: '便签', icon: 'tack', view: StickiesPage, show: (s) => s.settings.stickyNav !== false },
+  { path: 'countdown', name: '倒计时', icon: 'clock', view: CountdownPage, show: (s) => s.settings.cdNav !== false },
   { path: 'money', name: '钱包', icon: 'wallet', view: Money, count: (s) => dueSoon(s).length },
   { sep: '输入与输出' },
   { path: 'reading', name: '阅读', icon: 'book', view: Reading, count: (s) => s.books.filter((b) => b.status === 'reading').length },

@@ -294,7 +294,8 @@ export default function Settings() {
       <p class="sx-foot">顺序和大小在总览右上角「自定义」里拖动调整。</p>
       <${Group} title="侧栏">
         <${Row} icon="brain" label="大脑" hint="按脑区看待办"><${Switch} label="侧栏显示大脑" on=${s.settings.brainNav !== false} onChange=${(v) => update((d) => { d.settings.brainNav = v; })} /><//>
-        <${Row} icon="tack" label="便签" hint="待办和计划 / 笔记和便利贴，可以弹出到桌面"><${Switch} label="侧栏显示便签" on=${s.settings.stickyNav !== false} onChange=${(v) => update((d) => { d.settings.stickyNav = v; })} /><//>
+        <${Row} icon="tack" label="便签" hint="便利贴；可以弹出到桌面，桌面上还能看今天的焦点和安排"><${Switch} label="侧栏显示便签" on=${s.settings.stickyNav !== false} onChange=${(v) => update((d) => { d.settings.stickyNav = v; })} /><//>
+        <${Row} icon="clock" label="倒计时" hint="倒数 deadline / 正计时纪念日，可以分类、换背景"><${Switch} label="侧栏显示倒计时" on=${s.settings.cdNav !== false} onChange=${(v) => update((d) => { d.settings.cdNav = v; })} /><//>
       <//>
     <//>`,
     seal: () => html`<${Page} title="汤圆" sub="角落里的小海豹">
