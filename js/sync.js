@@ -323,4 +323,7 @@ export function autoSync(subscribe) {
   // 另一个标签页写进来的不算：那边的改动由那边自己同步，不然两个标签页会互相触发、来回同步
   subscribe((src) => { if (selfWrite || src === 'tab') return; dirty = true; soon(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { if (dirty) run(); } else check(); });
+  // 一直显示着的窗口（桌面便签、置顶的汤圆窗口）不会「切回来」：开着的时候每分钟问一次云端版本号（很小，没变就什么都不做），点一下窗口也问一次
+  setInterval(() => { if (document.visibilityState === 'visible') check(); }, 60000);
+  window.addEventListener('focus', check);
 }
