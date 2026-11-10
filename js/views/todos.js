@@ -14,6 +14,7 @@ import { go } from '../nav.js';
 import { dragProps, dropProps, current as dragNow } from '../dnd.js';
 import { toast } from '../nav.js';
 import { NoteTasks, noteTasks } from './ntasks.js';
+import { parseWhen } from '../when.js';
 import { stepsOf, stepsProgress, toggleStep, setStep, removeStep, moveStep, addSteps, nextStep, clampMin } from '../steps.js';
 import * as pomo from '../pomo.js';
 
@@ -26,13 +27,9 @@ export function quickParse(text) {
   let s = text;
   s = s.replace(/!([0-3])/g, (_, p) => { out.priority = +p; return ''; });
   s = s.replace(/#([^\s#]+)/g, (_, tg) => { out.tags.push(tg); return ''; });
-  s = s.replace(/@(今天|明天|后天|today|tomorrow|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2})/g, (_, d) => {
-    if (dateWords[d]) out.due = dateWords[d];
-    else if (d.includes('/')) { const [m, dd] = d.split('/'); out.due = `${t.slice(0, 4)}-${String(m).padStart(2, '0')}-${String(dd).padStart(2, '0')}`; }
-    else out.due = d;
-    return '';
-  });
-  s = s.replace(/\b(\d{1,2}):(\d{2})\b/, (_, h, m) => { out.time = `${String(h).padStart(2, '0')}:${m}`; if (!out.due) out.due = t; return ''; });
+  // 日期时间：平常的写法都认（明天下午3点、周五晚上8点半、下周一 9:00-10:30、11月20号…），也兼容 @明天 14:00
+  s = s.replace(/@(today|tomorrow)\b/gi, (_, d) => (d.toLowerCase() === 'today' ? '今天' : '明天'));
+  const w = parseWhen(s, t); if (w.due) out.due = w.due; if (w.time) out.time = w.time; if (w.end) out.end = w.end; s = w.rest;
   out.title = s.replace(/\s+/g, ' ').trim();
   return out;
 }
@@ -288,9 +285,16 @@ export function TodoItem({ t, onEdit, compact }) {
 export function QuickAdd({ defaults = {}, placeholder = '添加待办… 例如：写论文 @明天 14:00 !1 #研究' }) {
   const [v, setV] = useState('');
   const add = () => {
-    const q = quickParse(v);
+    const { end, ...q } = quickParse(v);
     if (!q.title) return;
-    upsert('todos', { id: uid(), done: false, area: '', note: '', created: todayStr(), ...defaults, ...q, tags: [...(defaults.tags || []), ...q.tags] });
+    const id = uid();
+    upsert('todos', { id, done: false, area: '', note: '', created: todayStr(), ...defaults, ...q, tags: [...(defaults.tags || []), ...q.tags] });
+    // 写了时间（今天或以后）：顺手排进那天的时间线；写了起止就按起止排
+    const t = get().todos.find((x) => x.id === id);
+    if (t && t.due && t.time && t.due >= todayStr()) {
+      if (end) upsert('blocks', { id: uid(), date: t.due, start: t.time, end, title: t.title, kind: 'focus', note: '', todoId: t.id });
+      else scheduleTodo(t, t.due, { exact: true });
+    }
     setV('');
   };
   return html`<div class="quickadd">

@@ -7,6 +7,7 @@ import { useStore, upsert, get } from './store.js';
 import { Icon } from './ui.js';
 import { uid, todayStr, addDays, timeToMin, minToTime } from './util.js';
 import { quickParse } from './views/todos.js';
+import { parseWhen } from './when.js';
 import { newNote } from './views/notes.js';
 import { mdToBlocks } from './blocks.js';
 import { go, toast } from './nav.js';
@@ -15,21 +16,19 @@ const BLOCK_RE = /^\s*(\d{1,2}:\d{2})\s*[-–~到]\s*(\d{1,2}:\d{2})\s+(.+)$/;
 export function detect(text) {
   const t = text.trim();
   if (!t) return 'todo';
-  if (BLOCK_RE.test(t.replace(/@(今天|明天|后天)\s*/g, ''))) return 'block';
   if (t.includes('\n') || /^[#>]/.test(t) || t.length > 80) return 'note';
+  if (BLOCK_RE.test(t.replace(/@(今天|明天|后天)\s*/g, '')) || parseWhen(t).end) return 'block'; // 有起止时间：一段时间块
   return 'todo';
 }
 
 export function plan(text, kind, notebooks) {
   const t = text.trim();
   if (kind === 'block') {
-    const day = /@明天/.test(t) ? addDays(todayStr(), 1) : /@后天/.test(t) ? addDays(todayStr(), 2) : todayStr();
-    const m = t.replace(/@(今天|明天|后天)\s*/g, '').match(BLOCK_RE);
-    if (!m) return { kind, invalid: true, summary: '格式：9:00-10:30 做什么' };
-    const [h1, m1] = m[1].split(':'), [h2, m2] = m[2].split(':');
-    const start = `${String(h1).padStart(2, '0')}:${m1}`; let end = `${String(h2).padStart(2, '0')}:${m2}`;
-    if (timeToMin(end) <= timeToMin(start)) end = minToTime(timeToMin(start) + 60);
-    return { kind, block: { id: uid(), date: day, start, end, title: m[3].trim(), kind: 'focus', note: '' }, summary: `时间块 · ${day === todayStr() ? '今天' : day} ${start}–${end} · ${m[3].trim()}` };
+    const w = parseWhen(t.replace(/#[^\s#]+/g, '').replace(/![0-3]/g, ''));
+    if (!w.time || !w.rest) return { kind, invalid: true, summary: '写上时间，比如：明天下午3点到4点 写周报' };
+    const day = w.due || todayStr(); const start = w.time; let end = w.end;
+    if (!end || timeToMin(end) <= timeToMin(start)) end = minToTime(Math.min(24 * 60 - 1, timeToMin(start) + 60));
+    return { kind, block: { id: uid(), date: day, start, end, title: w.rest, kind: 'focus', note: '' }, summary: `时间块 · ${day === todayStr() ? '今天' : day} ${start}–${end} · ${w.rest}` };
   }
   if (kind === 'note') {
     const tags = []; let body = t.replace(/(^|\s)#([^\s#]+)/g, (_, sp, tg) => { tags.push(tg); return sp; }).trim();

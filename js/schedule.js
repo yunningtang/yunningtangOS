@@ -22,21 +22,22 @@ export function unscheduledParts(t, date = todayStr(), s = get()) {
 }
 export const isScheduled = (t, date = todayStr(), s = get()) => unscheduledParts(t, date, s).length === 0;
 
-export function scheduleTodo(t, date = todayStr()) {
+// exact：时间是你自己写的——第一段就放在那个时间（和别的块重叠也照放，时间线会并排显示），待办的时间不改
+export function scheduleTodo(t, date = todayStr(), { exact = false } = {}) {
   const s = get(); const parts = unscheduledParts(t, date, s); if (!parts.length) return { n: 0 };
   const today = todayStr();
   const earliest = date === today ? Math.ceil((nowMin() + 5) / 15) * 15 : 9 * 60;
   let cur = t.time && t.due === date ? Math.max(timeToMin(t.time), date === today ? earliest : 0) : earliest;
   const busy = busyOn(s, date); const made = [];
   for (const p of parts) {
-    const at = place(busy, cur, p.len); if (at < 0) break;
+    const at = exact && !made.length && t.time ? timeToMin(t.time) : place(busy, cur, p.len); if (at < 0 || at + p.len > 24 * 60) break;
     made.push({ id: uid(), date, start: minToTime(at), end: minToTime(at + p.len), title: p.stepId ? p.title : t.title, kind: 'focus', note: p.stepId ? `「${t.title}」的一步` : '', todoId: t.id, stepId: p.stepId });
     busy.push([at, at + p.len]); busy.sort((a, b) => a[0] - b[0]); cur = at + p.len;
   }
   if (!made.length) return { n: 0, full: true };
   update((d) => {
     made.forEach((b) => d.blocks.push(b));
-    const x = d.todos.find((y) => y.id === t.id); if (x) { x.due = date; x.time = made[0].start; }
+    const x = d.todos.find((y) => y.id === t.id); if (x) { x.due = date; if (!exact || !x.time) x.time = made[0].start; }
   });
   return { n: made.length, ids: made.map((b) => b.id), first: made[0].start, last: made[made.length - 1].end, left: parts.length - made.length };
 }

@@ -85,7 +85,7 @@ function matchTodo(title, date, used) {
 // 定了日期和时间的待办（今天或以后）：顺手排进那天的时间线（连同步骤），撤销时一起撤
 function autoBlock(id, undos) {
   const t = get().todos.find((x) => x.id === id); if (!t || t.done || !t.due || !t.time || t.due < todayStr()) return;
-  const r = scheduleTodo(t, t.due); if (r.ids && r.ids.length) undos.push(() => r.ids.forEach((bid) => remove('blocks', bid)));
+  const r = scheduleTodo(t, t.due, { exact: true }); if (r.ids && r.ids.length) undos.push(() => r.ids.forEach((bid) => remove('blocks', bid)));
 }
 export function saveItems(items) {
   let n = 0, last = null; const undos = []; const used = new Set();

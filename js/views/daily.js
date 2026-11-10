@@ -1,7 +1,9 @@
 // 今日焦点：今天（和明天）最重要的 1–3 件事。焦点就是待办，打个标记 todo.focus = 'YYYY-MM-DD'，
 // 打勾 = 完成那条待办，所以不会有两份清单。总览上的卡片在这里；待办的右键菜单也能设焦点。
 import { html, useState } from '../../vendor/preact.js';
-import { upsert, toggleTodo } from '../store.js';
+import { upsert, toggleTodo, get } from '../store.js';
+import { quickParse } from './todos.js';
+import { scheduleTodo } from '../schedule.js';
 import { Icon, Card } from '../ui.js';
 import { uid, todayStr, addDays, sortBy, weekKey, fmtShort, PRIORITY } from '../util.js';
 import { ctxMenu } from '../ctx.js';
@@ -17,7 +19,13 @@ export function setFocus(t, date) {
   if (!date) { upsert('todos', { id: t.id, focus: '', focusAt: '' }); return; }
   upsert('todos', { id: t.id, focus: date, focusAt: new Date().toISOString(), ...(!t.due || t.due > date ? { due: date } : {}) });
 }
-export function addFocus(title, date) { const id = uid(); upsert('todos', { id, title: title.trim(), done: false, priority: 1, due: date, time: '', tags: [], area: '', note: '', created: todayStr(), focus: date, focusAt: new Date().toISOString() }); return id; }
+// 焦点输入框也认日期时间和优先级：「下午3点 写周报 !0」→ 今天 15:00、紧急；有时间就顺手排进时间线
+export function addFocus(title, date) {
+  const id = uid(); const q = quickParse(title.trim());
+  upsert('todos', { id, title: q.title || title.trim(), done: false, priority: /![0-3]/.test(title) ? q.priority : 1, due: date, time: q.time || '', tags: q.tags || [], area: '', note: '', created: todayStr(), focus: date, focusAt: new Date().toISOString() });
+  if (q.time && date >= todayStr()) { const t = get().todos.find((x) => x.id === id); if (t) { if (q.end) upsert('blocks', { id: uid(), date, start: q.time, end: q.end, title: t.title, kind: 'focus', note: '', todoId: id }); else scheduleTodo(t, date, { exact: true }); } }
+  return id;
+}
 // 待办右键菜单里的那一项
 export function focusMenuItem(s, t) {
   if (t.done) return null; const today = todayStr(), tmr = addDays(today, 1);
