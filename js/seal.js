@@ -21,6 +21,7 @@ import { go, toast } from './nav.js';
 import { REASONS as STUCK_REASONS, getHelp, feedback as stuckFeedback, addSteps as stuckAddSteps, toStress } from './views/stuck.js';
 import { loadThree, buildSeal } from './seal3d.js';
 import { WinControls } from './winctl.js';
+import { scheduleTodo } from './schedule.js';
 export { loadThree, buildSeal };
 
 const S = 88, M = 18; // fab size / margin
@@ -73,13 +74,31 @@ function metaOf(it, s) {
   const nb = s.notebooks.find((b) => b.id === it.nb);
   return [nb ? nb.name : '收件箱', ...it.tags.map((t) => '#' + t), it.body && `${it.body.length} 字`].filter(Boolean).join(' · ');
 }
-function saveItems(items) {
-  let n = 0, last = null; const undos = [];
+// 时间块对应哪条待办：标题一样（忽略大小写和空格）、没做完、这次还没用过；优先当天的，再是过期 / 没日期的
+const normT = (x) => String(x || '').toLowerCase().replace(/[\s「」"'“”]/g, '');
+function matchTodo(title, date, used) {
+  const k = normT(title); if (!k) return null;
+  const c = get().todos.filter((x) => !x.done && !used.has(x.id) && normT(x.title) === k);
+  const rank = (x) => (x.due === date ? 0 : !x.due || x.due < date ? 1 : 2);
+  return c.sort((a, b) => rank(a) - rank(b) || String(a.time || '99').localeCompare(String(b.time || '99')))[0] || null;
+}
+// 定了日期和时间的待办（今天或以后）：顺手排进那天的时间线（连同步骤），撤销时一起撤
+function autoBlock(id, undos) {
+  const t = get().todos.find((x) => x.id === id); if (!t || t.done || !t.due || !t.time || t.due < todayStr()) return;
+  const r = scheduleTodo(t, t.due); if (r.ids && r.ids.length) undos.push(() => r.ids.forEach((bid) => remove('blocks', bid)));
+}
+export function saveItems(items) {
+  let n = 0, last = null; const undos = []; const used = new Set();
   for (const it of items) {
     if (!it.on) continue;
-    if (it.kind === 'todo' && it.upd) { const prev = get().todos.find((x) => x.id === it.upd); if (!prev) continue; const before = { id: prev.id, title: prev.title, due: prev.due || '', time: prev.time || '', priority: prev.priority }; upsert('todos', { id: prev.id, title: it.title, due: it.date, time: it.time, priority: it.priority }); last = 'todos?open=' + prev.id; undos.push(() => upsert('todos', before)); }
-    else if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; undos.push(() => remove('todos', t.id)); }
-    else if (it.kind === 'block') { const b = { id: uid(), date: it.date, start: it.start, end: it.end, title: it.title, kind: it.kindV, note: it.body }; upsert('blocks', b); last = 'plan/day?d=' + b.date; undos.push(() => remove('blocks', b.id)); }
+    if (it.kind === 'todo' && it.upd) { const prev = get().todos.find((x) => x.id === it.upd); if (!prev) continue; const before = { id: prev.id, title: prev.title, due: prev.due || '', time: prev.time || '', priority: prev.priority }; upsert('todos', { id: prev.id, title: it.title, due: it.date, time: it.time, priority: it.priority }); last = 'todos?open=' + prev.id; undos.push(() => upsert('todos', before)); autoBlock(prev.id, undos); }
+    else if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; undos.push(() => remove('todos', t.id)); autoBlock(t.id, undos); }
+    else if (it.kind === 'block') {
+      // 排的是一件已有的待办（标题一样）：时间块挂到那条待办上，待办的日期 / 时间也改成这块的——待办列表、总览卡片、时间线是同一件事
+      const td = matchTodo(it.title, it.date, used);
+      const b = { id: uid(), date: it.date, start: it.start, end: it.end, title: it.title, kind: it.kindV, note: it.body, ...(td ? { todoId: td.id } : {}) }; upsert('blocks', b); last = 'plan/day?d=' + b.date; undos.push(() => remove('blocks', b.id));
+      if (td) { used.add(td.id); const before = { id: td.id, due: td.due || '', time: td.time || '' }; upsert('todos', { id: td.id, due: it.date, time: it.start }); undos.push(() => upsert('todos', before)); }
+    }
     else if (it.kind === 'goal') { const mk = it.date ? it.date.slice(0, 7) : monthKey(); const g = { id: uid(), title: it.title, area: '', why: it.body || '', krs: it.subitems.map((text) => ({ id: uid(), text, done: false })), progress: 0 }; update((d) => { d.goals[mk] = d.goals[mk] || []; d.goals[mk].push(g); }); last = 'plan/month'; undos.push(() => update((d) => { if (d.goals[mk]) d.goals[mk] = d.goals[mk].filter((x) => x.id !== g.id); })); }
     else if (it.kind === 'focus') { const key = weekKey(); const prev = (get().weeks[key] || {}).focus || ''; update((d) => { d.weeks[key] = d.weeks[key] || { focus: '', items: {}, review: '' }; const lines = (d.weeks[key].focus || '').split('\n').filter((x) => x.trim()); if (lines.length < 3) lines.push(it.title); else lines[2] = it.title; d.weeks[key].focus = lines.join('\n'); }); last = 'plan/week'; undos.push(() => update((d) => { if (d.weeks[key]) d.weeks[key].focus = prev; })); }
     else if (it.kind === 'book') { const st = get(); const b = { id: uid(), title: it.title, author: it.author, type: typesOf(st)[0][0], status: 'want', progress: 0, total: 0, rating: 0, cover: '', link: '', note: it.body, tags: it.tags, color: ['#2d8f88', '#3b6fd6', '#7461c9', '#c9588a', '#c7873a'][st.books.length % 5], started: '', finished: '', created: todayStr() }; upsert('books', b); autoCover(b, true); last = 'reading?open=' + b.id; undos.push(() => remove('books', b.id)); }

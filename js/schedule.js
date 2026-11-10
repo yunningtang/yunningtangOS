@@ -38,5 +38,5 @@ export function scheduleTodo(t, date = todayStr()) {
     made.forEach((b) => d.blocks.push(b));
     const x = d.todos.find((y) => y.id === t.id); if (x) { x.due = date; x.time = made[0].start; }
   });
-  return { n: made.length, first: made[0].start, last: made[made.length - 1].end, left: parts.length - made.length };
+  return { n: made.length, ids: made.map((b) => b.id), first: made[0].start, last: made[made.length - 1].end, left: parts.length - made.length };
 }
