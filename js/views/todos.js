@@ -124,6 +124,12 @@ export function postponeItems(t) {
     { label: '不排期', icon: 'minus', onClick: () => move({ due: '', time: '' }, '已移到未排期') },
   ].filter(Boolean);
 }
+// 逾期的一键挪到今天：日期改成今天，原来的时间保留；可以撤销
+export function moveOverdueToday(list) {
+  const today = todayStr(); const prev = list.map((t) => ({ id: t.id, due: t.due, deferred: t.deferred || 0 }));
+  update((d) => { prev.forEach((p) => { const x = d.todos.find((y) => y.id === p.id); if (x) { x.due = today; x.deferred = (x.deferred || 0) + 1; } }); });
+  toast(`${prev.length} 件挪到了今天`, { label: '撤销', onClick: () => update((d) => { prev.forEach((p) => { const x = d.todos.find((y) => y.id === p.id); if (x) { x.due = p.due; x.deferred = p.deferred; } }); }) });
+}
 export const postponeMenu = (e, t) => ctxMenu(e, postponeItems(t), `推迟「${t.title}」`);
 
 export function todoMenu(t, onEdit) {
@@ -372,7 +378,7 @@ export default function Todos({ route }) {
       ${allTags.length > 0 && html`<div class="filters">${allTags.map(([x, n]) => html`<${Tag} class=${'click ' + (tagF === x ? 'on' : '')} onClick=${() => setTagF(tagF === x ? '' : x)}>${x} <span class="muted">${n}</span><//>`)}</div>`}
       ${groups.length === 0 ? html`<${Empty} icon="checksq" text=${view === 'done' ? '还没有完成的事。' : '清清爽爽，没有待办。'} />` : groups.map(([name, list]) => html`
         <div class="todo-group" ...${dropProps('todo', (d) => { const map = { 逾期: addDays(today, -1), 今天: today, 明天: addDays(today, 1), 本周: addDays(today, 2), 之后: addDays(today, 8), 未排期: '', 已完成: null }; const due = map[name]; if (due === null) { const t = s.todos.find((x) => x.id === d.id); if (t && !t.done) toggleTodo(d.id); } else upsert('todos', { id: d.id, due, ...(due === '' ? { time: '' } : {}) }); })}>
-        <div class=${'group-h ' + (name === '逾期' ? 'late' : name === '今天' ? 'today' : '')}>${name}<i></i><span>${list.length}</span></div>
+        <div class=${'group-h ' + (name === '逾期' ? 'late' : name === '今天' ? 'today' : '')}>${name}<i></i><span>${list.length}</span>${name === '逾期' && html`<button type="button" class="late-all" title="原来的时间不变，日期改成今天" onClick=${() => moveOverdueToday(list)}>全部挪到今天</button>`}</div>
         ${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} onEdit=${(x) => { setEditing(x); setModal(true); }} />`)}</div>`)}
       ${view === 'done' && todos.length > 0 && html`<div class="row" style="justify-content:flex-end;margin-top:10px"><${Btn} kind="ghost" small icon="archive" onClick=${async () => { if (await askConfirm(`将移除 ${todos.length} 项已完成的待办。`, { title: '清空已完成？', ok: '清空' })) update((d) => { d.todos = d.todos.filter((t) => !t.done); }); }}>清空已完成<//></div>`}
     <//>`}

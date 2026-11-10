@@ -4,7 +4,7 @@ import { usePomo, PomoCard } from './focus.js';
 import * as pomo from '../pomo.js';
 import { Icon, Card, Btn, Tag, Empty, Progress, useClock } from '../ui.js';
 import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS, fmtShort } from '../util.js';
-import { TodoModal, QuickAdd, todoMenu, TodoItem } from './todos.js';
+import { TodoModal, QuickAdd, todoMenu, TodoItem, moveOverdueToday } from './todos.js';
 import { ctxMenu } from '../ctx.js';
 import { dragProps, dropProps } from '../dnd.js';
 import { Splitter } from '../resize.js';
@@ -212,7 +212,7 @@ export default function Dashboard() {
       <//>` },
     todos: { title: '待办', span: 1, el: html`<${Card} class="todo-card" ...${dropProps('todo', (d) => upsert('todos', { id: d.id, due: today }))}>
         <div class="card-h"><h3>待办 ${todos.length > 0 && html`<span class="muted small">${todos.length}</span>`}</h3><div class="card-act"><a class="ibtn" href="#/todos" title="全部"><${Icon} name="right" size=${15} /></a></div></div>
-        ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '都做完了。' : '清清爽爽，没有待办。'} />` : html`<div class="tlist">${todoGroups.map(([g, list]) => html`<div class=${'tg-h ' + (g === '逾期' ? 'late' : g === '今天' ? 'today' : '')} key=${g}>${g}<span>${list.length}</span></div>${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}`)}</div>`}
+        ${todos.length === 0 ? html`<${Empty} icon="checksq" text=${doneTodos.length ? '都做完了。' : '清清爽爽，没有待办。'} />` : html`<div class="tlist">${todoGroups.map(([g, list]) => html`<div class=${'tg-h ' + (g === '逾期' ? 'late' : g === '今天' ? 'today' : '')} key=${g}>${g}<span>${list.length}</span>${g === '逾期' && html`<button type="button" class="late-all" title="原来的时间不变，日期改成今天" onClick=${() => moveOverdueToday(list)}>全部挪到今天</button>`}</div>${list.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}`)}</div>`}
         <${QuickAdd} defaults=${{ due: today }} placeholder="添加待办…（默认今天）" />
         ${doneTodos.length > 0 && html`<button class="done-tg" onClick=${() => setShowDone(!showDone)}><${Icon} name=${showDone ? 'down' : 'right'} size=${12} /> 已完成 ${doneTodos.length}</button>
           ${showDone && html`<div class="tlist">${doneTodos.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${setEditing} />`)}</div>`}`}
