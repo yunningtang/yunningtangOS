@@ -1,7 +1,7 @@
 {
   "name": "sealonote-desktop",
   "productName": "Sealonote",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Sealonote 桌面版：和网页版同一个账号、同一份数据，外加可以贴在桌面上的便签",
   "author": "yunningtang",
   "license": "UNLICENSED",
@@ -18,7 +18,7 @@
   "build": {
     "appId": "com.sealonote.desktop",
     "productName": "Sealonote",
-    "artifactName": "Sealonote-${version}-${os}-${arch}.${ext}",
+    "artifactName": "SealoNote-${os}-${arch}.${ext}",
     "directories": { "buildResources": "build", "output": "dist" },
     "files": ["main.js", "preload.js", "icon.png", "tray.png", "package.json"],
     "icon": "icon.png",
@@ -26,6 +26,6 @@
     "win": { "target": [{ "target": "nsis", "arch": ["x64"] }] },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false },
     "linux": { "target": ["AppImage"], "category": "Office" },
-    "publish": { "provider": "github", "owner": "yunningtang", "repo": "yunningtangOS", "releaseType": "release" }
+    "publish": { "provider": "github", "owner": "yunningtang", "repo": "SealoNote", "releaseType": "release" }
   }
 }

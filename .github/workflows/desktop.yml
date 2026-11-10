@@ -51,7 +51,7 @@ jobs:
         with:
           tag_name: ${{ steps.v.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Sealonote 桌面版 ${{ steps.v.outputs.tag }}
+          name: SealoNote ${{ steps.v.outputs.tag }}
           files: out/*
           body: |
             下载对应系统的安装包：
