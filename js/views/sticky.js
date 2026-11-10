@@ -126,7 +126,12 @@ export function NowCard() {
 }
 export function PomoPill({ onOpen }) {
   const st = usePomo(); if (st.phase === 'idle') return null;
-  return html`<button type="button" class=${'pomo-pill ' + st.phase + (st.paused ? ' paused' : '')} title=${`${st.phase === 'break' ? '休息中' : st.label || '专注'}（点开看）`} onClick=${onOpen}><i></i>${pomo.fmt(pomo.remaining())}</button>`;
+  // 一个小计时环（走了多少就填多少）+ 剩余时间：一看就是番茄钟，不和优先级的小色点混
+  const rem = pomo.remaining(); const total = (st.phase === 'break' ? st.breakLen : st.workLen) * 60; const f = total ? Math.min(1, Math.max(0, 1 - rem / total)) : 0; const C = 2 * Math.PI * 5.5;
+  return html`<button type="button" class=${'pomo-pill ' + st.phase + (st.paused ? ' paused' : '')} title=${`${st.phase === 'break' ? '休息中' : st.paused ? '暂停中' : '正在专注'}：${st.label || '专注'}（点开看）`} onClick=${onOpen}>
+    <svg class="pp-ring" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5.5" class="pp-tr" /><circle cx="7" cy="7" r="5.5" class="pp-fg" style=${`stroke-dasharray:${C};stroke-dashoffset:${C * (1 - f)}`} />${st.paused && html`<path d="M5.6 5v4M8.4 5v4" class="pp-pz" />`}</svg>
+    <span>${pomo.fmt(rem)}</span>
+  </button>`;
 }
 
 /* ---------- 便利贴 ---------- */

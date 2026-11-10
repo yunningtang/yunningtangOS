@@ -4878,3 +4878,14 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .cd-tile:hover .cd-dots{opacity:1}
 .cd-page-empty{background:var(--paper);border-radius:var(--r3,16px);box-shadow:0 0 0 1px var(--line)}
 .pomo-pill + .sk-clock{display:none}
+/* 番茄钟胶囊 v2：不要圆点，换成小计时环 */
+.pomo-pill{gap:5px;height:26px;padding:0 10px 0 7px;background:var(--paper);color:var(--text);box-shadow:0 0 0 1px var(--line);font-weight:600}
+.pomo-pill i{display:none}
+.pomo-pill .pp-ring{flex:none;transform:rotate(-90deg)}
+.pomo-pill .pp-tr{fill:none;stroke:var(--line-2,var(--line));stroke-width:2}
+.pomo-pill .pp-fg{fill:none;stroke:var(--blue);stroke-width:2;stroke-linecap:round;transition:stroke-dashoffset 1s linear}
+.pomo-pill .pp-pz{stroke:var(--text-3);stroke-width:1.4;stroke-linecap:round;transform:rotate(90deg);transform-origin:7px 7px}
+.pomo-pill.break{background:var(--paper);color:var(--text)}.pomo-pill.break .pp-fg{stroke:var(--green)}
+.pomo-pill.paused{background:var(--paper);color:var(--text-3)}.pomo-pill.paused .pp-fg{stroke:var(--text-4)}
+.pomo-pill:hover{box-shadow:0 0 0 1px var(--line-2,var(--line)),0 2px 6px -2px rgba(0,0,0,.15)}
+.nv.stk .pomo-pill{background:rgba(255,255,255,.55);box-shadow:none;color:inherit}
