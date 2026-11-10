@@ -83,7 +83,7 @@ function Row({ label, hint, stack, icon, children }) {
 function Switch({ on, onChange, label }) {
   return html`<button type="button" role="switch" aria-checked=${on ? 'true' : 'false'} aria-label=${label} class=${'sx-sw ' + (on ? 'on' : '')} onClick=${() => onChange(!on)}><i></i></button>`;
 }
-const WIDGET_ICON = { profile: 'heart', now: 'cloudsun', ai: 'sparkle', calendar: 'calendar', focus: 'clock', timeline: 'list', todos: 'checksq', notes: 'note', pages: 'file', links: 'link', goals: 'target', week: 'zap', focusweek: 'flag', photo: 'image', brain: 'brain' };
+const WIDGET_ICON = { profile: 'heart', now: 'cloudsun', ai: 'sparkle', calendar: 'calendar', focus: 'clock', timeline: 'list', todos: 'checksq', notes: 'note', pages: 'file', links: 'link', goals: 'target', week: 'zap', focusweek: 'flag', countdown: 'clock', photo: 'image', brain: 'brain' };
 const NAV = [
   ['帐号', [['account', '', '']]],
   ['偏好', [['look', '外观', 'sun'], ['dash', '总览', 'grid']]],
@@ -213,6 +213,15 @@ export default function Settings() {
   const synced = s.settings.lastSync ? new Date(s.settings.lastSync).toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   const name = s.profile.name || (connected ? login.user.login : '') || '未命名';
   const dash = normLayout(s.settings.dash);
+  const skinAttr = (x) => (x === 'liquid' || x === 'mac' ? 'glass' : x === 'win95' ? 'xp' : x);
+  // 主题预览：鼠标移上去，整个界面先换上这个主题（只是看看，不存）；移开就回到原来的
+  const [skinPv, setSkinPv] = useState('');
+  const previewSkin = (v) => {
+    setSkinPv(v); const root = document.documentElement; const cur = s.settings.skin || 'notion';
+    const want = v || cur; root.dataset.skin = skinAttr(want);
+    if ((want === 'strand' || want === 'ark') && !document.getElementById('font-strand')) { const l = document.createElement('link'); l.id = 'font-strand'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap'; document.head.appendChild(l); }
+  };
+  useEffect(() => () => { document.documentElement.dataset.skin = skinAttr(get().settings.skin || 'notion'); }, []);
   const skins = [
     { v: 'notion', n: '笔记', bg: '#ffffff', card: '#ffffff', ac: '#2383e2', line: 'rgba(55,53,47,.16)' },
     { v: 'glass', n: '暖白', bg: '#f7f7f5', card: '#ffffff', ac: '#37352f', line: 'rgba(55,53,47,.09)' },
@@ -270,10 +279,11 @@ export default function Settings() {
       <${Group}>
         <${Row} icon="moon" label="深浅色"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
         <${Row} icon="layers" label="主题" stack>
-          <div class="skin-pick">${skins.map((k) => html`<button type="button" key=${k.v} class=${'skin-opt ' + ((s.settings.skin || 'notion') === k.v ? 'on' : '')} onClick=${() => update((d) => { d.settings.skin = k.v; })}>
+          <div class="skin-pick" onMouseLeave=${() => previewSkin('')}>${skins.map((k) => html`<button type="button" key=${k.v} class=${'skin-opt ' + ((s.settings.skin || 'notion') === k.v ? 'on' : '')} onMouseEnter=${() => previewSkin(k.v)} onFocus=${() => previewSkin(k.v)} onBlur=${() => previewSkin('')} onClick=${() => { previewSkin(''); update((d) => { d.settings.skin = k.v; }); }}>
             <span class="skin-prev" style=${`background:${k.bg}`}><i style=${`left:6px;top:6px;width:18px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:6px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:30px;top:29px;width:52px;height:17px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:88px;top:6px;right:6px;height:40px;background:${k.card};box-shadow:0 0 0 1px ${k.line}`}></i><i style=${`left:92px;top:12px;width:22px;height:6px;border-radius:3px;background:${k.ac}`}></i></span>
             <b>${k.n}</b></button>`)}</div>
         <//>
+        <p class="skin-tip">${skinPv ? html`正在预览「${(skins.find((k) => k.v === skinPv) || {}).n}」——整个界面已经换上了，点一下就用这个；移开鼠标回到原来的` : '鼠标移到一个主题上，整个界面会先换上它预览一下'}</p>
         <${Row} icon="sparkle" label="毛玻璃" hint="老电脑上可能会卡"><${Switch} label="毛玻璃" on=${s.settings.fx === 'full'} onChange=${(v) => update((d) => { d.settings.fx = v ? 'full' : 'lite'; })} /><//>
       <//>
     <//>`,

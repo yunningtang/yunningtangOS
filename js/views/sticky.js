@@ -6,11 +6,13 @@
 import { html, useState, useEffect, useMemo, useRef } from '../../vendor/preact.js';
 import { useStore, upsert, update, get } from '../store.js';
 import { Icon } from '../ui.js';
-import { todayStr, addDays, sortBy, timeToMin, fmtShort, nowISO } from '../util.js';
+import { todayStr, addDays, sortBy, timeToMin, fmtShort, nowISO, kindColor } from '../util.js';
 import { mdToBlocks } from '../blocks.js';
 import { ctxMenu } from '../ctx.js';
 import { toast, go } from '../nav.js';
-import { FocusCol, focusOn } from './daily.js';
+import { focusOn, addFocus, MAX_FOCUS } from './daily.js';
+import { TodoItem } from './todos.js';
+import * as pomo from '../pomo.js';
 import { isCheck, checkState, checkMenu, BlockModal } from './planner.js';
 import { newNote, ensureNotebook, trashPages, noteTitle } from './notes.js';
 
@@ -43,20 +45,35 @@ const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == n
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
 /* ---------- 今天：焦点 + 接下来 ---------- */
+// 和总览「待办」卡片同一种行（四个优先级的颜色、时间、下一步、步骤），不另起一套样式：
+//   焦点（最多 3 件）→ 其余今天到期 / 过期的 → 「接下来」的时间块，收成一行，点开才展开
+const kindC = (k) => kindColor(k || 'focus');
 export function TodayPane({ s, now }) {
   const today = todayStr(), nowMin = hm(now);
   const [day, setDay] = useState('today');
   const date = day === 'today' ? today : addDays(today, 1);
   const [blk, setBlk] = useState(null);
-  // 今天：还没结束的时间块 + 没打勾的检查点（过了点没打勾的也留着，提醒你点一下）；明天：全部
+  const [nextOpen, setNextOpen] = useState(() => lsGet('ytos.sk.next', '0') === '1');
+  const toggleNext = () => { setNextOpen(!nextOpen); lsSet('ytos.sk.next', nextOpen ? '0' : '1'); };
   const items = useMemo(() => sortBy(s.blocks.filter((b) => b.date === date && !b.pomo), 'start').filter((b) => {
     if (date !== today) return true;
     if (isCheck(b)) return !b.status || timeToMin(b.start) >= nowMin - 60;
     return timeToMin(b.end || b.start) > nowMin;
   }), [s.blocks, date, today, nowMin]);
-  const focus = focusOn(s, date); const doneN = focus.filter((t) => t.done).length;
-  const openTodos = s.todos.filter((t) => !t.done && t.due && t.due <= today && t.focus !== today).length;
+  const focus = focusOn(s, date).filter((t) => !t.done || t.completedAt === today);
+  const rest = sortBy(s.todos.filter((t) => !t.done && t.focus !== date && (day === 'today' ? t.due && t.due <= today : t.due === date)), 'priority', 'time');
+  const [text, setText] = useState('');
+  const addF = () => { const v = text.trim(); if (!v) return; if (focusOn(s, date).length >= MAX_FOCUS) { toast('焦点最多 3 件——少一点才是焦点'); return; } addFocus(v, date); setText(''); };
   const edit = (x) => setBlk({ block: x });
+  const openTodo = (t) => openMain('todos?open=' + t.id);
+  const row = (b) => { const ck = isCheck(b); const st = ck ? checkState(b, date, nowMin) : ''; const cur = !ck && date === today && timeToMin(b.start) <= nowMin && timeToMin(b.end) > nowMin;
+    const act = (e) => (ck ? checkMenu(e, b, edit) : edit(b));
+    return html`<li key=${b.id} class=${(ck ? 'ck-row ' + st : '') + (cur ? ' cur' : '')} style=${`--bc:${kindC(b.kind)}`} onClick=${act} onContextMenu=${(e) => { e.preventDefault(); act(e); }}>
+      <span class="sk-tm">${b.start}</span>
+      ${ck ? html`<i class="sk-dia">${st === 'ok' ? html`<${Icon} name="check" size=${8} />` : st === 'miss' ? html`<${Icon} name="x" size=${8} />` : ''}</i>` : html`<i class="sk-dot"></i>`}
+      <span class="sk-tt"><b>${b.title || '（未命名）'}</b></span>
+      <small class="sk-meta">${ck ? '' : cur ? `还剩 ${timeToMin(b.end) - nowMin} 分` : `${timeToMin(b.end) - timeToMin(b.start)} 分`}</small>
+    </li>`; };
   return html`<div class="sk-pane today">
     <div class="sk-sub">
       <div class="sk-seg sm">
@@ -65,24 +82,39 @@ export function TodayPane({ s, now }) {
       </div>
       <span class="sk-date">${fmtShort(date)} 周${wd(date)}</span>
     </div>
-    <section class="sk-sec">
-      <h4><span>焦点</span>${focus.length > 0 && html`<span class="sk-n">${doneN}/${focus.length}</span>`}</h4>
-      <${FocusCol} key=${date} s=${s} date=${date} label=${day === 'today' ? '今天' : '明天'} sub="" main=${day === 'today'} bare />
-    </section>
-    <section class="sk-sec">
-      <h4><span>${day === 'today' ? '接下来' : '明天的安排'}</span><button type="button" class="sk-add" title=${day === 'today' ? '加时间块' : '给明天加时间块'} onClick=${() => setBlk({ block: null, start: day === 'today' ? `${pad(Math.min(23, now.getHours() + 1))}:00` : '09:00' })}><${Icon} name="plus" size=${12} /></button></h4>
-      ${items.length === 0 ? html`<p class="sk-empty">${day === 'today' ? '今天剩下的时间没有安排' : '明天还没排时间块'}</p>` : html`<ul class="sk-list">
-        ${items.map((b) => { const ck = isCheck(b); const st = ck ? checkState(b, date, nowMin) : ''; const cur = !ck && date === today && timeToMin(b.start) <= nowMin && timeToMin(b.end) > nowMin;
-          const act = (e) => (ck ? checkMenu(e, b, edit) : edit(b));
-          return html`<li key=${b.id} class=${(ck ? 'ck-row ' + st : '') + (cur ? ' cur' : '')} onClick=${act} onContextMenu=${(e) => { e.preventDefault(); act(e); }}>
-            <span class="sk-tm">${b.start}${!ck && b.end ? html`<small>${b.end}</small>` : ''}</span>
-            ${ck ? html`<i class="sk-dia">${st === 'ok' ? html`<${Icon} name="check" size=${8} />` : st === 'miss' ? html`<${Icon} name="x" size=${8} />` : ''}</i>` : html`<i class="sk-bar-c" style=${b.color ? `background:${b.color}` : ''}></i>`}
-            <span class="sk-tt"><b>${b.title || '（未命名）'}</b>${ck && b.note ? html`<em>没达成：${b.note}</em>` : cur ? html`<em>进行中 · 还剩 ${timeToMin(b.end) - nowMin} 分钟</em>` : ''}</span>
-          </li>`; })}
-      </ul>`}
-    </section>
-    ${day === 'today' && openTodos > 0 && html`<button type="button" class="sk-more" onClick=${() => openMain('todos')}><${Icon} name="checksq" size=${12} />还有 ${openTodos} 件今天到期 / 过期的待办<${Icon} name="right" size=${11} /></button>`}
+    <div class="todo-card sk-todos">
+      <div class="tg-h today">焦点<span>${focus.filter((t) => t.done).length}/${focus.length || 0}</span></div>
+      <div class="tlist">${focus.map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${openTodo} />`)}</div>
+      ${focus.length < MAX_FOCUS && html`<div class="sk-addf"><${Icon} name="plus" size=${12} /><input type="text" value=${text} placeholder=${focus.length ? '再加一件焦点（回车）' : day === 'today' ? '今天最重要的一件事是…' : '明天先做哪件？'} onInput=${(e) => setText(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter' && !e.isComposing) addF(); }} /></div>`}
+      ${rest.length > 0 && html`<div class="tg-h">${day === 'today' ? '今天到期' : '明天到期'}<span>${rest.length}</span></div><div class="tlist">${rest.slice(0, 8).map((t) => html`<${TodoItem} key=${t.id} t=${t} compact onEdit=${openTodo} />`)}</div>`}
+      ${rest.length > 8 && html`<button type="button" class="sk-more" onClick=${() => openMain('todos')}>还有 ${rest.length - 8} 件<${Icon} name="right" size=${11} /></button>`}
+    </div>
+    <div class=${'sk-next ' + (nextOpen ? 'open' : '')}>
+      <button type="button" class="sk-next-h" onClick=${toggleNext}>
+        <${Icon} name=${nextOpen ? 'down' : 'right'} size=${11} /><span>${day === 'today' ? '接下来' : '明天的安排'}</span>
+        ${!nextOpen && items[0] && html`<em style=${`--bc:${kindC(items[0].kind)}`}><i></i>${items[0].start} ${items[0].title}</em>`}
+        <small>${items.length || ''}</small>
+        <span class="sk-add" title="加时间块" onClick=${(e) => { e.stopPropagation(); setBlk({ block: null, start: day === 'today' ? `${pad(Math.min(23, now.getHours() + 1))}:00` : '09:00' }); }}><${Icon} name="plus" size=${12} /></span>
+      </button>
+      ${nextOpen && (items.length ? html`<ul class="sk-list">${items.map(row)}</ul>` : html`<p class="sk-empty">${day === 'today' ? '今天剩下的时间没有安排' : '明天还没排时间块'}</p>`)}
+    </div>
     <${BlockModal} open=${!!blk} block=${blk && blk.block} start=${(blk && blk.start) || '09:00'} date=${date} onClose=${() => setBlk(null)} />
+  </div>`;
+}
+
+// 便签里的番茄钟：在窗口顶上一条，不跳去专注页
+export function PomoBar() {
+  const [st, setSt] = useState(pomo.get()); useEffect(() => pomo.subscribe((x) => setSt({ ...x })), []);
+  const [, tick] = useState(0); useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
+  if (st.phase === 'idle' && !st.review) return null;
+  if (st.phase === 'idle' && st.review) return html`<div class="pbar rv"><${Icon} name="check" size=${12} /><span>这轮「${st.review.label || '专注'}」${st.review.mins} 分钟结束了</span><button type="button" onClick=${() => openMain('focus')}>记一下</button><button type="button" class="x" title="不记了" onClick=${() => pomo.dismissReview()}><${Icon} name="x" size=${11} /></button></div>`;
+  const rem = pomo.remaining(); const total = (st.phase === 'break' ? st.breakLen : st.workLen) * 60; const pct = total ? Math.min(100, Math.max(0, 100 - (rem / total) * 100)) : 0;
+  return html`<div class=${'pbar ' + st.phase + (st.paused ? ' paused' : '')} style=${`--pp:${pct}%`}>
+    <b class="pb-time">${pomo.fmt(rem)}</b>
+    <span class="pb-l">${st.phase === 'break' ? '休息一下' : st.label || '专注'}</span>
+    ${st.phase === 'work' && html`<button type="button" title=${st.paused ? '继续' : '暂停'} onClick=${() => (st.paused ? pomo.resume() : pomo.pause())}><${Icon} name=${st.paused ? 'play' : 'pause'} size=${12} /></button>`}
+    ${st.phase === 'work' && html`<button type="button" title="这轮先到这，记一下" onClick=${() => pomo.stop(true)}><${Icon} name="check" size=${12} /></button>`}
+    <button type="button" title=${st.phase === 'break' ? '跳过休息' : '放弃这一轮（不记录）'} onClick=${() => (st.phase === 'break' ? pomo.skip() : pomo.stop(false))}><${Icon} name="x" size=${12} /></button>
   </div>`;
 }
 
@@ -103,9 +135,9 @@ const firstLine = (t) => (t || '').split('\n').map((l) => l.replace(/^\s*(#+|[-*
 const excerpt = (n) => (n.body || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/[#>*`|]/g, '').replace(/\n{2,}/g, '\n').trim().slice(0, 240);
 
 // 把一张便利贴 / 一页笔记单独贴到桌面：桌面版开一个独立的小窗口（各自记位置、大小、置顶、透明度）；网页版弹一个小窗口
-export function popNote(id) {
-  if (window.sealonote && window.sealonote.popNote) { window.sealonote.popNote(id); return; }
-  const w = window.open(location.pathname + '#/sticky?note=' + id, 'sealonote-note-' + id, 'popup=yes,width=300,height=320');
+export function popNote(id, at) {
+  if (window.sealonote && window.sealonote.popNote) { window.sealonote.popNote(id, at); return; }
+  const w = window.open(location.pathname + '#/sticky?note=' + id, 'sealonote-note-' + id, 'popup=yes,width=300,height=320' + (at ? `,left=${Math.round(at.x)},top=${Math.round(at.y)}` : ''));
   if (w) try { w.focus(); } catch {}
 }
 const toggleTheme = () => update((d) => { d.settings.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; });
@@ -122,8 +154,18 @@ function useStickyText(n) {
   const onInput = (e) => { const v = e.target.value; setText(v); clearTimeout(timer.current); timer.current = setTimeout(() => { const cur = get().notes.find((x) => x.id === n.id); if (!cur || cur.body === v) return; upsert('notes', { id: n.id, body: v, blocks: mdToBlocks(v), title: firstLine(v).slice(0, 40), updated: nowISO() }); }, 400); };
   return { text, onInput, onFocus: () => { focused.current = true; }, onBlur: () => { focused.current = false; } };
 }
+// 新的一张 / 复制一张：桌面单张窗口里直接再弹一个窗口出来
+export function newSticky({ from, text = '', pop = false } = {}) {
+  const c = addSticky((from && from.sticky) || 'yellow');
+  const body = from ? from.body || '' : text;
+  if (body) upsert('notes', { id: c.id, body, blocks: mdToBlocks(body), title: firstLine(body).slice(0, 40) });
+  if (pop) popNote(c.id); return c;
+}
+const inSingle = () => /[?&]note=/.test(location.hash);
 function noteMenuItems(n, s) {
   return [
+    n.sticky && { label: '新的一张', icon: 'plus', hint: 'Ctrl+N', onClick: () => newSticky({ pop: inSingle() }) },
+    n.sticky && { label: '复制一张', icon: 'layers', onClick: () => newSticky({ from: n, pop: inSingle() }) },
     n.sticky && { label: '换颜色', icon: 'tag', sub: STICKY_COLORS.map(([c, name, hex]) => ({ label: name, color: hex, icon: c === n.sticky ? 'check' : '', onClick: () => upsert('notes', { id: n.id, sticky: c }) })) },
     { label: '放进本子', icon: 'book', hint: (s.notebooks.find((b) => b.id === n.nb) || {}).name || '', sub: sortBy(s.notebooks, 'order').map((b) => ({ label: b.name, icon: b.id === n.nb ? 'check' : 'book', onClick: () => { update((d) => { const x = d.notes.find((y) => y.id === n.id); if (x) { x.nb = b.id; x.parent = null; x.updated = nowISO(); } }); toast(`已放进「${b.name}」`); } })) },
     { label: '在主窗口的笔记里打开', icon: 'note', onClick: () => openMain('notes/' + n.id) },
@@ -139,7 +181,14 @@ function StickyCard({ n, s, autoFocus, onDone, onOpen }) {
   useEffect(fit, [tx.text]);
   useEffect(() => { if (autoFocus && ta.current) { ta.current.focus(); onDone && onDone(); } }, [autoFocus]);
   const menu = (e) => ctxMenu(e, noteMenuItems(n, s), noteTitle(n) || '便利贴');
+  // 按住顶上那条往窗口外拖：松手的地方变成一张独立的便利贴；拖进别的软件就是把文字粘过去
+  const dragStart = (e) => { try { e.dataTransfer.setData('text/plain', n.body || ''); e.dataTransfer.effectAllowed = 'copy'; } catch {} };
+  const dragEnd = (e) => {
+    const out = e.screenX < window.screenX || e.screenX > window.screenX + window.outerWidth || e.screenY < window.screenY || e.screenY > window.screenY + window.outerHeight;
+    if (out && e.dataTransfer && e.dataTransfer.dropEffect === 'none') popNote(n.id, { x: e.screenX - 40, y: e.screenY - 12 });
+  };
   return html`<div class=${'stk stk-' + (n.sticky || 'yellow')} onContextMenu=${menu}>
+    <div class="stk-grip" draggable="true" title="按住拖到窗口外面：变成一张单独的便利贴" onDragStart=${dragStart} onDragEnd=${dragEnd}></div>
     <div class="stk-tools"><button type="button" class="stk-b" title="单独贴到桌面（可以随意拖动、放大缩小）" onClick=${() => popNote(n.id)}><${Icon} name="external" size=${12} /></button><button type="button" class="stk-b" title="更多" onClick=${menu}><${Icon} name="dots" size=${13} /></button></div>
     ${can ? html`<textarea ref=${ta} class="stk-ta" rows="2" value=${tx.text} placeholder="写点什么…" onFocus=${tx.onFocus} onBlur=${tx.onBlur} onInput=${tx.onInput}></textarea>`
       : html`<button type="button" class="stk-pre" title="点开看全文" onClick=${() => onOpen(n.id)}>${n.title && html`<b>${n.title}</b>`}<span>${excerpt(n) || '（打开查看）'}</span></button>`}
@@ -149,6 +198,7 @@ function StickyCard({ n, s, autoFocus, onDone, onOpen }) {
 export function NotesPane({ s, page, onOpen }) {
   const list = stickyList(s);
   const [fresh, setFresh] = useState('');
+  useEffect(() => { const h = (e) => setFresh(e.detail); window.addEventListener('sticky:fresh', h); return () => window.removeEventListener('sticky:fresh', h); }, []);
   // 笔记：收藏的在前，然后是最近改过的
   const notes = useMemo(() => { const pin = s.notes.filter((n) => n.pinned && !n.sticky); const rec = sortBy(s.notes.filter((n) => !n.sticky && !n.pinned && (n.title || n.body)), '-updated'); return [...pin, ...rec].slice(0, page ? 10 : 6); }, [s.notes]);
   const open = onOpen || ((id) => openMain('notes/' + id));
@@ -205,18 +255,30 @@ export function NoteView({ s, id, single, onBack }) {
       ${desk && html`<button type="button" class=${'sk-ib ' + (opOpen ? 'on' : '')} title="透明度" onClick=${() => setOpOpen(!opOpen)}><${Icon} name="eye" size=${14} /></button>`}
       ${desk && html`<button type="button" class=${'sk-ib ' + (pin ? 'on' : '')} title=${pin ? '取消置顶' : '置顶'} onClick=${() => window.sealonote.setPin(!pin).then(setPin)}><${Icon} name="tack" size=${14} /></button>`}
       ${!single && html`<button type="button" class="sk-ib" title="单独贴到桌面" onClick=${() => popNote(n.id)}><${Icon} name="external" size=${14} /></button>`}
+      ${single && n.sticky && html`<button type="button" class="sk-ib" title="再贴一张（Ctrl+N）" onClick=${() => newSticky({ pop: true })}><${Icon} name="plus" size=${14} /></button>`}
       <button type="button" class="sk-ib" title="更多" onClick=${menu}><${Icon} name="dots" size=${14} /></button>
       ${single && html`<button type="button" class="sk-ib" title="关闭（便利贴还在）" onClick=${close}><${Icon} name="x" size=${14} /></button>`}
     </div>
     ${opOpen && html`<div class="sk-op"><${Icon} name="eye" size=${13} /><input type="range" min="30" max="100" step="5" value=${Math.round(op * 100)} onInput=${(e) => { const v = +e.target.value / 100; setOp(v); window.sealonote.setOpacity(v); }} /><span>${Math.round(op * 100)}%</span></div>`}
+    <${PomoBar} />
     ${can ? html`<textarea class="nv-ta" value=${tx.text} placeholder="写点什么…" onFocus=${tx.onFocus} onBlur=${tx.onBlur} onInput=${tx.onInput}></textarea>`
       : html`<div class="nv-body">${n.title && !n.sticky && html`<h2 class="nv-h">${n.title}</h2>`}<${ReadBlocks} blocks=${n.blocks && n.blocks.length ? n.blocks : mdToBlocks(n.body)} /><button type="button" class="sk-more" onClick=${() => openMain('notes/' + n.id)}><${Icon} name="note" size=${12} />在笔记里编辑</button></div>`}
   </div>`;
 }
 
+// 便签窗口的快捷键：Ctrl/⌘+N 新的一张；没在打字时 Ctrl/⌘+V 把剪贴板里的文字贴成一张新便利贴
+let keysOn = false;
+export function stickyKeys() {
+  if (keysOn) return; keysOn = true;
+  const typing = (el) => el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  window.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'n') { e.preventDefault(); const c = newSticky({ pop: inSingle() }); if (!inSingle()) window.dispatchEvent(new CustomEvent('sticky:fresh', { detail: c.id })); } });
+  window.addEventListener('paste', (e) => { if (typing(document.activeElement)) return; const t = e.clipboardData && e.clipboardData.getData('text/plain'); if (!t || !t.trim()) return; e.preventDefault(); const c = newSticky({ text: t.trim(), pop: inSingle() }); toast('贴成了一张新便利贴'); if (!inSingle()) window.dispatchEvent(new CustomEvent('sticky:fresh', { detail: c.id })); });
+}
+
 /* ---------- 便签窗口（#/sticky）---------- */
 export default function Sticky() {
   const s = useStore(); const now = useNow();
+  useEffect(stickyKeys, []);
   const q = new URLSearchParams((location.hash.split('?')[1]) || '');
   const single = q.get('note');
   const [mode, setModeS] = useState(() => q.get('mode') || lsGet('ytos.stickyMode', 'today'));
@@ -248,6 +310,7 @@ export default function Sticky() {
       ${inApp() && html`<button type="button" class="sk-ib" title="收起便签（托盘里可以再打开）" onClick=${() => window.sealonote.hideSticky()}><${Icon} name="x" size=${14} /></button>`}
     </div>
     ${opOpen && html`<div class="sk-op"><${Icon} name="eye" size=${13} /><input type="range" min="30" max="100" step="5" value=${Math.round(op * 100)} onInput=${(e) => setOpacity(+e.target.value / 100)} /><span>${Math.round(op * 100)}%</span></div>`}
+    <${PomoBar} />
     <div class="sk-body">${mode === 'notes' ? html`<${NotesPane} s=${s} onOpen=${setView} />` : html`<${TodayPane} s=${s} now=${now} />`}</div>
   </div>`;
 }

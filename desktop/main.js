@@ -134,12 +134,14 @@ function showSticky() {
 function hideSticky() { if (sticky && !sticky.isDestroyed()) sticky.hide(); cfg.stickyOpen = false; saveCfg(); refreshTray(); }
 
 /* ---------- 单张便利贴 ---------- */
-function showNote(id) {
+function showNote(id, at) {
   if (!/^[\w-]{1,64}$/.test(id)) return;
-  const old = notes.get(id); if (old && !old.isDestroyed()) { old.show(); old.focus(); return; }
+  const at2 = at && Number.isFinite(+at.x) && Number.isFinite(+at.y) ? { x: Math.round(+at.x), y: Math.round(+at.y) } : null;
+  const old = notes.get(id); if (old && !old.isDestroyed()) { if (at2) old.setPosition(at2.x, at2.y); old.show(); old.focus(); return; }
   const n = cfg.notes[id] || {};
   const w = screen.getPrimaryDisplay().workArea; const k = notes.size;
-  const b = onScreen(n.b) ? n.b : { width: 280, height: 300, x: w.x + w.width - 640 - k * 24, y: w.y + 60 + k * 24 };
+  let b = onScreen(n.b) ? n.b : { width: 280, height: 300, x: w.x + w.width - 640 - k * 24, y: w.y + 60 + k * 24 };
+  if (at2) b = { ...b, ...at2 };
   const win = smallWin(b, { title: '便利贴 · Sealonote', minWidth: 200, minHeight: 140 });
   if (n.pin !== false) win.setAlwaysOnTop(true, 'floating');
   if (n.op) win.setOpacity(n.op);
@@ -190,7 +192,7 @@ function refreshTray() {
   ]));
 }
 function createTray() {
-  tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: MAC ? 18 : 16 }));
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'tray.png')).resize({ width: MAC ? 18 : 16, quality: 'best' }));
   tray.setToolTip('Sealonote');
   tray.on('click', () => { if (!MAC) showMain(); });
   refreshTray();
@@ -232,7 +234,7 @@ else {
     ipcMain.handle('sticky:setPin', (e, on) => { const id = noteOf(e); if (id) { cfg.notes[id] = { ...(cfg.notes[id] || {}), pin: !!on }; } else cfg.stickyPin = !!on; saveCfg(); setPin(winOf(e), on); refreshTray(); return !!on; });
     ipcMain.handle('sticky:getOpacity', (e) => { const id = noteOf(e); return (id ? (cfg.notes[id] || {}).op : cfg.stickyOpacity) || 1; });
     ipcMain.handle('sticky:setOpacity', (e, v) => { const o = Math.max(0.3, Math.min(1, Number(v) || 1)); const id = noteOf(e); if (id) cfg.notes[id] = { ...(cfg.notes[id] || {}), op: o }; else cfg.stickyOpacity = o; saveCfg(); const w = winOf(e); if (w) w.setOpacity(o); return o; });
-    ipcMain.handle('note:pop', (_e, id) => { showNote(String(id || '')); });
+    ipcMain.handle('note:pop', (_e, id, at) => { showNote(String(id || ''), at); });
     ipcMain.handle('ai:show', () => { showAI(); });
     ipcMain.handle('ai:getPin', () => !!cfg.aiPin);
     ipcMain.handle('ai:setPin', (_e, on) => { cfg.aiPin = !!on; saveCfg(); setPin(ai, on); return !!on; });

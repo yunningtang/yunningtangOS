@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('sealonote', {
   setPin: (on) => ipcRenderer.invoke('sticky:setPin', !!on),
   getOpacity: () => ipcRenderer.invoke('sticky:getOpacity'),
   setOpacity: (v) => ipcRenderer.invoke('sticky:setOpacity', Number(v)),
-  popNote: (id) => ipcRenderer.invoke('note:pop', String(id || '')),
+  popNote: (id, at) => ipcRenderer.invoke('note:pop', String(id || ''), at && { x: Number(at.x), y: Number(at.y) }),
   showAI: () => ipcRenderer.invoke('ai:show'),
   getAIPin: () => ipcRenderer.invoke('ai:getPin'),
   setAIPin: (on) => ipcRenderer.invoke('ai:setPin', !!on),

@@ -3,7 +3,7 @@
 import { html, useState } from '../../vendor/preact.js';
 import { upsert, toggleTodo } from '../store.js';
 import { Icon, Card } from '../ui.js';
-import { uid, todayStr, addDays, sortBy, weekKey, fmtShort } from '../util.js';
+import { uid, todayStr, addDays, sortBy, weekKey, fmtShort, PRIORITY } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { go, toast } from '../nav.js';
 import { doThis } from '../doing.js';
@@ -47,7 +47,7 @@ export function FocusCol({ s, date, label, sub, main, bare }) {
     ${!bare && html`<div class="fd-h"><b>${label}</b><small>${sub}</small>${list.length > 0 && html`<span class="fd-n">${done}/${list.length}</span>`}</div>`}
     <ol class="fd-list">
       ${list.map((t, i) => html`<li key=${t.id} class=${t.done ? 'done' : ''} onContextMenu=${(e) => menu(e, t)}>
-        <button type="button" class="fd-cb" title=${t.done ? '标为未完成' : '完成'} onClick=${() => toggleTodo(t.id)}>${t.done ? html`<${Icon} name="check" size=${11} />` : i + 1}</button>
+        <button type="button" class="fd-cb" style=${`--pc:${(PRIORITY[t.priority] || PRIORITY[2]).color}`} title=${t.done ? '标为未完成' : `完成 · ${(PRIORITY[t.priority] || PRIORITY[2]).label} ${(PRIORITY[t.priority] || PRIORITY[2]).name}`} onClick=${() => toggleTodo(t.id)}>${t.done ? html`<${Icon} name="check" size=${11} />` : i + 1}</button>
         <span class="fd-t" title=${t.title}>${t.title}${isMain(s, t) && html`<i class="q-tag">主线</i>`}</span>
         ${!t.done && main && html`<button type="button" class="fd-go" title="现在就做（放到专注）" onClick=${() => doThis(t)}><${Icon} name="play" size=${11} /></button>`}
         <button type="button" class="fd-more" title="更多" onClick=${(e) => menu(e, t)}><${Icon} name="dots" size=${13} /></button>

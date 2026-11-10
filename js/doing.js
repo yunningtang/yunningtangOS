@@ -6,7 +6,12 @@ export const doingOf = (s) => { const id = s.settings.doing; const t = id && s.t
 export const setDoing = (id) => update((d) => { d.settings.doing = id || ''; });
 export const setGoal = (id, goal) => upsert('todos', { id, goal: String(goal || '').trim().slice(0, 120) });
 // 从别处「做这件」：设成「正在做」，跳到专注页
-export function doThis(t) { setDoing(t.id); import('./nav.js').then(({ go }) => go('focus')); }
+export function doThis(t) {
+  setDoing(t.id);
+  // 便签 / 汤圆这些小窗口里：就地开始计时（窗口顶上出现番茄钟），不跳去专注页
+  if (typeof document !== 'undefined' && document.documentElement.classList.contains('is-bare')) { import('./steps.js').then(({ nextStep }) => { const ns = nextStep(t); startWork({ label: ns ? ns.title : t.title, todoId: t.id, stepId: ns ? ns.id : '', workLen: ns ? Math.max(5, Math.min(180, ns.minutes || 25)) : t.focusLen || 25 }, { toFocus: false }); }); return; }
+  import('./nav.js').then(({ go }) => go('focus'));
+}
 export const doingId = () => get().settings.doing || '';
 
 // 「开始这一步」：设成正在做，开始（或接着）计时。正在计时别的事就问一句，不直接打断

@@ -15,6 +15,7 @@ import { go } from '../nav.js';
 import { AvatarPicker } from './settings.js';
 import { NowWidget } from './now.js';
 import { PhotoWidget } from './photo.js';
+import { CountdownWidget } from './countdown.js';
 import { BrainCard } from './brain.js';
 import { DoingWidget } from './battle.js';
 import { SPAN, DEFAULT_LAYOUT, normLayout } from '../widgets.js';
@@ -186,6 +187,7 @@ export default function Dashboard() {
       <//>` },
     now: { title: '此刻', span: 1, el: html`<${NowWidget} />` },
     photo: { title: '图片', span: 1, el: html`<${PhotoWidget} />` },
+    countdown: { title: '倒计时', span: 1, el: html`<${CountdownWidget} />` },
     brain: { title: '今天的大脑', span: 1, el: html`<${BrainCard} s=${s} />` },
     money: { title: '钱包', span: 1, el: html`<${MoneyWidget} s=${s} />` },
     ai: { title: '汤圆的建议', span: 1, el: html`<${SuggestWidget} s=${s} />` },
