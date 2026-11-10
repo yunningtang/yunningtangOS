@@ -81,11 +81,11 @@ function metaOf(it, s) {
 }
 // 时间块对应哪条待办：标题一样（忽略大小写和空格）、没做完、这次还没用过；优先当天的，再是过期 / 没日期的
 const normT = (x) => String(x || '').toLowerCase().replace(/[\s「」"'“”]/g, '');
-function matchTodo(title, date, used) {
+function matchTodo(title, date, used, exact = false) {
   const k = normT(title); if (!k) return null;
   const all = get().todos.filter((x) => !x.done && !used.has(x.id));
   let c = all.filter((x) => normT(x.title) === k);
-  if (!c.length && k.length >= 4) c = all.filter((x) => { const y = normT(x.title); return y.length >= 4 && (y.includes(k) || k.includes(y)); });
+  if (!c.length && !exact && k.length >= 4) c = all.filter((x) => { const y = normT(x.title); return y.length >= 4 && (y.includes(k) || k.includes(y)); });
   const rank = (x) => (x.due === date ? 0 : !x.due || x.due < date ? 1 : 2);
   return c.sort((a, b) => rank(a) - rank(b) || String(a.time || '99').localeCompare(String(b.time || '99')))[0] || null;
 }
@@ -99,6 +99,11 @@ export function saveItems(items) {
   for (let it of items) {
     if (!it.on) continue;
     if (it.kind === 'todo' && it.upd) { const prev = get().todos.find((x) => x.id === it.upd); if (!prev) continue; const before = { id: prev.id, title: prev.title, due: prev.due || '', time: prev.time || '', priority: prev.priority }; upsert('todos', { id: prev.id, title: it.title, due: it.date, time: it.time, priority: it.priority }); last = 'todos?open=' + prev.id; undos.push(() => upsert('todos', before)); autoBlock(prev.id, undos); }
+    else if (it.kind === 'todo' && matchTodo(it.title, it.date, used, true)) {
+      const ex = matchTodo(it.title, it.date, used, true); used.add(ex.id); const before = { id: ex.id, due: ex.due || '', time: ex.time || '', priority: ex.priority };
+      upsert('todos', { id: ex.id, due: it.date || ex.due || '', time: it.time || ex.time || '', priority: Number.isInteger(it.priority) ? it.priority : ex.priority });
+      last = 'todos?open=' + ex.id; undos.push(() => upsert('todos', before)); autoBlock(ex.id, undos);
+    }
     else if (it.kind === 'todo') { const t = { id: uid(), title: it.title, done: false, priority: it.priority, due: it.date, time: it.time, tags: it.tags, area: '', note: it.body, created: todayStr() }; upsert('todos', t); last = 'todos?open=' + t.id; undos.push(() => remove('todos', t.id)); autoBlock(t.id, undos); }
     else if (it.kind === 'block') {
       // 排的是一件已有的待办（标题一样）：时间块挂到那条待办上，待办的日期 / 时间也改成这块的——待办列表、总览卡片、时间线是同一件事
