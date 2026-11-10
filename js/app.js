@@ -16,6 +16,7 @@ import Focus, { MiniPomo } from './views/focus.js';
 import Brain from './views/brain.js';
 import Money from './views/money.js';
 import Sticky, { keepSticky, popSticky, StickiesPage } from './views/sticky.js';
+import { WinControls, initDesktop } from './winctl.js';
 import { dueSoon, remindDue } from './money.js';
 import { unsortedCount } from './brain.js';
 import { SearchPalette, setSearchRoutes } from './search.js';
@@ -198,6 +199,7 @@ function App() {
         <${IconBtn} class="ibtn tb-sticky" icon="tack" title="桌面便签（今天的焦点和安排，小窗口）" onClick=${() => popSticky()} />
         <${IconBtn} class="ibtn" icon="search" title="搜索（⌘K）" onClick=${() => setSearch(true)} />
         <button class="theme-glass" onClick=${toggleTheme} title="切换主题"><${Icon} name="moon" class="is" size=${15} /><${Icon} name="sun" class="im" size=${15} /></button>
+        <${WinControls} />
       </header>
       <main key=${route.path} class="fi"><${View} route=${route} /></main>
     </div>
@@ -241,8 +243,8 @@ subscribe(() => { setExtraKinds(get().settings.kinds); setTagOverrides(get().set
   }, { capture: true, passive: true });
 })();
 // 桌面版：标题栏融进网页，右上角三个按钮的颜色跟着主题变
-if (window.sealonote) {
-  document.documentElement.classList.add('is-desktop');
+initDesktop();
+if (window.sealonote && !window.sealonote.win) {
   if (window.sealonote.setTitleBar) {
     const probe = document.createElement('i'); probe.style.cssText = 'position:fixed;width:0;height:0;visibility:hidden;background:var(--bg);color:var(--text-2)'; document.body.appendChild(probe);
     let last = '';
@@ -273,8 +275,18 @@ detectLogin().then(async (login) => {
   autoSync(subscribe);
 });
 // 便签窗口（#/sticky）：没有侧栏，只渲染便签；点到别的页面交给主窗口
-const STICKY = /^#\/sticky/.test(location.hash);
-if (STICKY) { document.documentElement.classList.add('is-sticky'); document.title = '便签 · Sealonote'; keepSticky(); }
-render(STICKY ? html`<${Sticky} />` : html`<${App} />`, document.getElementById('app'));
+// 汤圆单独窗口（#/seal）：只有对话
+const BARE = /^#\/sticky/.test(location.hash) ? 'sticky' : /^#\/seal(\?|$)/.test(location.hash) ? 'seal' : '';
+const STICKY = !!BARE;
+if (BARE) {
+  document.documentElement.classList.add('is-bare', BARE === 'sticky' ? 'is-sticky' : 'is-seal-win');
+  document.title = BARE === 'sticky' ? '便签 · Sealonote' : '汤圆 · Sealonote';
+  keepSticky(BARE === 'sticky' ? '#/sticky' : '#/seal');
+  // 没有 App 外壳，主题要自己跟上（深浅色 / 风格改了，这些小窗口也跟着变）
+  const themeNow = () => { const st = get().settings; applyTheme(st.theme, st.skin || 'notion', st.fx || 'lite', st.sealGlow !== false, st.sealAccent || 'none'); };
+  themeNow(); let tk = ''; subscribe(() => { const st = get().settings; const k = [st.theme, st.skin, st.fx, st.sealGlow, st.sealAccent].join('|'); if (k !== tk) { tk = k; themeNow(); } });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeNow);
+}
+render(BARE === 'seal' ? html`<${Seal} standalone />` : BARE ? html`<${Sticky} />` : html`<${App} />`, document.getElementById('app'));
 // 订阅扣费前提醒：打开网站几秒后看一眼（同步拉到最新的再提醒），每个订阅每天只提醒一次
 if (!STICKY) setTimeout(() => { try { remindDue(toast, go); } catch {} }, 4000);

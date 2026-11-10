@@ -89,3 +89,13 @@ export function dismissReview() { st = { ...st, review: null }; save(); emit(); 
 // 多个标签页共用一个计时器：别的标签页改了就跟上，不然这边旧的状态会把那边正在跑的一轮盖掉
 try { addEventListener('storage', (e) => { if (e.key === KEY) { st = load(); emit(); schedule(); } }); } catch {}
 schedule();
+
+// 从待办 / 步骤 / 卡片上点「开始」：正在计时的就是这件事 → 接着计时，只把这一轮的标签换成这一步；
+// 正在计时别的事 → 不打断，返回 'busy'，由调用方问一句要不要换。返回 'started' | 'continued' | 'busy'
+export function begin(opts = {}) {
+  if (st.phase === 'work') {
+    if (opts.todoId && opts.todoId === st.todoId) { st = { ...st, label: opts.label || st.label, stepId: opts.stepId ?? st.stepId, goal: opts.goal ?? st.goal }; save(); emit(); return 'continued'; }
+    return 'busy';
+  }
+  start(opts); return 'started';
+}

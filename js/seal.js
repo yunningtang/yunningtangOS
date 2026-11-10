@@ -20,6 +20,7 @@ import { stepsOf, addSteps, clampMin } from './steps.js';
 import { go, toast } from './nav.js';
 import { REASONS as STUCK_REASONS, getHelp, feedback as stuckFeedback, addSteps as stuckAddSteps, toStress } from './views/stuck.js';
 import { loadThree, buildSeal } from './seal3d.js';
+import { WinControls } from './winctl.js';
 export { loadThree, buildSeal };
 
 const S = 88, M = 18; // fab size / margin
@@ -159,20 +160,25 @@ const HINTS = [
   { i: 'clock', h: '排进今天的时间线', d: '避开已有安排', t: '帮我安排一下：下午写周报、跑步、整理书桌', k: ['时间块'] },
 ];
 // 头部的小头像：一只简笔海豹
-const AVATAR = html`<svg class="seal-ava" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="18" rx="12" ry="10" fill="#e9edf3"/><ellipse cx="16" cy="17" rx="9.5" ry="7.5" fill="#f7f8fa"/><circle cx="12" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="20" cy="15.5" r="1.5" fill="#2b2f36"/><circle cx="12.5" cy="15" r=".5" fill="#fff"/><circle cx="20.5" cy="15" r=".5" fill="#fff"/><ellipse cx="16" cy="19.2" rx="1.6" ry="1.1" fill="#0b0b0d"/><path d="M14.6 20.6q1.4 1.2 2.8 0" stroke="#0b0b0d" stroke-width=".9" fill="none" stroke-linecap="round"/></svg>`;
+// 3D 模型画不出来（没有 WebGL）时用的静态图：同一只 3D 汤圆预先渲染好的
+const AVATAR = html`<img class="seal-ava" src="assets/seal-face.png" alt="汤圆" draggable="false" />`;
+const HERO = 'assets/seal-hero.png';
 
 /* ---------------- 组件 ---------------- */
-export function Seal({ ghost = false } = {}) {
+export function Seal({ ghost = false, standalone = false } = {}) {
   const s = useStore();
   const fabRef = useRef(), cvRef = useRef(), panelRef = useRef(), inRef = useRef(), msgsRef = useRef();
   const api = useRef({});           // imperative hooks exposed by the effect: { toggle, happy, flap }
-  const [open, setOpen] = useState(false);
+  // standalone：单独的汤圆窗口（#/seal）—— 一直开着、占满窗口，没有角落里的汤圆
+  const [open, setOpen0] = useState(standalone);
+  const setOpen = standalone ? () => {} : setOpen0;
   const [msgs, setMsgs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [txt, setTxt] = useState('');
   const [badge, setBadge] = useState(0);
   const [threads, setThreads] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.threads') || '[]'); } catch { return []; } });
   const [tid, setTid] = useState(() => uid());
+  useEffect(() => { const h = (e) => { if (e.key === 'ytos.seal.threads') { try { setThreads(JSON.parse(e.newValue || '[]')); } catch {} } }; window.addEventListener('storage', h); return () => window.removeEventListener('storage', h); }, []);
   // 汤圆新说的话逐字浮现；打开历史对话、切换对话时已有的消息不重放
   const seenMsgs = useRef({ tid: null, ids: new Set() });
   useEffect(() => {
@@ -181,9 +187,11 @@ export function Seal({ ghost = false } = {}) {
     msgs.forEach((m) => { if (seen.ids.has(m.id)) return; seen.ids.add(m.id); if (m.who === 'bot' && m.text) revealText(document.querySelector(`.sm[data-mid="${m.id}"] .sm-t`)); });
   }, [msgs, tid]);
   const [view, setView] = useState('chat');      // chat | history
-  const [mode, setMode] = useState(() => { try { return localStorage.getItem('ytos.seal.mode') || ''; } catch { return ''; } }); // '' 浮窗 | big 展开 | full 最大化
+  const [mode, setMode] = useState(() => { if (standalone) return 'full'; try { return localStorage.getItem('ytos.seal.mode') || ''; } catch { return ''; } }); // '' 浮窗 | big 展开 | full 最大化
   const big = !!mode;
-  const setModeKeep = (m) => { setMode(m); try { localStorage.setItem('ytos.seal.mode', m); } catch {} };
+  const setModeKeep = (m) => { if (standalone) return; setMode(m); try { localStorage.setItem('ytos.seal.mode', m); } catch {} };
+  // 桌面版：「全屏」改成单独开一个汤圆窗口；网页版：弹一个小窗口
+  const popOut = () => { if (window.sealonote && window.sealonote.showAI) window.sealonote.showAI(); else window.open(location.pathname + '#/seal', 'sealonote-ai', 'popup=yes,width=560,height=760'); setOpen(false); };
   // 尺寸按模式各记一份：浮窗一份、展开一份
   const [sizes, setSizes] = useState(() => { try { const v = JSON.parse(localStorage.getItem('ytos.seal.size2') || 'null'); if (v) return v; const old = JSON.parse(localStorage.getItem('ytos.seal.size') || 'null'); return old ? { float: old } : {}; } catch { return {}; } });
   const modeKey = mode === 'big' ? 'big' : 'float';
@@ -228,7 +236,7 @@ export function Seal({ ghost = false } = {}) {
   ], '提示词');
   const heroRef = useRef();
   const nogl = !!(fabRef.current && fabRef.current.classList.contains('nogl'));
-  const docked = !!mode && open && view === 'chat' && msgs.length === 0 && !nogl;
+  const docked = !standalone && !!mode && open && view === 'chat' && msgs.length === 0 && !nogl;
   useEffect(() => { document.body.classList.toggle('sp-cover', !!mode && open && !docked); document.body.classList.toggle('sp-full', mode === 'full' && open); return () => document.body.classList.remove('sp-cover', 'sp-full'); }, [mode, open, docked]); // 对话框盖满屏幕时角落里的汤圆不再压在上面
   useEffect(() => { api.current.dockEl = docked ? heroRef.current : null; return () => { api.current.dockEl = null; }; }, [docked, mode, open, view, msgs.length]);
   const [pinnedPos, setPinnedPos] = useState(() => { try { return JSON.parse(localStorage.getItem('ytos.seal.panelpos') || 'null'); } catch { return null; } });
@@ -748,9 +756,12 @@ export function Seal({ ghost = false } = {}) {
     <span class="flex1"></span>
     ${view === 'chat' && html`<button class=${'ibtn seal-histbtn ' + (threads.length ? '' : 'dim')} title="历史对话" onClick=${() => setView('history')}><${Icon} name="clock" size=${15} /></button>`}
     ${view === 'chat' && msgs.length > 0 && html`<button class="ibtn" title="新对话" onClick=${newThread}><${Icon} name="plus" size=${15} /></button>`}
-    ${mode !== 'full' && html`<button class="ibtn seal-big" title=${mode === 'big' ? '恢复浮窗' : '展开'} onClick=${() => setModeKeep(mode === 'big' ? '' : 'big')}><${Icon} name=${mode === 'big' ? 'minus' : 'maximize'} size=${15} /></button>`}
-    <button class="ibtn seal-full" title=${mode === 'full' ? '退出全屏' : '全屏'} onClick=${() => setModeKeep(mode === 'full' ? 'big' : 'full')}><${Icon} name=${mode === 'full' ? 'minus' : 'frame'} size=${15} /></button>
-    <button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button>
+    ${!standalone && mode !== 'full' && html`<button class="ibtn seal-big" title=${mode === 'big' ? '恢复浮窗' : '展开'} onClick=${() => setModeKeep(mode === 'big' ? '' : 'big')}><${Icon} name=${mode === 'big' ? 'minus' : 'maximize'} size=${15} /></button>`}
+    ${!standalone && (window.sealonote && window.sealonote.showAI ? html`<button class="ibtn seal-full" title="在单独的窗口里打开" onClick=${popOut}><${Icon} name="external" size=${15} /></button>`
+      : html`<button class="ibtn seal-full" title=${mode === 'full' ? '退出全屏' : '全屏'} onClick=${() => setModeKeep(mode === 'full' ? 'big' : 'full')}><${Icon} name=${mode === 'full' ? 'minus' : 'frame'} size=${15} /></button>`)}
+    ${!standalone && !(window.sealonote && window.sealonote.showAI) && html`<button class="ibtn" title="单独一个小窗口" onClick=${popOut}><${Icon} name="external" size=${15} /></button>`}
+    ${!standalone && html`<button class="ibtn" title="关闭" onClick=${() => setOpen(false)}><${Icon} name="x" size=${15} /></button>`}
+    ${standalone && html`<${WinControls} cls="in-seal" />`}
     </div>
   </div>
   `;
@@ -792,7 +803,7 @@ export function Seal({ ghost = false } = {}) {
         </div>`)}
       </div></div>` : html`<div class="seal-msgs" ref=${msgsRef} onScroll=${(e) => { const on = e.currentTarget.scrollTop > 4; if (on !== scrolledRef.current) { scrolledRef.current = on; setScrolled(on); } }}><div class="seal-col">
         ${msgs.length === 0 && html`<div class="seal-intro">
-            <div class=${'seal-hero ' + (docked ? 'docked' : '')} ref=${heroRef}>${hero ? html`<img src=${hero} alt="汤圆" draggable="false" />` : AVATAR}</div>
+            <div class=${'seal-hero ' + (docked ? 'docked' : '')} ref=${heroRef}><img src=${hero || HERO} alt="汤圆" draggable="false" /></div>
             <h3>${greeting()}，${(sRef.current.profile && sRef.current.profile.name) || '妈妈'}。今天想做点什么？</h3>
             <p>说一句话，我帮你记下、拆开、排进时间线。<span class="si-more">你确认了才会写进去。</span></p>
             ${big && composer}

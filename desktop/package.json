@@ -1,7 +1,7 @@
 {
   "name": "sealonote-desktop",
   "productName": "Sealonote",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Sealonote 桌面版：和网页版同一个账号、同一份数据，外加可以贴在桌面上的便签",
   "author": "yunningtang",
   "license": "UNLICENSED",

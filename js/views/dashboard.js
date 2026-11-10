@@ -21,6 +21,9 @@ import { SPAN, DEFAULT_LAYOUT, normLayout } from '../widgets.js';
 import { dailySuggestions } from '../prompts.js';
 import { lsGet, lsSet } from '../util.js';
 import { MoneyWidget } from './money.js';
+import { scheduleTodo, unscheduledParts } from '../schedule.js';
+import { get } from '../store.js';
+import { toast } from '../nav.js';
 import { FocusDaysWidget } from './daily.js';
 import { focusFor, usePomoLive, focusLabel, focusMenu, FocusBar } from '../focusline.js';
 
@@ -188,6 +191,9 @@ export default function Dashboard() {
     ai: { title: '汤圆的建议', span: 1, el: html`<${SuggestWidget} s=${s} />` },
     timeline: { title: '今天', span: 1, el: html`<${Card} class="tl-card">
         <div class="card-h"><h3>今天 <span class="muted small">${[blocks0.length && blocks0.length + ' 个时间块', checks0.length && checks0.length + ' 个检查点'].filter(Boolean).join(' · ')}</span></h3><div class="card-act"><a class="ibtn" href="#/plan/day" title="编辑"><${Icon} name="plus" size=${15} /></a></div></div>
+        ${(() => { const un = s.todos.filter((x) => !x.done && x.due === today && x.time && unscheduledParts(x, today, s).length); if (!un.length) return null;
+          const all = () => { let n = 0; un.sort((a2, b2) => (a2.time || '').localeCompare(b2.time || '')).forEach((x) => { n += scheduleTodo(get().todos.find((y) => y.id === x.id) || x, today).n; }); toast(n ? `排进了 ${n} 段` : '今天剩下的时间排不下了'); };
+          return html`<div class="tl-sync"><${Icon} name="checksq" size=${13} /><span>${un.length} 件待办定了时间，还没在时间线上</span><button type="button" onClick=${all}>排进去</button></div>`; })()}
         <div class="mini-tl-wrap" ref=${tlRef} onScroll=${onTlScroll}>
         <div class="mini-tl" onContextMenu=${(e) => { if (e.target.closest('.mt-b, .ck')) return; const r = e.currentTarget.getBoundingClientRect(); const min = Math.max(from * 60, Math.min(to * 60 - 15, from * 60 + Math.floor(((e.clientY - r.top) / hourH) * 60 / 15) * 15)); slotMenu(e, { date: today, min, onCreate: (t, k) => setBlk({ start: t, kind: k || '' }) }); }} style=${`height:${Math.max((to - from) * hourH, ...laid.map((it) => it.top + it.h + 6))}px`}>
           ${Array.from({ length: to - from }, (_, i) => html`<div class="mt-h" style=${`top:${i * hourH}px`}>${Math.abs(i * hourH - y(nowMin)) > 12 && html`<span>${pad(from + i)}:00</span>`}</div>`)}

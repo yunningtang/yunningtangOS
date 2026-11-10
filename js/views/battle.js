@@ -8,7 +8,7 @@ import * as pomo from '../pomo.js';
 import { nextStep, clampMin, stepsProgress, toggleStep } from '../steps.js';
 import { StepList } from './todos.js';
 import { openStuck } from './stuck.js';
-import { setGoal, setDoing } from '../doing.js';
+import { setGoal, setDoing, startWork } from '../doing.js';
 import { brainOf } from '../brain.js';
 import { questOf, mainFirst } from '../quest.js';
 import { useStore } from '../store.js';
@@ -27,7 +27,7 @@ export function BattleCard({ t, label = '正在做', onEdit, onPick = null, big 
   const was = useRef(allDone); const [party, setParty] = useState(false);
   useEffect(() => { if (allDone && !was.current) { setParty(true); const tm = setTimeout(() => setParty(false), 1600); was.current = allDone; return () => clearTimeout(tm); } was.current = allDone; }, [allDone]);
   const saveGoal = () => { setEditing(false); if ((v || '').trim() !== (t.goal || '')) setGoal(t.id, v); };
-  const startStep = () => { pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title}`, { label: '去专注', onClick: () => go('focus') }); };
+  const startStep = () => startWork({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) });
   const finish = () => { doneToast(s, t); toggleTodo(t.id); setDoing(''); };
   const nextGoal = () => { setGoal(t.id, ''); setV(''); setEditing(true); };
   const breakdown = () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t }));
@@ -73,7 +73,7 @@ export function DoingWidget({ s, Timer, Card }) {
     <//>`;
   }
   const sp = stepsProgress(t); const ns = nextStep(t); const allDone = sp.total > 0 && !ns;
-  const startStep = () => { pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); };
+  const startStep = () => startWork({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }, { toFocus: false });
   const finish = () => { doneToast(s, t); toggleTodo(t.id); setDoing(''); };
   return html`<${Card} class="dw">
     <div class="card-h"><h3>正在做</h3><div class="card-act"><a class="ibtn" href="#/focus" title="去专注页看全部"><${Icon} name="right" size=${15} /></a></div></div>

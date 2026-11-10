@@ -4,7 +4,8 @@ import { Icon, IconBtn, Btn, Card, Modal, Field, Tag, Empty, TagInput, Seg, conf
 import { uid, todayStr, addDays, relDay, PRIORITY, AREAS, sortBy, fmtShort, lsGet, lsSet, pad, weekStart, timeToMin, minToTime } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { brainMenu, stepCat, stepRegionItems } from '../brain.js';
-import { doThis } from '../doing.js';
+import { doThis, startWork } from '../doing.js';
+import { scheduleTodo, unscheduledParts } from '../schedule.js';
 import { focusMenuItem } from './daily.js';
 import { goalMenu } from '../quest.js';
 import { askConfirm, askDate, askPrompt } from '../confirm.js';
@@ -134,6 +135,7 @@ export function todoMenu(t, onEdit) {
     !t.done && { label: '做这件', icon: 'target', hint: '放到专注', onClick: () => doThis(t) },
     focusMenuItem(get(), t),
     { label: '开始专注', icon: 'clock', onClick: () => go('focus?todo=' + t.id) },
+    !t.done && (() => { const n = unscheduledParts(t).length; const steps = stepsOf(t).filter((x) => !x.done).length; return { label: '排进今天的时间线', icon: 'calendar', disabled: !n, hint: !n ? '已经排好了' : steps ? `${n} 步，按顺序排` : '', onClick: () => { const r = scheduleTodo(t); toast(r.n ? `排进了今天 ${r.first}–${r.last}${r.n > 1 ? `（${r.n} 段）` : ''}${r.left ? `，还有 ${r.left} 步今天排不下` : ''}` : '今天剩下的时间排不下了', r.n ? { label: '去看看', onClick: () => go('plan/day') } : undefined); } }; })(),
     { label: '笔记页', icon: 'note', onClick: () => todoPage(t) },
     !t.done && { label: '卡住了…', icon: 'chat', hint: '问汤圆', onClick: () => window.dispatchEvent(new CustomEvent('stuck:open', { detail: t.id })) },
     !t.done && { label: '拆解成步骤', icon: 'sparkle', hint: '汤圆', onClick: () => window.dispatchEvent(new CustomEvent('seal:breakdown', { detail: t })) },
@@ -169,7 +171,7 @@ function stepMenu(e, t, x) {
     { label: '删除这一步', icon: 'trash', danger: true, onClick: () => removeStep(t.id, x.id) },
   ], x.title);
 }
-export const startStep = (t, x) => { pomo.start({ label: x.title, todoId: t.id, stepId: x.id, workLen: x.minutes || 25, breakLen: Math.max(3, Math.round((x.minutes || 25) / 5)) }); toast(`开始：${x.title} · ${x.minutes || 25} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
+export const startStep = (t, x) => startWork({ label: x.title, todoId: t.id, stepId: x.id, workLen: x.minutes || 25, breakLen: Math.max(3, Math.round((x.minutes || 25) / 5)) });
 export function StepList({ t, autoAdd = false, hideCat = null }) {
   const steps = stepsOf(t);
   const [adding, setAdding] = useState(autoAdd); const [v, setV] = useState('');
@@ -215,7 +217,7 @@ export const nestProps = (t) => (t.done ? {} : {
 // 下一步：第一个没做完的步骤，一行：勾选框（直接勾掉，下一步自动顶上来）+ 是什么 + 多久 + ▶ 开始 + 「1/8」点开看全部。列表和看板共用
 export function NextLine({ t, open, onToggle }) {
   const ns = !t.done && nextStep(t); if (!ns) return null; const sp = stepsProgress(t);
-  const startStep = (e) => { e.stopPropagation(); pomo.start({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); toast(`开始：${ns.title} · ${clampMin(ns.minutes)} 分钟`, { label: '去专注', onClick: () => go('focus') }); };
+  const startStep = (e) => { e.stopPropagation(); startWork({ label: ns.title, todoId: t.id, stepId: ns.id, workLen: clampMin(ns.minutes) }); };
   const tog = (e) => { e.stopPropagation(); onToggle && onToggle(); };
   return html`<div class="nxt" onClick=${(e) => e.stopPropagation()}>
     <button type="button" class="nxt-cb" title="这一步做完了" aria-label="完成这一步" onClick=${(e) => { e.stopPropagation(); toggleStep(t.id, ns.id); }}><${Icon} name="check" size=${9} /></button>
