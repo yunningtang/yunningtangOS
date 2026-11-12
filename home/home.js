@@ -78,7 +78,7 @@ function liveSeal(stage, size = 210) {
 }
 
 const hero = liveSeal($('#sealHero'));
-liveSeal($('#sealJoin'));
+
 
 const bubble = $('#bubble');
 let bubT = 0;
