@@ -17,6 +17,7 @@ import Brain from './views/brain.js';
 import Money from './views/money.js';
 import Sticky, { keepSticky, popSticky, StickiesPage } from './views/sticky.js';
 import { WinControls, initDesktop } from './winctl.js';
+import { initI18n, getLang, setLang } from './i18n.js';
 import { CountdownPage } from './views/countdown.js';
 import { dueSoon, remindDue } from './money.js';
 import { unsortedCount } from './brain.js';
@@ -289,6 +290,7 @@ if (BARE) {
   themeNow(); let tk = ''; subscribe(() => { const st = get().settings; const k = [st.theme, st.skin, st.fx, st.sealGlow, st.sealAccent].join('|'); if (k !== tk) { tk = k; themeNow(); } });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeNow);
 }
+await initI18n(); // 英文界面：先把词典准备好，免得先闪一下中文
 render(BARE === 'seal' ? html`<${Seal} standalone />` : BARE ? html`<${Sticky} />` : html`<${App} />`, document.getElementById('app'));
 // 过了半夜（桌面版、标签页一直开着）：「今天」换了，整个界面重新算一遍——没在打字时直接刷新；窗口重新回到前台时也看一眼
 (() => {

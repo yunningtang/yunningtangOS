@@ -1,4 +1,5 @@
 // "此刻" dashboard widget: live clock, where you are, and the weather there.
+import { mdLabel } from '../util.js';
 import { html, useState, useEffect, useRef } from '../../vendor/preact.js';
 import { useStore, update } from '../store.js';
 import { Icon, Card, Btn } from '../ui.js';
@@ -87,7 +88,7 @@ export function NowWidget() {
     ${scene && html`<${Sky} kind=${scene} sunX=${sunX} sunY=${sunY} />`}
     <div class="now-in">
       <div class="now-head">
-        <div class="now-clock"><b>${hh}:${mm}</b><small>${ss}</small><div class="now-date">${now.getMonth() + 1}月${now.getDate()}日 周${WD[now.getDay()]}</div></div>
+        <div class="now-clock"><b>${hh}:${mm}</b><small>${ss}</small><div class="now-date">${mdLabel(now, true)}</div></div>
         ${!search && placeBtn}
       </div>
       ${search && html`<div class="now-msg now-search">

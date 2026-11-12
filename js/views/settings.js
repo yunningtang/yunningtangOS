@@ -1,6 +1,7 @@
 import { html, useState, useEffect } from '../../vendor/preact.js';
 import { useStore, update, replace, exportJSON, blank, get } from '../store.js';
 import { WIDGETS, normLayout, toggleWidget } from '../widgets.js';
+import { getLang, setLang } from '../i18n.js';
 import { Icon, Btn, Card, Field, Seg, Modal, confirmDel } from '../ui.js';
 import { download, readFile, todayStr, pickFile, imageToSquare } from '../util.js';
 import { push, pull, smartSync, guarded, loginState, detectLogin, status as syncStatus, findUnusedAttachments, deleteAttachments, cloudHistory, restoreVersion } from '../sync.js';
@@ -277,6 +278,7 @@ export default function Settings() {
     </div>`,
     look: () => html`<${Page} title="外观" sub="颜色、主题和质感">
       <${Group}>
+        <${Row} icon="globe" label="语言 / Language" hint="只换界面上的字，你写的内容不变"><${Seg} options=${[{ v: 'zh', label: '中文' }, { v: 'en', label: 'English' }]} value=${getLang()} onChange=${(v) => v !== getLang() && setLang(v)} /><//>
         <${Row} icon="moon" label="深浅色"><${Seg} options=${[{ v: 'auto', label: '跟随系统' }, { v: 'light', label: '浅色' }, { v: 'dark', label: '深色' }]} value=${s.settings.theme} onChange=${(v) => update((d) => { d.settings.theme = v; })} /><//>
         <${Row} icon="layers" label="主题" stack>
           <div class="skin-pick" onMouseLeave=${() => previewSkin('')}>${skins.map((k) => html`<button type="button" key=${k.v} class=${'skin-opt ' + ((s.settings.skin || 'notion') === k.v ? 'on' : '')} onMouseEnter=${() => previewSkin(k.v)} onFocus=${() => previewSkin(k.v)} onBlur=${() => previewSkin('')} onClick=${() => { previewSkin(''); update((d) => { d.settings.skin = k.v; }); }}>

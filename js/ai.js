@@ -27,6 +27,7 @@ export function hasKey(provider) { return !!aiConfig().keys[provider]; }
 export function aiHeaders() {
   const c = aiConfig(); const h = {};
   if (c.provider !== 'server' && c.key) { h['x-ai-provider'] = c.provider; h['x-ai-key'] = c.key; if (c.model) h['x-ai-model'] = c.model; }
+  try { if (localStorage.getItem('ytos.lang') === 'en' || (!localStorage.getItem('ytos.lang') && !/^zh/i.test(navigator.language || ''))) h['x-lang'] = 'en'; } catch {}
   return h;
 }
 // 能不能用 AI：服务器配了，或者本机填了密钥；都要先登录

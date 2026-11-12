@@ -3,6 +3,7 @@ import { useStore, toggleTodo, update, removeUndo } from '../store.js';
 import { usePomo, PomoCard } from './focus.js';
 import * as pomo from '../pomo.js';
 import { Icon, Card, Btn, Tag, Empty, Progress, useClock } from '../ui.js';
+import { mdLabel } from '../util.js';
 import { uid, todayStr, greeting, WEEKDAY_SUN, monthKey, sortBy, timeToMin, kindColor, weekKey, weekStart, weekDays, addDays, parseDate, pad, BLOCK_KINDS, fmtShort } from '../util.js';
 import { TodoModal, QuickAdd, todoMenu, TodoItem, moveOverdueToday } from './todos.js';
 import { ctxMenu } from '../ctx.js';
@@ -182,7 +183,7 @@ export default function Dashboard() {
   const W = {
     profile: { title: '个人', span: 2, el: html`<${Card} class="profile">
         <${AvatarPicker} size=${60} class="big" />
-        <div class="flex1"><div class="p-name">${greeting(now)}，${s.profile.name}</div><div class="p-sub">${s.profile.motto} · ${now.getMonth() + 1}月${now.getDate()}日 ${WEEKDAY_SUN[now.getDay()]} · ${weekKey()}</div></div>
+        <div class="flex1"><div class="p-name">${greeting(now)}，${s.profile.name}</div><div class="p-sub">${s.profile.motto} · ${mdLabel(now, true)} · ${weekKey()}</div></div>
         <button class=${'btn ghost sm ' + (custom ? 'on' : '')} onClick=${() => setCustom(!custom)}><${Icon} name="grid" size=${14} /> ${custom ? '完成' : '自定义'}</button>
       <//>` },
     now: { title: '此刻', span: 1, el: html`<${NowWidget} />` },

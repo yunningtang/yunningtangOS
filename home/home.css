@@ -245,3 +245,6 @@ footer a:hover { color: var(--ink); }
   *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
   [data-reveal], .ev { opacity: 1; transform: none; }
 }
+
+.nav .lang-btn { border: 0; background: none; padding: 4px 8px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .02em; cursor: pointer; }
+.nav .lang-btn:hover { background: rgba(0,0,0,.05); }

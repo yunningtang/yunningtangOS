@@ -1,4 +1,5 @@
 import { html, useState, useMemo, useEffect, useRef, Component } from '../../vendor/preact.js';
+import { mdLabel, enUI } from '../util.js';
 import { marked } from '../../vendor/marked.js';
 import { useStore, upsert, remove, update, get } from '../store.js';
 import { Icon, IconBtn, Btn, Card, Tag, Empty, Seg, TagInput, confirmDel, Modal, Field , tagMenu, colorSub } from '../ui.js';
@@ -392,7 +393,7 @@ function MetaLine({ note, notes, notebooks, words, onMove, backlinks = 0 }) {
     ${note.review ? html`<button class=${'mchip prop rv ' + reviewState(note)} title=${`回看 ${note.review} · 点击改日期`} onClick=${(e) => reviewMenu(e, note)}><${Icon} name="refresh" size=${11} />${reviewLabel(note)}</button>`
       : html`<button class="mchip ghost" title="哪天回看这一页：到了那天它会浮到列表最上面提醒你" onClick=${(e) => reviewMenu(e, note)}><${Icon} name="refresh" size=${11} /> 回看</button>`}
     ${backlinks > 0 && html`<button class="mchip prop" title="有 ${backlinks} 页链接到这里，点击查看" onClick=${() => { const el = document.querySelector('.links-sec'); el && el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><${Icon} name="link" size=${11} />${backlinks} 反向链接</button>`}
-    <span class=${'mdate ' + (saved ? 'saved' : '')} title=${tip}>${saved ? '已保存 ✓' : `${upd.getMonth() + 1}月${upd.getDate()}日 · ${words} 字`}</span>
+    <span class=${'mdate ' + (saved ? 'saved' : '')} title=${tip}>${saved ? '已保存 ✓' : `${mdLabel(upd)} · ${words} ${enUI() ? 'words' : '字'}`}</span>
     ${note.ref && html`<a class="mchip src" href=${'#/' + ({ book: 'reading?open=', trip: 'explore?sel=', todo: 'todos?open=', goal: 'plan/month?open=' }[note.ref.split(':')[0]] || '') + note.ref.split(':')[1]}><${Icon} name=${{ book: 'book', trip: 'pin', todo: 'checksq', goal: 'target' }[note.ref.split(':')[0]] || 'link'} size=${11} /> 来自${refLabel(note.ref)}</a>`}
   </div>`;
 }

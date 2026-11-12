@@ -1,5 +1,13 @@
 // 官网：3D 汤圆 + 首屏对话演示 + 各区块的小动画。只用 App 的 seal3d.js，不读写任何数据。
 import { loadThree, buildSeal } from '/js/seal3d.js';
+import { initI18n, getLang, setLang } from '/js/i18n.js';
+
+// 语言：和 App 共用一个选择。英文时把页面上的字换成英文（词典在 i18n-home.js）
+{ const b = document.getElementById('langBtn'); if (b) { b.textContent = getLang() === 'en' ? '中文' : 'EN'; b.addEventListener('click', () => setLang(getLang() === 'en' ? 'zh' : 'en')); } }
+let HOME_EN = null;
+if (getLang() === 'en') { HOME_EN = (await import('/home/i18n-home.js')).HOME; await initI18n(HOME_EN); }
+// 逐字打出来的演示句子：先整句换成英文再打（一个字一个字的时候词典认不出来）
+const T = (s) => (HOME_EN && HOME_EN[s]) || s;
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -66,7 +74,7 @@ liveSeal($('#sealJoin'));
 
 const bubble = $('#bubble');
 let bubT = 0;
-const say = (t) => { bubble.textContent = t; bubble.classList.add('on'); clearTimeout(bubT); bubT = setTimeout(() => bubble.classList.remove('on'), 2200); };
+const say = (t) => { bubble.textContent = T(t); bubble.classList.add('on'); clearTimeout(bubT); bubT = setTimeout(() => bubble.classList.remove('on'), 2200); };
 const hellos = ['嗨，我是汤圆', '今天想做点什么？', '说一句话就行', '我先写草稿，你来定'];
 let hi = 0;
 $('#sealHero').addEventListener('click', () => say(hellos[hi++ % hellos.length]));
@@ -74,7 +82,7 @@ setTimeout(() => say(hellos[hi++]), 1400);
 
 /* ---------- 标题逐字出现 ---------- */
 const h1 = $('#h1');
-if (!still) h1.innerHTML = [...h1.textContent].map((c, i) => `<span class="ch" style="--i:${i}">${c}</span>`).join('');
+if (!still) { const parts = HOME_EN ? h1.textContent.split(/(\s+)/) : [...h1.textContent]; let i = 0; h1.innerHTML = parts.map((c) => (/^\s+$/.test(c) ? ' ' : `<span class="ch" style="--i:${i++}">${c}</span>`)).join(''); }
 
 /* ---------- 首屏对话演示 ---------- */
 const MODES = {
@@ -92,9 +100,9 @@ function show(m, fromUser) {
   $$('[data-mode]').forEach((b) => { const on = b.dataset.mode === m; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
   $$('.pane').forEach((d) => { d.hidden = true; });
   $('#thinking').hidden = false;
-  kind.textContent = MODES[m].k;
-  const full = MODES[m].p;
-  if (fromUser) { hero.hop(); say(MODES[m].s); }
+  kind.textContent = T(MODES[m].k);
+  const full = T(MODES[m].p);
+  if (fromUser) { hero.hop(); say(T(MODES[m].s)); }
   const reveal = () => { $('#thinking').hidden = true; $(`.pane[data-show="${m}"]`).hidden = false; scheduleNext(); };
   if (still) { typed.textContent = full; reveal(); return; }
   let n = 0; typed.textContent = '';

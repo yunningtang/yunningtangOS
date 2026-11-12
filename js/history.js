@@ -1,5 +1,6 @@
 // 页面的历史版本：存在本机 IndexedDB（不进同步数据），每页最多 40 个快照。
 // 连续编辑 5 分钟内算同一个版本（滚动覆盖），隔开 5 分钟再改就留一个新快照；恢复前会先把当前内容存一份。
+import { mdLabel } from './util.js';
 import { kvGet, kvSet } from './files.js';
 import { upsert } from './store.js';
 import { nowISO } from './util.js';
@@ -24,4 +25,4 @@ export async function restoreSnapshot(note, snap) {
   await snapshot(note, true);
   upsert('notes', { id: note.id, body: snap.body, blocks: snap.blocks || [], updated: nowISO() });
 }
-export const fmtSnapTime = (at) => { const d = new Date(at); return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+export const fmtSnapTime = (at) => { const d = new Date(at); return `${mdLabel(d)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };

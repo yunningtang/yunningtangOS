@@ -64,12 +64,20 @@ export function weekDays(start) {
 export const WEEKDAY = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 export const WEEKDAY_SUN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
+// 界面是英文时，日期也按英文写（Nov 12 / Thu, Nov 12 / November 2026）
+export const enUI = () => typeof document !== 'undefined' && document.documentElement.dataset.lang === 'en';
+const EN_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const EN_WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export function mdLabel(d, week = false) {
+  if (enUI()) return `${week ? EN_WD[d.getDay()] + ', ' : ''}${EN_MON[d.getMonth()]} ${d.getDate()}`;
+  return `${d.getMonth() + 1}月${d.getDate()}日${week ? ' ' + ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()] : ''}`;
+}
 export function fmtDate(s, withYear = false) {
   if (!s) return '';
   const d = parseDate(s);
   if (!d) return s;
-  const md = `${d.getMonth() + 1}月${d.getDate()}日`;
-  return withYear ? `${d.getFullYear()}年${md}` : md;
+  const md = mdLabel(d);
+  return withYear ? (enUI() ? `${md}, ${d.getFullYear()}` : `${d.getFullYear()}年${md}`) : md;
 }
 
 export function fmtShort(s) {

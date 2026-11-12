@@ -479,6 +479,7 @@ export default async function handler(req, res) {
 
   const body = await readJson(req, 4.6e6); // 学习画布可能带一张图
   if (!body) return json(res, 400, { error: 'bad json' });
+  if (String(req.headers['x-lang'] || '') === 'en') body.lang = 'en';
   const r = await runAgent(body, cfg);
   json(res, r.status, r.body);
 }
@@ -489,7 +490,9 @@ export async function runAgent(body, cfg) {
   const text = String(body.text || '').trim().slice(0, mode === 'money' ? 20000 : 4000); // 记账：账单 / 邮件可能很长
   if (!text) return { status: 400, body: { error: 'text required' } };
   const history = mode === 'capture' ? (Array.isArray(body.history) ? body.history : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-8).map((m) => ({ role: m.role, content: m.content.slice(0, 2000) })) : [];
-  const system = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN, stuck: SYSTEM_STUCK, learn: SYSTEM_LEARN, money: SYSTEM_MONEY }[mode] || SYSTEM_CAPTURE;
+  const system0 = { breakdown: SYSTEM_BREAKDOWN, doc: SYSTEM_DOC, brain: SYSTEM_BRAIN, stuck: SYSTEM_STUCK, learn: SYSTEM_LEARN, money: SYSTEM_MONEY }[mode] || SYSTEM_CAPTURE;
+  // 界面是英文：给人看的字都用英文写（JSON 的键、枚举值不变）
+  const system = body.lang === 'en' ? system0 + '\n\n界面语言：English。reply、title、steps、body、note 等所有给人看的文字都用英文写；JSON 的键、kind 等枚举值、日期时间格式保持原样。' : system0;
   const schema = { breakdown: SCHEMA_BREAKDOWN, doc: SCHEMA_DOC, brain: SCHEMA_BRAIN, stuck: SCHEMA_STUCK, learn: SCHEMA_LEARN, money: SCHEMA_MONEY }[mode] || SCHEMA_CAPTURE;
   // 学习画布可以带一张图（截图 / 拍的题）。DeepSeek 看不了图片
   const img = (mode === 'learn' || mode === 'money') && body.image && typeof body.image === 'object' && /^image\/(png|jpeg|webp|gif)$/.test(body.image.type) && typeof body.image.data === 'string' && /^[A-Za-z0-9+/=]+$/.test(body.image.data.slice(0, 200)) && body.image.data.length < 4.4e6 ? body.image : null;
