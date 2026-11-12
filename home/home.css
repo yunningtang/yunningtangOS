@@ -248,3 +248,16 @@ footer a:hover { color: var(--ink); }
 
 .nav .lang-btn { border: 0; background: none; padding: 4px 8px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .02em; cursor: pointer; }
 .nav .lang-btn:hover { background: rgba(0,0,0,.05); }
+
+/* GitHub 图标、桌面版下载 */
+.nav .ico, footer .ico { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9px; color: var(--text-2); transition: color .2s, background .2s; }
+.nav .ico:hover { color: var(--ink); background: rgba(0,0,0,.05); }
+footer .ico { width: auto; height: auto; vertical-align: -3px; }
+footer .foot-r { display: inline-flex; align-items: center; }
+.join .dl { margin-top: 28px; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.join .dl-k { color: #8E8D88; margin-right: 4px; }
+.join .dl a { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); color: #E8E7E3; text-decoration: none; transition: background .2s, border-color .2s; }
+.join .dl a:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.32); }
+.join .dl a.gh { border-color: transparent; color: #B5B4AF; }
+.join .dl a.gh:hover { color: #fff; background: rgba(255,255,255,.06); }
+.join .dl-note { margin-top: 12px; font-size: 13px; color: #8E8D88; }
