@@ -4,6 +4,14 @@ import { initI18n, getLang, setLang } from '/js/i18n.js';
 
 // 语言：和 App 共用一个选择。英文时把页面上的字换成英文（词典在 i18n-home.js）
 { const b = document.getElementById('langBtn'); if (b) { b.textContent = getLang() === 'en' ? '中文' : 'EN'; b.addEventListener('click', () => setLang(getLang() === 'en' ? 'zh' : 'en')); } }
+// 首屏的下载按钮：按访客的系统给对应的安装包，其余的列在下面
+{
+  const ua = navigator.userAgent || ''; const os = /Mac/i.test(navigator.platform || ua) && !/iPhone|iPad/.test(ua) ? 'mac' : /Linux/i.test(ua) && !/Android/i.test(ua) ? 'linux' : /Win/i.test(ua) ? 'win' : '';
+  const NAME = { win: 'Windows', mac: 'macOS', linux: 'Linux' };
+  const alt = document.querySelector(`.dl-alt a[data-os="${os}"]`); const main = document.getElementById('dlMain');
+  if (alt && main) { main.href = alt.href; alt.classList.add('cur'); document.getElementById('dlLabel').textContent = `下载 ${NAME[os]} 版`; }
+  else if (main) { main.href = '#pricing'; } // 手机：没有桌面版，按钮带到下面
+}
 let HOME_EN = null;
 if (getLang() === 'en') { HOME_EN = (await import('/home/i18n-home.js')).HOME; await initI18n(HOME_EN); }
 // 逐字打出来的演示句子：先整句换成英文再打（一个字一个字的时候词典认不出来）

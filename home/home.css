@@ -261,3 +261,31 @@ footer .foot-r { display: inline-flex; align-items: center; }
 .join .dl a.gh { border-color: transparent; color: #B5B4AF; }
 .join .dl a.gh:hover { color: #fff; background: rgba(255,255,255,.06); }
 .join .dl-note { margin-top: 12px; font-size: 13px; color: #8E8D88; }
+
+/* 首屏：两个入口 + 下载 */
+.hero-cta { margin-top: 26px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.hero-cta .lg { min-height: 48px; padding: 0 24px; font-size: 15px; }
+.hero-cta .dl-main { gap: 8px; }
+.hero-sub { margin: 14px 0 0; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--text-3); }
+.hero-sub .sep { color: var(--line-2); }
+.hero-sub a { color: var(--text-2); text-decoration: none; }
+.hero-sub a:hover { color: var(--ink); }
+.hero-sub .dl-alt a { margin-left: 8px; }
+.hero-sub .dl-alt a.cur { display: none; }
+.hero-sub .gh { display: inline-flex; align-items: center; gap: 5px; }
+/* 价格 */
+.sec-lede { margin: 14px 0 0; max-width: 560px; color: var(--text-2); font-size: 16px; }
+.plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 36px; align-items: stretch; }
+.plan { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 26px 24px 24px; border-radius: 20px; background: var(--bg-2, #F6F6F4); border: 1px solid transparent; }
+.plan.hot { background: #fff; border-color: var(--line-2); box-shadow: 0 18px 40px -24px rgba(0,0,0,.25); }
+.plan-tag { position: absolute; top: 18px; right: 18px; padding: 3px 10px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 600; }
+.plan-h { display: flex; flex-direction: column; gap: 6px; }
+.plan-h b { font-size: 16px; color: var(--ink); }
+.plan .price { font-size: 40px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); line-height: 1.1; }
+.plan .price small { font-size: 13px; font-weight: 500; letter-spacing: 0; color: var(--text-3); }
+.plan-d { margin: 0; color: var(--text-3); font-size: 14px; }
+.plan ul { list-style: none; margin: 14px 0 22px; padding: 0; display: flex; flex-direction: column; gap: 9px; font-size: 14px; color: var(--text-2); flex: 1; }
+.plan li { position: relative; padding-left: 22px; line-height: 1.5; }
+.plan li::before { content: ''; position: absolute; left: 2px; top: 6px; width: 10px; height: 6px; border-left: 2px solid var(--blue); border-bottom: 2px solid var(--blue); transform: rotate(-45deg); }
+.plan > a { align-self: flex-start; justify-content: center; }
+@media (max-width: 860px) { .plans { grid-template-columns: 1fr; } }
