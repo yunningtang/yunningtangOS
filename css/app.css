@@ -4919,7 +4919,7 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .crumb-edit{cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px}.crumb-edit:hover{background:var(--hover)}
 
 .cv-card .cv-prev{position:relative}
-.cv-prev-w{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 2px;min-height:0}
+.cv-prev-w{display:flex;flex-wrap:nowrap;overflow:hidden;gap:4px;margin:8px 0 2px;height:20px}
 .cv-prev-w span{font-size:.72rem;line-height:1.5;padding:1px 7px;border-radius:999px;background:var(--hover);color:var(--text-3);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 小地图 */
 .cv-mm{position:absolute;right:14px;bottom:14px;z-index:6;padding:6px;border-radius:12px;background:var(--paper);box-shadow:0 0 0 1px var(--line),0 8px 24px -12px rgba(0,0,0,.25);opacity:.92;transition:opacity .15s}
@@ -4931,7 +4931,6 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .cv-mm-open:hover{color:var(--text)}
 .cv-wrap.side-open .cv-mm,.cv-wrap.side-open .cv-mm-open{display:none}
 @media (max-width:700px){.cv-mm,.cv-mm-open{display:none}}
-@media (max-width:1180px){.cv-mm,.cv-mm-open{bottom:120px}}
 /* 空画布：一句话 + 三个能点的按钮 */
 .cv-empty{gap:14px}.cv-empty>b{font-size:1rem;font-weight:600;color:var(--text-2,var(--text))}
 .cv-empty-acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;pointer-events:auto}
@@ -4942,8 +4941,10 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 /* 画布底部的层次：问汤圆（中间）、小地图（右下）、提示消息（在问汤圆上方），互不遮挡
    层级：画布内容 0–2 · 工具栏 2 · 大纲 5 · 问汤圆 / 小地图 / 多选条 6 · 侧边页 7 · 全局提示 200 */
 .cv-wrap{container-type:inline-size}
-.cv-ask-fab ~ .cv-mm,.cv-ask-fab ~ .cv-mm-open{right:74px}
-@media (max-width:1180px){.cv-mm,.cv-mm-open{bottom:14px}}
-@container (max-width:1080px){.cv-ask ~ .cv-mm,.cv-ask ~ .cv-mm-open{bottom:auto;top:58px;right:14px}}
 body.cv-ask-on .toast{bottom:118px}
 .cv-keys-btn{font-weight:700;font-size:.85rem;color:var(--text-3);width:28px}
+/* 右下角留给全局的汤圆；小地图放左下，画布太窄时抬到问汤圆框上面 */
+.cv-mm,.cv-mm-open{right:auto;left:14px;bottom:14px}
+.cv-mm-x{right:auto;left:-8px}
+@container (max-width:1080px){.cv-ask ~ .cv-mm,.cv-ask ~ .cv-mm-open{bottom:84px}}
+.cv-add.on{background:var(--hover-2);color:var(--text)}
