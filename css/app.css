@@ -4939,3 +4939,11 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .cv-empty-acts button:hover{box-shadow:0 0 0 1px var(--text-4),0 10px 24px -12px rgba(0,0,0,.25);transform:translateY(-1px)}
 .cv-empty-acts button .ic{grid-row:1/3;color:var(--text-3)}.cv-empty-acts button span{font-weight:600;font-size:.88rem}.cv-empty-acts button small{font-size:.74rem;color:var(--text-4)}
 .cv-sec-empty{position:absolute;inset:44px 0 0;display:grid;place-items:center;font-size:.8rem;color:var(--text-4);pointer-events:none;opacity:.8}
+/* 画布底部的层次：问汤圆（中间）、小地图（右下）、提示消息（在问汤圆上方），互不遮挡
+   层级：画布内容 0–2 · 工具栏 2 · 大纲 5 · 问汤圆 / 小地图 / 多选条 6 · 侧边页 7 · 全局提示 200 */
+.cv-wrap{container-type:inline-size}
+.cv-ask-fab ~ .cv-mm,.cv-ask-fab ~ .cv-mm-open{right:74px}
+@media (max-width:1180px){.cv-mm,.cv-mm-open{bottom:14px}}
+@container (max-width:1080px){.cv-ask ~ .cv-mm,.cv-ask ~ .cv-mm-open{bottom:auto;top:58px;right:14px}}
+body.cv-ask-on .toast{bottom:118px}
+.cv-keys-btn{font-weight:700;font-size:.85rem;color:var(--text-3);width:28px}

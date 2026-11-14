@@ -601,6 +601,7 @@ function Board({ board, notes, notebooks }) {
   const linkLayer = links.map((l) => { const mx = (l.x1 + l.x2) / 2; const on = sel && sel.id === l.from; return html`<g key=${l.k} class=${'cv-link ' + (on ? 'on ' : '') + (l.vis ? '' : 'off')}><path d=${`M${l.x1},${l.y1} C${mx},${l.y1} ${mx},${l.y2} ${l.x2},${l.y2}`} /><circle cx=${l.x1} cy=${l.y1} r="3" /></g>`; });
   // 问汤圆的框可以收起来（记住），收起后右下角一个小按钮，按 / 也能打开
   const [askOpen, setAskOpen] = useState(() => lsGet('ytos.cv.ask') !== false);
+  useEffect(() => { document.body.classList.toggle('cv-ask-on', !!askOpen); return () => document.body.classList.remove('cv-ask-on'); }, [askOpen]);
   const openAsk = () => { setAskOpen(true); lsSet('ytos.cv.ask', true); setTimeout(() => { const t = wrapRef.current && wrapRef.current.querySelector('.cv-ask textarea'); t && t.focus(); }, 30); };
   const hideAsk = () => { setAskOpen(false); lsSet('ytos.cv.ask', false); };
   // 选中材料 / 讲解里的一段文字之后能做的事
@@ -633,6 +634,7 @@ function Board({ board, notes, notebooks }) {
       <button class="btn ghost sm cv-add" title="添加页面" onClick=${() => setPicker({})}><${Icon} name="note" size=${13} /><span class="t">添加页面</span></button>
       <span class="flex1"></span>
       <div class="cv-zoom"><button class="ibtn" title="缩小" onClick=${() => zoomBy(1 / 1.25)}><${Icon} name="minus" size=${13} /></button><button class="cv-z" title="缩放（⌘+ / ⌘− / ⌘0）" onClick=${zoomMenu}>${Math.round(view.z * 100)}%</button><button class="ibtn" title="放大" onClick=${() => zoomBy(1.25)}><${Icon} name="plus" size=${13} /></button></div>
+      <button type="button" class="ibtn cv-keys-btn" title="快捷键" onClick=${(e) => ctxMenu(e, CV_KEYS.map(([k, l]) => ({ label: l, hint: k, disabled: true })), '快捷键')}>?</button>
       <${IconBtn} icon="dots" title="更多…" onClick=${(e) => ctxMenu(e, [{ label: '适应全部', icon: 'maximize', hint: 'Shift 1', onClick: fit }, { label: '100%', icon: 'target', hint: '⌘0', onClick: () => zoomTo(1) }, { label: askOpen ? '收起问汤圆' : '打开问汤圆', icon: 'chat', hint: '/', onClick: () => (askOpen ? hideAsk() : openAsk()) }, 'sep', ...canvasMenu(b, { onDelete: () => go('notes/canvas') }).filter((it) => !(it && it.label === '打开'))], b.title || '画布')} />
     </div>
     <div class="cv-vp" ref=${vp} style=${`background-position:${view.x}px ${view.y}px;background-size:${24 * view.z}px ${24 * view.z}px`} onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onDblClick=${dbl} onContextMenu=${ctx} ...${dropProps('page', (d, { event }) => { const [x, y] = toWorld(event); addNote(d.id, x - 120, y - 40); })}>
@@ -661,7 +663,6 @@ function Board({ board, notes, notebooks }) {
           <button type="button" onClick=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }}><${Icon} name="upload" size=${15} /><span>放 PDF / 图片</span><small>再问汤圆讲给你听</small></button>
         </div>
       </div>`}
-      ${b.nodes.length === 0 && html`<div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · 按住空格或中键拖动画布 · Shift+拖动框选多张 · ⌘+滚轮 / 双指缩放 · Shift+1 看全部</div>`}
     </div>
     ${askOpen ? html`<${AskBar} onHide=${hideAsk} target=${sel && sel.kind === 'node' ? node(sel.id) : null} notes=${notes} hasSrc=${b.nodes.some((n) => n.type === 'src')} quote=${quote} onAsk=${(q) => { if (quote) { ask(q, { anchorId: quote.id, focus: quote.text, label: '选中' }); setQuote(null); } else ask(q); }} onClear=${() => (quote ? setQuote(null) : setSel(null))} onUpload=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }} onText=${() => setTextModal(true)} />` : html`<button type="button" class="cv-ask-fab" title="问汤圆（/）" onClick=${openAsk}><${Icon} name="chat" size=${17} /></button>`}
     ${side && (() => { const pg = notes.find((x) => x.id === side); return pg ? html`<${CardPanel} key=${pg.id} note=${pg} notes=${notes} onClose=${() => setSide(null)} onOpenTitle=${openByTitle} />` : null; })()}
@@ -776,6 +777,7 @@ function PagePicker({ notes, notebooks, onClose, onPick }) {
   <//>`;
 }
 
+const CV_KEYS = [['双击', '写一张卡片'], ['Tab', '加子卡片'], ['Enter', '加同级卡片'], ['Shift+Enter', '卡片里换行'], ['拖圆点', '连线'], ['Shift+拖动', '框选多张'], ['空格+拖动', '移动画布'], ['⌘/Ctrl+滚轮', '缩放'], ['Shift+1', '看全部'], ['Shift+2', '放大到选中的'], ['⌘C / ⌘V', '复制 / 粘贴卡片'], ['⌘D', '创建副本'], ['⌘Z / ⇧⌘Z', '撤销 / 重做'], ['/', '问汤圆'], ['V T P E', '选择 / 文字 / 画笔 / 橡皮'], ['Delete', '删除选中的']];
 // 小地图：右下角一块缩略图，灰框是现在看到的范围；点 / 拖到哪就看哪；可以收起
 function MiniMap({ b, view, vp, onJump }) {
   const [hide, setHide] = useState(() => lsGet('ytos.cv.mm') === false);
