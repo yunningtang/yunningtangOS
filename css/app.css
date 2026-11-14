@@ -4964,3 +4964,15 @@ body.cv-ask-on .toast{bottom:118px}
 .cv-rz-e{z-index:4}.cv-rz{z-index:4}.cv-handle{z-index:5}
 .cv-node.sel{z-index:3}
 .cv-rz-e.r{right:0;width:8px}.cv-rz-e.b{bottom:0;height:8px}
+/* 全局隐藏滚动条：还能滚（滚轮 / 触控板 / 拖动），只是不显示那根条 */
+*,*::before,*::after{scrollbar-width:none!important}
+::-webkit-scrollbar,*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+html,body{-ms-overflow-style:none}
+/* 全部笔记展开：按本子分组的整棵树 */
+.nb-all-g{margin:2px 0 6px}.nb-all-h{display:flex;align-items:center;gap:7px;padding:4px 8px 2px;font-size:.72rem;font-weight:600;color:var(--text-4);letter-spacing:.02em}
+.nb-h .tree-mini{font-size:.72rem;padding:2px 7px;border-radius:6px;color:var(--text-4)}.nb-h .tree-mini:hover{background:var(--hover);color:var(--text)}
+/* 页面底部的子页面 */
+.subpages{margin-top:28px;padding-top:14px;border-top:1px solid var(--line)}
+.sub-row .sub-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub-new{width:100%;color:var(--text-4);background:transparent;border:0;font:inherit;font-size:.875rem;cursor:pointer;text-align:left}.sub-new:hover{color:var(--text)}
+.nb-h .tree-mini{opacity:1!important}
