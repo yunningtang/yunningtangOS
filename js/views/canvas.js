@@ -62,6 +62,7 @@ function simplify(pts, tol = 1.2) { const out = [pts[0]]; for (let i = 1; i < pt
 function bbox(b) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const n of b.nodes) { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x + n.w); y1 = Math.max(y1, n.y + n.h); }
+  for (const s of b.sections || []) { x0 = Math.min(x0, s.x); y0 = Math.min(y0, s.y); x1 = Math.max(x1, s.x + s.w); y1 = Math.max(y1, s.y + s.h); }
   for (const s of b.strokes) for (const [x, y] of s.pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
   for (const n of b.sections || []) { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y - 40); x1 = Math.max(x1, n.x + n.w); y1 = Math.max(y1, n.y + n.h); }
   return x0 === Infinity ? null : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
@@ -570,7 +571,7 @@ function Board({ board, notes, notebooks }) {
           <span class="cv-handle" title="拖到另一个节点来连线"></span>
           <span class="cv-rz"></span>
         </div>`; }), [b.nodes, sel, editing, notes, notebooks, annsBySrc, multi]);
-  const secLayer = useMemo(() => secsOf(b).map((x) => html`<div key=${x.id} class=${'cv-sec ' + (sel && sel.kind === 'sec' && sel.id === x.id ? 'sel' : '')} style=${`left:${x.x}px;top:${x.y}px;width:${x.w}px;height:${x.h}px;${x.color ? '--sc:' + x.color : ''}`}><div class="cv-sec-h" data-id=${x.id} title="拖动：整个分区一起走 · 双击改名 · 右键更多">${x.title || '未命名分区'}</div><span class="cv-sec-rz" data-id=${x.id}></span></div>`), [b.sections, sel]);
+  const secLayer = useMemo(() => secsOf(b).map((x) => html`<div key=${x.id} class=${'cv-sec ' + (sel && sel.kind === 'sec' && sel.id === x.id ? 'sel' : '')} style=${`left:${x.x}px;top:${x.y}px;width:${x.w}px;height:${x.h}px;${x.color ? '--sc:' + x.color : ''}`}><div class="cv-sec-h" data-id=${x.id} title="拖动：整个分区一起走 · 双击改名 · 右键更多">${x.title || '未命名分区'}</div>${!b.nodes.some((n) => inSec(x, n)) && html`<span class="cv-sec-empty">双击这里写一张卡片</span>`}<span class="cv-sec-rz" data-id=${x.id}></span></div>`), [b.sections, b.nodes, sel]);
   const strokeLayer = useMemo(() => b.strokes.map((s) => html`<path key=${s.id} class=${'cv-stroke ' + (sel && sel.kind === 'stroke' && sel.id === s.id ? 'sel' : '')} data-id=${s.id} d=${strokePath(s.pts)} stroke=${s.color} stroke-width=${s.width} />`), [b.strokes, sel]);
   const edgeLayer = useMemo(() => b.edges.map((ed) => { const a = byId.get(ed.from), c = byId.get(ed.to); if (!a || !c) return null; const { d, mx, my } = edgePath(a, c); const on = sel && sel.kind === 'edge' && sel.id === ed.id; return html`<g key=${ed.id} class=${'cv-edge ' + (on ? 'sel' : '')} data-id=${ed.id}><path class="hit" d=${d} /><path class="line" d=${d} marker-end="url(#cv-arrow)" />${ed.label && html`<text x=${mx} y=${my} text-anchor="middle" dominant-baseline="middle">${ed.label}</text>`}</g>`; }), [b.edges, byId, sel]);
   // 讲解面板圈出来的原文 → 红色虚线连到面板（原文在材料卡片里滚动，所以按实际位置量）
@@ -652,7 +653,14 @@ function Board({ board, notes, notebooks }) {
       ${multi.length > 1 && !box && (() => { const ms = b.nodes.filter((n) => multi.includes(n.id)); if (ms.length < 2) return null; const bb = bbox({ nodes: ms, strokes: [] }); const x = (bb.x + bb.w / 2) * view.z + view.x, y = Math.max(8, bb.y * view.z + view.y - 46);
         return html`<div class="cv-multi" style=${`left:${Math.round(x)}px;top:${Math.round(y)}px`} onPointerDown=${(e) => e.stopPropagation()}><span>选中 ${ms.length} 张</span><button type="button" onClick=${multiToSec}><${Icon} name="frame" size=${13} />放进分区</button><button type="button" onClick=${arrangeMenu}><${Icon} name="list" size=${13} />排列</button><button type="button" class="danger" title="删除（Delete）" onClick=${removeMulti}><${Icon} name="trash" size=${13} /></button><button type="button" title="取消选择（Esc）" onClick=${() => setMulti([])}><${Icon} name="x" size=${13} /></button></div>`; })()}
       ${links.length > 0 && html`<svg class="cv-svg cv-svg-top"><g transform=${`translate(${view.x},${view.y}) scale(${view.z})`}>${linkLayer}</g></svg>`}
-      ${b.nodes.length === 0 && b.strokes.length === 0 && html`<div class="cv-empty"><${Icon} name="frame" size=${22} /><p>双击空白处写字，或从左边把页面拖进来。</p><p class="cv-empty-learn">想学东西：把 PDF / 图片拖进来（或粘贴一段文字），再在下面问汤圆。</p></div>`}
+      ${b.nodes.length === 0 && b.strokes.length === 0 && !secsOf(b).length && html`<div class="cv-empty">
+        <b>这张画布还是空的</b>
+        <div class="cv-empty-acts" onPointerDown=${(e) => e.stopPropagation()}>
+          <button type="button" onClick=${() => { const [x, y] = center(); addText(x - 110, y - 32); }}><${Icon} name="type" size=${15} /><span>写一张卡片</span><small>或双击空白处</small></button>
+          <button type="button" onClick=${() => setPicker({})}><${Icon} name="note" size=${15} /><span>放一页笔记</span><small>从笔记里挑</small></button>
+          <button type="button" onClick=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }}><${Icon} name="upload" size=${15} /><span>放 PDF / 图片</span><small>再问汤圆讲给你听</small></button>
+        </div>
+      </div>`}
       ${b.nodes.length === 0 && html`<div class="cv-hint">双击写字 · 选中节点后 Tab 加子节点、Enter 加同级（Shift+Enter 换行） · 从圆点拖出连线 · 拖动时自动对齐（按住 Shift 取消） · 按住空格或中键拖动画布 · Shift+拖动框选多张 · ⌘+滚轮 / 双指缩放 · Shift+1 看全部</div>`}
     </div>
     ${askOpen ? html`<${AskBar} onHide=${hideAsk} target=${sel && sel.kind === 'node' ? node(sel.id) : null} notes=${notes} hasSrc=${b.nodes.some((n) => n.type === 'src')} quote=${quote} onAsk=${(q) => { if (quote) { ask(q, { anchorId: quote.id, focus: quote.text, label: '选中' }); setQuote(null); } else ask(q); }} onClear=${() => (quote ? setQuote(null) : setSel(null))} onUpload=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }} onText=${() => setTextModal(true)} />` : html`<button type="button" class="cv-ask-fab" title="问汤圆（/）" onClick=${openAsk}><${Icon} name="chat" size=${17} /></button>`}
