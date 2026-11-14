@@ -4892,3 +4892,7 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .late-all{margin-left:auto;height:22px;padding:0 9px;border:0;border-radius:999px;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);font:inherit;font-size:.7rem;font-weight:600;letter-spacing:0;cursor:pointer}
 .late-all:hover{background:color-mix(in srgb,var(--red) 20%,transparent)}
 .tg-h,.group-h{display:flex;align-items:center}
+/* 主题缩略图：不管外面怎么排版，都撑满卡片宽度（有的环境里会被压成一条线）*/
+.skin-opt{align-items:stretch}
+.skin-opt .skin-prev{display:block;width:100%;min-width:0;flex:none;height:56px;box-sizing:border-box}
+.skin-opt .skin-prev i{display:block}
