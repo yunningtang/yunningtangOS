@@ -153,7 +153,7 @@ function App() {
   useEffect(() => {
     setMenu(false);
     window.scrollTo({ top: 0 });
-    document.title = `${active.name} · yunningtang OS`;
+    document.title = `${active.name} · SealoNote`;
   }, [route.path, route.sub]);
 
   const toggleTheme = () => {

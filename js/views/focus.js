@@ -41,7 +41,7 @@ export default function Focus({ route }) {
   const all = s.sessions || [];
   const sessions = useMemo(() => sortBy(all.filter((b) => b.date === today), 'start'), [all]);
   const mins = sessions.reduce((n, b) => n + (b.mins || 0), 0);
-  useEffect(() => { document.title = st.phase === 'idle' ? '专注 · yunningtang OS' : `${pomo.fmt(rem)} · ${st.phase === 'break' ? '休息' : st.label || '专注'}`; return () => { document.title = 'yunningtang OS'; }; }, [rem, st.phase]);
+  useEffect(() => { document.title = st.phase === 'idle' ? '专注 · SealoNote' : `${pomo.fmt(rem)} · ${st.phase === 'break' ? '休息' : st.label || '专注'}`; return () => { document.title = 'SealoNote'; }; }, [rem, st.phase]);
   const focusedOn = useMemo(() => { const m = new Map(); sessions.forEach((b) => { if (b.todo) m.set(b.todo, (m.get(b.todo) || 0) + (b.mins || 0)); }); return m; }, [sessions]);
   const sessMenu = (e, b) => ctxMenu(e, [
     { label: b.note ? '编辑备注' : '添加备注', icon: 'edit', onClick: async () => { const v = await askPrompt('这一段做了什么、感觉如何？', b.note || '', { title: '备注' }); if (v != null) upsert('sessions', { id: b.id, note: v.trim(), updated: nowISO() }); } },

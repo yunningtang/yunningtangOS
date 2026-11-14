@@ -284,7 +284,7 @@ export const DICT = {
 "不针对这个": "Not about this",
 "不错": "Good",
 "专注": "Focus",
-"专注 · yunningtang OS": "Focus · yunningtang OS",
+"专注 · SealoNote": "Focus · SealoNote",
 "专注中": "Focusing",
 "专注中 · 其他内容先收起来了": "Focusing · everything else is tucked away",
 "专注中 · 到": "Focusing · until",
