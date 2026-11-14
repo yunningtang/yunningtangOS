@@ -978,7 +978,7 @@ html[data-theme="dark"] .heat-col i.l1{background:#2a3d66}html[data-theme="dark"
 .time-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-top:8px}.time-h{height:28px;border-radius:7px;font-size:.78rem;font-variant-numeric:tabular-nums;color:var(--text-2)}.time-h:hover{background:var(--hover)}.time-h.sel{background:var(--blue);color:var(--on-ac,#fff)}
 .time-mins{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}.time-m{height:30px;border-radius:8px;font-size:.8rem;font-variant-numeric:tabular-nums;color:var(--text-2);background:var(--hover)}.time-m:hover{background:var(--hover-2)}.time-m.sel{background:var(--blue);color:var(--on-ac,#fff)}
 .time-in{margin-bottom:6px}
-.time-list{position:relative;max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:1px;scrollbar-width:thin}
+.time-list{position:relative;max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:1px;scrollbar-width:none}
 .time-i{padding:6px 10px;border-radius:8px;font-size:.84rem;text-align:left;color:var(--text);font-variant-numeric:tabular-nums}
 .time-i:hover{background:var(--hover)}.time-i.sel{background:var(--blue);color:var(--on-ac,#fff)}
 
@@ -2244,7 +2244,7 @@ html[data-theme="dark"] .sp-node{background:#171b2a}
 .seal-panel.big .seal-side{padding:14px 10px 12px 14px;gap:4px}
 .seal-panel.full .seal-side{width:240px;padding:14px 12px 12px 16px}
 .seal-panel.big .seal-side .ss-new{margin:10px 0 0;flex:none}
-.seal-side{overflow:hidden}.ss-list{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;display:flex;flex-direction:column;gap:4px}
+.seal-side{overflow:hidden}.ss-list{flex:1;min-height:0;overflow:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:4px}
 .seal-panel.big .seal-main .seal-h{padding:14px 18px 6px 28px}
 .seal-panel.big .seal-main .seal-hc{max-width:none}
 .seal-agent{display:inline-flex;align-items:center;gap:2px;height:24px;padding:0 5px 0 7px;margin-left:-2px;border-radius:8px;border:0;background:transparent;color:var(--text-3);font-size:.76rem;font-weight:500;line-height:1;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
@@ -2753,7 +2753,7 @@ html[data-theme="dark"] .tt-card.tc-blue{--tt-sec:#4c9cea}
 /* 总览瀑布流：行单位 4px，卡片按内容高度占行（JS 算 span）；窄屏退回普通单列 */
 @media (min-width:901px){.dash-home{grid-auto-rows:4px;align-items:start}.dash-home>.widget>.card{flex:none}}
 .dash-home .mini-tl-wrap{max-height:420px}
-.dash-home .todo-card .tlist{max-height:440px;overflow-y:auto;scrollbar-width:thin}
+.dash-home .todo-card .tlist{max-height:440px;overflow-y:auto;scrollbar-width:none}.dash-home .todo-card .tlist::-webkit-scrollbar{display:none}
 
 /* ---- Notion 九色：步骤类型、时间线预览共用 ---- */
 :root,html[data-theme="light"]{--tone-blue:#2f7fd0;--tone-purple:#8a5cc2;--tone-green:#3f8a5f;--tone-orange:#d0742a;--tone-pink:#c4508c;--tone-yellow:#b98a1f;--tone-brown:#94664d;--tone-red:#d04a45;--tone-gray:#7d7b76;--tone-teal:#2f8f86}
@@ -4908,3 +4908,4 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .nav .sep .ic{opacity:.45}.nav .sep:hover .ic{opacity:1}
 .nav .sep{cursor:pointer}.nav .sep:hover{color:var(--text-3)}
 @media (prefers-reduced-motion:reduce){.tree-in{animation:none}.pt-tg .ic,.nb-i .nb-tg .ic,.nav-tg .ic{transition:none}}
+.time-list::-webkit-scrollbar,.ss-list::-webkit-scrollbar{display:none}
