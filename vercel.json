@@ -1,5 +1,13 @@
 {
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/mcp", "destination": "/api/mcp" },
+    { "source": "/.well-known/oauth-protected-resource", "destination": "/api/mcp?r=prm" },
+    { "source": "/.well-known/oauth-protected-resource/:path*", "destination": "/api/mcp?r=prm" },
+    { "source": "/.well-known/oauth-authorization-server", "destination": "/api/mcp?r=asm" },
+    { "source": "/.well-known/oauth-authorization-server/:path*", "destination": "/api/mcp?r=asm" },
+    { "source": "/oauth/:r", "destination": "/api/mcp?r=:r" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

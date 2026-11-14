@@ -305,5 +305,7 @@ render(BARE === 'seal' ? html`<${Seal} standalone />` : BARE ? html`<${Sticky} /
   document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
   window.addEventListener('focus', check);
 })();
+// 记下这台设备的时区：Claude 连接器（/mcp）在服务端按它算「今天」
+if (!BARE) setTimeout(() => { try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if (tz && get().settings.tz !== tz) update((d) => { d.settings.tz = tz; }); } catch {} }, 3000);
 // 订阅扣费前提醒：打开网站几秒后看一眼（同步拉到最新的再提醒），每个订阅每天只提醒一次
 if (!STICKY) setTimeout(() => { try { remindDue(toast, go); } catch {} }, 4000);

@@ -99,6 +99,18 @@ Without AI, everyday Chinese phrasing such as `明天下午3点到4点 写周报
 
 <br/>
 
+## Use it from Claude
+
+SealoNote is also a remote MCP server, so Claude (web, desktop or phone) can read and update your planner when you ask.
+
+1. In Claude, open **Settings → Connectors → Add custom connector** and enter `https://www.sealonote.com/mcp`.
+2. Click **Connect**, sign in to SealoNote if asked, and choose **Allow**.
+3. Ask things like *“What's on my plate today?”* or *“Add ‘call the bank’ tomorrow at 3pm and block an hour for it.”*
+
+Claude can see your to-dos, timeline, priorities, countdowns and notes, and can add or update to-dos, time blocks, notes and sticky notes. It cannot delete anything. You can disconnect every client at once in **Settings → Connect Claude**.
+
+<br/>
+
 ## Desktop app
 
 <table>

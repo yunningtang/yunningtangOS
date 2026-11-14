@@ -4896,3 +4896,4 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .skin-opt{align-items:stretch}
 .skin-opt .skin-prev{display:block;width:100%;min-width:0;flex:none;height:56px;box-sizing:border-box}
 .skin-opt .skin-prev i{display:block}
+.sx-code{font:.82rem ui-monospace,SFMono-Regular,Menlo,monospace;padding:5px 9px;border-radius:7px;background:var(--hover);color:var(--text);user-select:all;word-break:break-all}

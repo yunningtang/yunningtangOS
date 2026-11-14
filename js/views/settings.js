@@ -88,10 +88,10 @@ const WIDGET_ICON = { profile: 'heart', now: 'cloudsun', ai: 'sparkle', calendar
 const NAV = [
   ['帐号', [['account', '', '']]],
   ['偏好', [['look', '外观', 'sun'], ['dash', '总览', 'grid']]],
-  ['汤圆', [['seal', '汤圆', 'sparkle'], ['ai', 'AI', 'zap'], ['prompts', '提示词', 'quote']]],
+  ['汤圆', [['seal', '汤圆', 'sparkle'], ['ai', 'AI', 'zap'], ['prompts', '提示词', 'quote'], ['claude', '连接 Claude', 'link']]],
   ['其他', [['data', '数据', 'archive'], ['keys', '快捷键', 'key']]],
 ];
-const ALIAS = { sync: 'account', profile: 'account', look: 'look', seal: 'seal', prompts: 'prompts', data: 'data', keys: 'keys', dash: 'dash', ai: 'ai' };
+const ALIAS = { sync: 'account', profile: 'account', look: 'look', seal: 'seal', prompts: 'prompts', data: 'data', keys: 'keys', dash: 'dash', ai: 'ai', claude: 'claude', mcp: 'claude' };
 
 const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error || `出错了（${r.status}）`), j); return j; };
 const logout = async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); location.reload(); };
@@ -321,6 +321,22 @@ export default function Settings() {
         <//>
       <//>
     <//>`,
+    claude: () => html`<${Page} title="连接 Claude" sub="让 Claude（网页、桌面、手机）直接看和改你的待办、时间线、笔记">
+      <${Group} title="怎么连">
+        <${Row} icon="link" label="连接器地址" hint="在 Claude 里添加自定义连接器时填这个"><span class="row" style="gap:8px"><code class="sx-code">${location.origin}/mcp</code><button class="sx-btn" onClick=${() => { navigator.clipboard && navigator.clipboard.writeText(location.origin + '/mcp').then(() => toast('已复制')); }}>复制</button></span><//>
+        <${Row} icon="list" label="步骤" stack=${true}><ol class="small muted" style="margin:0;padding-left:18px;line-height:1.8">
+          <li>打开 claude.ai → 设置 → 连接器 → 添加自定义连接器</li>
+          <li>名称随便写（比如 SealoNote），地址填上面这个，点添加</li>
+          <li>点「连接」，在弹出的 SealoNote 页面点「允许」（要先在同一个浏览器里登录 SealoNote）</li>
+          <li>在对话里说「看看我今天的安排」「把这件事加到明天下午三点」就行</li>
+        </ol><//>
+        ${!connected && html`<${Row} icon="cloud" label="需要先登录" hint="Claude 读写的是云端那一份数据，所以要先登录并同步" />`}
+      <//>
+      <${Group} title="授权">
+        <${Row} icon="eye" label="Claude 能做什么" hint="查看待办、时间线、焦点、倒计时、笔记；新建和修改待办、排时间块、写笔记、贴便利贴。不能删除任何东西" />
+        <${Row} icon="x" label="取消所有授权" hint=${s.settings.mcpEpoch ? '上次取消：' + new Date(s.settings.mcpEpoch).toLocaleString('zh-CN', { hour12: false }) : '所有已经连上的 Claude 都会立刻断开，要用得重新连接'}><button class="sx-btn" disabled=${!connected} onClick=${async () => { if (!(await askConfirm('所有连上 SealoNote 的 Claude 都会断开，之后要重新点「连接」授权。', { title: '取消所有授权？', ok: '取消授权' }))) return; update((d) => { d.settings.mcpEpoch = Date.now(); }); run(() => smartSync(), '已取消，所有连接都断开了'); }}>取消授权</button><//>
+      <//>
+    <//>`,
     prompts: () => html`<${Page} title="提示词" sub="常用的话，在汤圆输入框里一点就填进去">
       <${PromptsCard} s=${s} />
     <//>`,
@@ -352,7 +368,7 @@ export default function Settings() {
     <//>`,
   };
   const ql = q.trim().toLowerCase();
-  const hit = (label, id) => !ql || label.toLowerCase().includes(ql) || ({ account: '帐号账号登录同步邮箱名字头像', look: '主题深浅暗色毛玻璃', dash: '卡片图片小组件', seal: '海豹光效强调色', ai: '模型密钥deepseekclaude用量', prompts: '提示词', data: '备份导入导出清空', keys: '快捷键' }[id] || '').includes(ql);
+  const hit = (label, id) => !ql || label.toLowerCase().includes(ql) || ({ account: '帐号账号登录同步邮箱名字头像', look: '主题深浅暗色毛玻璃', dash: '卡片图片小组件', seal: '海豹光效强调色', ai: '模型密钥deepseekclaude用量', prompts: '提示词', claude: 'mcp claude 连接器 连接', data: '备份导入导出清空', keys: '快捷键' }[id] || '').includes(ql);
 
   return html`<div class="sx">
     ${histOpen && html`<${HistoryModal} onClose=${() => setHistOpen(false)} />`}
