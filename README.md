@@ -1,102 +1,116 @@
 <div align="center">
 
-<img src="docs/logo.png" width="112" alt="SealoNote" />
+<img src="docs/logo.png" width="104" alt="SealoNote logo" />
 
 # SealoNote
 
-**一只小海豹陪你过好每一天。**<br/>
-待办、计划、笔记、阅读、愿景，放在同一个安静的地方；有事跟汤圆说一句就好。
+**Keep less in your head.**<br/>
+To-dos, plans, notes, reading and long-term goals in one quiet place,<br/>
+with a small seal named Tangyuan who turns what you type into a plan.
 
-[在线使用](https://www.sealonote.com) · [下载桌面版](../../releases/latest) · [更新记录](../../releases)
+[**Website**](https://www.sealonote.com/home) · [**Open the app**](https://www.sealonote.com) · [**Download**](#download) · [Releases](../../releases)
+
+English · [简体中文](README.zh-CN.md)
 
 </div>
 
 <br/>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.jpg" />
-  <img src="docs/screenshots/home.jpg" alt="SealoNote 总览" />
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/en/home-dark.jpg" />
+  <img src="docs/screenshots/en/home.jpg" alt="SealoNote home" />
 </picture>
 
 <br/>
 
-## 下载
+## Why SealoNote
 
-|  | 安装包 | 第一次打开 |
-|---|---|---|
-| **Windows** | [SealoNote-win-x64.exe](../../releases/latest/download/SealoNote-win-x64.exe) | 提示「Windows 已保护你的电脑」时，点「更多信息 → 仍要运行」 |
-| **macOS** | [SealoNote-mac-universal.dmg](../../releases/latest/download/SealoNote-mac-universal.dmg) | 拖进「应用程序」；提示「已损坏」时在终端运行 `xattr -cr /Applications/Sealonote.app`，再右键 → 打开 |
-| **Linux** | [SealoNote-linux-x86_64.AppImage](../../releases/latest/download/SealoNote-linux-x86_64.AppImage) | `chmod +x` 之后双击 |
+Most planning tools ask you to fill in forms. SealoNote lets you write the way you think. Type `write report @tomorrow 15:00-16:00`, or just tell Tangyuan what is on your mind. It becomes a time block, a to-do or a note, and nothing is saved until you have looked at it.
 
-桌面版打开的就是 [sealonote.com](https://www.sealonote.com)：登录同一个账号，就是同一份数据，网页上更新了，桌面版刷新一下就用上。只有窗口本身的功能（便签、独立的汤圆窗口、托盘）需要装新版本。
+- **One place for the whole day.** To-dos, a timeline, focus sessions, notes and goals share the same data, so a task, its steps and the time you set aside for it stay in sync everywhere.
+- **Picks up where you left off.** Each focus round ends with “where did you get to, what's next?”, and the next time you open that task, the answer is waiting for you.
+- **Calm by design.** Paper-like layout, light and dark themes, no streaks, no badges, nothing that shouts.
+- **Your data, your call.** Works offline and without an account. Sign in to sync across web, desktop and phone, with cloud history you can restore.
 
 <br/>
 
-## 它能做什么
+## Download
 
-**每一天**
+|  | Installer | First launch |
+|---|---|---|
+| **Windows** | [SealoNote-win-x64.exe](../../releases/latest/download/SealoNote-win-x64.exe) | If you see “Windows protected your PC”, choose **More info → Run anyway** |
+| **macOS** | [SealoNote-mac-universal.dmg](../../releases/latest/download/SealoNote-mac-universal.dmg) | Drag it into Applications. If macOS says the app is damaged, run `xattr -cr /Applications/Sealonote.app`, then right-click → Open |
+| **Linux** | [SealoNote-linux-x86_64.AppImage](../../releases/latest/download/SealoNote-linux-x86_64.AppImage) | `chmod +x` it, then double-click |
 
-- **待办**：四级优先级、日期时间、子步骤；到点没做会提醒「已过」，一键推迟。
-- **今天**：一条从早到晚的时间线。时间块按类型着色，「检查点」是线上的一个点，到点问你做到了没有。
-- **今日焦点**：每天最重要的一到三件事，第一件就是「最重要的一件」。
-- **专注**：照 Time Timer 做的番茄钟。同一件事接着计时，不会重开；一轮结束问一句「做到哪了、下一步是什么」。
-- **便签**：彩色便利贴。每一张都是一页笔记，可以放进任何本子，也可以单独贴到桌面上。
-- **倒计时**：倒数到 deadline，或者正着数在一起多久了。可以分类、换背景、配图。
-- **钱包**：资产、订阅、记账，扣费前会提醒你。
+Or just use it in the browser at **[sealonote.com](https://www.sealonote.com)**. The desktop app opens the same site with the same account, so web updates reach it with a refresh. Only window features (sticky notes, the separate Tangyuan window, the tray) need a new install.
 
-**输入与输出**
+<br/>
 
-- **笔记**：块编辑器，按本子整理，支持页面嵌套、双向链接、评论线程、历史版本、PDF 附件。
-- **画布**：无限白板，卡片、分区、连线，PDF 可以缩放。
-- **阅读 / 收藏**：书和论文的进度、读速、笔记；链接一贴就存。
+## What's inside
 
-**远方**
+**Every day**
 
-- **愿景**：肯定句、愿景板、长期目标。
-- **探索**：在一颗可以拖动的星球上点亮去过和想去的地方。
+- **To-dos.** Four priority levels, dates and times, and steps you can tick off one by one. Anything past its time is flagged and can be postponed in one click.
+- **Today.** A single timeline from morning to night. Time blocks are colour-coded, and checkpoints sit on the line to ask whether you got there.
+- **Today's priorities.** One to three things that matter today, with the most important one at the top.
+- **Focus.** A Time Timer–style Pomodoro. Starting the same task again continues the round instead of restarting it.
+- **Sticky notes.** Each one is a real note page you can file in any notebook, or pin to your desktop.
+- **Countdowns.** Count down to a deadline or up from a day that matters. Countdowns can have categories, gradient or photo backgrounds, and appear on the home page.
+- **Wallet.** Assets, subscriptions (with reminders before they charge) and quick expense logging.
+
+**Input & output**
+
+- **Notes.** A block editor with notebooks, nested pages, backlinks, comments, version history and PDF attachments.
+- **Canvas.** An infinite whiteboard with cards, sections, arrows and zoomable PDFs.
+- **Reading & saved.** Books and papers with progress and reading speed, plus links saved in one paste.
+
+**Far away**
+
+- **Vision.** Affirmations, a vision board and long-term goals.
+- **Explore.** Light up the places you've been and want to go on a globe you can spin.
 
 <table>
 <tr>
-<td width="62%"><img src="docs/screenshots/countdown.jpg" alt="倒计时" /></td>
-<td width="38%"><img src="docs/screenshots/stickies.jpg" alt="便利贴" /></td>
+<td width="62%"><img src="docs/screenshots/en/countdown.jpg" alt="Countdowns" /></td>
+<td width="38%"><img src="docs/screenshots/en/stickies.jpg" alt="Sticky notes" /></td>
 </tr>
 </table>
 
 <br/>
 
-## 汤圆
+## Tangyuan, your little seal
 
-右下角那只 3D 小海豹就是汤圆。跟它说一句话，它会帮你拆成待办、时间块、笔记或目标，先给你看一眼，确认了才写进去，写错了可以一键撤销。
+The 3D seal in the corner is Tangyuan. Tell it something in plain words and it drafts to-dos, time blocks, notes or goals for you. You review the draft, edit anything inline, then save. Every save can be undone.
 
-- 「明天下午两点开组会，会后把纪要整理到研究本子」→ 一个时间块，加一页笔记
-- 「把今天到期还没排的事排进剩下的空档」→ 直接挂到原来那几件待办上，待办、总览、时间线一起更新
-- 「把论文初稿拆成这周能做的几步」→ 每一步一件待办，附带时长
+- *“Meeting tomorrow at 2pm, then file the notes in my Research notebook”* gives you a time block and a note.
+- *“Fit what's overdue into the free time left today”* moves those to-dos to today and puts them on the timeline.
+- *“Break my thesis draft into steps I can do this week”* creates one to-do per step, each with a time estimate.
 
-可以接自己的 DeepSeek 或 Claude 密钥（只存在本机），也可以不用 AI。不用 AI 的时候，平常的写法也认得：
+Bring your own DeepSeek or Claude key (it stays in your browser), or turn AI off. With AI, plain sentences in any language work. Without AI, a short syntax does the job:
 
-| 打字 | 变成 |
+| You type | You get |
 |---|---|
-| `明天下午3点到4点 写周报` | 明天 15:00–16:00 的时间块 |
-| `周五晚上8点半 跑步 !1` | 周五 20:30 的待办，重要 |
-| `下周一 9:00-10:30 组会` | 下周一的时间块 |
-| `11月20号 交报告 #学习` | 11 月 20 日的待办，带标签 |
+| `write report @tomorrow 15:00-16:00` | A 15:00–16:00 time block tomorrow, linked to the to-do |
+| `run @today 20:30 !1` | A high-priority to-do today at 20:30 |
+| `@tomorrow 9:00-10:30 group meeting` | A time block tomorrow morning |
+| `submit paper @2026-11-20 #study` | A to-do on Nov 20, tagged *study* |
 
-带时间的待办会自动排进那天的时间线，按你写的时间放。
+Without AI, everyday Chinese phrasing such as `明天下午3点到4点 写周报` is understood too.
 
 <br/>
 
-## 桌面版
+## Desktop app
 
 <table>
 <tr>
-<td width="34%"><img src="docs/screenshots/sticky.jpg" alt="桌面便签" /></td>
+<td width="34%"><img src="docs/screenshots/en/sticky.jpg" alt="Desktop sticky window" /></td>
 <td>
 
-- **桌面便签**：一个小窗口，可以置顶、调透明度。分「今天」和「便利贴」两页：「今天」有焦点、到期的待办、接下来的安排；正在计时的那一轮显示在最上面，不用切走。
-- **单张便利贴**：拖到窗口外面，就是一张独立的便利贴。每张各自记住位置、大小、置顶和透明度，开机自动回到原位。`Ctrl+N` 新的一张，`Ctrl+V` 把剪贴板贴成一张。
-- **汤圆单独一个窗口**：对话不再盖住主界面。
-- **托盘**：开关便签和汤圆窗口，设置开机只启动便签。
-- 没有系统标题栏，窗口按钮跟着主题走。
+- **Desktop sticky.** A small window that can stay on top, with adjustable opacity. **Today** shows your priorities, what's due and what's next, and a running focus round sits at the top. **Sticky notes** holds your notes.
+- **Single sticky notes.** Drag a note out of the window and it becomes its own little window that remembers its place, size, pin and opacity, even after a restart. `Ctrl+N` makes a new one, and `Ctrl+V` turns the clipboard into one.
+- **Tangyuan in its own window**, so the chat never covers your work.
+- **Tray menu.** Open the sticky or Tangyuan, or launch only the sticky at login.
+- No system title bar. The window buttons follow your theme.
 
 </td>
 </tr>
@@ -104,38 +118,51 @@
 
 <br/>
 
-## 数据
+## Pricing
 
-- 每个人的数据是一份文档，先存在本机，再同步到云端（Supabase）。离线也能用，联网后自动合并；几台设备、几个窗口同时改也不会互相覆盖。
-- 云端每隔一段时间留一份旧版本，在设置里可以看到并恢复。一次同步里数据突然少了很多时，会先停下来问你。
-- AI 密钥只存在你自己的浏览器里，不进同步数据。
+**Free during the beta.** Sign-up needs an invite code.
+
+| | Price | What you get |
+|---|---|---|
+| **Local** | Free | Every feature, no account. Data stays in this browser, and you can export it anytime |
+| **Account** | Free | Sync across web, desktop and phone, cloud history, and 60 Tangyuan AI requests a month |
+| **Bring your own key** | Free + your API costs | Unlimited AI with your own DeepSeek or Claude key, paid directly to them |
 
 <br/>
 
-## 自己部署
+## Your data
 
-前端是不需要构建的静态页面（Preact + htm），后端是几个 Vercel 函数。
+- Everything is saved on your device first, then synced to the cloud (Supabase) when you are signed in. Each account can only read and write its own data.
+- Edits from several devices or windows merge instead of overwriting each other.
+- The cloud keeps earlier versions you can restore from Settings. If a sync would suddenly remove a lot, it stops and asks first.
+- AI keys never leave your browser and are not part of the synced data.
 
-1. 在 Supabase 新建项目，在 SQL Editor 里依次运行 [`supabase/schema.sql`](supabase/schema.sql) 和 [`supabase/history-and-guard.sql`](supabase/history-and-guard.sql)。
-2. 把这个仓库导入 Vercel（框架选 Other，不需要构建命令），填好环境变量：
+<br/>
 
-   | 变量 | 说明 |
+## Self-hosting
+
+The frontend is a static site with no build step (Preact + htm), and the backend is a few serverless functions.
+
+1. Create a Supabase project and run [`supabase/schema.sql`](supabase/schema.sql), then [`supabase/history-and-guard.sql`](supabase/history-and-guard.sql) in the SQL editor.
+2. Deploy this repository to a serverless host (no build command) with these environment variables:
+
+   | Variable | Purpose |
    |---|---|
-   | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Supabase 项目地址和 anon key |
-   | `SUPABASE_SERVICE_ROLE_KEY` | 服务端用，只放在 Vercel 里 |
-   | `SESSION_SECRET` | 随便一串足够长的随机字符 |
-   | `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` | 可选，汤圆用的 AI |
+   | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Your Supabase project |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Server-side only |
+   | `SESSION_SECRET` | Any long random string |
+   | `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` | Optional, for Tangyuan |
 
-3. 桌面版在 [`desktop/`](desktop) 目录里，是一个很薄的 Electron 外壳。改 `desktop/package.json` 里的版本号后，在 Actions 里运行 **Desktop app**，就会打出三个系统的安装包并发布到 Releases。
+3. The desktop app lives in [`desktop/`](desktop) and is a thin Electron shell. Bump the version in `desktop/package.json`, then run **Desktop app** in Actions to build and publish installers for all three platforms.
 
 ```bash
-# 本地预览
-python3 -m http.server 8000      # 打开 http://localhost:8000
+# Local preview
+python3 -m http.server 8000      # then open http://localhost:8000
 cd desktop && npm install && SEALONOTE_URL=http://localhost:8000 npm start
 ```
 
 <br/>
 
 <div align="center">
-<sub>Made with care by Riley · 汤圆是 Riley 和 Juniper 的小海豹</sub>
+<sub>Made with care by Riley · Tangyuan is Riley and Juniper's little seal · <a href="https://www.sealonote.com/home">sealonote.com</a></sub>
 </div>

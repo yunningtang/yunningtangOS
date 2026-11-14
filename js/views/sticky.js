@@ -6,7 +6,7 @@
 import { html, useState, useEffect, useMemo, useRef } from '../../vendor/preact.js';
 import { useStore, upsert, update, get } from '../store.js';
 import { Icon } from '../ui.js';
-import { todayStr, addDays, sortBy, timeToMin, fmtShort, nowISO, kindColor } from '../util.js';
+import { todayStr, addDays, sortBy, timeToMin, fmtShort, nowISO, kindColor, mdLabel } from '../util.js';
 import { mdToBlocks } from '../blocks.js';
 import { ctxMenu } from '../ctx.js';
 import { toast, go } from '../nav.js';
@@ -81,7 +81,7 @@ export function TodayPane({ s, now }) {
         <button type="button" class=${day === 'today' ? 'on' : ''} onClick=${() => setDay('today')}>今天</button>
         <button type="button" class=${day === 'tmr' ? 'on' : ''} onClick=${() => setDay('tmr')}>明天</button>
       </div>
-      <span class="sk-date">${fmtShort(date)} 周${wd(date)}</span>
+      <span class="sk-date">${mdLabel(new Date(date.replace(/-/g, '/')), true)}</span>
     </div>
     <div class="todo-card sk-todos">
       <div class="tg-h today">焦点</div>

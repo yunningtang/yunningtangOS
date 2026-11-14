@@ -5,7 +5,7 @@ import { upsert, toggleTodo, get } from '../store.js';
 import { quickParse } from './todos.js';
 import { scheduleTodo } from '../schedule.js';
 import { Icon, Card } from '../ui.js';
-import { uid, todayStr, addDays, sortBy, weekKey, fmtShort, PRIORITY } from '../util.js';
+import { uid, todayStr, addDays, sortBy, weekKey, fmtShort, PRIORITY, mdLabel } from '../util.js';
 import { ctxMenu } from '../ctx.js';
 import { go, toast } from '../nav.js';
 import { doThis } from '../doing.js';
@@ -87,8 +87,8 @@ export function FocusDaysWidget({ s, wide, quote }) {
   return html`<${Card} class=${'fd-card ' + (wide ? 'wide' : '')}>
     <div class="card-h"><h3>今日焦点</h3><div class="card-act">${!wide && html`<div class="fd-tabs"><button type="button" class=${tab === 'today' ? 'on' : ''} onClick=${() => setTab('today')}>今天</button><button type="button" class=${tab === 'tmr' ? 'on' : ''} onClick=${() => setTab('tmr')}>明天</button></div>`}</div></div>
     <div class="fd-cols">
-      ${(wide || tab === 'today') && html`<${FocusCol} s=${s} date=${today} label="今天" sub=${`${fmtShort(today)} 周${wd(today)}`} main />`}
-      ${(wide || tab === 'tmr') && html`<${FocusCol} s=${s} date=${tmr} label="明天" sub=${`${fmtShort(tmr)} 周${wd(tmr)}`} />`}
+      ${(wide || tab === 'today') && html`<${FocusCol} s=${s} date=${today} label="今天" sub=${mdLabel(new Date(today.replace(/-/g, '/')), true)} main />`}
+      ${(wide || tab === 'tmr') && html`<${FocusCol} s=${s} date=${tmr} label="明天" sub=${mdLabel(new Date(tmr.replace(/-/g, '/')), true)} />`}
     </div>
     ${quote && html`<div class="quote-line"><${Icon} name="sparkle" size=${13} /> ${quote.text}</div>`}
     <a class="fd-week" href="#/plan/week" title="去周计划里改">${weekLines.length ? html`<b>本周</b>${weekLines.join(' · ')}` : html`<b>本周</b><span class="muted">还没写本周焦点</span>`}<${Icon} name="right" size=${12} /></a>
