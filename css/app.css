@@ -4897,3 +4897,14 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .skin-opt .skin-prev{display:block;width:100%;min-width:0;flex:none;height:56px;box-sizing:border-box}
 .skin-opt .skin-prev i{display:block}
 .sx-code{font:.82rem ui-monospace,SFMono-Regular,Menlo,monospace;padding:5px 9px;border-radius:7px;background:var(--hover);color:var(--text);user-select:all;word-break:break-all}
+/* 展开 / 收起：箭头转过去，内容轻轻滑出来；箭头点得到（22px），空本子不显示箭头 */
+.pt-tg,.nb-i .nb-tg{width:22px;height:22px;cursor:pointer}
+.pt-tg .ic,.nb-i .nb-tg .ic,.nav-tg .ic{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.pt-tg.open .ic,.nb-i .nb-tg.open .ic,.nav-tg .ic.rot{transform:rotate(90deg)}
+.pt-tg.none,.nb-i .nb-tg.none{visibility:hidden;pointer-events:none}
+.nb-i .nb-tg{margin-left:-6px;opacity:.55}.nb-i:hover .nb-tg,.nb-i .nb-tg.open{opacity:1}
+.tree-in{animation:tree-in .2s cubic-bezier(.2,.8,.2,1) both;transform-origin:top}
+@keyframes tree-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.nav .sep .ic{opacity:.45}.nav .sep:hover .ic{opacity:1}
+.nav .sep{cursor:pointer}.nav .sep:hover{color:var(--text-3)}
+@media (prefers-reduced-motion:reduce){.tree-in{animation:none}.pt-tg .ic,.nb-i .nb-tg .ic,.nav-tg .ic{transition:none}}

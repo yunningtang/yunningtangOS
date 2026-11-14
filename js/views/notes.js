@@ -187,11 +187,11 @@ export function PageTree({ notes, parent = null, depth = 0, activeId, open, togg
     const isOpen = !!open[n.id];
     return html`<li key=${n.id}>
       <div class=${'pt-row ' + (n.id === activeId ? 'active' : '')} style=${`padding-left:${8 + depth * 14}px`} onContextMenu=${(e) => ctxMenu(e, pageMenu(n, notes, { openPath }), noteTitle(n))} ...${dragProps('page', { id: n.id })} ...${dropProps('page', (d, { event }) => { if (d.id === n.id) return; const r = event.currentTarget.getBoundingClientRect(); const y = (event.clientY - r.top) / r.height; if (y > 0.3 && y < 0.7) { movePage(d.id, { parent: n.id }); openPath && openPath([n.id]); } else movePage(d.id, { parent: n.parent || null, nb: n.nb, [y >= 0.7 ? 'after' : 'before']: n.id }); })}>
-        <button class=${'pt-tg ' + (has ? '' : 'none')} onClick=${() => toggle(n.id)} aria-label="展开"><${Icon} name=${isOpen ? 'down' : 'right'} size=${11} /></button>
-        <a href=${'#/notes/' + n.id} class="pt-link"><${Icon} name="note" size=${14} class="pt-ic" /><span class="pt-t">${noteTitle(n)}</span></a>
+        <button class=${'pt-tg ' + (has ? '' : 'none ') + (isOpen ? 'open' : '')} title=${has ? (isOpen ? '收起（Alt 点一下：连子页面一起）' : '展开（Alt 点一下：连子页面一起）') : ''} onClick=${(e) => { e.preventDefault(); e.stopPropagation(); if (e.altKey && openPath) { const ids = [...subtreeIds(notes, n.id)].filter((x) => notes.some((y) => y.parent === x)); if (isOpen) ids.forEach((x) => open[x] && toggle(x)); else openPath(ids); } else toggle(n.id); }} aria-label=${isOpen ? '收起' : '展开'} aria-expanded=${has ? String(isOpen) : undefined}><${Icon} name="right" size=${12} /></button>
+        <a href=${'#/notes/' + n.id} class="pt-link" onClick=${() => { if (has && !isOpen && openPath) openPath([n.id]); }}><${Icon} name="note" size=${14} class="pt-ic" /><span class="pt-t">${noteTitle(n)}</span></a>
         <button class="pt-add" title="新建子页面" onClick=${() => onCreate(n.id)}><${Icon} name="plus" size=${11} /></button>
       </div>
-      ${isOpen && has && html`<${PageTree} notes=${notes} parent=${n.id} depth=${depth + 1} activeId=${activeId} open=${open} toggle=${toggle} onCreate=${onCreate} openPath=${openPath} nb=${nb} />`}
+      ${isOpen && has && html`<div class="tree-in"><${PageTree} notes=${notes} parent=${n.id} depth=${depth + 1} activeId=${activeId} open=${open} toggle=${toggle} onCreate=${onCreate} openPath=${openPath} nb=${nb} /></div>`}
     </li>`;
   })}</ul>`;
 }
@@ -236,7 +236,7 @@ export default function Notes({ route }) {
   }, [id]);
   const note = s.notes.find((n) => n.id === id);
   // keep the list on the notebook of the open page (also when the page is moved to another notebook)
-  useEffect(() => { if (note) { tree.openPath(ancestors(s.notes, note).map((a) => a.id)); if (note.nb && nbSel !== 'all' && nbSel !== 'fav' && nbSel !== note.nb) pick(note.nb); } }, [id, note && note.nb]);
+  useEffect(() => { if (note) { tree.openPath(ancestors(s.notes, note).map((a) => a.id)); if (note.nb) setExpanded((x) => (x[note.nb] ? x : { ...x, [note.nb]: true })); if (note.nb && nbSel !== 'all' && nbSel !== 'fav' && nbSel !== note.nb) pick(note.nb); } }, [id, note && note.nb]);
   useEffect(() => { if (nbSel === 'trash' && !(s.trash || []).length && !trashed) pick('all'); }, [s.trash]);
 
   const nbs = sortBy(s.notebooks, 'order');
@@ -268,14 +268,14 @@ export default function Notes({ route }) {
         <button class=${'nb-i ' + (nbSel === 'all' ? 'active' : '')} onClick=${() => pick('all')}><${Icon} name="note" size=${14} /><span class="flex1">全部笔记</span><small>${s.notes.length}</small></button>
         <button class=${'nb-i ' + (nbSel === 'fav' ? 'active' : '')} onClick=${() => pick('fav')} ...${dropProps('page', (d) => upsert('notes', { id: d.id, pinned: true }))}><${Icon} name="star" size=${14} /><span class="flex1">收藏</span><small>${s.notes.filter((n) => n.pinned).length}</small></button>
         <div class="nb-sec">本子</div>
-        ${nbs.map((b) => html`<div key=${b.id}><button class=${'nb-i ' + (nbSel === b.id ? 'active' : '')} onClick=${() => pick(b.id)} onDblClick=${() => setRenaming(b.id)} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, () => setRenaming(b.id)), b.name)}
+        ${nbs.map((b) => html`<div key=${b.id}><button class=${'nb-i ' + (nbSel === b.id ? 'active' : '')} aria-expanded=${counts.get(b.id) ? String(!!expanded[b.id]) : undefined} onClick=${() => { if (nbSel === b.id) { if (counts.get(b.id)) setExpanded((x) => ({ ...x, [b.id]: !x[b.id] })); } else { pick(b.id); if (counts.get(b.id)) setExpanded((x) => ({ ...x, [b.id]: true })); } }} onDblClick=${() => setRenaming(b.id)} onContextMenu=${(e) => ctxMenu(e, notebookMenu(b, s, () => setRenaming(b.id)), b.name)}
           ...${dragProps('notebook', { id: b.id })} ...${dropProps(['page', 'notebook'], (d, { after }) => { if (d.id === b.id) return; if (s.notes.some((n) => n.id === d.id)) { movePage(d.id, { nb: b.id, parent: null }); } else { update((dd) => { const list = dd.notebooks.sort((x, y) => x.order - y.order); const from = list.findIndex((x) => x.id === d.id); const [mv] = list.splice(from, 1); let to = list.findIndex((x) => x.id === b.id); if (after) to++; list.splice(to, 0, mv); list.forEach((x, i) => { x.order = i; }); }); } }, { position: true })}>
-          <span class=${'nb-tg ' + (expanded[b.id] ? 'open' : '')} onClick=${(e) => { e.stopPropagation(); setExpanded((x) => ({ ...x, [b.id]: !x[b.id] })); }}><${Icon} name="right" size=${11} /></span>
+          <span class=${'nb-tg ' + (expanded[b.id] ? 'open ' : '') + (counts.get(b.id) ? '' : 'none')} title=${expanded[b.id] ? '收起' : '展开'} onClick=${(e) => { e.stopPropagation(); setExpanded((x) => ({ ...x, [b.id]: !x[b.id] })); }}><${Icon} name="right" size=${11} /></span>
           <i class="nb-dot" style=${`background:${b.color}`}></i>
           ${renaming === b.id ? html`<input class="nb-rename" ref=${(el) => { if (el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); el.select(); }, 0); } }} value=${b.name} onClick=${(e) => e.stopPropagation()} onBlur=${(e) => { const v = e.target.value.trim(); if (v) update((d) => { d.notebooks.find((x) => x.id === b.id).name = v; }); setRenaming(null); }} onKeyDown=${(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setRenaming(null); }} />` : html`<span class="flex1">${b.name}</span>`}
           <small>${counts.get(b.id) || 0}</small>
         </button>
-        ${expanded[b.id] && html`<div class="nb-sub"><${PageTree} notes=${s.notes} nb=${b.id} activeId=${id} open=${tree.open} toggle=${tree.toggle} onCreate=${create} openPath=${tree.openPath} max=${200} /></div>`}
+        ${expanded[b.id] && counts.get(b.id) > 0 && html`<div class="nb-sub tree-in"><${PageTree} notes=${s.notes} nb=${b.id} activeId=${id} open=${tree.open} toggle=${tree.toggle} onCreate=${create} openPath=${tree.openPath} max=${200} /></div>`}
         </div>`)}
         <button class="nb-i new" onClick=${() => { const nb = newNotebook(); setRenaming(nb.id); pick(nb.id); }}><${Icon} name="plus" size=${13} /><span>新本子</span></button>
       </div>
