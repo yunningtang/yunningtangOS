@@ -12,6 +12,7 @@ import { env, seal, open, session, readBody } from './_lib.js';
 import { sb, cloudOn } from './_cloud.js';
 import { uid, PRIORITY, BLOCK_KINDS } from '../js/util.js';
 import { mdToBlocks } from '../js/blocks.js';
+import { fitBlock, busyRanges, firstFree } from '../js/nooverlap.js';
 
 const SCOPE = 'sealonote';
 const AT_TTL = 60 * 60;            // access token：1 小时
@@ -110,7 +111,7 @@ const TOOLS = [
     description: 'Change an existing to-do by id (from list_todos or get_overview): rename, reschedule (due/time), change priority or note, mark done or not done, add steps, or tick a step done by step id. Only the fields you pass change.',
     inputSchema: S({ id: str('To-do id'), title: { type: 'string' }, due: str('YYYY-MM-DD, or empty string to clear'), time: str('HH:MM, or empty string to clear'), priority: { type: 'integer', minimum: 0, maximum: 3 }, note: { type: 'string' }, done: { type: 'boolean' }, focus: { type: 'boolean' }, add_steps: { type: 'array', items: S({ title: { type: 'string' }, minutes: { type: 'integer', minimum: 5, maximum: 180 } }, ['title']) }, step_done: str('Id of a step to mark done') }, ['id']) },
   { name: 'schedule_block', title: 'Put a time block on the timeline',
-    description: `Add a time block to the user's timeline. kind is one of: ${BLOCK_KINDS.map((k) => k.v).join(', ')} (default focus). Link it to a to-do with todo_id; the to-do's date and time then follow the block. Use kind=checkpoint with start=end for a checkpoint (a goal to check at that moment).`,
+    description: `Add a time block to the user's timeline. kind is one of: ${BLOCK_KINDS.map((k) => k.v).join(', ')} (default focus). Link it to a to-do with todo_id; the to-do's date and time then follow the block. Use kind=checkpoint with start=end for a checkpoint (a goal to check at that moment). Only one thing can be on the timeline at a time: if the time is taken, the block moves to the next free slot and the result says so.`,
     inputSchema: S({ title: str('What the time is for'), date: str('YYYY-MM-DD'), start: str('HH:MM'), end: str('HH:MM'), kind: { type: 'string', enum: [...BLOCK_KINDS.map((k) => k.v), 'checkpoint'] }, todo_id: str('Optional to-do id'), note: { type: 'string' } }, ['title', 'date', 'start']) },
   { name: 'search_notes', title: 'Search notes', readOnly: true,
     description: 'Find note pages by text in the title or body. Returns ids, titles, notebook and a short snippet. Use read_note for the full text.',
@@ -217,7 +218,8 @@ async function callTool(name, a, ctx) {
       let block = null;
       if (t.time && t.due >= today && a.schedule !== false) {
         const len = steps.length ? steps.reduce((n, s) => n + s.minutes, 0) : 60; const [h, m] = t.time.split(':').map(Number); const e = Math.min(23 * 60 + 59, h * 60 + m + len);
-        block = { id: uid(), date: t.due, start: t.time, end: `${String(Math.floor(e / 60)).padStart(2, '0')}:${String(e % 60).padStart(2, '0')}`, title, kind: 'focus', note: '', todoId: t.id };
+        block = fitBlock({ id: uid(), date: t.due, start: t.time, end: `${String(Math.floor(e / 60)).padStart(2, '0')}:${String(e % 60).padStart(2, '0')}`, title, kind: 'focus', note: '', todoId: t.id }, null, list(doc, 'blocks')).block;
+        if (block.start !== t.time) t.time = block.start; // 那个时间已经有别的事：挪到下一个空档，待办的时间跟着块走
         list(doc, 'blocks').push(block);
       }
       return OUT({ created: todoOut(t, today), time_block: block ? blockOut(block) : null });
@@ -246,9 +248,10 @@ async function callTool(name, a, ctx) {
     if (!TIME.test(end || '') || (!check && end <= a.start)) return FAIL('end 要写成 HH:MM，并且晚于 start');
     return mutate(u, (doc) => {
       const b = { id: uid(), date: a.date, start: a.start, end, title: String(a.title || '').trim().slice(0, 120) || '时间块', kind: check ? 'check' : a.kind || 'focus', note: String(a.note || ''), ...(check ? { status: '' } : {}) };
-      if (a.todo_id) { const t = list(doc, 'todos').find((x) => x.id === a.todo_id); if (!t) throw new Error('找不到 todo_id 对应的待办'); b.todoId = t.id; t.due = a.date; t.time = a.start; t.updated = iso(); }
+      const fit = fitBlock(b, null, list(doc, 'blocks')); Object.assign(b, { start: fit.block.start, end: fit.block.end });
+      if (a.todo_id) { const t = list(doc, 'todos').find((x) => x.id === a.todo_id); if (!t) throw new Error('找不到 todo_id 对应的待办'); b.todoId = t.id; t.due = a.date; t.time = b.start; t.updated = iso(); }
       list(doc, 'blocks').push(b);
-      return OUT({ scheduled: blockOut(b) });
+      return OUT({ scheduled: blockOut(b), ...(fit.moved ? { note: `${a.start} was already taken by "${fit.moved.past}", so this was placed at ${b.start} instead (one thing at a time).` } : {}) });
     });
   }
   if (name === 'create_note') {

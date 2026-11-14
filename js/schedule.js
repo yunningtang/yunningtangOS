@@ -22,7 +22,7 @@ export function unscheduledParts(t, date = todayStr(), s = get()) {
 }
 export const isScheduled = (t, date = todayStr(), s = get()) => unscheduledParts(t, date, s).length === 0;
 
-// exact：时间是你自己写的——第一段就放在那个时间（和别的块重叠也照放，时间线会并排显示），待办的时间不改
+// exact：时间是你自己写的——第一段从那个时间开始排（撞了就挪到后面的空档），待办的时间不改
 export function scheduleTodo(t, date = todayStr(), { exact = false } = {}) {
   const s = get(); const parts = unscheduledParts(t, date, s); if (!parts.length) return { n: 0 };
   const today = todayStr();
@@ -30,7 +30,8 @@ export function scheduleTodo(t, date = todayStr(), { exact = false } = {}) {
   let cur = t.time && t.due === date ? Math.max(timeToMin(t.time), date === today ? earliest : 0) : earliest;
   const busy = busyOn(s, date); const made = [];
   for (const p of parts) {
-    const at = exact && !made.length && t.time ? timeToMin(t.time) : place(busy, cur, p.len); if (at < 0 || at + p.len > 24 * 60) break;
+    // exact（时间是你写的）：从那个时间开始找，撞了就往后挪到空档——同一时间只放一件事
+    const at = place(busy, exact && !made.length && t.time ? timeToMin(t.time) : cur, p.len); if (at < 0 || at + p.len > 24 * 60) break;
     made.push({ id: uid(), date, start: minToTime(at), end: minToTime(at + p.len), title: p.stepId ? p.title : t.title, kind: 'focus', note: p.stepId ? `「${t.title}」的一步` : '', todoId: t.id, stepId: p.stepId });
     busy.push([at, at + p.len]); busy.sort((a, b) => a[0] - b[0]); cur = at + p.len;
   }

@@ -1,5 +1,6 @@
 // Single-document state. Everything lives in one object persisted to localStorage;
 // views subscribe through useStore() and mutate through update().
+import { fitBlock } from './nooverlap.js';
 import { useEffect, useReducer } from '../vendor/preact.js';
 import { debounce, todayStr, nowISO } from './util.js';
 import { mdToBlocks, sanitizeBlocks, sanitize } from './blocks.js';
@@ -243,6 +244,11 @@ function commit(next) {
 export function upsert(name, item) {
   const list = state[name];
   const i = list.findIndex((x) => x.id === item.id);
+  // 时间块：同一时间只放一件事，撞了就挪到空档（见 nooverlap.js），并告诉你挪到了哪
+  if (name === 'blocks') {
+    const prev = i >= 0 ? list[i] : null; const { block, moved } = fitBlock(prev ? { ...prev, ...item } : item, prev, list);
+    if (moved) { item = { ...item, start: block.start, end: block.end }; try { window.dispatchEvent(new CustomEvent('blocks:moved', { detail: { ...moved, title: block.title || '' } })); } catch {} }
+  }
   // 改了才盖时间戳：同步合并冲突时「谁更新谁赢」要靠它
   const stamp = nowISO();
   const next = i >= 0 ? list.map((x, j) => { if (j !== i) return x; const merged = { ...x, ...item }; return JSON.stringify(merged) === JSON.stringify(x) ? x : { ...merged, updated: item.updated || stamp }; }) : [{ updated: stamp, ...item }, ...list];
