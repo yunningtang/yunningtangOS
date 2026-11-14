@@ -4976,3 +4976,12 @@ html,body{-ms-overflow-style:none}
 .sub-row .sub-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sub-new{width:100%;color:var(--text-4);background:transparent;border:0;font:inherit;font-size:.875rem;cursor:pointer;text-align:left}.sub-new:hover{color:var(--text)}
 .nb-h .tree-mini{opacity:1!important}
+/* 时间线上「某一步」的块：勾选框占自己的位置，不压字；短块里勾选框竖直居中；块不超出自己的时间段 */
+.tl .blk.is-step,.wtl .tl .blk.is-step{padding-left:24px}
+.wtl .tl .blk.is-step{padding-left:19px}.wtl .tl .blk .st-cb{left:4px;top:4px;width:12px;height:12px;border-radius:3px}
+.tl .blk.one .st-cb{top:50%;margin-top:-7px}.wtl .tl .blk.one .st-cb{margin-top:-6px}
+.wtl .tl .blk{min-height:0}
+/* 每日时间线顶部：右边的按钮按自己的宽度占位，日期条在中间剩下的空间里，不会被按钮压住 */
+.dnav{grid-template-columns:auto minmax(0,1fr) auto}.dnav-l{min-width:0}
+.dstrip{min-width:0;overflow:hidden;justify-content:center}
+@media(max-width:1180px){.dnav{grid-template-columns:1fr auto}.dstrip{grid-column:1/-1;grid-row:2;width:100%}}

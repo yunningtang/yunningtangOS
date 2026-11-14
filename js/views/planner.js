@@ -238,14 +238,14 @@ export function Timeline({ date, blocks: all, onEdit, onCreate, from = 0, to = 2
   return html`<div class="tl" style=${`--h:${hourH}px`} onContextMenu=${onSlotMenu} ...${dropProps(['todo', 'block'], dropAt)}>
     ${hours.map((h) => html`<div class=${'hour ' + (onCreate ? 'click' : '')} onClick=${onCreate ? () => onCreate(minToTime(h * 60)) : undefined}><span>${String(h).padStart(2, '0')}:00</span></div>`)}
     ${fx.extra.map((b) => {
-      const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60); if (e <= s) return null; const hh = Math.max(y(e) - y(s) - 3, 20);
+      const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60); if (e <= s) return null; const hh = Math.max(y(e) - y(s) - 3, Math.min(20, y(e) - y(s) - 1));
       return html`<div class=${'blk fx' + (b.focus.live ? ' live' : '') + (hh < 34 ? ' one' : '')} key=${b.id} style=${`${ln(b.id)}top:${y(s)}px;height:${hh}px;--bc:${kindColor('focus')}`} onClick=${(ev) => { ev.stopPropagation(); go('focus'); }} onContextMenu=${(ev) => focusMenu(ev, b)} title=${`${b.title} ${b.start}–${b.end} · ${focusLabel(b.focus)}`}><b><${Icon} name="clock" size=${10} />${b.title}</b><small>${b.focus.live ? '专注中 · 到 ' + b.end : `${b.start}–${b.end} · ${b.focus.mins} 分`}</small></div>`;
     })}
     ${blocks.map((b0) => {
       const b = ghost && ghost.id === b0.id ? { ...b0, start: ghost.start, end: ghost.end } : b0;
       const s = Math.max(timeToMin(b.start), from * 60), e = Math.min(timeToMin(b.end), to * 60);
       if (e <= s) return null;
-      const f = fx.byBlock.get(b0.id); const hh = Math.max(y(e) - y(s) - 3, 20);
+      const f = fx.byBlock.get(b0.id); const hh = Math.max(y(e) - y(s) - 3, Math.min(20, y(e) - y(s) - 1));
       // 这块是某条待办的一步：块上有个勾，勾了就把那一步标完成
       const stepTodo = b.todoId && b.stepId ? get().todos.find((t) => t.id === b.todoId) : null;
       const step = stepTodo ? stepsOf(stepTodo).find((x) => x.id === b.stepId) : null;
