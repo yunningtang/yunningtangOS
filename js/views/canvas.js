@@ -163,6 +163,33 @@ function Board({ board, notes, notebooks }) {
   const setMulti = (ids) => { multiRef.current = ids; setMulti0(ids); };
   const [box, setBox] = useState(null);
   const multiNodes = () => bRef.current.nodes.filter((n) => multiRef.current.includes(n.id));
+  // 复制 / 粘贴 / 创建副本：卡片连同它们之间的连线一起走；可以贴到另一张画布（同一个浏览器）
+  const pickedIds = () => (multiRef.current.length ? [...multiRef.current] : sel && sel.kind === 'node' ? [sel.id] : []);
+  const clipText = (ns) => ns.map((n) => (n.type === 'note' ? (notes.find((x) => x.id === n.note) || {}).title || '页面' : n.type === 'src' ? n.name || '材料' : n.text || n.q || '')).filter(Boolean).join('\n\n');
+  const copyCards = (ids = pickedIds()) => {
+    const set = new Set(ids); const ns = bRef.current.nodes.filter((n) => set.has(n.id)); if (!ns.length) return false;
+    const es = bRef.current.edges.filter((e) => set.has(e.from) && set.has(e.to)); const text = clipText(ns) || '画布卡片';
+    lsSet('ytos.cv.clip', { from: bRef.current.id, nodes: ns, edges: es, text, at: Date.now() });
+    try { navigator.clipboard && navigator.clipboard.writeText(text); } catch {}
+    toast(ns.length > 1 ? `已复制 ${ns.length} 张` : '已复制'); return true;
+  };
+  const placeCopies = (ns, es, at) => {
+    const bb = bbox({ nodes: ns, strokes: [] }); const [dx, dy] = at ? [at[0] - bb.x, at[1] - bb.y] : [40, 40]; const idm = new Map();
+    const nn = ns.map((n) => { const id = uid(); idm.set(n.id, id); return { ...n, id, x: Math.round(n.x + dx), y: Math.round(n.y + dy) }; });
+    const ne = es.map((e) => ({ ...e, id: uid(), from: idm.get(e.from), to: idm.get(e.to) }));
+    commit({ ...bRef.current, nodes: [...bRef.current.nodes, ...nn], edges: [...bRef.current.edges, ...ne] });
+    if (nn.length > 1) { setSel(null); setMulti(nn.map((n) => n.id)); } else { setMulti([]); setSel({ kind: 'node', id: nn[0].id }); }
+  };
+  const pasteCards = () => {
+    const c = lsGet('ytos.cv.clip'); if (!c || !c.nodes || !c.nodes.length) return false;
+    const same = c.from === bRef.current.id && c.nodes.every((n) => node(n.id));
+    if (same) placeCopies(c.nodes, c.edges || []); else { const bb = bbox({ nodes: c.nodes, strokes: [] }); const [cx, cy] = center(); placeCopies(c.nodes, c.edges || [], [cx - bb.w / 2, cy - bb.h / 2]); }
+    return true;
+  };
+  const duplicateCards = (ids = pickedIds()) => { const set = new Set(ids); const ns = bRef.current.nodes.filter((n) => set.has(n.id)); if (ns.length) placeCopies(ns, bRef.current.edges.filter((e) => set.has(e.from) && set.has(e.to))); };
+  const connectTo = (from, to) => { if (from === to || bRef.current.edges.some((x) => (x.from === from && x.to === to) || (x.from === to && x.to === from))) { toast('已经连着了'); return; } const ed = { id: uid(), from, to, label: '' }; commit({ ...bRef.current, edges: [...bRef.current.edges, ed] }); setSel({ kind: 'edge', id: ed.id }); };
+  const moveIntoSec = (n, s0) => { const x = s0.x + 24, y0 = s0.y + 52; const inside = bRef.current.nodes.filter((m) => m.id !== n.id && inSec(s0, m)); const y = inside.length ? Math.max(...inside.map((m) => m.y + m.h)) + 20 : y0; const next = { ...bRef.current, nodes: bRef.current.nodes.map((m) => (m.id === n.id ? { ...m, x, y } : m)), sections: secsOf(bRef.current).map((q) => (q.id === s0.id ? { ...q, w: Math.max(q.w, n.w + 48), h: Math.max(q.h, y + n.h + 24 - q.y) } : q)) }; commit(next); };
+  const cardLabel = (n) => { const t = n.type === 'note' ? (notes.find((x) => x.id === n.note) || {}).title || '页面' : n.type === 'src' ? n.name || '材料' : n.type === 'learn' ? n.title || n.q || '讲解' : (n.text || '').split('\n')[0]; return (t || '（空白卡片）').slice(0, 30); };
   const removeMulti = () => {
     const ids = new Set(multiRef.current); if (!ids.size) return; const prev = bRef.current;
     commit({ ...prev, nodes: prev.nodes.filter((n) => !ids.has(n.id)), edges: prev.edges.filter((e) => !ids.has(e.from) && !ids.has(e.to)) }); setMulti([]); setSel(null);
@@ -247,6 +274,7 @@ function Board({ board, notes, notebooks }) {
     const paste = (e) => {
       if (e.target.closest && e.target.closest('input,textarea,[contenteditable="true"]')) return;
       if (Date.now() - midAt < 2000 && Date.now() - keyAt > 1000) { e.preventDefault(); return; }
+      { const c = lsGet('ytos.cv.clip'); const t0 = e.clipboardData && e.clipboardData.getData('text/plain'); if (c && c.nodes && (t0 || '') === c.text) { e.preventDefault(); pasteCards(); return; } }
       const fs = [...(e.clipboardData && e.clipboardData.files || [])].filter((f) => /^image\//.test(f.type) || isPdf(f));
       if (fs.length) { e.preventDefault(); addFiles(fs); return; }
       const t = e.clipboardData && e.clipboardData.getData('text/plain'); if (t && t.trim().length > 80) { e.preventDefault(); addTextSrc(t.trim()); }
@@ -291,6 +319,8 @@ function Board({ board, notes, notebooks }) {
       if (e.key === '/' && !editing) { e.preventDefault(); openAsk(); return; }
       if ((e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) && (sel && sel.kind === 'node' && !multiRef.current.length || editing)) { e.preventDefault(); spawn(editing || sel.id, e.key === 'Tab'); return; }
       if (editing) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && !editing && pickedIds().length && !String(window.getSelection() || '')) { e.preventDefault(); copyCards(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd' && !editing && pickedIds().length) { e.preventDefault(); duplicateCards(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') { e.preventDefault(); setSel(null); setMulti(bRef.current.nodes.map((n) => n.id)); return; }
@@ -453,6 +483,8 @@ function Board({ board, notes, notebooks }) {
       ctxMenu(e, [
         { label: '放进新分区', icon: 'frame', onClick: multiToSec },
         { label: '排列…', icon: 'list', onClick: () => arrangeMenu(e) },
+        { label: '复制', icon: 'copy', hint: '⌘C', onClick: () => copyCards() },
+        { label: '创建副本', icon: 'layers', hint: '⌘D', onClick: () => duplicateCards() },
         'sep',
         { label: `删除这 ${k} 张`, icon: 'trash', danger: true, onClick: removeMulti },
       ], `选中了 ${k} 张`);
@@ -478,7 +510,11 @@ function Board({ board, notes, notebooks }) {
         n.type === 'note' && { label: '打开整页', icon: 'external', onClick: () => go('notes/' + n.note) },
         n.type === 'text' && n.ref && { label: '跳到原文', icon: 'target', onClick: () => goRef(n.ref) },
         n.type === 'text' && { label: '转为页面', icon: 'note', hint: '新建一页并链接', onClick: () => { const lines = (n.text || '').split('\n'); const title = lines[0].trim() || '无标题'; const body = lines.slice(1).join('\n').trim(); const p = newNote({ title, body, blocks: mdToBlocks(body) }); patchNode(n.id, { type: 'note', note: p.id, text: '', h: Math.max(n.h, 110) }); toast('已创建页面', { label: '打开', onClick: () => go('notes/' + p.id) }); } },
-        { label: '放进新分区', icon: 'frame', onClick: () => wrapInSec(n) },
+        { label: '连到…', icon: 'right', sub: bRef.current.nodes.filter((m) => m.id !== n.id).slice(0, 30).map((m) => ({ label: cardLabel(m), onClick: () => connectTo(n.id, m.id) })) },
+        secsOf(bRef.current).length ? { label: '放进分区', icon: 'frame', sub: [...secsOf(bRef.current).map((q) => ({ label: q.title || '未命名分区', onClick: () => moveIntoSec(n, q) })), 'sep', { label: '新分区', icon: 'plus', onClick: () => wrapInSec(n) }] } : { label: '放进新分区', icon: 'frame', onClick: () => wrapInSec(n) },
+        'sep',
+        { label: '复制', icon: 'copy', hint: '⌘C', onClick: () => copyCards([n.id]) },
+        { label: '创建副本', icon: 'layers', hint: '⌘D', onClick: () => duplicateCards([n.id]) },
         'sep',
         { head: '颜色' },
         { swatches: colorSwatches(n.color || '', NODE_COLORS, (c) => patchNode(n.id, { color: c })) },
@@ -507,6 +543,7 @@ function Board({ board, notes, notebooks }) {
       { label: '添加文字', icon: 'type', onClick: () => addText(wx, wy) },
       { label: '添加页面…', icon: 'note', onClick: () => setPicker({ x: wx, y: wy }) },
       { label: '新建分区', icon: 'frame', hint: '把相关的卡片放在一起', onClick: () => newSecAt(wx - 40, wy - 30) },
+      (() => { const c = lsGet('ytos.cv.clip'); return c && c.nodes && c.nodes.length ? { label: c.nodes.length > 1 ? `粘贴 ${c.nodes.length} 张卡片` : '粘贴卡片', icon: 'copy', hint: '⌘V', onClick: () => { const bb = bbox({ nodes: c.nodes, strokes: [] }); placeCopies(c.nodes, c.edges || [], [wx - bb.w / 2, wy - 20]); } } : null; })(),
       'sep',
       { label: '适应内容', icon: 'maximize', onClick: fit },
       { label: '100%', icon: 'target', onClick: () => zoomTo(1) },
@@ -620,6 +657,7 @@ function Board({ board, notes, notebooks }) {
     </div>
     ${askOpen ? html`<${AskBar} onHide=${hideAsk} target=${sel && sel.kind === 'node' ? node(sel.id) : null} notes=${notes} hasSrc=${b.nodes.some((n) => n.type === 'src')} quote=${quote} onAsk=${(q) => { if (quote) { ask(q, { anchorId: quote.id, focus: quote.text, label: '选中' }); setQuote(null); } else ask(q); }} onClear=${() => (quote ? setQuote(null) : setSel(null))} onUpload=${async () => { const f = await pickFile('application/pdf,image/*'); if (f) addFiles([f]); }} onText=${() => setTextModal(true)} />` : html`<button type="button" class="cv-ask-fab" title="问汤圆（/）" onClick=${openAsk}><${Icon} name="chat" size=${17} /></button>`}
     ${side && (() => { const pg = notes.find((x) => x.id === side); return pg ? html`<${CardPanel} key=${pg.id} note=${pg} notes=${notes} onClose=${() => setSide(null)} onOpenTitle=${openByTitle} />` : null; })()}
+    ${b.nodes.length >= 6 && html`<${MiniMap} b=${b} view=${view} vp=${vp} onJump=${(wx, wy) => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; animateView({ ...v, x: r.width / 2 - wx * v.z, y: r.height / 2 - wy * v.z }, 260); }} />`}
     <${Outline} nodes=${b.nodes} sections=${secsOf(b)} onGoSec=${goSec} selId=${sel ? sel.id : ''} onGo=${(id) => { const n = node(id); if (!n) return; const r = vp.current.getBoundingClientRect(); const v = viewRef.current; animateView({ ...v, x: r.width / 2 - (n.x + n.w / 2) * v.z, y: 70 - n.y * v.z }, 320); setSel({ kind: 'node', id }); }} />
     ${textModal && html`<${TextModal} onClose=${() => setTextModal(false)} onSave=${(t, name) => { setTextModal(false); addTextSrc(t, name); }} />`}
     ${picker && html`<${PagePicker} notes=${notes} notebooks=${notebooks} onClose=${() => setPicker(false)} onPick=${(id) => { const [cx, cy] = picker.x != null ? [picker.x, picker.y] : center(); addNote(id, cx - 120, cy - 55); setPicker(false); }} />`}
@@ -730,13 +768,63 @@ function PagePicker({ notes, notebooks, onClose, onPick }) {
   <//>`;
 }
 
+// 小地图：右下角一块缩略图，灰框是现在看到的范围；点 / 拖到哪就看哪；可以收起
+function MiniMap({ b, view, vp, onJump }) {
+  const [hide, setHide] = useState(() => lsGet('ytos.cv.mm') === false);
+  const drag = useRef(false);
+  const el = vp.current; if (!el) return null;
+  const r = el.getBoundingClientRect(); const bb = bbox(b); if (!bb) return null;
+  const vw = { x: -view.x / view.z, y: -view.y / view.z, w: r.width / view.z, h: r.height / view.z };
+  const x1 = Math.min(bb.x, vw.x), y1 = Math.min(bb.y, vw.y), x2 = Math.max(bb.x + bb.w, vw.x + vw.w), y2 = Math.max(bb.y + bb.h, vw.y + vw.h);
+  const W = 180, H = 120, pad = 40; const sc = Math.min(W / (x2 - x1 + pad * 2), H / (y2 - y1 + pad * 2)); const ox = (W - (x2 - x1) * sc) / 2 - x1 * sc, oy = (H - (y2 - y1) * sc) / 2 - y1 * sc;
+  const at = (e) => { const rr = e.currentTarget.getBoundingClientRect(); onJump((e.clientX - rr.left - ox) / sc, (e.clientY - rr.top - oy) / sc); };
+  if (hide) return html`<button type="button" class="cv-mm-open" title="显示小地图" onPointerDown=${(e) => e.stopPropagation()} onClick=${() => { setHide(false); lsSet('ytos.cv.mm', true); }}><${Icon} name="compass" size=${14} /></button>`;
+  return html`<div class="cv-mm" onPointerDown=${(e) => e.stopPropagation()} onWheel=${(e) => e.stopPropagation()}>
+    <svg width=${W} height=${H} onPointerDown=${(e) => { drag.current = true; e.currentTarget.setPointerCapture(e.pointerId); at(e); }} onPointerMove=${(e) => { if (drag.current) at(e); }} onPointerUp=${() => { drag.current = false; }}>
+      <g transform=${`translate(${ox},${oy}) scale(${sc})`}>
+        ${(b.sections || []).map((q) => html`<rect key=${q.id} x=${q.x} y=${q.y} width=${q.w} height=${q.h} rx=${10 / sc} class="mm-sec" style=${q.color ? `fill:${q.color}` : ''} />`)}
+        ${b.nodes.map((n) => html`<rect key=${n.id} x=${n.x} y=${n.y} width=${n.w} height=${n.h} rx=${4 / sc} class="mm-n" style=${n.color ? `fill:${n.color};opacity:.75` : ''} />`)}
+        <rect x=${vw.x} y=${vw.y} width=${vw.w} height=${vw.h} class="mm-v" style=${`stroke-width:${1.5 / sc}px`} />
+      </g>
+    </svg>
+    <button type="button" class="cv-mm-x" title="收起小地图" onClick=${() => { setHide(true); lsSet('ytos.cv.mm', false); }}><${Icon} name="x" size=${11} /></button>
+  </div>`;
+}
+
+// 新画布的模板：先把常用的结构摆好
+const T = (id, x, y, text, w = 220, h = 64, color = '') => ({ id, type: 'text', x, y, w, h, text, html: esc(text).replace(/\n/g, '<br>'), color });
+const E = (from, to, label = '') => ({ id: uid(), from, to, label });
+const SECS = (names, w = 300, h = 360, gap = 40, cols = names.length) => names.map((t, i) => ({ id: uid(), title: t, x: (i % cols) * (w + gap), y: Math.floor(i / cols) * (h + gap), w, h, color: '' }));
+const CV_TEMPLATES = [
+  { k: 'mind', label: '思维导图', icon: 'layers', hint: '中心 + 四个分支', make: () => { const c = T('c', 0, 160, '中心主题', 220, 64, '#4f7cf5'); const kids = ['分支一', '分支二', '分支三', '分支四'].map((t, i) => T('k' + i, 330, i * 100, t)); return { nodes: [c, ...kids], edges: kids.map((k) => E('c', k.id)), sections: [] }; } },
+  { k: 'swot', label: 'SWOT 分析', icon: 'grid', hint: '优势 / 劣势 / 机会 / 威胁', make: () => ({ nodes: [], edges: [], sections: SECS(['优势 Strengths', '劣势 Weaknesses', '机会 Opportunities', '威胁 Threats'], 360, 280, 40, 2).map((q, i) => ({ ...q, color: ['#4a9a6a', '#d2524f', '#4f7cf5', '#c7873a'][i] })) }) },
+  { k: 'timeline', label: '时间线', icon: 'right', hint: '五个节点从左到右', make: () => { const ns = ['开始', '第一步', '第二步', '第三步', '完成'].map((t, i) => T('t' + i, i * 280, 0, t)); return { nodes: ns, edges: ns.slice(1).map((n, i) => E(ns[i].id, n.id)), sections: [] }; } },
+  { k: 'study', label: '学习笔记', icon: 'book', hint: '材料 / 问题 / 要点 / 待复习', make: () => ({ nodes: [], edges: [], sections: SECS(['材料', '我的问题', '要点', '待复习']) }) },
+  { k: 'project', label: '项目计划', icon: 'flag', hint: '目标 / 任务 / 风险 / 资源', make: () => ({ nodes: [], edges: [], sections: SECS(['目标', '任务', '风险', '资源']) }) },
+];
+function fromTemplate(t, title) {
+  const base = t.make(); const idm = new Map(); base.nodes.forEach((n) => idm.set(n.id, uid()));
+  const c = newCanvas(title || t.label);
+  upsert('canvases', { id: c.id, nodes: base.nodes.map((n) => ({ ...n, id: idm.get(n.id) })), edges: base.edges.map((e) => ({ ...e, from: idm.get(e.from), to: idm.get(e.to) })), sections: base.sections, updated: now() });
+  return c;
+}
+// 列表缩略图上写几个字：分区名，没有分区就用前几张卡片
+function previewWords(c) {
+  const notes = get().notes || [];
+  const secs = (c.sections || []).map((x) => x.title).filter(Boolean);
+  if (secs.length) return secs.slice(0, 4);
+  return (c.nodes || []).map((n) => (n.type === 'note' ? (notes.find((x) => x.id === n.note) || {}).title : n.type === 'src' ? n.name : (n.text || '').split('\n')[0])).filter(Boolean).slice(0, 4).map((t) => String(t).slice(0, 18));
+}
+
 function CanvasList({ canvases }) {
   const list = sortBy(canvases, '-updated');
-  const create = async () => { const v = await askPrompt('画布名称', '', { title: '新画布', placeholder: '比如：论文思路 / 项目地图' }); if (v == null) return; const c = newCanvas(v.trim()); go('notes/canvas/' + c.id); };
-  return html`<div class="page"><div class="cv-list-h"><h2>画布 <span class="muted small">${list.length}</span></h2><span class="flex1"></span><${Btn} small kind="primary" icon="plus" onClick=${create}>新画布<//></div>
-    <div class="page-body">
-      <div class="cv-grid"><button class="cv-card new" onClick=${create}><${Icon} name="plus" size=${20} /><span>新画布</span><small>白板 · 脑图 · 拖 PDF 进来问汤圆</small></button>${list.map((c) => html`<a key=${c.id} class="cv-card" href=${'#/notes/canvas/' + c.id} onContextMenu=${(e) => ctxMenu(e, canvasMenu(c), c.title || '未命名画布')}>
+  const named = async (t) => { const v = await askPrompt('画布名称', '', { title: t ? '新画布 · ' + t.label : '新画布', placeholder: '比如：论文思路 / 项目地图' }); if (v == null) return; const c = t ? fromTemplate(t, v.trim()) : newCanvas(v.trim()); go('notes/canvas/' + c.id); };
+  const create = (e) => ctxMenu(e, [{ label: '空白画布', icon: 'frame', onClick: () => named(null) }, 'sep', { head: '从模板开始' }, ...CV_TEMPLATES.map((t) => ({ label: t.label, icon: t.icon, hint: t.hint, onClick: () => named(t) }))], '新画布');
+  return html`<div class="page">
+    <div class="page-body cv-list-body"><div class="cv-list-h"><h2>画布</h2><span class="cv-list-n">${list.length}</span><span class="flex1"></span><${Btn} small kind="primary" icon="plus" onClick=${create}>新画布<//></div>
+      <div class="cv-grid"><button class="cv-card new" onClick=${create}><${Icon} name="plus" size=${20} /><span>新画布</span><small>空白，或者从模板开始</small></button>${list.map((c) => html`<a key=${c.id} class="cv-card" href=${'#/notes/canvas/' + c.id} onContextMenu=${(e) => ctxMenu(e, canvasMenu(c), c.title || '未命名画布')}>
         <div class="cv-prev"><svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet">${(() => { const bb = bbox(c); if (!bb) return null; const s = Math.min(180 / Math.max(bb.w, 1), 100 / Math.max(bb.h, 1)); const ox = 100 - (bb.x + bb.w / 2) * s, oy = 60 - (bb.y + bb.h / 2) * s; return html`<g transform=${`translate(${ox},${oy}) scale(${s})`}>${(c.sections || []).map((x) => html`<rect key=${x.id} x=${x.x} y=${x.y} width=${x.w} height=${x.h} rx=${12 / s} fill=${x.color || 'currentColor'} opacity=".08" />`)}${c.edges.map((e) => { const a = c.nodes.find((n) => n.id === e.from), b2 = c.nodes.find((n) => n.id === e.to); return a && b2 ? html`<line key=${e.id} x1=${a.x + a.w / 2} y1=${a.y + a.h / 2} x2=${b2.x + b2.w / 2} y2=${b2.y + b2.h / 2} stroke="currentColor" stroke-width=${2 / s} opacity=".4" />` : null; })}${c.nodes.map((n) => html`<rect key=${n.id} x=${n.x} y=${n.y} width=${n.w} height=${n.h} rx=${8 / s} fill=${n.color || 'currentColor'} opacity=${n.color ? '.8' : '.35'} />`)}${c.strokes.map((st) => html`<path key=${st.id} d=${strokePath(st.pts)} fill="none" stroke=${st.color} stroke-width=${st.width / s} stroke-linecap="round" />`)}</g>`; })()}</svg></div>
+        ${(() => { const w = previewWords(c); return w.length ? html`<div class="cv-prev-w">${w.map((t, i) => html`<span key=${i}>${t}</span>`)}</div>` : null; })()}
         <button type="button" class="cv-card-more" title="更多" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); ctxMenu(e, canvasMenu(c), c.title || '未命名画布'); }}><${Icon} name="dots" size=${14} /></button>
         <b>${c.title || '未命名画布'}</b><small>${c.nodes.length} 个节点 · ${c.edges.length} 条连线 · ${c.updated.slice(5, 10).replace('-', '/')}</small>
       </a>`)}</div>

@@ -4910,9 +4910,25 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 @media (prefers-reduced-motion:reduce){.tree-in{animation:none}.pt-tg .ic,.nb-i .nb-tg .ic,.nav-tg .ic{transition:none}}
 .time-list::-webkit-scrollbar,.ss-list::-webkit-scrollbar{display:none}
 /* 画布列表：一个标题，不再重复面包屑；卡片右上角有「…」 */
-.cv-list-h{display:flex;align-items:center;gap:10px;padding:4px 2px 14px}.cv-list-h h2{margin:0;font-size:1.25rem}
+.cv-list-body{max-width:1180px}
+.cv-list-h{display:flex;align-items:baseline;gap:8px;margin:0 0 18px}.cv-list-h h2{margin:0;font-size:1.5rem;font-weight:700;letter-spacing:-.01em}.cv-list-n{font-size:.9rem;color:var(--text-4)}.cv-list-h .btn{align-self:center}
 .cv-card{position:relative}
 .cv-card-more{position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--text-3);background:var(--paper);box-shadow:0 0 0 1px var(--line);opacity:0;transition:opacity .15s}
 .cv-card:hover .cv-card-more,.cv-card-more:focus-visible{opacity:1}.cv-card-more:hover{color:var(--text)}
 @media (hover:none){.cv-card-more{opacity:1}}
 .crumb-edit{cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px}.crumb-edit:hover{background:var(--hover)}
+
+.cv-card .cv-prev{position:relative}
+.cv-prev-w{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 2px;min-height:0}
+.cv-prev-w span{font-size:.72rem;line-height:1.5;padding:1px 7px;border-radius:999px;background:var(--hover);color:var(--text-3);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 小地图 */
+.cv-mm{position:absolute;right:14px;bottom:14px;z-index:6;padding:6px;border-radius:12px;background:var(--paper);box-shadow:0 0 0 1px var(--line),0 8px 24px -12px rgba(0,0,0,.25);opacity:.92;transition:opacity .15s}
+.cv-mm:hover{opacity:1}.cv-mm svg{display:block;cursor:pointer;border-radius:7px;background:var(--side)}
+.cv-mm .mm-n{fill:var(--text-4);opacity:.45}.cv-mm .mm-sec{fill:var(--text-4);opacity:.1}.cv-mm .mm-v{fill:rgba(79,124,245,.08);stroke:#4f7cf5}
+.cv-mm-x{position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--paper);box-shadow:0 0 0 1px var(--line);color:var(--text-3);opacity:0;transition:opacity .15s}
+.cv-mm:hover .cv-mm-x{opacity:1}
+.cv-mm-open{position:absolute;right:14px;bottom:14px;z-index:6;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--paper);box-shadow:0 0 0 1px var(--line);color:var(--text-3)}
+.cv-mm-open:hover{color:var(--text)}
+.cv-wrap.side-open .cv-mm,.cv-wrap.side-open .cv-mm-open{display:none}
+@media (max-width:700px){.cv-mm,.cv-mm-open{display:none}}
+@media (max-width:1180px){.cv-mm,.cv-mm-open{bottom:120px}}
