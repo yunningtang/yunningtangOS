@@ -4909,3 +4909,10 @@ a.cd-n{display:block;padding:4px 12px 0;font-size:.72rem;color:var(--text-3);tex
 .nav .sep{cursor:pointer}.nav .sep:hover{color:var(--text-3)}
 @media (prefers-reduced-motion:reduce){.tree-in{animation:none}.pt-tg .ic,.nb-i .nb-tg .ic,.nav-tg .ic{transition:none}}
 .time-list::-webkit-scrollbar,.ss-list::-webkit-scrollbar{display:none}
+/* 画布列表：一个标题，不再重复面包屑；卡片右上角有「…」 */
+.cv-list-h{display:flex;align-items:center;gap:10px;padding:4px 2px 14px}.cv-list-h h2{margin:0;font-size:1.25rem}
+.cv-card{position:relative}
+.cv-card-more{position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--text-3);background:var(--paper);box-shadow:0 0 0 1px var(--line);opacity:0;transition:opacity .15s}
+.cv-card:hover .cv-card-more,.cv-card-more:focus-visible{opacity:1}.cv-card-more:hover{color:var(--text)}
+@media (hover:none){.cv-card-more{opacity:1}}
+.crumb-edit{cursor:text;border-radius:6px;padding:1px 4px;margin:-1px -4px}.crumb-edit:hover{background:var(--hover)}

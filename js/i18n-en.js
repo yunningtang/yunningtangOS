@@ -1077,6 +1077,8 @@ export const DICT = {
 "所有待办、笔记、书、收藏、足迹都会被清除。建议先导出。": "All to-dos, notes, books, saved items and footprints will be erased. Export first is recommended.",
 "所有用到的地方一起改": "Change it everywhere it's used",
 "所有画布": "All canvases",
+"没有可以撤销的了": "Nothing to undo",
+"点一下改名": "Click to rename",
 "所有类型": "All types",
 "所有订阅": "All subscriptions",
 "扇形颜色": "Slice colors",

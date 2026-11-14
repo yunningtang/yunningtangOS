@@ -77,8 +77,13 @@ function Board({ board, notes, notebooks }) {
   const [b, setBState] = useState(board);
   const bRef = useRef(b); const setB = (v) => { const next = typeof v === 'function' ? v(bRef.current) : v; bRef.current = next; setBState(next); };
   const dragRef = useRef(null);
-  useEffect(() => { if (!dragRef.current && board !== bRef.current) setB(board); }, [board]);
-  const commit = (next) => { setB(next); upsert('canvases', { ...next, updated: now() }); };
+  // 撤销 / 重做（⌘Z / ⇧⌘Z）：每次保存前记下上一版；别的设备同步过来的改动不进记录
+  const saved = useRef(board); const past = useRef([]); const future = useRef([]);
+  useEffect(() => { if (!dragRef.current && board !== bRef.current) { setB(board); saved.current = board; } }, [board]);
+  const commit = (next, { keep } = {}) => { if (saved.current !== next) { past.current.push(saved.current); if (past.current.length > 80) past.current.shift(); if (!keep) future.current = []; } saved.current = next; setB(next); upsert('canvases', { ...next, updated: now() }); };
+  const undo = () => { const p = past.current.pop(); if (!p) { toast('没有可以撤销的了'); return; } future.current.push(bRef.current); saved.current = p; setB(p); upsert('canvases', { ...p, updated: now() }); };
+  const redo = () => { const n = future.current.pop(); if (!n) return; past.current.push(bRef.current); saved.current = n; setB(n); upsert('canvases', { ...n, updated: now() }); };
+  const firstView = useRef(!lsGet('ytos.cv.' + board.id));
   const [view, setViewState] = useState(() => lsGet('ytos.cv.' + board.id) || { x: 80, y: 80, z: 1 });
   // 视图（平移 / 缩放）：先改 ref，每一帧最多重画一次；拖动、滚轮、捏合都走这里
   const viewRef = useRef(view); const rafV = useRef(0);
@@ -111,6 +116,7 @@ function Board({ board, notes, notebooks }) {
   const zoomTo = (z) => { const r = vp.current.getBoundingClientRect(); animateView(zoomed(viewRef.current, r.width / 2, r.height / 2, z), 220); };
   const frame = (bb, maxZ = 1.5) => { const r = vp.current.getBoundingClientRect(); if (!bb) return { x: r.width / 2, y: r.height / 2, z: 1 }; const z = clamp(Math.min((r.width - 80) / Math.max(bb.w, 1), (r.height - 140) / Math.max(bb.h, 1), maxZ), ZMIN, maxZ); return { x: (r.width - bb.w * z) / 2 - bb.x * z, y: (r.height - 60 - bb.h * z) / 2 - bb.y * z, z }; };
   const fit = () => animateView(frame(bbox(bRef.current)), 320);
+  useEffect(() => { if (firstView.current && bbox(bRef.current)) { firstView.current = false; setTimeout(() => { try { setView(frame(bbox(bRef.current))); } catch {} }, 60); } }, []);
   const zoomToSel = () => { const n = sel && sel.kind === 'node' ? node(sel.id) : null; if (n) animateView(frame({ x: n.x, y: n.y, w: n.w, h: n.h }, 2), 300); else fit(); };
 
   const addText = (x, y, text = '') => { const n = { id: uid(), type: 'text', x: Math.round(x), y: Math.round(y), w: 220, h: 64, text, color: '' }; commit({ ...bRef.current, nodes: [...bRef.current.nodes, n] }); setSel({ kind: 'node', id: n.id }); setEditing(n.id); return n; };
@@ -285,6 +291,8 @@ function Board({ board, notes, notebooks }) {
       if (e.key === '/' && !editing) { e.preventDefault(); openAsk(); return; }
       if ((e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) && (sel && sel.kind === 'node' && !multiRef.current.length || editing)) { e.preventDefault(); spawn(editing || sel.id, e.key === 'Tab'); return; }
       if (editing) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') { e.preventDefault(); setSel(null); setMulti(bRef.current.nodes.map((n) => n.id)); return; }
       if ((e.key === 'Delete' || e.key === 'Backspace') && multiRef.current.length) { e.preventDefault(); removeMulti(); }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); removeSel(); }
@@ -725,10 +733,11 @@ function PagePicker({ notes, notebooks, onClose, onPick }) {
 function CanvasList({ canvases }) {
   const list = sortBy(canvases, '-updated');
   const create = async () => { const v = await askPrompt('画布名称', '', { title: '新画布', placeholder: '比如：论文思路 / 项目地图' }); if (v == null) return; const c = newCanvas(v.trim()); go('notes/canvas/' + c.id); };
-  return html`<div class="page"><div class="crumbs"><a class="m-back" href="#/notes" title="返回"><${Icon} name="left" size=${16} /></a><a href="#/notes">笔记</a><span>/</span><b>画布</b><span class="flex1"></span><${Btn} small kind="primary" icon="plus" onClick=${create}>新画布<//></div>
+  return html`<div class="page"><div class="cv-list-h"><h2>画布 <span class="muted small">${list.length}</span></h2><span class="flex1"></span><${Btn} small kind="primary" icon="plus" onClick=${create}>新画布<//></div>
     <div class="page-body">
       <div class="cv-grid"><button class="cv-card new" onClick=${create}><${Icon} name="plus" size=${20} /><span>新画布</span><small>白板 · 脑图 · 拖 PDF 进来问汤圆</small></button>${list.map((c) => html`<a key=${c.id} class="cv-card" href=${'#/notes/canvas/' + c.id} onContextMenu=${(e) => ctxMenu(e, canvasMenu(c), c.title || '未命名画布')}>
         <div class="cv-prev"><svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet">${(() => { const bb = bbox(c); if (!bb) return null; const s = Math.min(180 / Math.max(bb.w, 1), 100 / Math.max(bb.h, 1)); const ox = 100 - (bb.x + bb.w / 2) * s, oy = 60 - (bb.y + bb.h / 2) * s; return html`<g transform=${`translate(${ox},${oy}) scale(${s})`}>${(c.sections || []).map((x) => html`<rect key=${x.id} x=${x.x} y=${x.y} width=${x.w} height=${x.h} rx=${12 / s} fill=${x.color || 'currentColor'} opacity=".08" />`)}${c.edges.map((e) => { const a = c.nodes.find((n) => n.id === e.from), b2 = c.nodes.find((n) => n.id === e.to); return a && b2 ? html`<line key=${e.id} x1=${a.x + a.w / 2} y1=${a.y + a.h / 2} x2=${b2.x + b2.w / 2} y2=${b2.y + b2.h / 2} stroke="currentColor" stroke-width=${2 / s} opacity=".4" />` : null; })}${c.nodes.map((n) => html`<rect key=${n.id} x=${n.x} y=${n.y} width=${n.w} height=${n.h} rx=${8 / s} fill=${n.color || 'currentColor'} opacity=${n.color ? '.8' : '.35'} />`)}${c.strokes.map((st) => html`<path key=${st.id} d=${strokePath(st.pts)} fill="none" stroke=${st.color} stroke-width=${st.width / s} stroke-linecap="round" />`)}</g>`; })()}</svg></div>
+        <button type="button" class="cv-card-more" title="更多" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); ctxMenu(e, canvasMenu(c), c.title || '未命名画布'); }}><${Icon} name="dots" size=${14} /></button>
         <b>${c.title || '未命名画布'}</b><small>${c.nodes.length} 个节点 · ${c.edges.length} 条连线 · ${c.updated.slice(5, 10).replace('-', '/')}</small>
       </a>`)}</div>
     </div></div>`;

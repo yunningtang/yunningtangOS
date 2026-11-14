@@ -195,7 +195,7 @@ async function callTool(name, a, ctx) {
         if (n.type === 'learn') return { ...base, type: 'explanation', question: n.q, text: cut(n.text || n.answer || '') || undefined };
         return { ...base, type: 'text', text: cut(n.text) };
       });
-      return OUT({ id: c.id, title: c.title || '未命名画布', url: '/#/notes/canvas:' + c.id, sections: secs.map((x) => ({ id: x.id, title: x.title })), cards, arrows: (c.edges || []).map((e) => ({ from: e.from, to: e.to, label: e.label || undefined })), drawings: (c.strokes || []).length || undefined });
+      return OUT({ id: c.id, title: c.title || '未命名画布', url: '/#/notes/canvas/' + c.id, sections: secs.map((x) => ({ id: x.id, title: x.title })), cards, arrows: (c.edges || []).map((e) => ({ from: e.from, to: e.to, label: e.label || undefined })), drawings: (c.strokes || []).length || undefined });
     }
     if (name === 'list_notebooks') {
       const notes = list(doc, 'notes');
@@ -292,7 +292,7 @@ async function callTool(name, a, ctx) {
       else { c = list(doc, 'canvases').find((x) => x.id === a.id); if (!c) throw new Error('找不到这张画布'); c.nodes = c.nodes || []; c.edges = c.edges || []; c.sections = c.sections || []; }
       const out = layoutCards(c, cards, arrows, notes, a.near);
       c.updated = iso();
-      return OUT({ canvas: { id: c.id, title: c.title, url: '/#/notes/canvas:' + c.id }, added: out });
+      return OUT({ canvas: { id: c.id, title: c.title, url: '/#/notes/canvas/' + c.id }, added: out });
     });
   }
   return FAIL('没有这个工具：' + name);
