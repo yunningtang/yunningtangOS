@@ -115,7 +115,7 @@ function Board({ board, notes, notebooks }) {
   const zoomAt = (cx, cy, f) => { cancelAnimationFrame(animRef.current); setView((v) => zoomed(v, cx, cy, v.z * f)); };
   const zoomBy = (f) => { const r = vp.current.getBoundingClientRect(); const v = viewRef.current; animateView(zoomed(v, r.width / 2, r.height / 2, v.z * f), 200); };
   const zoomTo = (z) => { const r = vp.current.getBoundingClientRect(); animateView(zoomed(viewRef.current, r.width / 2, r.height / 2, z), 220); };
-  const frame = (bb, maxZ = 1.5) => { const r = vp.current.getBoundingClientRect(); if (!bb) return { x: r.width / 2, y: r.height / 2, z: 1 }; const z = clamp(Math.min((r.width - 80) / Math.max(bb.w, 1), (r.height - 140) / Math.max(bb.h, 1), maxZ), ZMIN, maxZ); return { x: (r.width - bb.w * z) / 2 - bb.x * z, y: (r.height - 60 - bb.h * z) / 2 - bb.y * z, z }; };
+  const frame = (bb, maxZ = 1.5) => { const r = vp.current.getBoundingClientRect(); const ol = wrapRef.current && wrapRef.current.querySelector('.cv-outline'); const L = ol && ol.offsetWidth > 60 && r.width > 760 ? ol.offsetWidth + 24 : 0; if (!bb) return { x: L + (r.width - L) / 2, y: r.height / 2, z: 1 }; const z = clamp(Math.min((r.width - L - 80) / Math.max(bb.w, 1), (r.height - 140) / Math.max(bb.h, 1), maxZ), ZMIN, maxZ); return { x: L + (r.width - L - bb.w * z) / 2 - bb.x * z, y: (r.height - 60 - bb.h * z) / 2 - bb.y * z, z }; };
   const fit = () => animateView(frame(bbox(bRef.current)), 320);
   useEffect(() => { if (firstView.current && bbox(bRef.current)) { firstView.current = false; setTimeout(() => { try { setView(frame(bbox(bRef.current))); } catch {} }, 60); } }, []);
   const zoomToSel = () => { const n = sel && sel.kind === 'node' ? node(sel.id) : null; if (n) animateView(frame({ x: n.x, y: n.y, w: n.w, h: n.h }, 2), 300); else fit(); };
@@ -361,7 +361,7 @@ function Board({ board, notes, notebooks }) {
       dragRef.current = { kind: 'sec', id: s0.id, x0: s0.x, y0: s0.y, wx, wy, moved: false, members: bb.nodes.filter((n) => inSec(s0, n)).map((n) => [n.id, n.x, n.y]), strokes: bb.strokes.filter(strokeIn).map((st) => [st.id, st.pts]) };
       setSel({ kind: 'sec', id: s0.id }); setEditing(null); return;
     }
-    if (t.closest('.cv-rz')) { const n = node(nodeId); dragRef.current = { kind: 'resize', id: nodeId, w: n.w, h: n.h, x: wx, y: wy }; return; }
+    { const rz = t.closest('.cv-rz,.cv-rz-e'); if (rz) { const n = node(nodeId); const el = rz.parentElement; dragRef.current = { kind: 'resize', ax: rz.dataset.ax || 'xy', id: nodeId, w: n.w, h: n.type === 'learn' ? Math.round(el.offsetHeight) : n.h, x: wx, y: wy }; setSel({ kind: 'node', id: nodeId }); return; } }
     if (nodeId && !t.closest('a,button') && tool === 'select') {
       if (e.shiftKey) { // Shift + 点：加进 / 移出多选
         const cur = multiRef.current.length ? multiRef.current : sel && sel.kind === 'node' ? [sel.id] : [];
@@ -433,7 +433,7 @@ function Board({ board, notes, notebooks }) {
       setB({ ...bb, sections: secsOf(bb).map((x) => (x.id === d.id ? { ...x, x: d.x0 + dx, y: d.y0 + dy } : x)), nodes: bb.nodes.map((n) => (mm.has(n.id) ? { ...n, x: mm.get(n.id)[1] + dx, y: mm.get(n.id)[2] + dy } : n)), strokes: bb.strokes.map((st) => (sm.has(st.id) ? { ...st, pts: sm.get(st.id).map(([x, y]) => [x + dx, y + dy]) } : st)) });
     }
     else if (d.kind === 'secrz') patchSec(d.id, { w: Math.round(clamp(d.w + wx - d.x, 160, 8000)), h: Math.round(clamp(d.h + wy - d.y, 100, 8000)) }, false);
-    else if (d.kind === 'resize') patchNode(d.id, { w: Math.round(clamp(d.w + wx - d.x, 120, 900)), h: Math.round(clamp(d.h + wy - d.y, 40, 900)) }, false);
+    else if (d.kind === 'resize') { const n0 = node(d.id); const p = {}; if (d.ax !== 'y') p.w = Math.round(clamp(d.w + wx - d.x, 120, 1400)); if (d.ax !== 'x') { p.h = Math.round(clamp(d.h + wy - d.y, 40, 2000)); if (n0 && n0.type === 'learn') p.fixH = true; } patchNode(d.id, p, false); }
     else if (d.kind === 'pen') { d.pts.push([Math.round(wx), Math.round(wy)]); setTemp({ pts: d.pts.slice() }); }
     else if (d.kind === 'connect') setTemp({ from: d.from, x: wx, y: wy });
     else if (d.kind === 'erase') { const el = document.elementFromPoint(e.clientX, e.clientY); const st = el && el.closest && el.closest('.cv-stroke'); if (st) { d.hit = true; delStroke(st.dataset.id); } }
@@ -455,6 +455,7 @@ function Board({ board, notes, notebooks }) {
     // 按下时抓了指针（pointer capture），双击事件会落在画布本身上：按坐标找真正点到的东西
     const t = (e.target === vp.current && document.elementFromPoint(e.clientX, e.clientY)) || e.target; if (!vp.current.contains(t)) return; if (t.closest('.cv-tb,.cv-hint,a,button,.cv-ask,.cv-outline,.lr-panel,.lr-src')) return;
     const sh = t.closest('.cv-sec-h'); if (sh) { renameSec(sh.dataset.id); return; }
+    if (t.closest('.cv-rz')) { const n = node(t.closest('.cv-node').dataset.id); if (n && n.type === 'learn' && n.fixH) patchNode(n.id, { fixH: false }); return; }
     const nodeEl = t.closest('.cv-node'); if (nodeEl) { const n = node(nodeEl.dataset.id); if (n && n.type === 'text') { setEditing(n.id); setSel({ kind: 'node', id: n.id }); } else if (n && n.type === 'note') setSide(n.note); return; }
     const edgeEl = t.closest('.cv-edge'); if (edgeEl) { editLabel(edgeEl.dataset.id); return; }
     if (t.closest('.cv-stroke')) return;
@@ -561,15 +562,16 @@ function Board({ board, notes, notebooks }) {
   const byId = useMemo(() => new Map(b.nodes.map((n) => [n.id, n])), [b.nodes]);
   // 图层分开记住：平移 / 缩放只改外面的 transform，卡片、连线、笔迹不重画（画布上东西多时拖起来不卡）
   const annsBySrc = useMemo(() => { const m = new Map(); for (const n of b.nodes) if (n.type === 'learn' && n.anns && n.anns.length && n.src) { const l = m.get(n.src) || []; n.anns.forEach((a, i) => l.push({ ...a, k: n.id + ':' + i, on: !!(sel && sel.id === n.id) })); m.set(n.src, l); } return m; }, [b.nodes, sel]);
-  const nodeLayer = useMemo(() => b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); const fixedH = n.type === 'note' || n.type === 'src'; return html`<div key=${n.id} ref=${n.type === 'learn' ? measure(n) : null} class=${`cv-node ${n.type} ${on ? 'sel' : ''} ${multi.includes(n.id) ? 'msel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${fixedH ? 'height' : 'min-height'}:${n.type === 'learn' ? 120 : n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
+  const nodeLayer = useMemo(() => b.nodes.map((n) => { const on = sel && sel.kind === 'node' && sel.id === n.id; const page = n.type === 'note' ? notes.find((x) => x.id === n.note) : null; const nbk = page && nb(page.nb); const fixedH = n.type === 'note' || n.type === 'src'; return html`<div key=${n.id} ref=${n.type === 'learn' && !n.fixH ? measure(n) : null} class=${`cv-node ${n.type} ${n.fixH ? 'fixh' : ''} ${on ? 'sel' : ''} ${multi.includes(n.id) ? 'msel' : ''} ${editing === n.id ? 'editing' : ''} ${n.color ? 'tinted' : ''}`} data-id=${n.id} style=${`left:${n.x}px;top:${n.y}px;width:${n.w}px;${fixedH || (n.type === 'learn' && n.fixH) ? 'height' : 'min-height'}:${n.type === 'learn' && !n.fixH ? 120 : n.h}px;${n.color ? '--nc:' + n.color : ''}`}>
           ${n.type === 'src' ? html`<${SrcNode} n=${n} anns=${annsBySrc.get(n.id)} />`
           : n.type === 'learn' ? html`<${LearnNode} n=${n} onPatch=${(p) => patchNode(n.id, p)} onStuck=${(focus, label) => stuckOn(n, focus, label)} onRetry=${() => retry(n)} />`
           : n.type === 'text' ? html`<div class="cv-text" contenteditable=${editing === n.id ? 'true' : 'false'} spellcheck="false" ref=${(el) => { if (!el) return; if (editing !== n.id && el.innerHTML !== textHtml(n)) el.innerHTML = textHtml(n); if (editing === n.id && document.activeElement !== el && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }, 0); } if (editing !== n.id) delete el.dataset.f; }} onBlur=${(e) => onTextBlur(n, e.target)} onPaste=${(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }} onKeyDown=${(e) => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); e.stopPropagation(); spawn(n.id, e.key === 'Tab'); return; } else if (inlineShortcut(e)) { e.preventDefault(); } e.stopPropagation(); }} data-ph="输入文字…"></div>`
-          : page ? html`<div class="cv-nt">${nbk && html`<i class="nb-dot" style=${`background:${nbk.color}`}></i>`}<b>${page.title || '无标题'}</b><a class="cv-open" href=${'#/notes/' + page.id} title="打开页面"><${Icon} name="external" size=${12} /></a></div><p class="cv-snip">${snippetOf(page) || '空白页'}</p>`
+          : page ? html`<div class="cv-nt">${nbk && html`<i class="nb-dot" style=${`background:${nbk.color}`}></i>`}<b>${page.title || '无标题'}</b><a class="cv-open" href=${'#/notes/' + page.id} title="打开页面"><${Icon} name="external" size=${12} /></a></div><p class="cv-snip">${snippetOf(page, Math.max(90, Math.round((n.w * n.h) / 90))) || '空白页'}</p>`
           : html`<div class="cv-nt muted"><${Icon} name="note" size=${13} /><b>页面已删除</b></div>`}
           ${n.type === 'text' && n.ref && html`<button type="button" class="cv-ref" title="跳到原文" onClick=${() => goRef(n.ref)}><${Icon} name="target" size=${11} />原文</button>`}
           <span class="cv-handle" title="拖到另一个节点来连线"></span>
-          <span class="cv-rz"></span>
+          <span class="cv-rz-e r" data-ax="x"></span><span class="cv-rz-e b" data-ax="y"></span>
+          <span class="cv-rz" data-ax="xy" title=${n.type === 'learn' ? '拖动改大小 · 双击贴合内容' : '拖动改大小'}></span>
         </div>`; }), [b.nodes, sel, editing, notes, notebooks, annsBySrc, multi]);
   const secLayer = useMemo(() => secsOf(b).map((x) => html`<div key=${x.id} class=${'cv-sec ' + (sel && sel.kind === 'sec' && sel.id === x.id ? 'sel' : '')} style=${`left:${x.x}px;top:${x.y}px;width:${x.w}px;height:${x.h}px;${x.color ? '--sc:' + x.color : ''}`}><div class="cv-sec-h" data-id=${x.id} title="拖动：整个分区一起走 · 双击改名 · 右键更多">${x.title || '未命名分区'}</div>${!b.nodes.some((n) => inSec(x, n)) && html`<span class="cv-sec-empty">双击这里写一张卡片</span>`}<span class="cv-sec-rz" data-id=${x.id}></span></div>`), [b.sections, b.nodes, sel]);
   const strokeLayer = useMemo(() => b.strokes.map((s) => html`<path key=${s.id} class=${'cv-stroke ' + (sel && sel.kind === 'stroke' && sel.id === s.id ? 'sel' : '')} data-id=${s.id} d=${strokePath(s.pts)} stroke=${s.color} stroke-width=${s.width} />`), [b.strokes, sel]);

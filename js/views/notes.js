@@ -207,8 +207,8 @@ export function useTreeState() {
 /* ---------- main view: notebooks / pages / page ---------- */
 export function newFromTemplate(k, patch = {}) { const t = TEMPLATES.find((x) => x.k === k); const blocks = templateBlocks(k); const n = newNote({ ...patch, blocks, body: blocksToMd(blocks), review: t && t.review ? addDays(todayStr(), t.review) : '', reviewedAt: t && t.review ? todayStr() : '', tags: t && t.tags ? [...t.tags] : [] }); go('notes/' + n.id); return n; }
 export function templateMenu(e, patch = {}) { ctxMenu(e, [{ label: '空白页', icon: 'note', onClick: () => { const n = newNote(patch); go('notes/' + n.id); } }, 'sep', ...TEMPLATES.map((t) => ({ label: t.label, icon: t.icon, hint: t.hint, onClick: () => newFromTemplate(t.k, patch) }))], '新建'); }
-export const snippetOf = (n) => snippet(n);
-function snippet(n) { return (n.body || '').replace(/^\s*[-*+]\s+\[[ xX]\]\s*/gm, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '$1').replace(/<\/?u>/g, '').replace(/=={[a-z]}/g, '').replace(/@\[[a-z]+:[\w-]+\|([^\]]+)\]/g, '$1').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/==/g, '').replace(/[#>*`\[\]\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); }
+export const snippetOf = (n, len) => snippet(n, len);
+function snippet(n, len = 90) { return (n.body || '').replace(/^\s*[-*+]\s+\[[ xX]\]\s*/gm, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '$1').replace(/<\/?u>/g, '').replace(/=={[a-z]}/g, '').replace(/@\[[a-z]+:[\w-]+\|([^\]]+)\]/g, '$1').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').replace(/==/g, '').replace(/[#>*`\[\]\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, len); }
 
 export default function Notes({ route }) {
   const s = useStore();
