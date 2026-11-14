@@ -333,7 +333,7 @@ export default function Settings() {
         ${!connected && html`<${Row} icon="cloud" label="需要先登录" hint="Claude 读写的是云端那一份数据，所以要先登录并同步" />`}
       <//>
       <${Group} title="授权">
-        <${Row} icon="eye" label="Claude 能做什么" hint="查看待办、时间线、焦点、倒计时、笔记；新建和修改待办、排时间块、写笔记、贴便利贴。不能删除任何东西" />
+        <${Row} icon="eye" label="Claude 能做什么" hint="查看待办、时间线、焦点、倒计时、笔记、画布；新建和修改待办、排时间块、写笔记、贴便利贴、往画布上加卡片和箭头。不能删除任何东西" />
         <${Row} icon="x" label="取消所有授权" hint=${s.settings.mcpEpoch ? '上次取消：' + new Date(s.settings.mcpEpoch).toLocaleString('zh-CN', { hour12: false }) : '所有已经连上的 Claude 都会立刻断开，要用得重新连接'}><button class="sx-btn" disabled=${!connected} onClick=${async () => { if (!(await askConfirm('所有连上 SealoNote 的 Claude 都会断开，之后要重新点「连接」授权。', { title: '取消所有授权？', ok: '取消授权' }))) return; update((d) => { d.settings.mcpEpoch = Date.now(); }); run(() => smartSync(), '已取消，所有连接都断开了'); }}>取消授权</button><//>
       <//>
     <//>`,

@@ -94,6 +94,8 @@ function ensureNotebook(doc, name, color = '#8a8f98') {
 /* ---------------- 工具 ---------------- */
 const S = (props, req = []) => ({ type: 'object', properties: props, required: req, additionalProperties: false });
 const str = (d) => ({ type: 'string', description: d });
+const CARDS = { type: 'array', maxItems: 60, items: S({ key: str('Short unique key for this card, used by arrows'), text: str('Card text (plain text, line breaks allowed)'), note_id: str('Instead of text: id of a note page to place on the canvas'), section: str('Optional section name to put the card in'), color: { type: 'string', enum: ['blue', 'teal', 'green', 'amber', 'rose', 'purple', 'red'] } }, ['key']) };
+const ARROWS = { type: 'array', maxItems: 120, items: S({ from: str('Card key or existing card id'), to: str('Card key or existing card id'), label: { type: 'string' } }, ['from', 'to']) };
 const TOOLS = [
   { name: 'get_overview', title: 'Today at a glance', readOnly: true,
     description: "Get the user's day in SealoNote: today's priorities, to-dos due today or overdue, the timeline (time blocks and checkpoints) and countdowns. Use this first to understand what the user's day looks like. Dates are in the user's own time zone.",
@@ -126,6 +128,17 @@ const TOOLS = [
     inputSchema: S({ text: str('Sticky note text (first line becomes the title)'), color: { type: 'string', enum: ['yellow', 'pink', 'blue', 'green', 'purple', 'gray'] } }, ['text']) },
   { name: 'list_notebooks', title: 'List notebooks', readOnly: true,
     description: 'List the user\'s notebooks with page counts.', inputSchema: S({}) },
+  { name: 'list_canvases', title: 'List canvases', readOnly: true,
+    description: 'List the user\'s canvases (infinite whiteboards with cards, sections and arrows), with counts and which note pages are on them.', inputSchema: S({}) },
+  { name: 'read_canvas', title: 'Read a canvas', readOnly: true,
+    description: 'Read one canvas by id: its sections, cards (text, linked note pages, materials) and arrows between cards. Card text is cut at 600 characters unless full=true.',
+    inputSchema: S({ id: str('Canvas id'), full: { type: 'boolean', description: 'Return full card text' } }, ['id']) },
+  { name: 'create_canvas', title: 'Create a canvas',
+    description: 'Create a new canvas, for example a mind map, a plan or a summary of a note. Give cards (each with a short key you choose, and either text or note_id to place an existing note page), optional section names to group cards, and arrows between card keys. Layout is automatic: cards are grouped into their sections; without sections, arrows are laid out as a left-to-right tree. Colors: blue, teal, green, amber, rose, purple, red.',
+    inputSchema: S({ title: str('Canvas title'), cards: CARDS, arrows: ARROWS }, ['title', 'cards']) },
+  { name: 'add_to_canvas', title: 'Add to a canvas',
+    description: 'Add cards, sections and arrows to an existing canvas. New cards are placed in free space to the right of what is already there (or next to the card given in near). Arrows can connect new card keys and existing card ids (from read_canvas). Nothing on the canvas is moved or removed.',
+    inputSchema: S({ id: str('Canvas id'), cards: CARDS, arrows: ARROWS, near: str('Optional existing card id to place the new cards beside') }, ['id']) },
 ];
 
 const OUT = (data) => ({ content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 1) }], structuredContent: typeof data === 'string' ? undefined : data });
@@ -134,7 +147,7 @@ const FAIL = (msg) => ({ content: [{ type: 'text', text: msg }], isError: true }
 async function callTool(name, a, ctx) {
   a = a && typeof a === 'object' ? a : {};
   const { uid: u } = ctx;
-  if (['get_overview', 'list_todos', 'search_notes', 'read_note', 'list_notebooks'].includes(name)) {
+  if (['get_overview', 'list_todos', 'search_notes', 'read_note', 'list_notebooks', 'list_canvases', 'read_canvas'].includes(name)) {
     const cur = await db.read(u); if (!cur) return FAIL('这个账号在云端还没有数据：先在 SealoNote 里登录并同步一次。');
     const doc = cur.doc; const tz = (doc.settings || {}).tz; const today = todayIn(tz);
     const todos = list(doc, 'todos');
@@ -166,6 +179,23 @@ async function callTool(name, a, ctx) {
     if (name === 'read_note') {
       const n = list(doc, 'notes').find((x) => x.id === a.id); if (!n) return FAIL('找不到这页笔记（id 不对，或者已经删掉了）。');
       return OUT(`# ${noteTitle(n)}\n\n_Notebook: ${nbName(doc, n.nb) || 'Inbox'} · updated ${n.updated || ''} · id ${n.id}_\n\n${n.body || ''}`);
+    }
+    if (name === 'list_canvases') {
+      const notes = list(doc, 'notes');
+      return OUT({ canvases: list(doc, 'canvases').slice().sort((x, y) => String(y.updated || '').localeCompare(String(x.updated || ''))).map((c) => ({ id: c.id, title: c.title || '未命名画布', cards: (c.nodes || []).length, sections: (c.sections || []).map((x) => x.title).filter(Boolean), arrows: (c.edges || []).length, pages: (c.nodes || []).filter((n) => n.type === 'note').map((n) => noteTitle(notes.find((x) => x.id === n.note) || {})).slice(0, 12), updated: c.updated })) });
+    }
+    if (name === 'read_canvas') {
+      const c = list(doc, 'canvases').find((x) => x.id === a.id); if (!c) return FAIL('找不到这张画布（id 不对，或者已经删掉了）。');
+      const notes = list(doc, 'notes'); const lim = a.full ? 20000 : 600; const cut = (t) => { t = String(t || ''); return t.length > lim ? t.slice(0, lim) + '…' : t; };
+      const secs = c.sections || []; const inSec = (n) => { const cx = n.x + n.w / 2, cy = n.y + (n.h || 60) / 2; const s0 = secs.find((x) => cx >= x.x && cx <= x.x + x.w && cy >= x.y && cy <= x.y + x.h); return s0 ? s0.title || '(untitled section)' : undefined; };
+      const cards = (c.nodes || []).map((n) => {
+        const base = { id: n.id, section: inSec(n), color: COLOR_NAME[n.color] || undefined };
+        if (n.type === 'note') { const pg = notes.find((x) => x.id === n.note); return { ...base, type: 'note_page', note_id: n.note, title: pg ? noteTitle(pg) : '(deleted page)', excerpt: pg ? cut(pg.body).slice(0, 300) : undefined }; }
+        if (n.type === 'src') return { ...base, type: 'material', kind: n.kind, name: n.name, text: n.kind === 'text' ? cut(n.text) : undefined };
+        if (n.type === 'learn') return { ...base, type: 'explanation', question: n.q, text: cut(n.text || n.answer || '') || undefined };
+        return { ...base, type: 'text', text: cut(n.text) };
+      });
+      return OUT({ id: c.id, title: c.title || '未命名画布', url: '/#/notes/canvas:' + c.id, sections: secs.map((x) => ({ id: x.id, title: x.title })), cards, arrows: (c.edges || []).map((e) => ({ from: e.from, to: e.to, label: e.label || undefined })), drawings: (c.strokes || []).length || undefined });
     }
     if (name === 'list_notebooks') {
       const notes = list(doc, 'notes');
@@ -252,12 +282,71 @@ async function callTool(name, a, ctx) {
       return OUT({ sticky_note: { id: n.id, title: n.title, color: n.sticky } });
     });
   }
+  if (name === 'create_canvas' || name === 'add_to_canvas') {
+    const cards = Array.isArray(a.cards) ? a.cards.slice(0, 60) : []; const arrows = Array.isArray(a.arrows) ? a.arrows.slice(0, 120) : [];
+    if (name === 'create_canvas' && !cards.length) return FAIL('cards 至少要有一张');
+    if (!cards.length && !arrows.length) return FAIL('没有要加的卡片或箭头');
+    return mutate(u, (doc) => {
+      const notes = list(doc, 'notes'); let c;
+      if (name === 'create_canvas') { c = { id: uid(), title: String(a.title || '').trim().slice(0, 80) || '画布', nodes: [], edges: [], strokes: [], sections: [], created: todayIn((doc.settings || {}).tz), updated: iso() }; list(doc, 'canvases').push(c); }
+      else { c = list(doc, 'canvases').find((x) => x.id === a.id); if (!c) throw new Error('找不到这张画布'); c.nodes = c.nodes || []; c.edges = c.edges || []; c.sections = c.sections || []; }
+      const out = layoutCards(c, cards, arrows, notes, a.near);
+      c.updated = iso();
+      return OUT({ canvas: { id: c.id, title: c.title, url: '/#/notes/canvas:' + c.id }, added: out });
+    });
+  }
   return FAIL('没有这个工具：' + name);
+}
+
+/* 画布排版：分区一列一列往右排，分区里卡片两列；没有分区但有箭头时按树从左往右排 */
+const COLOR_HEX = { blue: '#4f7cf5', teal: '#2d8f88', green: '#4a9a6a', amber: '#c7873a', rose: '#c9588a', purple: '#7461c9', red: '#d2524f' };
+const COLOR_NAME = Object.fromEntries(Object.entries(COLOR_HEX).map(([k, v]) => [v, k]));
+const escHtml = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+function cardH(text) { const lines = String(text).split('\n').reduce((n, l) => n + Math.max(1, Math.ceil([...l].reduce((w, ch) => w + (ch.charCodeAt(0) > 255 ? 1 : 0.55), 0) / 13)), 0); return Math.max(56, Math.min(480, 26 + lines * 21)); }
+function layoutCards(c, cards, arrows, notes, near) {
+  const W = 240, GX = 40, GY = 24;
+  const box = c.nodes.length ? c.nodes.reduce((b, n) => ({ x1: Math.min(b.x1, n.x), y1: Math.min(b.y1, n.y), x2: Math.max(b.x2, n.x + n.w), y2: Math.max(b.y2, n.y + (n.h || 60)) }), { x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity }) : null;
+  for (const s0 of c.sections) if (box) { box.x2 = Math.max(box.x2, s0.x + s0.w); box.y1 = Math.min(box.y1, s0.y); }
+  const anchor = near && c.nodes.find((n) => n.id === near);
+  let ox = anchor ? anchor.x + anchor.w + 80 : box ? box.x2 + 120 : 0, oy = anchor ? anchor.y : box ? box.y1 : 0;
+  const keyMap = new Map(); const made = []; const skipped = [];
+  for (const cd of cards) {
+    const key = String(cd.key || '').slice(0, 40) || uid(); if (keyMap.has(key)) { skipped.push(key + '（key 重复）'); continue; }
+    let n;
+    if (cd.note_id) { const pg = notes.find((x) => x.id === cd.note_id); if (!pg) { skipped.push(key + '（找不到 note_id）'); continue; } const ex = c.nodes.find((x) => x.type === 'note' && x.note === pg.id); if (ex) { keyMap.set(key, ex.id); continue; } n = { id: uid(), type: 'note', note: pg.id, x: 0, y: 0, w: W, h: 110, color: COLOR_HEX[cd.color] || '' }; }
+    else { const text = String(cd.text || '').slice(0, 4000); if (!text.trim()) { skipped.push(key + '（没有内容）'); continue; } n = { id: uid(), type: 'text', x: 0, y: 0, w: W, h: cardH(text), text, html: escHtml(text).replace(/\n/g, '<br>'), color: COLOR_HEX[cd.color] || '' }; }
+    n._sec = cd.section ? String(cd.section).slice(0, 60) : ''; keyMap.set(key, n.id); made.push(n);
+  }
+  const ref = (k) => keyMap.get(k) || (c.nodes.some((n) => n.id === k) ? k : null);
+  const edges = []; for (const ar of arrows) { const f = ref(String(ar.from)), t = ref(String(ar.to)); if (!f || !t || f === t) { skipped.push(`箭头 ${ar.from}→${ar.to}（找不到卡片）`); continue; } if ([...c.edges, ...edges].some((e) => e.from === f && e.to === t)) continue; edges.push({ id: uid(), from: f, to: t, label: String(ar.label || '').slice(0, 40) }); }
+  const anySec = made.some((n) => n._sec);
+  const sections = [];
+  if (!anySec && edges.length && made.length > 1) {
+    // 树：没有进来箭头的是根；按深度分列
+    const ids = new Set(made.map((n) => n.id)); const kids = new Map(); const hasIn = new Set();
+    for (const e of edges) if (ids.has(e.from) && ids.has(e.to)) { (kids.get(e.from) || kids.set(e.from, []).get(e.from)).push(e.to); hasIn.add(e.to); }
+    const byId = new Map(made.map((n) => [n.id, n])); const placed = new Set(); let y = oy;
+    const place = (id, depth) => { if (placed.has(id)) return; placed.add(id); const n = byId.get(id); const ch = (kids.get(id) || []).filter((k) => !placed.has(k)); const y0 = y; ch.forEach((k) => place(k, depth + 1)); n.x = ox + depth * (W + 90); if (ch.length) { const f = byId.get(ch[0]), l = byId.get(ch[ch.length - 1]); n.y = Math.round((f.y + l.y + l.h) / 2 - n.h / 2); if (n.y < y0) n.y = y0; y = Math.max(y, n.y + n.h + GY); } else { n.y = y; y += n.h + GY; } };
+    made.filter((n) => !hasIn.has(n.id)).forEach((n) => place(n.id, 0)); made.forEach((n) => place(n.id, 0));
+  } else {
+    const groups = []; for (const n of made) { let g = groups.find((x) => x.name === n._sec); if (!g) groups.push(g = { name: n._sec, items: [] }); g.items.push(n); }
+    let x = ox;
+    for (const g of groups) {
+      const cols = g.items.length > 3 ? 2 : 1; const colY = Array(cols).fill(oy + (g.name ? 56 : 0));
+      g.items.forEach((n) => { const ci = colY.indexOf(Math.min(...colY)); n.x = x + (g.name ? 24 : 0) + ci * (W + GX); n.y = colY[ci]; colY[ci] += n.h + GY; });
+      const w = cols * W + (cols - 1) * GX + (g.name ? 48 : 0);
+      if (g.name) sections.push({ id: uid(), title: g.name, x, y: oy, w, h: Math.max(...colY) - oy + 8, color: '' });
+      x += w + 80;
+    }
+  }
+  made.forEach((n) => { delete n._sec; n.x = Math.round(n.x); n.y = Math.round(n.y); });
+  c.nodes.push(...made); c.edges.push(...edges); c.sections.push(...sections);
+  return { cards: made.length, sections: sections.map((x) => x.title), arrows: edges.length, card_ids: Object.fromEntries([...keyMap].filter(([, v]) => made.some((n) => n.id === v))), skipped: skipped.length ? skipped : undefined };
 }
 
 /* ---------------- MCP（JSON-RPC）---------------- */
 const VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
-const INSTRUCTIONS = 'SealoNote is the user\'s personal planner and notebook. Call get_overview first to see their day. Dates are YYYY-MM-DD and times HH:MM in the user\'s own time zone (get_overview returns today and the time zone). Ask before large changes. There are no delete tools on purpose. Write titles in the language the user uses.';
+const INSTRUCTIONS = 'SealoNote is the user\'s personal planner and notebook. Call get_overview first to see their day. Dates are YYYY-MM-DD and times HH:MM in the user\'s own time zone (get_overview returns today and the time zone). Ask before large changes. There are no delete tools on purpose. Canvases are whiteboards: use create_canvas for mind maps or overviews, and read_canvas before adding to one. Write titles in the language the user uses.';
 async function rpc(msg, ctx) {
   const { id, method, params } = msg || {};
   const reply = (result) => ({ jsonrpc: '2.0', id, result });
@@ -345,7 +434,7 @@ async function oauth(route, req, res) {
     const t = await seal({ typ: 'consent', uid: s.uid, cid, ru, cc, st, exp: nowS() + 600 });
     const appr = base + '/oauth/approve?t=' + encodeURIComponent(t);
     return send(res, 200, PAGE('允许连接', `<h1>允许 ${esc(client.n)} 连接？</h1><p>连接以后，它可以在你让它做事的时候：</p>
-<ul><li>查看你的待办、时间线、焦点、倒计时和笔记</li><li>新建和修改待办、排时间块</li><li>新建笔记、往笔记里加内容、贴便利贴</li></ul>
+<ul><li>查看你的待办、时间线、焦点、倒计时、笔记和画布</li><li>新建和修改待办、排时间块</li><li>新建笔记、往笔记里加内容、贴便利贴、画画布</li></ul>
 <div class="who">账号：${esc(s.email || '')}</div>
 <div class="row"><a class="btn no" href="${esc(appr + '&deny=1')}">不允许</a><a class="btn ok" href="${esc(appr)}">允许</a></div>
 <small>它不能删除任何东西。随时可以在 SealoNote 的「设置 → 汤圆 → 连接 Claude」里取消授权。</small>`));

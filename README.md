@@ -107,7 +107,7 @@ SealoNote is also a remote MCP server, so Claude (web, desktop or phone) can rea
 2. Click **Connect**, sign in to SealoNote if asked, and choose **Allow**.
 3. Ask things like *“What's on my plate today?”* or *“Add ‘call the bank’ tomorrow at 3pm and block an hour for it.”*
 
-Claude can see your to-dos, timeline, priorities, countdowns and notes, and can add or update to-dos, time blocks, notes and sticky notes. It cannot delete anything. You can disconnect every client at once in **Settings → Connect Claude**.
+Claude can see your to-dos, timeline, priorities, countdowns, notes and canvases, and can add or update to-dos, time blocks, notes, sticky notes and canvas cards and arrows. It cannot delete anything. You can disconnect every client at once in **Settings → Connect Claude**.
 
 <br/>
 
